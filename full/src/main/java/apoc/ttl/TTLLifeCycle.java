@@ -42,19 +42,20 @@ public class TTLLifeCycle extends LifecycleAdapter {
         boolean enabled = apocConfig.getBoolean(ApocConfig.APOC_TTL_ENABLED);
         if (enabled) {
             long ttlSchedule = apocConfig.getInt(ApocConfig.APOC_TTL_SCHEDULE, DEFAULT_SCHEDULE);
-            ttlIndexJobHandle = scheduler.schedule(TTL_GROUP, this::createTTLIndex, (int)(ttlSchedule*0.8), TimeUnit.SECONDS);
-            ttlJobHandle = scheduler.scheduleRecurring(TTL_GROUP, () -> expireNodes(), ttlSchedule, ttlSchedule, TimeUnit.SECONDS);
+            ttlIndexJobHandle = scheduler.schedule(TTL_GROUP, this::createTTLIndex, (int) (ttlSchedule * 0.8), TimeUnit.SECONDS);
+            long limit = apocConfig.getInt(ApocConfig.APOC_TTL_LIMIT, 0);
+            ttlJobHandle = scheduler.scheduleRecurring(TTL_GROUP, () -> expireNodes(limit), ttlSchedule, ttlSchedule, TimeUnit.SECONDS);
         }
     }
 
-    public void expireNodes() {
+    public void expireNodes(long limit) {
         try {
             if (!Util.isWriteableInstance(db)) return;
-            db.executeTransactionally("MATCH (t:TTL) where t.ttl < timestamp() DETACH DELETE t",
-                    Collections.emptyMap(),
+            db.executeTransactionally("MATCH (t:TTL) where t.ttl < timestamp() WITH t " + ((limit > 0) ? "LIMIT $limit " : "") + "DETACH DELETE t",
+                    Util.map("limit", limit),
                     result -> {
                         QueryStatistics stats = result.getQueryStatistics();
-                        if (stats.getNodesDeleted()>0) {
+                        if (stats.getNodesDeleted() > 0) {
                             log.info("TTL: Expired %d nodes %d relationships", stats.getNodesDeleted(), stats.getRelationshipsDeleted());
                         }
                         return null;
