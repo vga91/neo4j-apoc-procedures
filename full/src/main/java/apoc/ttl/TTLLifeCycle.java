@@ -1,7 +1,6 @@
 package apoc.ttl;
 
 import apoc.ApocConfig;
-import apoc.Extended;
 import apoc.util.Util;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
@@ -11,7 +10,6 @@ import org.neo4j.scheduler.Group;
 import org.neo4j.scheduler.JobHandle;
 import org.neo4j.scheduler.JobScheduler;
 
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -42,7 +40,7 @@ public class TTLLifeCycle extends LifecycleAdapter {
         boolean enabled = apocConfig.getBoolean(ApocConfig.APOC_TTL_ENABLED);
         if (enabled) {
             long ttlSchedule = apocConfig.getInt(ApocConfig.APOC_TTL_SCHEDULE, DEFAULT_SCHEDULE);
-            ttlIndexJobHandle = scheduler.schedule(TTL_GROUP, this::createTTLIndex, (int) (ttlSchedule * 0.8), TimeUnit.SECONDS);
+            ttlIndexJobHandle = scheduler.schedule(TTL_GROUP, this::createTTLIndex, (int)(ttlSchedule*0.8), TimeUnit.SECONDS);
             long limit = apocConfig.getInt(ApocConfig.APOC_TTL_LIMIT, 0);
             ttlJobHandle = scheduler.scheduleRecurring(TTL_GROUP, () -> expireNodes(limit), ttlSchedule, ttlSchedule, TimeUnit.SECONDS);
         }
@@ -55,7 +53,7 @@ public class TTLLifeCycle extends LifecycleAdapter {
                     Util.map("limit", limit),
                     result -> {
                         QueryStatistics stats = result.getQueryStatistics();
-                        if (stats.getNodesDeleted() > 0) {
+                        if (stats.getNodesDeleted()>0) {
                             log.info("TTL: Expired %d nodes %d relationships", stats.getNodesDeleted(), stats.getRelationshipsDeleted());
                         }
                         return null;
