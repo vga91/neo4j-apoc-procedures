@@ -56,7 +56,7 @@ apoc.spatial.geocode.<providerName>.<key>=<value>
 | apoc.trigger.enabled=false/true | Enable triggers
 | apoc.ttl.enabled=false/true | Enable time to live background task
 | apoc.ttl.schedule=<secs> (default `60`) | Set frequency in seconds to run ttl background task
-| apoc.ttl.limit=<number> (default: all nodes found) | Maximum number of nodes being deleted in one background transaction
+| apoc.ttl.limit=<number> (default: 1000) | Maximum number of nodes being deleted in one background transaction, if the value is `0` we exclude the limit
 | apoc.uuid.enabled=false/true (default false) | global switch to enable uuid handlers
 
 
