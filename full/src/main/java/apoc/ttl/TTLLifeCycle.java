@@ -41,7 +41,7 @@ public class TTLLifeCycle extends LifecycleAdapter {
         if (enabled) {
             long ttlSchedule = apocConfig.getInt(ApocConfig.APOC_TTL_SCHEDULE, DEFAULT_SCHEDULE);
             ttlIndexJobHandle = scheduler.schedule(TTL_GROUP, this::createTTLIndex, (int)(ttlSchedule*0.8), TimeUnit.SECONDS);
-            long limit = apocConfig.getInt(ApocConfig.APOC_TTL_LIMIT, 0);
+            long limit = apocConfig.getInt(ApocConfig.APOC_TTL_LIMIT, 1000);
             ttlJobHandle = scheduler.scheduleRecurring(TTL_GROUP, () -> expireNodes(limit), ttlSchedule, ttlSchedule, TimeUnit.SECONDS);
         }
     }
