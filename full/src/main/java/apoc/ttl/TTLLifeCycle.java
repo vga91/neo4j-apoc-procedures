@@ -42,28 +42,27 @@ public class TTLLifeCycle extends LifecycleAdapter {
             long ttlSchedule = apocConfig.getInt(ApocConfig.APOC_TTL_SCHEDULE, DEFAULT_SCHEDULE);
             ttlIndexJobHandle = scheduler.schedule(TTL_GROUP, this::createTTLIndex, (int)(ttlSchedule*0.8), TimeUnit.SECONDS);
             long limit = apocConfig.getInt(ApocConfig.APOC_TTL_LIMIT, 1000);
-            ttlJobHandle = scheduler.scheduleRecurring(TTL_GROUP, () -> expireNodes(limit), ttlSchedule, ttlSchedule, TimeUnit.SECONDS);
+            long batchSize = apocConfig.getInt(ApocConfig.APOC_TTL_BATCH_SIZE, 10000);
+            ttlJobHandle = scheduler.scheduleRecurring(TTL_GROUP, () -> expireNodes(limit, batchSize), ttlSchedule, ttlSchedule, TimeUnit.SECONDS);
         }
     }
 
-    public void expireNodes(long limit) {
+    public void expireNodes(long limit, long batchSize) {
         try {
             if (!Util.isWriteableInstance(db)) return;
             String withLimit = (limit > 0) ? "LIMIT $limit" : "";
-            String matchTTL = "MATCH (t:TTL) WHERE t.ttl < timestamp()";
-            db.executeTransactionally("CALL apoc.periodic.iterate(\n" +
-                            "\"" + matchTTL + " WITH t " + withLimit + " MATCH (t)-[r]->() RETURN r\", \n" +
-                            "\"DELETE r\", {params:{limit: $limit}}) YIELD total as relOut\n" +
-                            "WITH relOut CALL apoc.periodic.iterate(\n" +
-                            "\"" + matchTTL + " WITH t " + withLimit + " MATCH (t)<-[r]-() RETURN r\", \n" +
-                            "\"DELETE r\", {params:{limit: $limit}}) YIELD total as relIn\n" +
-                            "WITH relIn CALL apoc.periodic.iterate(\n" +
-                            "\"" + matchTTL + " RETURN t " + withLimit + " \", \n" +
-                            "\"DELETE t\", {params:{limit: $limit}}) YIELD total RETURN total",
-                    Util.map("limit", limit),
+            String matchTTL = "MATCH (t:TTL) WHERE t.ttl < timestamp() ";
+            String queryRels = matchTTL + "WITH t " + withLimit + " MATCH (t)-[r]-() RETURN r";
+            String queryNodes = matchTTL +  "RETURN t " + withLimit;
+            db.executeTransactionally("CALL apoc.periodic.iterate($queryRels, 'DELETE r', {batchSize: $batchSize, params:{limit: $limit, queryRels: $queryRels}}) YIELD total as relOut\n" +
+                            "CALL apoc.periodic.iterate($queryNodes, 'DELETE t', {batchSize: $batchSize, params:{limit: $limit, queryNodes: $queryNodes}}) YIELD total RETURN total",
+                    Util.map("limit", limit,
+                            "queryNodes", queryNodes,
+                            "queryRels", queryRels,
+                            "batchSize", batchSize),
                     result -> {
                         QueryStatistics stats = result.getQueryStatistics();
-                        if (stats.getNodesDeleted()>0) {
+                        if (stats.getNodesDeleted() > 0) {
                             log.info("TTL: Expired %d nodes %d relationships", stats.getNodesDeleted(), stats.getRelationshipsDeleted());
                         }
                         return null;
