@@ -89,4 +89,5 @@ public class TTLLifeCycle extends LifecycleAdapter {
         if (ttlIndexJobHandle != null) ttlIndexJobHandle.cancel();
         if (ttlJobHandle != null) ttlJobHandle.cancel();
     }
+
 }
