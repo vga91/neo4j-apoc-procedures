@@ -396,6 +396,21 @@ public class ExportGraphMLTest {
 
     }
 
+    @Test
+    public void testImportDefaultRelationship() {
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+        db.executeTransactionally("CALL apoc.import.graphml( " +
+                "  'http://sonetlab.fbk.eu/data/social_networks_of_wikipedia/vecwiki_social_network_extraction/vecwiki-20091230-manual-coding.graphml', " +
+                "  { batchSize: 5000, readLabels: true, defaultRelationshipType:'RELATED' } " +
+                ")");
+        TestUtil.testCall(db, "MATCH ()-[r]-() RETURN Distinct type(r) as type",
+                (r) -> {
+                    String label = (String) r.get("type");
+                    assertEquals(label, "RELATED");
+                }
+        );
+    }
+
     private void assertResultEmpty(File output, Map<String, Object> r) {
         assertEquals(1L, r.get("nodes"));
         assertEquals(0L, r.get("relationships"));
