@@ -1,8 +1,10 @@
 package apoc.custom;
 
+import apoc.ApocConfiguration;
 import apoc.Pools;
 import apoc.util.TestUtil;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -16,6 +18,7 @@ import java.util.Map;
 
 import static apoc.custom.CypherProcedures.FUNCTION;
 import static apoc.custom.CypherProcedures.PROCEDURE;
+import static apoc.util.MapUtil.map;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.*;
 
@@ -29,13 +32,64 @@ public class CypherProceduresTest {
 
     @Before
     public void setUp() throws Exception {
-        db = new TestGraphDatabaseFactory().newImpermanentDatabase();
+        db = TestUtil.apocGraphDatabaseBuilder().newGraphDatabase();
         TestUtil.registerProcedure(db, CypherProcedures.class);
     }
 
     @After
     public void tearDown() {
         db.shutdown();
+    }
+
+    @Test()
+    public void shouldRefreshCorrectlyAFunction() {
+
+        db.execute("call apoc.custom.asFunction('answer','RETURN 42 as answer')");
+        TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+
+        db.execute("call apoc.custom.removeFunction('answer')").close();
+        db.execute("call dbms.clearQueryCaches()").close();
+
+        try {
+            TestUtil.testCall(db, "return custom.answer() as row", (row) -> {});
+            Assert.fail();
+        } catch (QueryExecutionException e) {
+            String expected = "Unknown function 'custom.answer'";
+            assertEquals(expected, e.getMessage());
+            assertEquals("Neo.ClientError.Statement.SyntaxError", e.getStatusCode());
+        }
+
+        db.execute("call apoc.custom.asFunction('answer','RETURN 42 as answer')").close();
+
+        db.execute("call dbms.clearQueryCaches()").close(); // clear cache or waiting for refresh procedure (default 60s)
+
+        TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+    }
+
+    @Test()
+    public void shouldRefreshCorrectlyAProcedure() {
+
+        db.execute("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
+        TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
+
+        db.execute("call apoc.custom.removeProcedure('answer')").close();
+        db.execute("call dbms.clearQueryCaches()").close();
+
+        try {
+            TestUtil.testCall(db, "call custom.answer()", (row) -> {});
+            Assert.fail();
+        } catch (QueryExecutionException e) {
+            String expected = "There is no procedure with the name `custom.answer` registered for this database instance. " +
+                               "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.";
+            assertEquals(expected, e.getMessage());
+            assertEquals("Neo.ClientError.Procedure.ProcedureNotFound", e.getStatusCode());
+        }
+
+        db.execute("call apoc.custom.asProcedure('answer','RETURN 42 as answer')").close();
+
+        db.execute("call dbms.clearQueryCaches()").close(); // clear cache or waiting for refresh procedure (default 60s)
+
+        TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
     }
 
     @Test

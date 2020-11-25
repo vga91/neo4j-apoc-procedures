@@ -532,6 +532,7 @@ public class CypherProcedures {
             CustomStatementRegistry registry = new CustomStatementRegistry(api, log);
             Map<String, Map<String, Map<String, Object>>> stored = readData(properties);
             Signatures sigs = new Signatures("custom");
+            Map<String, Map<String, Object>> removed = stored.getOrDefault(REMOVED, emptyMap());
             stored.get(FUNCTIONS).forEach((name, data) -> {
                 String description = parseStoredDescription(data.get("description"));
                 if (data.containsKey("signature")) {
@@ -541,6 +542,7 @@ public class CypherProcedures {
                     registry.registerFunction(name, (String) data.get("statement"), (String) data.get("output"),
                             (List<List<String>>) data.get("inputs"), (Boolean) data.get("forceSingle"), description);
                 }
+                removed.getOrDefault(FUNCTIONS, emptyMap()).remove(name);
             });
             stored.get(PROCEDURES).forEach((name, data) -> {
                 String description = parseStoredDescription(data.get("description"));
@@ -551,9 +553,9 @@ public class CypherProcedures {
                     registry.registerProcedure(name, (String) data.get("statement"), (String) data.get("mode"),
                             (List<List<String>>) data.get("outputs"), (List<List<String>>) data.get("inputs"), description);
                 }
+                removed.getOrDefault(PROCEDURES, emptyMap()).remove(name);
             });
-            stored.getOrDefault(REMOVED, emptyMap())
-                    .forEach((type, data) -> data.forEach((name, metadata) -> {
+            removed.forEach((type, data) -> data.forEach((name, metadata) -> {
                         switch (type) {
                             case PROCEDURES:
                                 registry.removeProcedure(name, (Map<String, Object>) metadata);
