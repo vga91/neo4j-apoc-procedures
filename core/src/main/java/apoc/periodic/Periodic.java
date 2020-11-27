@@ -50,7 +50,6 @@ public class Periodic {
     public Stream<RundownResult> commit(@Name("statement") String statement, @Name(value = "params", defaultValue = "{}") Map<String,Object> parameters) throws ExecutionException, InterruptedException {
         validateQuery(statement);
         Map<String,Object> params = parameters == null ? Collections.emptyMap() : parameters;
-        String periodicId = new Create().uuid();
         long total = 0, executions = 0, updates = 0;
         long start = System.nanoTime();
 
@@ -63,7 +62,7 @@ public class Periodic {
         Map<String,Long> commitErrors = new ConcurrentHashMap<>();
         AtomicInteger failedBatches = new AtomicInteger();
         Map<String,Long> batchErrors = new ConcurrentHashMap<>();
-
+        String periodicId = new Create().uuid();
         if (log.isDebugEnabled()) {
             log.debug("Starting periodic commit from `%s` in separate thread with id: `%s`", statement, periodicId);
         }
@@ -124,7 +123,6 @@ public class Periodic {
     }
 
     private long executeNumericResultStatement(@Name("statement") String statement, @Name("params") Map<String, Object> parameters) {
-        // todo
         return db.executeTransactionally(statement, parameters, result -> {
             String column = Iterables.single(result.columns());
             return result.columnAs(column).stream().mapToLong( o -> (long)o).sum();
@@ -235,7 +233,6 @@ public class Periodic {
             @Name("cypherAction") String cypherAction,
             @Name("config") Map<String,Object> config) {
         validateQuery(cypherIterate);
-        String periodicId = new Create().uuid();
         long batchSize = Util.toLong(config.getOrDefault("batchSize", 10000));
         int concurrency = Util.toInteger(config.getOrDefault("concurrency", 50));
         boolean parallel = Util.toBoolean(config.getOrDefault("parallel", false));
@@ -249,7 +246,8 @@ public class Periodic {
             Pair<String,Boolean> prepared = PeriodicUtils.prepareInnerStatement(cypherAction, batchMode, result.columns(), "_batch");
             String innerStatement = prepared.first();
             boolean iterateList = prepared.other();
-            log.info("Starting batching from `%s` operation using iteration `%s` in separate thread with id: `%s`", cypherIterate,cypherAction, periodicId);
+            String periodicId = new Create().uuid();
+            log.info("Starting periodic iterate from `%s` operation using iteration `%s` in separate thread with id: `%s`", cypherIterate,cypherAction, periodicId);
             return iterateAndExecuteBatchedInSeparateThread((int)batchSize, parallel, iterateList, retries, result,
                     (tx, p) -> Iterators.count(tx.execute(innerStatement, merge(params, p))), concurrency, failedParams, periodicId);
         }
