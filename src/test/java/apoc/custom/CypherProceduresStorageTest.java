@@ -19,7 +19,6 @@ import org.neo4j.kernel.impl.core.GraphPropertiesProxy;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 import org.neo4j.scheduler.JobScheduler;
-import org.neo4j.test.TestGraphDatabaseFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.util.Util.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
@@ -60,6 +58,13 @@ public class CypherProceduresStorageTest {
     @Test
     public void registerSimpleStatement() throws Exception {
         db.execute("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
+        restartDb();
+        TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
+    }
+
+    @Test
+    public void registerSimpleStatementSync() throws Exception {
+        db.execute("call apoc.custom.asProcedureSync('answer','RETURN 42 as answer')");
         restartDb();
         TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
     }
@@ -103,6 +108,13 @@ public class CypherProceduresStorageTest {
     @Test
     public void registerSimpleStatementFunction() throws Exception {
         db.execute("call apoc.custom.asFunction('answer','RETURN 42 as answer')");
+        restartDb();
+        TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+    }
+
+    @Test
+    public void registerSimpleStatementFunctionSync() throws Exception {
+        db.execute("call apoc.custom.asFunctionSync('answer','RETURN 42 as answer')");
         restartDb();
         TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
     }

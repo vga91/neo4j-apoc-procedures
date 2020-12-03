@@ -40,7 +40,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.Util.map;
-import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
 
@@ -57,7 +56,7 @@ public class CypherProcedures {
     public static final String PROCEDURE = "procedure";
     public static final List<FieldSignature> DEFAULT_MAP_OUTPUT = singletonList(FieldSignature.inputField("row", NTMap));
     public static final List<FieldSignature> DEFAULT_INPUTS = singletonList(FieldSignature.inputField("params", NTMap, DefaultParameterValue.ntMap(Collections.emptyMap())));
-    public static final String REMOVED = "removed";
+
     @Context
     public GraphDatabaseAPI api;
     @Context
@@ -86,6 +85,18 @@ public class CypherProcedures {
         CustomProcedureStorage.storeProcedure(api, name, statement, mode, outputs, inputs, description);
     }
 
+    @Procedure(value = "apoc.custom.asProcedureSync",mode = Mode.WRITE)
+    @Description("apoc.custom.asProcedureSync(name, statement, mode, outputs, inputs, description) - register a custom cypher procedure and refresh procedures and functions")
+    public void asProcedureSync(@Name("name") String name, @Name("statement") String statement,
+                            @Name(value = "mode",defaultValue = "read") String mode,
+                            @Name(value= "outputs", defaultValue = "null") List<List<String>> outputs,
+                            @Name(value= "inputs", defaultValue = "null") List<List<String>> inputs,
+                            @Name(value= "description", defaultValue = "null") String description
+    ) {
+        asProcedure(name, statement, mode, outputs, inputs, description);
+        restoreProceduresAndFunctionsSync();
+    }
+
     @Procedure(value = "apoc.custom.declareProcedure", mode = Mode.WRITE)
     @Description("apoc.custom.declareProcedure(signature, statement, mode, description) - register a custom cypher procedure")
     public void declareProcedure(@Name("signature") String signature, @Name("statement") String statement,
@@ -99,6 +110,16 @@ public class CypherProcedures {
             throw new IllegalStateException("Error registering procedure " + procedureSignature.name() + ", see log.");
         }
         CustomProcedureStorage.storeProcedure(api, procedureSignature, statement);
+    }
+
+    @Procedure(value = "apoc.custom.declareProcedureSync", mode = Mode.WRITE)
+    @Description("apoc.custom.declareProcedureSync(signature, statement, mode, description) - register a custom cypher procedure and refresh procedures and functions")
+    public void declareProcedureSync(@Name("signature") String signature, @Name("statement") String statement,
+                                 @Name(value = "mode", defaultValue = "read") String mode,
+                                 @Name(value = "description", defaultValue = "null") String description
+    ) {
+        declareProcedure(signature, statement, mode, description);
+        restoreProceduresAndFunctionsSync();
     }
 
     @Procedure(value = "apoc.custom.asFunction",mode = Mode.WRITE)
@@ -115,9 +136,20 @@ public class CypherProcedures {
         CustomProcedureStorage.storeFunction(api, name, statement, output, inputs, forceSingle, description);
     }
 
+    @Procedure(value = "apoc.custom.asFunctionSync",mode = Mode.WRITE)
+    @Description("apoc.custom.asFunctionSync(name, statement, outputs, inputs, forceSingle, description) - register a custom cypher function and refresh procedures and functions")
+    public void asFunctionSync(@Name("name") String name, @Name("statement") String statement,
+                            @Name(value= "outputs", defaultValue = "") String output,
+                            @Name(value= "inputs", defaultValue = "null") List<List<String>> inputs,
+                            @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
+                            @Name(value = "description", defaultValue = "null") String description) throws ProcedureException {
+        asFunction(name, statement, output, inputs, forceSingle, description);
+        restoreProceduresAndFunctionsSync();
+    }
+
     @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE)
     @Description("apoc.custom.declareFunction(signature, statement, forceSingle, description) - register a custom cypher function")
-    public void asFunction(@Name("signature") String signature, @Name("statement") String statement,
+    public void declareFunction(@Name("signature") String signature, @Name("statement") String statement,
                            @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
                            @Name(value = "description", defaultValue = "null") String description) throws ProcedureException {
         UserFunctionSignature userFunctionSignature = new Signatures(PREFIX).asFunctionSignature(signature, description);
@@ -126,6 +158,15 @@ public class CypherProcedures {
             throw new IllegalStateException("Error registering function " + signature + ", see log.");
         }
         CustomProcedureStorage.storeFunction(api, userFunctionSignature, statement, forceSingle);
+    }
+
+    @Procedure(value = "apoc.custom.declareFunctionSync", mode = Mode.WRITE)
+    @Description("apoc.custom.declareFunctionSync(signature, statement, forceSingle, description) - register a custom cypher function and refresh procedures and functions")
+    public void declareFunctionSync(@Name("signature") String signature, @Name("statement") String statement,
+                           @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
+                           @Name(value = "description", defaultValue = "null") String description) throws ProcedureException {
+        declareFunction(signature, statement, forceSingle, description);
+        restoreProceduresAndFunctionsSync();
     }
 
     @Procedure(value = "apoc.custom.list", mode = Mode.READ)
@@ -148,6 +189,12 @@ public class CypherProcedures {
         }
     }
 
+    @Procedure(value = "apoc.custom.removeProcedureSync", mode = Mode.WRITE)
+    @Description("apoc.custom.removeProcedureSync(name) - remove the targeted custom procedure and refresh procedures and functions")
+    public void removeProcedureSync(@Name("name") String name) {
+        removeProcedure(name);
+        restoreProceduresAndFunctionsSync();
+    }
 
     @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE)
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
@@ -160,6 +207,17 @@ public class CypherProcedures {
                 throw new IllegalStateException("Error removing custom function:" + name + ", see log.");
             }
         }
+    }
+
+    @Procedure(value = "apoc.custom.removeFunctionSync", mode = Mode.WRITE)
+    @Description("apoc.custom.removeFunctionSync(name) - remove the targeted custom function and refresh procedures and functions")
+    public void removeFunctionSync(@Name("name") String name) {
+        removeFunction(name);
+        restoreProceduresAndFunctionsSync();
+    }
+
+    private void restoreProceduresAndFunctionsSync() {
+        new CustomProcedureStorage(Pools.NEO4J_SCHEDULER, api, log).restoreProceduresSync();
     }
 
     static class CustomStatementRegistry {
@@ -514,10 +572,14 @@ public class CypherProcedures {
             this.log = log;
         }
 
-        @Override
-        public void available() {
+        private void restoreProceduresSync() {
             properties = getProperties(api);
             restoreProcedures();
+        }
+
+        @Override
+        public void available() {
+            restoreProceduresSync();
             long refreshInterval = Long.valueOf(ApocConfiguration.get("custom.procedures.refresh", "60000"));
             restoreProceduresHandle = scheduler.scheduleRecurring(REFRESH_GROUP, () -> restoreProcedures(), refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
         }
@@ -532,7 +594,6 @@ public class CypherProcedures {
             CustomStatementRegistry registry = new CustomStatementRegistry(api, log);
             Map<String, Map<String, Map<String, Object>>> stored = readData(properties);
             Signatures sigs = new Signatures("custom");
-            Map<String, Map<String, Object>> removed = stored.getOrDefault(REMOVED, emptyMap());
             stored.get(FUNCTIONS).forEach((name, data) -> {
                 String description = parseStoredDescription(data.get("description"));
                 if (data.containsKey("signature")) {
@@ -542,7 +603,6 @@ public class CypherProcedures {
                     registry.registerFunction(name, (String) data.get("statement"), (String) data.get("output"),
                             (List<List<String>>) data.get("inputs"), (Boolean) data.get("forceSingle"), description);
                 }
-                removed.getOrDefault(FUNCTIONS, emptyMap()).remove(name);
             });
             stored.get(PROCEDURES).forEach((name, data) -> {
                 String description = parseStoredDescription(data.get("description"));
@@ -553,18 +613,7 @@ public class CypherProcedures {
                     registry.registerProcedure(name, (String) data.get("statement"), (String) data.get("mode"),
                             (List<List<String>>) data.get("outputs"), (List<List<String>>) data.get("inputs"), description);
                 }
-                removed.getOrDefault(PROCEDURES, emptyMap()).remove(name);
             });
-            removed.forEach((type, data) -> data.forEach((name, metadata) -> {
-                        switch (type) {
-                            case PROCEDURES:
-                                registry.removeProcedure(name, (Map<String, Object>) metadata);
-                                break;
-                            case FUNCTIONS:
-                                registry.removeFunction(name, (Map<String, Object>) metadata);
-                                break;
-                        }
-                    }));
             clearQueryCaches(api);
         }
 
@@ -622,9 +671,6 @@ public class CypherProcedures {
                     previous = procData.put(name, value);
                 } else {
                     previous = procData.remove(name);
-                    data.computeIfAbsent(REMOVED, (key) -> new HashMap<>())
-                            .computeIfAbsent(type, (key) -> new HashMap<>())
-                            .put(name, previous);
                 }
                 if (value != null || previous != null) {
                     properties.setProperty(APOC_CUSTOM, Util.toJson(data));
@@ -661,7 +707,6 @@ public class CypherProcedures {
 
         public List<CustomProcedureInfo> list() {
             return readData(getProperties(api)).entrySet().stream()
-                    .filter(entry -> !REMOVED.equals(entry.getKey()))
                     .flatMap(entryProcedureType -> {
                         Map<String, Map<String, Object>> procedures = entryProcedureType.getValue();
                         String type = entryProcedureType.getKey();
