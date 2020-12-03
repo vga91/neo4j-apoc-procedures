@@ -85,18 +85,6 @@ public class CypherProcedures {
         CustomProcedureStorage.storeProcedure(api, name, statement, mode, outputs, inputs, description);
     }
 
-    @Procedure(value = "apoc.custom.asProcedureSync",mode = Mode.WRITE)
-    @Description("apoc.custom.asProcedureSync(name, statement, mode, outputs, inputs, description) - register a custom cypher procedure and refresh procedures and functions")
-    public void asProcedureSync(@Name("name") String name, @Name("statement") String statement,
-                            @Name(value = "mode",defaultValue = "read") String mode,
-                            @Name(value= "outputs", defaultValue = "null") List<List<String>> outputs,
-                            @Name(value= "inputs", defaultValue = "null") List<List<String>> inputs,
-                            @Name(value= "description", defaultValue = "null") String description
-    ) {
-        asProcedure(name, statement, mode, outputs, inputs, description);
-        restoreProceduresAndFunctionsSync();
-    }
-
     @Procedure(value = "apoc.custom.declareProcedure", mode = Mode.WRITE)
     @Description("apoc.custom.declareProcedure(signature, statement, mode, description) - register a custom cypher procedure")
     public void declareProcedure(@Name("signature") String signature, @Name("statement") String statement,
@@ -110,16 +98,6 @@ public class CypherProcedures {
             throw new IllegalStateException("Error registering procedure " + procedureSignature.name() + ", see log.");
         }
         CustomProcedureStorage.storeProcedure(api, procedureSignature, statement);
-    }
-
-    @Procedure(value = "apoc.custom.declareProcedureSync", mode = Mode.WRITE)
-    @Description("apoc.custom.declareProcedureSync(signature, statement, mode, description) - register a custom cypher procedure and refresh procedures and functions")
-    public void declareProcedureSync(@Name("signature") String signature, @Name("statement") String statement,
-                                 @Name(value = "mode", defaultValue = "read") String mode,
-                                 @Name(value = "description", defaultValue = "null") String description
-    ) {
-        declareProcedure(signature, statement, mode, description);
-        restoreProceduresAndFunctionsSync();
     }
 
     @Procedure(value = "apoc.custom.asFunction",mode = Mode.WRITE)
@@ -136,17 +114,6 @@ public class CypherProcedures {
         CustomProcedureStorage.storeFunction(api, name, statement, output, inputs, forceSingle, description);
     }
 
-    @Procedure(value = "apoc.custom.asFunctionSync",mode = Mode.WRITE)
-    @Description("apoc.custom.asFunctionSync(name, statement, outputs, inputs, forceSingle, description) - register a custom cypher function and refresh procedures and functions")
-    public void asFunctionSync(@Name("name") String name, @Name("statement") String statement,
-                            @Name(value= "outputs", defaultValue = "") String output,
-                            @Name(value= "inputs", defaultValue = "null") List<List<String>> inputs,
-                            @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
-                            @Name(value = "description", defaultValue = "null") String description) throws ProcedureException {
-        asFunction(name, statement, output, inputs, forceSingle, description);
-        restoreProceduresAndFunctionsSync();
-    }
-
     @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE)
     @Description("apoc.custom.declareFunction(signature, statement, forceSingle, description) - register a custom cypher function")
     public void declareFunction(@Name("signature") String signature, @Name("statement") String statement,
@@ -158,15 +125,6 @@ public class CypherProcedures {
             throw new IllegalStateException("Error registering function " + signature + ", see log.");
         }
         CustomProcedureStorage.storeFunction(api, userFunctionSignature, statement, forceSingle);
-    }
-
-    @Procedure(value = "apoc.custom.declareFunctionSync", mode = Mode.WRITE)
-    @Description("apoc.custom.declareFunctionSync(signature, statement, forceSingle, description) - register a custom cypher function and refresh procedures and functions")
-    public void declareFunctionSync(@Name("signature") String signature, @Name("statement") String statement,
-                           @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
-                           @Name(value = "description", defaultValue = "null") String description) throws ProcedureException {
-        declareFunction(signature, statement, forceSingle, description);
-        restoreProceduresAndFunctionsSync();
     }
 
     @Procedure(value = "apoc.custom.list", mode = Mode.READ)
@@ -189,13 +147,6 @@ public class CypherProcedures {
         }
     }
 
-    @Procedure(value = "apoc.custom.removeProcedureSync", mode = Mode.WRITE)
-    @Description("apoc.custom.removeProcedureSync(name) - remove the targeted custom procedure and refresh procedures and functions")
-    public void removeProcedureSync(@Name("name") String name) {
-        removeProcedure(name);
-        restoreProceduresAndFunctionsSync();
-    }
-
     @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE)
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
     public void removeFunction(@Name("name") String name) {
@@ -209,14 +160,9 @@ public class CypherProcedures {
         }
     }
 
-    @Procedure(value = "apoc.custom.removeFunctionSync", mode = Mode.WRITE)
-    @Description("apoc.custom.removeFunctionSync(name) - remove the targeted custom function and refresh procedures and functions")
-    public void removeFunctionSync(@Name("name") String name) {
-        removeFunction(name);
-        restoreProceduresAndFunctionsSync();
-    }
-
-    private void restoreProceduresAndFunctionsSync() {
+    @Procedure(value = "apoc.custom.restore")
+    @Description("apoc.custom.restore - refresh procedures and functions")
+    public void restore() {
         new CustomProcedureStorage(Pools.NEO4J_SCHEDULER, api, log).restoreProceduresSync();
     }
 
