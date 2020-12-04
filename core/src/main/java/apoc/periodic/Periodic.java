@@ -233,6 +233,7 @@ public class Periodic {
             @Name("cypherAction") String cypherAction,
             @Name("config") Map<String,Object> config) {
         validateQuery(cypherIterate);
+
         long batchSize = Util.toLong(config.getOrDefault("batchSize", 10000));
         int concurrency = Util.toInteger(config.getOrDefault("concurrency", 50));
         boolean parallel = Util.toBoolean(config.getOrDefault("parallel", false));
@@ -263,6 +264,7 @@ public class Periodic {
 
     private Stream<BatchAndTotalResult> iterateAndExecuteBatchedInSeparateThread(int batchsize, boolean parallel, boolean iterateList, long retries,
                   Iterator<Map<String, Object>> iterator, BiConsumer<Transaction, Map<String, Object>> consumer, int concurrency, int failedParams, String periodicId) {
+
 
         ExecutorService pool = parallel ? pools.getDefaultExecutorService() : pools.getSingleExecutorService();
         List<Future<Long>> futures = new ArrayList<>(concurrency);
