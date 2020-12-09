@@ -335,7 +335,6 @@ public class Meta {
         void rel(int typeId, String typeName, int labelId, String labelName, long out, long in);
     }
 
-    // todo - e sta cosa che fa???
     @Procedure
     @Description("apoc.meta.stats  yield labelCount, relTypeCount, propertyKeyCount, nodeCount, relCount, labels, relTypes, stats | returns the information stored in the transactional database statistics")
     public Stream<MetaStats> stats() {
@@ -435,7 +434,6 @@ public class Meta {
         MetaStats metaStats = collectStats();
         MetaConfig metaConfig = new MetaConfig(config);
         Map<String, Map<String, MetaResult>> metaData = collectMetaData(metaConfig);
-        // todo - vedere se funziona anche exclude
 
         Map<String, Object> relationships = collectRelationshipsMetaData(metaStats, metaData);
         Map<String, Object> nodes = collectNodesMetaData(metaStats, metaData, relationships);
@@ -481,7 +479,6 @@ public class Meta {
         }
     }
 
-    // todo - ma allora...
     private Tables4LabelsProfile collectTables4LabelsProfile (MetaConfig config) {
         Tables4LabelsProfile profile = new Tables4LabelsProfile();
 
