@@ -41,6 +41,7 @@ import java.util.stream.Stream;
 
 import static apoc.util.Util.map;
 import static java.util.Collections.singletonList;
+import static java.util.Collections.emptyMap;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
 
 /**
@@ -56,6 +57,7 @@ public class CypherProcedures {
     public static final String PROCEDURE = "procedure";
     public static final List<FieldSignature> DEFAULT_MAP_OUTPUT = singletonList(FieldSignature.inputField("row", NTMap));
     public static final List<FieldSignature> DEFAULT_INPUTS = singletonList(FieldSignature.inputField("params", NTMap, DefaultParameterValue.ntMap(Collections.emptyMap())));
+    public static final String REMOVED = "removed";
 
     @Context
     public GraphDatabaseAPI api;
@@ -146,6 +148,7 @@ public class CypherProcedures {
             }
         }
     }
+
 
     @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE)
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
@@ -617,6 +620,9 @@ public class CypherProcedures {
                     previous = procData.put(name, value);
                 } else {
                     previous = procData.remove(name);
+                    data.computeIfAbsent(REMOVED, (key) -> new HashMap<>())
+                            .computeIfAbsent(type, (key) -> new HashMap<>())
+                            .put(name, previous);
                 }
                 if (value != null || previous != null) {
                     properties.setProperty(APOC_CUSTOM, Util.toJson(data));
@@ -653,6 +659,7 @@ public class CypherProcedures {
 
         public List<CustomProcedureInfo> list() {
             return readData(getProperties(api)).entrySet().stream()
+                    .filter(entry -> !REMOVED.equals(entry.getKey()))
                     .flatMap(entryProcedureType -> {
                         Map<String, Map<String, Object>> procedures = entryProcedureType.getValue();
                         String type = entryProcedureType.getKey();
