@@ -40,8 +40,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.Util.map;
-import static java.util.Collections.singletonList;
 import static java.util.Collections.emptyMap;
+import static java.util.Collections.singletonList;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
 
 /**
@@ -58,7 +58,6 @@ public class CypherProcedures {
     public static final List<FieldSignature> DEFAULT_MAP_OUTPUT = singletonList(FieldSignature.inputField("row", NTMap));
     public static final List<FieldSignature> DEFAULT_INPUTS = singletonList(FieldSignature.inputField("params", NTMap, DefaultParameterValue.ntMap(Collections.emptyMap())));
     public static final String REMOVED = "removed";
-
     @Context
     public GraphDatabaseAPI api;
     @Context
