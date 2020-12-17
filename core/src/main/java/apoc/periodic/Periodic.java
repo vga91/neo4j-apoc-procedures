@@ -1,7 +1,6 @@
 package apoc.periodic;
 
 import apoc.Pools;
-import apoc.create.Create;
 import apoc.util.Util;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -22,6 +21,7 @@ import java.util.function.Function;
 import java.util.function.ToLongFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.Util.merge;
@@ -62,7 +62,7 @@ public class Periodic {
         Map<String,Long> commitErrors = new ConcurrentHashMap<>();
         AtomicInteger failedBatches = new AtomicInteger();
         Map<String,Long> batchErrors = new ConcurrentHashMap<>();
-        String periodicId = new Create().uuid();
+        String periodicId = UUID.randomUUID().toString();
         if (log.isDebugEnabled()) {
             log.debug("Starting periodic commit from `%s` in separate thread with id: `%s`", statement, periodicId);
         }
@@ -247,7 +247,7 @@ public class Periodic {
             Pair<String,Boolean> prepared = PeriodicUtils.prepareInnerStatement(cypherAction, batchMode, result.columns(), "_batch");
             String innerStatement = prepared.first();
             boolean iterateList = prepared.other();
-            String periodicId = new Create().uuid();
+            String periodicId = UUID.randomUUID().toString();
             log.info("Starting periodic iterate from `%s` operation using iteration `%s` in separate thread with id: `%s`", cypherIterate,cypherAction, periodicId);
             return iterateAndExecuteBatchedInSeparateThread((int)batchSize, parallel, iterateList, retries, result,
                     (tx, p) -> Iterators.count(tx.execute(innerStatement, merge(params, p))), concurrency, failedParams, periodicId);
