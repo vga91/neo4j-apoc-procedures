@@ -2997,7 +2997,6 @@ CALL apoc.trigger.resume(name) \| it resumes the paused trigger
 |label:apoc-full[]
 |===
 
-[discrete]
 == xref::overview/apoc.ttl/index.adoc[]
 
 [.procedures, opts=header, cols='5a,1a,1a']
