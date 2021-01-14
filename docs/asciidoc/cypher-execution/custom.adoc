@@ -171,7 +171,7 @@ Fields:
 |===
 
 
-=== Refresh a procedure `apoc.custom.refresh`
+=== Refresh all procedures/functions `apoc.custom.refresh`
 
 The procedure `apoc.custom.refresh` refresh immediately all procedures/functions
 
