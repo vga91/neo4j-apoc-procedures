@@ -177,7 +177,7 @@ The procedure `apoc.custom.refresh` refresh immediately all procedures/functions
 
 [source,cypher]
 ----
-CALL apoc.custom.removeFunction(<name>)
+CALL apoc.custom.refresh
 ----
 
 
