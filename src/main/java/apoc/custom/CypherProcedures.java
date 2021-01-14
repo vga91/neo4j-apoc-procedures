@@ -162,10 +162,10 @@ public class CypherProcedures {
         }
     }
 
-    @Procedure(value = "apoc.custom.restore")
-    @Description("apoc.custom.restore - refresh procedures and functions")
+    @Procedure(value = "apoc.custom.refresh")
+    @Description("apoc.custom.refresh - refresh procedures and functions")
     public void restore() {
-        new CustomProcedureStorage(Pools.NEO4J_SCHEDULER, api, log).restoreProceduresSync();
+        CustomProcedureStorage.restoreProceduresSync(api, log);
     }
 
     static class CustomStatementRegistry {
@@ -520,27 +520,9 @@ public class CypherProcedures {
             this.log = log;
         }
 
-        private void restoreProceduresSync() {
-            properties = getProperties(api);
-            restoreProcedures();
-        }
-
-        @Override
-        public void available() {
-            restoreProceduresSync();
-            long refreshInterval = Long.valueOf(ApocConfiguration.get("custom.procedures.refresh", "60000"));
-            restoreProceduresHandle = scheduler.scheduleRecurring(REFRESH_GROUP, () -> restoreProcedures(), refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
-        }
-
-        public static GraphPropertiesProxy getProperties(GraphDatabaseAPI api) {
-            return api.getDependencyResolver().resolveDependency(EmbeddedProxySPI.class).newGraphPropertiesProxy();
-        }
-
-        private void restoreProcedures() {
-            if (getLastUpdate(properties) <= lastUpdate) return;
-            lastUpdate = System.currentTimeMillis();
+        private static void restoreProceduresSync(GraphDatabaseAPI api, Log log) {
             CustomStatementRegistry registry = new CustomStatementRegistry(api, log);
-            Map<String, Map<String, Map<String, Object>>> stored = readData(properties);
+            Map<String, Map<String, Map<String, Object>>> stored = readData(getProperties(api));
             Signatures sigs = new Signatures("custom");
             stored.get(FUNCTIONS).forEach((name, data) -> {
                 String description = parseStoredDescription(data.get("description"));
@@ -565,7 +547,25 @@ public class CypherProcedures {
             clearQueryCaches(api);
         }
 
-        private String parseStoredDescription(Object rawDescription) {
+        @Override
+        public void available() {
+            properties = getProperties(api);
+            restoreProcedures();
+            long refreshInterval = Long.valueOf(ApocConfiguration.get("custom.procedures.refresh", "60000"));
+            restoreProceduresHandle = scheduler.scheduleRecurring(REFRESH_GROUP, () -> restoreProcedures(), refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
+        }
+
+        public static GraphPropertiesProxy getProperties(GraphDatabaseAPI api) {
+            return api.getDependencyResolver().resolveDependency(EmbeddedProxySPI.class).newGraphPropertiesProxy();
+        }
+
+        private void restoreProcedures() {
+            if (getLastUpdate(properties) <= lastUpdate) return;
+            lastUpdate = System.currentTimeMillis();
+            restoreProceduresSync(api, log);
+        }
+
+        private static String parseStoredDescription(Object rawDescription) {
             // Description was changed to be an Optional in the Neo4j internal API. Optional.None serialized to
             // JSON objects in various stores around the world; hence, deal with this value not being a string
             if(rawDescription instanceof String) {

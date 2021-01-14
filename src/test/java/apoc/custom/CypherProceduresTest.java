@@ -53,7 +53,7 @@ public class CypherProceduresTest {
     public void overrideSingleCallStatement() throws Exception {
         db.execute("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
         TestUtil.testCall(db, "call custom.answer() yield row return row", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
-        db.execute("call apoc.custom.restore");
+        db.execute("call apoc.custom.refresh");
 
         db.execute("call apoc.custom.asProcedure('answer','RETURN 43 as answer')");
         TestUtil.testCall(db, "call custom.answer() yield row return row", (row) -> assertEquals(43L, ((Map)row.get("row")).get("answer")));
@@ -63,7 +63,7 @@ public class CypherProceduresTest {
     public void overrideCypherCallStatement() throws Exception {
         db.execute("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
         TestUtil.testCall(db, "with 1 as foo call custom.answer() yield row return row", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
-        db.execute("call apoc.custom.restore");
+        db.execute("call apoc.custom.refresh");
 
         db.execute("call apoc.custom.asProcedure('answer','RETURN 43 as answer')");
         TestUtil.testCall(db, "with 1 as foo call custom.answer() yield row return row", (row) -> assertEquals(43L, ((Map)row.get("row")).get("answer")));
@@ -222,7 +222,7 @@ public class CypherProceduresTest {
 
         // when
         db.execute("call apoc.custom.removeProcedure('answer')").close();
-        db.execute("call apoc.custom.restore");
+        db.execute("call apoc.custom.refresh");
 
         // then
         try {
@@ -244,7 +244,7 @@ public class CypherProceduresTest {
 
         // when
         db.execute("call apoc.custom.removeFunction('answer')").close();
-        db.execute("call apoc.custom.restore");
+        db.execute("call apoc.custom.refresh");
 
         // then
         try {
@@ -257,14 +257,14 @@ public class CypherProceduresTest {
         }
     }
 
-    @Test()
+    @Test
     public void shouldRefreshCorrectlyAFunction() throws InterruptedException {
 
         db.execute("call apoc.custom.asFunction('answer','RETURN 42 as answer')");
         TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
 
         db.execute("call apoc.custom.removeFunction('answer')").close();
-        db.execute("call apoc.custom.restore");
+        db.execute("call apoc.custom.refresh");
 
         try {
             TestUtil.testCall(db, "return custom.answer() as row", (row) -> {});
@@ -280,14 +280,14 @@ public class CypherProceduresTest {
         TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
     }
 
-    @Test()
+    @Test
     public void shouldRefreshCorrectlyAProcedure() throws InterruptedException {
 
         db.execute("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
         TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
 
         db.execute("call apoc.custom.removeProcedure('answer')").close();
-        db.execute("call apoc.custom.restore");
+        db.execute("call apoc.custom.refresh");
 
         try {
             TestUtil.testCall(db, "call custom.answer()", (row) -> {});

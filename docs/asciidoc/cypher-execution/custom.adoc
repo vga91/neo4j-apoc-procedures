@@ -171,6 +171,16 @@ Fields:
 |===
 
 
+=== Refresh a procedure `apoc.custom.refresh`
+
+The procedure `apoc.custom.refresh` refresh immediately all procedures/functions
+
+[source,cypher]
+----
+CALL apoc.custom.removeFunction(<name>)
+----
+
+
 === How to manage procedure/function replication in a Causal Cluster
 
 In order to replicate the procedure/function in a cluster environment you can tune the following parameters:
