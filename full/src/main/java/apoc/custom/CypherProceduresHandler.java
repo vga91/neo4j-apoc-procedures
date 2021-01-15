@@ -401,7 +401,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                                     return ValueUtils.of(result.stream().map(row -> row.get(cols.get(0))).collect(Collectors.toList()));
                             } else {
                                 Map<String, Object> row = result.next();
-                                if (outType instanceof Neo4jTypes.MapType) return ValueUtils.of(row);
+                                if (outType.getClass().equals(Neo4jTypes.MapType.class)) return ValueUtils.of(row);
                                 if (cols.size() == 1) return ValueUtils.of(row.get(cols.get(0)));
                             }
                             throw new IllegalStateException("Result mismatch " + cols + " output type is " + outType);
