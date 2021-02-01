@@ -1,2 +1,2 @@
 ¦type¦qualified name¦signature¦description
-¦procedure¦apoc.cypher.unionParallel¦apoc.cypher.unionParallel(queries :: LIST? OF STRING?, isAll = true :: BOOLEAN?) :: (value :: LIST? OF ANY?)¦apoc.cypher.unionParallel([queries], [isAll]) yield value - executes queries (that return same values) in parallel and return the aggregated results
+¦procedure¦apoc.cypher.unionParallel¦apoc.cypher.unionParallel(queries :: LIST? OF STRING?, isAll = true :: BOOLEAN?) :: (value :: LIST? OF ANY?)¦apoc.cypher.unionParallel([queries], [isAll]) yield value - executes queries (that return same values) in parallel and return the aggregated result

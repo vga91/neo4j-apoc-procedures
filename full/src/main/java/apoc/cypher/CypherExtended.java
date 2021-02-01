@@ -301,7 +301,7 @@ public class CypherExtended {
     }
 
     @Procedure
-    @Description("apoc.cypher.unionParallel([queries], [isAll]) yield value - executes queries (that return same values) in parallel and return the aggregated results")
+    @Description("apoc.cypher.unionParallel([queries], [isAll]) yield value - executes queries (that return same values) in parallel and return the aggregated result")
     public Stream<ListResult> unionParallel(@Name("queries") List<String> queries, @Name(value = "isAll", defaultValue = "true") boolean isAll) {
 
         Set<List<String>> allCols = queries.stream().map(query -> {

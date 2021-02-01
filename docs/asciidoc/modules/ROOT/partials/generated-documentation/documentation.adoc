@@ -922,7 +922,7 @@ apoc.cypher.runTimeboxed('cypherStatement',\{params}, timeout) - abort kernelTra
 |label:apoc-core[]
 |xref::overview/apoc.cypher/apoc.cypher.unionParallel.adoc[apoc.cypher.unionParallel icon:book[]]
 
-apoc.cypher.unionParallel([queries], [isAll]) yield value - executes queries (that return same values) in parallel and return the aggregated results
+apoc.cypher.unionParallel([queries], [isAll]) yield value - executes queries (that return same values) in parallel and return the aggregated result
 |label:procedure[]
 |label:apoc-core[]
 |xref::overview/apoc.cypher/apoc.cypher.runFirstColumn.adoc[apoc.cypher.runFirstColumn icon:book[]]
