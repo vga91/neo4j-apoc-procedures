@@ -920,6 +920,11 @@ apoc.cypher.runSchemaFiles([files or urls],{statistics:true,timeout:10}) - allow
 apoc.cypher.runTimeboxed('cypherStatement',\{params}, timeout) - abort kernelTransaction after timeout ms if not finished
 |label:procedure[]
 |label:apoc-core[]
+|xref::overview/apoc.cypher/apoc.cypher.unionParallel.adoc[apoc.cypher.unionParallel icon:book[]]
+
+apoc.cypher.unionParallel([queries], [isAll]) yield value - executes queries (that return same values) in parallel and return the aggregated results
+|label:procedure[]
+|label:apoc-core[]
 |xref::overview/apoc.cypher/apoc.cypher.runFirstColumn.adoc[apoc.cypher.runFirstColumn icon:book[]]
 
 use either apoc.cypher.runFirstColumnMany for a list return or apoc.cypher.runFirstColumnSingle for returning the first row of the first column

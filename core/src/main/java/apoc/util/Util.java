@@ -480,6 +480,7 @@ public class Util {
         Stream<List<Object>> stream = IntStream.range(0, partitions).parallel()
                 .mapToObj((part) -> list.subList(Math.min(part * batchSize, total), Math.min((part + 1) * batchSize, total)))
                 .filter(partition -> !partition.isEmpty());
+//        System.out.println("stream - " + stream.collect(Collectors.toList()));
         return tombstone == null ? stream : Stream.concat(stream,Stream.of(tombstone));
     }
 

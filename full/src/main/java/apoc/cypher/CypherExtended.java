@@ -2,6 +2,7 @@ package apoc.cypher;
 
 import apoc.Extended;
 import apoc.Pools;
+import apoc.result.ListResult;
 import apoc.result.MapResult;
 import apoc.util.FileUtils;
 import apoc.util.QueueBasedSpliterator;
@@ -21,13 +22,7 @@ import org.neo4j.procedure.TerminationGuard;
 
 import java.io.IOException;
 import java.io.Reader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
@@ -35,6 +30,7 @@ import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -302,6 +298,35 @@ public class CypherExtended {
                 }));
         return db.execute(statement,params).stream().map(MapResult::new);
         */
+    }
+
+    @Procedure
+    @Description("apoc.cypher.unionParallel([queries], [isAll]) yield value - executes queries (that return same values) in parallel and return the aggregated results")
+    public Stream<ListResult> unionParallel(@Name("queries") List<String> queries, @Name(value = "isAll", defaultValue = "true") boolean isAll) {
+
+        Set<List<String>> allCols = queries.stream().map(query -> {
+            // validate queries
+            try (Result result = tx.execute("EXPLAIN " + query)) {
+                Collections.sort(result.columns());
+                return result.columns();
+            }
+        }).collect(Collectors.toSet());
+
+        if (allCols.size() > 1) {
+            throw new RuntimeException("All queries must have the same column names");
+        }
+
+        Stream<Object> myResult = queries.stream()
+                .flatMap((query) -> Iterators.addToCollection(
+                        tx.execute(query),
+                        new ArrayList<>(queries.size())
+                    ).stream());
+
+        if (!isAll) {
+            myResult = myResult.distinct();
+        }
+
+        return Stream.of(new ListResult(myResult.collect(Collectors.toList())));
     }
 
     @Procedure

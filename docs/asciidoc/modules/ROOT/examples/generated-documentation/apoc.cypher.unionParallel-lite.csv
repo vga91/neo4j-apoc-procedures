@@ -1,0 +1,2 @@
+¦signature
+¦apoc.cypher.unionParallel(queries :: LIST? OF STRING?, isAll = true :: BOOLEAN?) :: (value :: LIST? OF ANY?)

@@ -1,0 +1,34 @@
+With `isAll=true` duplicate values will be included just like `UNION ALL`
+Contrariwise, with `isAll=false` duplicate values will be eliminated.
+
+From a simple dataset:
+[source,cypher]
+----
+CREATE (a:NodeTest {col1: 'foo', col2: 'baz'}), (b:NodeTest {col1: 'bar', col2: 'baa'})
+----
+
+With:
+[source,cypher]
+----
+CALL apoc.cypher.unionParallel(['match (a:NodeTest {col1:"foo"}) RETURN a.col2 as col2, a.col1 as col1', 'MATCH (b:NodeTest {col1:"bar"}) RETURN b.col1 as col1, b.col2 as col2', 'MATCH (b:NodeTest {col1:"bar"}) RETURN b.col1 as col1, b.col2 as col2'])
+----
+
+.Results
+[opts="header"]
+|===
+| value
+| [{"col2":"baz","col1":"foo"},{"col2":"baa","col1":"bar"},{"col2":"baa","col1":"bar"}]
+|===
+
+With:
+[source,cypher]
+----
+CALL apoc.cypher.unionParallel(['match (a:NodeTest {col1:"foo"}) RETURN a.col2 as col2, a.col1 as col1', 'MATCH (b:NodeTest {col1:"bar"}) RETURN b.col1 as col1, b.col2 as col2', 'MATCH (b:NodeTest {col1:"bar"}) RETURN b.col1 as col1, b.col2 as col2'], false)
+----
+
+.Results
+[opts="header"]
+|===
+| value
+| [{"col2":"baz","col1":"foo"},{"col2":"baa","col1":"bar"}]
+|===

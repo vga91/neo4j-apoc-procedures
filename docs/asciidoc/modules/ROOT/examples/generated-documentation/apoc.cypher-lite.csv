@@ -11,6 +11,7 @@
 ¦apoc.cypher.runSchemaFile(file :: STRING?, config = {} :: MAP?) :: (row :: INTEGER?, result :: MAP?)
 ¦apoc.cypher.runSchemaFiles(file :: LIST? OF STRING?, config = {} :: MAP?) :: (row :: INTEGER?, result :: MAP?)
 ¦apoc.cypher.runTimeboxed(cypher :: STRING?, params :: MAP?, timeout :: INTEGER?) :: (value :: MAP?)
+¦apoc.cypher.unionParallel(queries :: LIST? OF STRING?, isAll = true :: BOOLEAN?) :: (value :: LIST? OF ANY?)
 ¦apoc.cypher.runFirstColumn(cypher :: STRING?, params :: MAP?, expectMultipleValues = true :: BOOLEAN?) :: (ANY?)
 ¦apoc.cypher.runFirstColumnMany(cypher :: STRING?, params :: MAP?) :: (LIST? OF ANY?)
 ¦apoc.cypher.runFirstColumnSingle(cypher :: STRING?, params :: MAP?) :: (ANY?)

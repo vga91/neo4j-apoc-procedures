@@ -4,6 +4,7 @@ import apoc.text.Strings;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import apoc.util.Utils;
+import org.apache.commons.collections4.IteratorUtils;
 import org.junit.*;
 import org.junit.rules.ExpectedException;
 import org.neo4j.configuration.GraphDatabaseSettings;
@@ -22,8 +23,7 @@ import java.util.Map;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
-import static apoc.util.TestUtil.testCall;
-import static apoc.util.TestUtil.testResult;
+import static apoc.util.TestUtil.*;
 import static apoc.util.Util.map;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.junit.Assert.*;
@@ -69,10 +69,48 @@ public class CypherExtendedTest {
     public void testMapParallel() throws Exception {
         int size = 10_000;
         testResult(db, "CALL apoc.cypher.mapParallel('UNWIND range(0,9) as b RETURN b',{},range(1,$size))", map("size", size),
-                r -> assertEquals( size * 10,Iterators.count(r) ));
+                r -> assertEquals( size * 10, IteratorUtils.toList(r) ));
+    }
+
+    @Test
+    public void testUnionParallel() throws Exception {
+        db.executeTransactionally("CREATE (a:NodeTest {col1: 'foo', col2: 'baz'}), (b:NodeTest {col1: 'bar', col2: 'baa'})");
+
+        testFail(db,"CALL apoc.cypher.unionParallel(['match (a:NodeTest {col1:\"foo\"}) RETURN a.col2 as cols', 'MATCH (b:NodeTest {col1:\"bar\"}) RETURN b.col2 as colsBis'])",
+                RuntimeException.class);
+
+        testCall(db, "CALL apoc.cypher.unionParallel(['match (a:NodeTest {col1:\"foo\"}) RETURN a.col2 as col2, a.col1 as col1', 'MATCH (b:NodeTest {col1:\"bar\"}) RETURN b.col1 as col1, b.col2 as col2', 'MATCH (b:NodeTest {col1:\"bar\"}) RETURN b.col1 as col1, b.col2 as col2'])",
+                row -> {
+                    List<Map<String, Object>> value = (List<Map<String, Object>>) row.get("value");
+                    assertEquals( 3, value.size());
+                    assertEquals("foo", value.get(0).get("col1"));
+                    assertEquals( "baz", value.get(0).get("col2"));
+                    assertEquals( "bar", value.get(1).get("col1"));
+                    assertEquals( "baa", value.get(1).get("col2"));
+                    assertEquals( "bar", value.get(2).get("col1"));
+                    assertEquals( "baa", value.get(2).get("col2"));
+        });
+
+        // isAll: false
+        testCall(db, "CALL apoc.cypher.unionParallel(['match (a:NodeTest {col1:\"foo\"}) RETURN a.col2 as col2, a.col1 as col1', 'MATCH (b:NodeTest {col1:\"bar\"}) RETURN b.col1 as col1, b.col2 as col2', 'MATCH (b:NodeTest {col1:\"bar\"}) RETURN b.col1 as col1, b.col2 as col2'], false)",
+                row -> {
+                    List<Map<String, Object>> value = (List<Map<String, Object>>) row.get("value");
+                    assertEquals( 2, value.size());
+                    assertEquals("foo", value.get(0).get("col1"));
+                    assertEquals( "baz", value.get(0).get("col2"));
+                    assertEquals( "bar", value.get(1).get("col1"));
+                    assertEquals( "baa", value.get(1).get("col2"));
+        });
     }
     @Test
     public void testMapParallel2() throws Exception {
+        // todo - testare che valore di ritorno sia lo stesso (cioò che le colonne siano le stesse)
+        //  questo prima di tutto
+
+        // todo UNION - UNION ALL COME CONFIG
+
+        //
+
         int size = 10_000;
         testResult(db, "CALL apoc.cypher.mapParallel2('UNWIND range(0,9) as b RETURN b',{},range(1,$size),10)", map("size", size),
                 r -> assertEquals( size * 10,Iterators.count(r) ));
