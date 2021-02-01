@@ -4,7 +4,6 @@ import apoc.text.Strings;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import apoc.util.Utils;
-import org.apache.commons.collections4.IteratorUtils;
 import org.junit.*;
 import org.junit.rules.ExpectedException;
 import org.neo4j.configuration.GraphDatabaseSettings;
@@ -69,7 +68,7 @@ public class CypherExtendedTest {
     public void testMapParallel() throws Exception {
         int size = 10_000;
         testResult(db, "CALL apoc.cypher.mapParallel('UNWIND range(0,9) as b RETURN b',{},range(1,$size))", map("size", size),
-                r -> assertEquals( size * 10, IteratorUtils.toList(r) ));
+                r -> assertEquals( size * 10,Iterators.count(r) ));
     }
 
     @Test
@@ -104,13 +103,6 @@ public class CypherExtendedTest {
     }
     @Test
     public void testMapParallel2() throws Exception {
-        // todo - testare che valore di ritorno sia lo stesso (cioò che le colonne siano le stesse)
-        //  questo prima di tutto
-
-        // todo UNION - UNION ALL COME CONFIG
-
-        //
-
         int size = 10_000;
         testResult(db, "CALL apoc.cypher.mapParallel2('UNWIND range(0,9) as b RETURN b',{},range(1,$size),10)", map("size", size),
                 r -> assertEquals( size * 10,Iterators.count(r) ));
