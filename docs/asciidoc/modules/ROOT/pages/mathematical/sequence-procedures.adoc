@@ -9,7 +9,7 @@ CALL apoc.sequence.create('foo');
 ----
 
 .Results
-[opts="header",cols="1"]
+[opts="header"]
 |===
 | name | value
 | bar | 0
@@ -29,7 +29,7 @@ CALL apoc.sequence.create('bar', 3);
 ----
 
 .Results
-[opts="header",cols="1"]
+[opts="header"]
 |===
 | name | value
 | bar | 3
@@ -42,7 +42,7 @@ CALL apoc.sequence.currentValue('bar');
 ----
 
 .Results
-[opts="header",cols="1"]
+[opts="header"]
 |===
 | name | value
 | bar | 3
@@ -55,7 +55,7 @@ CALL apoc.sequence.nextValue('bar');
 ----
 
 .Results
-[opts="header",cols="1"]
+[opts="header"]
 |===
 | name | value
 | bar | 4
@@ -68,7 +68,7 @@ CALL apoc.sequence.create('foo', 7);
 ----
 
 .Results
-[opts="header",cols="1"]
+[opts="header"]
 |===
 | name | value
 | foo | 7
@@ -81,7 +81,7 @@ CALL apoc.sequence.create('foo', 7);
 ----
 
 .Results
-[opts="header",cols="1"]
+[opts="header"]
 |===
 | name | value
 | foo | 7
@@ -95,7 +95,7 @@ CALL apoc.sequence.drop('foo');
 ----
 
 .Results
-[opts="header",cols="1"]
+[opts="header"]
 |===
 | name | value
 | bar | 4
