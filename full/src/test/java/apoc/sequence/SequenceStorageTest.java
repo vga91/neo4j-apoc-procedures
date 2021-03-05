@@ -16,6 +16,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.sequence.SequenceTest.assertSequenceConstraintSizeWithDbms;
+import static apoc.util.TestUtil.singleResultFirstColumn;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testCallEmpty;
 import static apoc.util.TestUtil.testFail;
@@ -23,6 +25,7 @@ import static apoc.util.TestUtil.testResult;
 import static java.util.Collections.emptyMap;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
 public class SequenceStorageTest {
 
@@ -49,72 +52,88 @@ public class SequenceStorageTest {
 
     @Test
     public void storeSequenceAndIncrementAfterRestart() throws IOException {
-        db.executeTransactionally("CALL apoc.sequence.create('test', 1)");
+        db.executeTransactionally("CALL apoc.sequence.create('test', {initialValue: 1})");
+
+        assertSequenceConstraintSize(1);
         restartDb();
-        TestUtil.testCall(db, "CALL apoc.sequence.currentValue('test')", row -> {
-            assertEquals("test", row.get("name"));
-            assertEquals(1L, row.get("value"));
-        });
-        TestUtil.testCall(db, "CALL apoc.sequence.nextValue('test')", row -> {
-            assertEquals("test", row.get("name"));
-            assertEquals(2L, row.get("value"));
-        });
+
+        assertSequenceConstraintSize(1);
+        long actualValue = singleResultFirstColumn(db, "RETURN apoc.sequence.currentValue('test')");
+        assertEquals(1L, actualValue);
+
+        actualValue = singleResultFirstColumn(db, "RETURN apoc.sequence.nextValue('test')");
+        assertEquals(2L, actualValue);
+
         db.executeTransactionally("CALL apoc.sequence.drop('test')");
+        assertSequenceConstraintSize(0);
     }
 
     @Test
     public void storeSequenceAfterIncrement() throws IOException {
-        db.executeTransactionally("CALL apoc.sequence.create('test.Increment', 3)");
-        db.executeTransactionally("CALL apoc.sequence.nextValue('test.Increment')");
+        db.executeTransactionally("CALL apoc.sequence.create('test.Increment', {initialValue: 3})");
+        final String queryCurrentValue = "RETURN apoc.sequence.currentValue('test.Increment')";
+        long actualValue = singleResultFirstColumn(db, queryCurrentValue);
+        assertEquals(3L, actualValue);
+
+        actualValue = singleResultFirstColumn(db, "RETURN apoc.sequence.nextValue('test.Increment')");
+        assertEquals(4L, actualValue);
+
         restartDb();
-        TestUtil.testCall(db, "CALL apoc.sequence.currentValue('test.Increment')", row -> {
-            assertEquals("test.Increment", row.get("name"));
-            assertEquals(4L, row.get("value"));
-        });
+
+        actualValue = singleResultFirstColumn(db, queryCurrentValue);
+        assertEquals(4L, actualValue);
+
         db.executeTransactionally("CALL apoc.sequence.drop('test.Increment')");
     }
 
     @Test
-    public void cancelSequenceAfterDrop() throws IOException {
-        db.executeTransactionally("CALL apoc.sequence.create('testAfterDrop', 5)");
-        db.executeTransactionally("CALL apoc.sequence.nextValue('testAfterDrop')");
-        TestUtil.testCall(db, "CALL apoc.sequence.currentValue('testAfterDrop')", row -> {
-            assertEquals("testAfterDrop", row.get("name"));
-            assertEquals(6L, row.get("value"));
-        });
+    public void dropSequenceAfterRestart() throws IOException {
+        db.executeTransactionally("CALL apoc.sequence.create('dropAfterRestart', {initialValue: 5})");
+
+        long actualValue = singleResultFirstColumn(db, "RETURN apoc.sequence.nextValue('dropAfterRestart')");
+        assertEquals(6L, actualValue);
+
+        final String queryCurrentValue = "RETURN apoc.sequence.currentValue('dropAfterRestart')";
+        actualValue = singleResultFirstColumn(db, queryCurrentValue);
+        assertEquals(6L, actualValue);
+
         restartDb();
 
-        testFail(db, "CALL apoc.sequence.currentValue('testIncrement')", QueryExecutionException.class);
+        actualValue = singleResultFirstColumn(db, queryCurrentValue);
+        assertEquals(6L, actualValue);
+
+        db.executeTransactionally("CALL apoc.sequence.drop('dropAfterRestart')");
+
+        testFail(db, queryCurrentValue, QueryExecutionException.class);
     }
 
     @Test
     public void shouldOverrideSequenceWithSameName() throws IOException {
-        testCall(db, "CALL apoc.sequence.create('sameName', 1)", row -> {
+        testCall(db, "CALL apoc.sequence.create('sameName', {initialValue: 1})", row -> {
             assertEquals("sameName", row.get("name"));
             assertEquals(1L, row.get("value"));
         });
         restartDb();
-        testCall(db, "CALL apoc.sequence.currentValue('sameName')", row -> {
-            assertEquals("sameName", row.get("name"));
-            assertEquals(1L, row.get("value"));
-        });
-        testCall(db, "CALL apoc.sequence.create('sameName', 3)", row -> {
+
+        final String queryCurrentValue = "RETURN apoc.sequence.currentValue('sameName')";
+        long actualValue = singleResultFirstColumn(db, queryCurrentValue);
+        assertEquals(1L, actualValue);
+
+        testCall(db, "CALL apoc.sequence.create('sameName', {initialValue: 3})", row -> {
             assertEquals("sameName", row.get("name"));
             assertEquals(3L, row.get("value"));
         });
-        testCall(db, "CALL apoc.sequence.create('sameName', 6)", row -> {
+        testCall(db, "CALL apoc.sequence.create('sameName', {initialValue: 6})", row -> {
             assertEquals("sameName", row.get("name"));
             assertEquals(6L, row.get("value"));
         });
         restartDb();
-        testCall(db, "CALL apoc.sequence.currentValue('sameName')", row -> {
-            assertEquals("sameName", row.get("name"));
-            assertEquals(6L, row.get("value"));
-        });
-        testCall(db, "CALL apoc.sequence.nextValue('sameName')", row -> {
-            assertEquals("sameName", row.get("name"));
-            assertEquals(7L, row.get("value"));
-        });
+        actualValue = singleResultFirstColumn(db, queryCurrentValue);
+        assertEquals(6L, actualValue);
+
+        actualValue = singleResultFirstColumn(db, "RETURN apoc.sequence.nextValue('sameName')");
+        assertEquals(7L, actualValue);
+
         testCall(db, "CALL apoc.sequence.list", row -> {
             assertEquals("sameName", row.get("name"));
             assertEquals(7L, row.get("value"));
@@ -124,12 +143,12 @@ public class SequenceStorageTest {
 
     @Test
     public void shouldReturnTheListAfterRestart() throws IOException {
-        testCall(db, "CALL apoc.sequence.create('one', 1)", row -> {
+        testCall(db, "CALL apoc.sequence.create('one', {initialValue: 1})", row -> {
             assertEquals("one", row.get("name"));
             assertEquals(1L, row.get("value"));
         });
 
-        testCall(db, "CALL apoc.sequence.create('two', 11)", row -> {
+        testCall(db, "CALL apoc.sequence.create('two', {initialValue: 11})", row -> {
             assertEquals("two", row.get("name"));
             assertEquals(11L, row.get("value"));
         });
@@ -158,7 +177,7 @@ public class SequenceStorageTest {
             });
         });
 
-        testCall(db, "CALL apoc.sequence.create('three', 22)", row -> {
+        testCall(db, "CALL apoc.sequence.create('three', {initialValue: 22})", row -> {
             assertEquals("three", row.get("name"));
             assertEquals(22L, row.get("value"));
         });
@@ -174,10 +193,8 @@ public class SequenceStorageTest {
             });
         });
 
-        testCall(db, "CALL apoc.sequence.nextValue('one')", row -> {
-            assertEquals("one", row.get("name"));
-            assertEquals(2L, row.get("value"));
-        });
+        long actualValue = singleResultFirstColumn(db, "RETURN apoc.sequence.nextValue('one')");
+        assertEquals(2L, actualValue);
 
         restartDb();
 
@@ -198,7 +215,9 @@ public class SequenceStorageTest {
         });
 
         testCallEmpty(db, "CALL apoc.sequence.drop('three')", emptyMap());
-
     }
 
+    private void assertSequenceConstraintSize(int expectedSize) {
+        assertSequenceConstraintSizeWithDbms(expectedSize, databaseManagementService.database(SYSTEM_DATABASE_NAME));
+    }
 }

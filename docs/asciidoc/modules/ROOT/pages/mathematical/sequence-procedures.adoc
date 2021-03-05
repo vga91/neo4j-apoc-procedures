@@ -38,27 +38,27 @@ CALL apoc.sequence.create('bar', 3);
 We can get the current value:
 [source,cypher]
 ----
-CALL apoc.sequence.currentValue('bar');
+RETURN apoc.sequence.currentValue('bar') as value;
 ----
 
 .Results
 [opts="header"]
 |===
-| name | value
-| bar | 3
+| value
+| 3
 |===
 
 And increment it by one:
 [source,cypher]
 ----
-CALL apoc.sequence.nextValue('bar');
+RETURN apoc.sequence.nextValue('bar') as value;
 ----
 
 .Results
 [opts="header"]
 |===
-| name | value
-| bar | 4
+| value
+| 4
 |===
 
 We can also overwrite an existing sequence, for example:

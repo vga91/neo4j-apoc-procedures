@@ -1,0 +1,9 @@
+The procedure support the following config parameters:
+
+.Config parameters
+[opts=header]
+|===
+| name | type | default | description
+| initialValue | long | 0 | Initial value of the sequence.
+| dropConstraint | boolean | true | Drop, if exists, a constraint with a query like: `DROP CONSTRAINT Sequence_[NAME]`, where `NAME` is the name of sequence.
+|===

@@ -3,6 +3,7 @@ package apoc;
 public enum SystemPropertyKeys  {
     database,
     name,
+    constraintPropertyName,
 
     // cypher stored procedures/functions
     lastUpdated,

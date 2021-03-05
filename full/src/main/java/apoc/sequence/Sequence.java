@@ -4,6 +4,7 @@ import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
 import apoc.util.Util;
+import org.neo4j.graphdb.ConstraintViolationException;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Pair;
@@ -11,18 +12,23 @@ import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
+import org.neo4j.procedure.UserFunction;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.neo4j.procedure.Mode.WRITE;
+import static org.neo4j.procedure.Mode.SCHEMA;
 
 public class Sequence {
 
     @Context
     public ApocConfig apocConfig;
+
+    public static final String SEQUENCE_CONSTRAINT_PREFIX = "Sequence_";
 
     public static class SequenceResult {
         public final String name;
@@ -34,51 +40,82 @@ public class Sequence {
         }
     }
 
-    @Procedure(mode = WRITE)
-    @Description("CALL apoc.sequence.create(name, initialValue [default=0]) - create a sequence, save it in a custom node in the system db and return it")
-    public Stream<SequenceResult> create(@Name("name") String name, @Name(value = "initialValue", defaultValue = "0") Long initialValue) {
+    @Procedure(mode = SCHEMA)
+    @Description("CALL apoc.sequence.create(name, {config}) - create a sequence, save it in a custom node in the system db and return it")
+    public Stream<SequenceResult> create(@Name("name") String name, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
 
-        return withSystemDbTx(tx -> {
-            Node node = Util.mergeNodeWithOptAdditionalLabel(tx,
+        SequenceConfig conf = new SequenceConfig(config);
+
+        Stream<SequenceResult> resultStream = withSystemDbTx(tx -> {
+            List<Pair<String, Object>> list = new ArrayList<>();
+            list.add(Pair.of(SystemPropertyKeys.name.name(), name));
+            if (conf.isCreateConstraint()) {
+                list.add(Pair.of(SystemPropertyKeys.constraintPropertyName.name(), conf.getConstraintPropertyName()));
+            }
+            Node node = Util.mergeNode(tx,
                     SystemLabels.Sequence,
                     null,
-                    true,
-                    Pair.of(SystemPropertyKeys.name.name(), name));
-            node.setProperty(SystemPropertyKeys.value.name(), initialValue);
-            return Stream.of(new SequenceResult(name, initialValue));
+                    list.toArray(Pair[]::new)
+            );
+            long init = conf.getInitialValue();
+            node.setProperty(SystemPropertyKeys.value.name(), init);
+            return Stream.of(new SequenceResult(name, init));
         });
+
+        if (conf.isCreateConstraint()) {
+            withSystemDbTx(tx -> {
+                try {
+                    tx.schema().constraintFor(SystemLabels.Sequence)
+                            .withName(SEQUENCE_CONSTRAINT_PREFIX + name)
+                            .assertPropertyIsUnique(conf.getConstraintPropertyName()).create();
+                } catch (ConstraintViolationException ignored) {}
+
+                return null;
+            });
+        }
+
+        return resultStream;
     }
 
-    @Procedure
-    @Description("CALL apoc.sequence.currentValue(name) - return the targeted sequence")
-    public Stream<SequenceResult> currentValue(@Name("name") String name) {
+    @UserFunction
+    @Description("apoc.sequence.currentValue(name) returns the targeted sequence")
+    public long currentValue(@Name("name") String name) {
 
-        return withSystemDbTx(tx -> Stream.of(
-                new SequenceResult(name, returnSequenceValueByName(tx, name))
-        ));
+        return withSystemDbTx(tx -> returnSequenceValueByName(tx, name));
     }
 
-    @Procedure(mode = WRITE)
-    @Description("CALL apoc.sequence.nextValue(name) - increment the targeted sequence by one and return it")
-    public Stream<SequenceResult> nextValue(@Name("name") String name) {
+    @UserFunction
+    @Description("apoc.sequence.nextValue(name) increments the targeted sequence by one and returns it")
+    public long nextValue(@Name("name") String name) {
 
         return withSystemDbTx(tx -> {
             Node node = getSequenceNode(tx, name);
-            Long valueIncremented = blockNodeAndReturnValue(tx, node) + 1;
+            long valueIncremented = blockNodeAndReturnValue(tx, node) + 1;
             node.setProperty(SystemPropertyKeys.value.name(), valueIncremented);
-            return Stream.of(new SequenceResult(name, valueIncremented));
+            return valueIncremented;
         });
     }
 
-    @Procedure(mode = WRITE)
+    @Procedure(mode = SCHEMA)
     @Description("CALL apoc.sequence.drop(name) - remove the targeted sequence and return remaining sequences")
-    public Stream<SequenceResult> drop(@Name("name") String name) {
+    public Stream<SequenceResult> drop(@Name("name") String name, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+
+        SequenceConfig conf = new SequenceConfig(config);
 
         withSystemDbTx(tx -> {
             Node node = getSequenceNode(tx, name);
             node.delete();
             return null;
         });
+
+        if (conf.isDropConstraint()) {
+            withSystemDbTx(tx -> {
+                try {
+                    tx.schema().getConstraintByName(SEQUENCE_CONSTRAINT_PREFIX + name).drop();
+                } catch (IllegalArgumentException ignored) {}
+                return null;
+            });
+        }
 
         return list();
     }
@@ -104,12 +141,12 @@ public class Sequence {
         return blockNodeAndReturnValue(tx, node);
     }
 
-    private Long blockNodeAndReturnValue(Transaction tx, Node node) {
+    private long blockNodeAndReturnValue(Transaction tx, Node node) {
         tx.acquireWriteLock(node);
         return getValueNode(node);
     }
 
-    private Long getValueNode(Node node) {
+    private long getValueNode(Node node) {
         return Util.toLong(node.getProperty(SystemPropertyKeys.value.name()));
     }
 

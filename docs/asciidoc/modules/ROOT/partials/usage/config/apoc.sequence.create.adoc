@@ -1,0 +1,10 @@
+The procedure support the following config parameters:
+
+.Config parameters
+[opts=header]
+|===
+| name | type | default | description
+| initialValue | long | 0 | Initial value of the sequence.
+| createConstraint | boolean | true | Create a constraint with a query like: `CREATE CONSTRAINT Sequence_[NAME]` ON (n:Sequence) ASSERT n.[PROP_NAME] IS UNIQUE, where `NAME` is the name of sequence and `PROP_NAME` is given by the property below
+| constraintPropertyName | String | "id" | With `createConstraint` true, is the `PROP_NAME` of the constraint.
+|===
