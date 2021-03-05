@@ -1,0 +1,2 @@
+¦signature
+¦apoc.sequence.nextValue(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)

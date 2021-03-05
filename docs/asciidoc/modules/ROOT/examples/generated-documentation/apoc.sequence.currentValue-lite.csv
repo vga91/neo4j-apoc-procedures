@@ -1,0 +1,2 @@
+¦signature
+¦apoc.sequence.currentValue(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)

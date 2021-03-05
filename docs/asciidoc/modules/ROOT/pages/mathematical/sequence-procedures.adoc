@@ -1,0 +1,103 @@
+[[sequence-procedures]]
+= Sequence procedures
+
+When we create a sequence will be generated a node into system database.
+We can create a sequence like this:
+[source,cypher]
+----
+CALL apoc.sequence.create('foo');
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| name | value
+| bar | 0
+|===
+
+This would create this node in system db:
+
+[source]
+----
+(:System {name: 'foo', value: 0})
+----
+
+We can set an initial value:
+[source,cypher]
+----
+CALL apoc.sequence.create('bar', 3);
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| name | value
+| bar | 3
+|===
+
+We can get the current value:
+[source,cypher]
+----
+CALL apoc.sequence.currentValue('bar');
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| name | value
+| bar | 3
+|===
+
+And increment it by one:
+[source,cypher]
+----
+CALL apoc.sequence.nextValue('bar');
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| name | value
+| bar | 4
+|===
+
+We can also overwrite an existing sequence, for example:
+[source,cypher]
+----
+CALL apoc.sequence.create('foo', 7);
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| name | value
+| foo | 7
+|===
+
+To get the list:
+[source,cypher]
+----
+CALL apoc.sequence.create('foo', 7);
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| name | value
+| foo | 7
+| bar | 4
+|===
+
+And finally, to drop and obtain the list of remaining sequences:
+[source,cypher]
+----
+CALL apoc.sequence.drop('foo');
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| name | value
+| bar | 4
+|===
+

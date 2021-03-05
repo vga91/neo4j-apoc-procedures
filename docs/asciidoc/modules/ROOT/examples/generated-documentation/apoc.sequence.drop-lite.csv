@@ -1,0 +1,2 @@
+¦signature
+¦apoc.sequence.drop(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)

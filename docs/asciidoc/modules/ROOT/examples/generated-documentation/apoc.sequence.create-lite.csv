@@ -1,0 +1,2 @@
+¦signature
+¦apoc.sequence.create(name :: STRING?, initialValue = 0 :: INTEGER?) :: (name :: STRING?, value :: INTEGER?)

@@ -1,0 +1,2 @@
+¦signature
+¦apoc.sequence.list() :: (name :: STRING?, value :: INTEGER?)

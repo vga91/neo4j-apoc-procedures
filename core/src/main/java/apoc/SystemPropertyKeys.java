@@ -22,5 +22,8 @@ public enum SystemPropertyKeys  {
 
     // uuid handler
     label,
-    propertyName;
+    propertyName,
+
+    // sequence handler
+    value
 }

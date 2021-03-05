@@ -868,10 +868,10 @@ public class Util {
         }
     }
 
-    public static Node mergeNode(Transaction tx, Label primaryLabel, Label addtionalLabel,
-                                 Pair<String, Object>... pairs ) {
+    public static Node mergeNodeWithOptAdditionalLabel(Transaction tx, Label primaryLabel, Label additionalLabel,
+                                                       boolean additionalLabelNotRequired, Pair<String, Object>... pairs) {
         Node node = Iterators.singleOrNull(tx.findNodes(primaryLabel, pairs[0].first(), pairs[0].other()).stream()
-                .filter(n -> addtionalLabel!=null && n.hasLabel(addtionalLabel))
+                .filter(n -> additionalLabelNotRequired || additionalLabel!=null && n.hasLabel(additionalLabel))
                 .filter( n -> {
                     for (int i=1; i<pairs.length; i++) {
                         if (!Objects.deepEquals(pairs[i].other(), n.getProperty(pairs[i].first(), null))) {
@@ -882,15 +882,20 @@ public class Util {
                 })
                 .iterator());
         if (node==null) {
-            Label[] labels = addtionalLabel == null ?
+            Label[] labels = additionalLabel == null ?
                     new Label[]{primaryLabel} :
-                    new Label[]{primaryLabel, addtionalLabel};
+                    new Label[]{primaryLabel, additionalLabel};
             node = tx.createNode(labels);
             for (int i=0; i<pairs.length; i++) {
                 node.setProperty(pairs[i].first(), pairs[i].other());
             }
         }
         return node;
+    }
+
+    public static Node mergeNode(Transaction tx, Label primaryLabel, Label additionalLabel,
+                                 Pair<String, Object>... pairs ) {
+        return mergeNodeWithOptAdditionalLabel(tx, primaryLabel, additionalLabel, false, pairs);
     }
 
     public static <T> Set<T> intersection(Collection<T> a, Collection<T> b) {
