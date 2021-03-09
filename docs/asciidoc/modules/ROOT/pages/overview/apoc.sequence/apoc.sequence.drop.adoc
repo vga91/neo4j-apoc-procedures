@@ -14,7 +14,7 @@ CALL apoc.sequence.drop(name) - remove the targeted sequence and return remainin
 
 [source]
 ----
-apoc.sequence.drop(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)
+apoc.sequence.drop(name :: STRING?, config = {} :: MAP?) :: (name :: STRING?, value :: INTEGER?)
 ----
 
 == Input parameters
@@ -22,7 +22,11 @@ apoc.sequence.drop(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)
 |===
 | Name | Type | Default 
 |name|STRING?|null
+|config|MAP?|{}
 |===
+
+== Config parameters
+include::partial$usage/config/apoc.sequence.drop.adoc[]
 
 == Output parameters
 [.procedures, opts=header]

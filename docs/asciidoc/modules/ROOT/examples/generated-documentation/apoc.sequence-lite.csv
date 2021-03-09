@@ -1,6 +1,6 @@
 ¦signature
-¦apoc.sequence.create(name :: STRING?, initialValue = 0 :: INTEGER?) :: (name :: STRING?, value :: INTEGER?)
-¦apoc.sequence.currentValue(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)
-¦apoc.sequence.drop(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)
+¦apoc.sequence.create(name :: STRING?, config = {} :: MAP?) :: (name :: STRING?, value :: INTEGER?)
+¦apoc.sequence.drop(name :: STRING?, config = {} :: MAP?) :: (name :: STRING?, value :: INTEGER?)
 ¦apoc.sequence.list() :: (name :: STRING?, value :: INTEGER?)
-¦apoc.sequence.nextValue(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)
+¦apoc.sequence.currentValue(name :: STRING?) :: (INTEGER?)
+¦apoc.sequence.nextValue(name :: STRING?) :: (INTEGER?)

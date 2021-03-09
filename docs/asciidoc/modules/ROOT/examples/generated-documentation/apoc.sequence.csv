@@ -1,12 +1,7 @@
 ¦Qualified Name¦Type¦Release
 |xref::overview/apoc.sequence/apoc.sequence.adoc[apoc.sequence.create icon:book[]]
 
-CALL apoc.sequence.create(name, initialValue [default=0]) - create a sequence, save it in a custom node in the system db and return it
-|label:procedure[]
-|label:apoc-core[]
-|xref::overview/apoc.sequence/apoc.sequence.adoc[apoc.sequence.currentValue icon:book[]]
-
-CALL apoc.sequence.currentValue(name) - return the targeted sequence
+CALL apoc.sequence.create(name, \{config}) - create a sequence, save it in a custom node in the system db and return it
 |label:procedure[]
 |label:apoc-core[]
 |xref::overview/apoc.sequence/apoc.sequence.adoc[apoc.sequence.drop icon:book[]]
@@ -19,8 +14,13 @@ CALL apoc.sequence.drop(name) - remove the targeted sequence and return remainin
 CALL apoc.sequence.list() - provide a list of sequences created
 |label:procedure[]
 |label:apoc-core[]
+|xref::overview/apoc.sequence/apoc.sequence.adoc[apoc.sequence.currentValue icon:book[]]
+
+apoc.sequence.currentValue(name) returns the targeted sequence
+|label:function[]
+|label:apoc-core[]
 |xref::overview/apoc.sequence/apoc.sequence.adoc[apoc.sequence.nextValue icon:book[]]
 
-CALL apoc.sequence.nextValue(name) - increment the targeted sequence by one and return it
-|label:procedure[]
+apoc.sequence.nextValue(name) increments the targeted sequence by one and returns it
+|label:function[]
 |label:apoc-core[]

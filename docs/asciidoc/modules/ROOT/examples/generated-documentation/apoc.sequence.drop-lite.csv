@@ -1,2 +1,2 @@
 ¦signature
-¦apoc.sequence.drop(name :: STRING?) :: (name :: STRING?, value :: INTEGER?)
+¦apoc.sequence.drop(name :: STRING?, config = {} :: MAP?) :: (name :: STRING?, value :: INTEGER?)

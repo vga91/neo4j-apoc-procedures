@@ -3,9 +3,13 @@ package apoc.sequence;
 import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
+import apoc.util.ArrayBackedList;
 import apoc.util.Util;
+import org.neo4j.exceptions.Neo4jException;
 import org.neo4j.graphdb.ConstraintViolationException;
+import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.procedure.Context;
@@ -17,6 +21,9 @@ import org.neo4j.procedure.UserFunction;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -28,7 +35,12 @@ public class Sequence {
     @Context
     public ApocConfig apocConfig;
 
+    @Context
+    public Transaction tx;
+
     public static final String SEQUENCE_CONSTRAINT_PREFIX = "Sequence_";
+
+    private static final ConcurrentMap<String, AtomicLong> STORAGE = new ConcurrentHashMap<>();
 
     public static class SequenceResult {
         public final String name;
@@ -40,11 +52,17 @@ public class Sequence {
         }
     }
 
+    public synchronized long getAvailableId(String name){
+        AtomicLong id = STORAGE.get(name);
+        return id.incrementAndGet();
+    }
+
     @Procedure(mode = SCHEMA)
     @Description("CALL apoc.sequence.create(name, {config}) - create a sequence, save it in a custom node in the system db and return it")
     public Stream<SequenceResult> create(@Name("name") String name, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
 
         SequenceConfig conf = new SequenceConfig(config);
+        System.out.println("Sequence.create");
 
         Stream<SequenceResult> resultStream = withSystemDbTx(tx -> {
             List<Pair<String, Object>> list = new ArrayList<>();
@@ -59,6 +77,7 @@ public class Sequence {
             );
             long init = conf.getInitialValue();
             node.setProperty(SystemPropertyKeys.value.name(), init);
+            STORAGE.put(name, new AtomicLong(init));
             return Stream.of(new SequenceResult(name, init));
         });
 
@@ -81,19 +100,14 @@ public class Sequence {
     @Description("apoc.sequence.currentValue(name) returns the targeted sequence")
     public long currentValue(@Name("name") String name) {
 
-        return withSystemDbTx(tx -> returnSequenceValueByName(tx, name));
+        return STORAGE.get(name).get();
     }
 
     @UserFunction
     @Description("apoc.sequence.nextValue(name) increments the targeted sequence by one and returns it")
     public long nextValue(@Name("name") String name) {
 
-        return withSystemDbTx(tx -> {
-            Node node = getSequenceNode(tx, name);
-            long valueIncremented = blockNodeAndReturnValue(tx, node) + 1;
-            node.setProperty(SystemPropertyKeys.value.name(), valueIncremented);
-            return valueIncremented;
-        });
+        return getAvailableId(name);
     }
 
     @Procedure(mode = SCHEMA)
@@ -101,6 +115,8 @@ public class Sequence {
     public Stream<SequenceResult> drop(@Name("name") String name, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
 
         SequenceConfig conf = new SequenceConfig(config);
+
+        STORAGE.remove(name);
 
         withSystemDbTx(tx -> {
             Node node = getSequenceNode(tx, name);
@@ -124,26 +140,9 @@ public class Sequence {
     @Description("CALL apoc.sequence.list() - provide a list of sequences created")
     public Stream<SequenceResult> list() {
 
-        List<SequenceResult> nodes = withSystemDbTx(tx -> tx.findNodes(SystemLabels.Sequence)
-                .stream()
-                .map(node -> new SequenceResult(
-                        node.getProperty(SystemPropertyKeys.name.name()).toString(),
-                        getValueNode(node)
-                )).collect(Collectors.toList())
-        );
+        return STORAGE.entrySet().stream()
+                .map(i -> new SequenceResult(i.getKey(), i.getValue().longValue()));
 
-        return nodes.stream();
-    }
-
-
-    private long returnSequenceValueByName(Transaction tx, String name) {
-        Node node = getSequenceNode(tx, name);
-        return blockNodeAndReturnValue(tx, node);
-    }
-
-    private long blockNodeAndReturnValue(Transaction tx, Node node) {
-        tx.acquireWriteLock(node);
-        return getValueNode(node);
     }
 
     private long getValueNode(Node node) {

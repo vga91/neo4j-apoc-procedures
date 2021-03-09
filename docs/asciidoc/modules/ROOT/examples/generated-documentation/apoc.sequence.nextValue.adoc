@@ -1,5 +1,5 @@
 ¦xref::overview/apoc.sequence/apoc.sequence.nextValue.adoc[apoc.sequence.nextValue icon:book[]] +
 
-`CALL apoc.sequence.nextValue(name)` - increment the targeted sequence by one and return it
-¦label:procedure[]
+`apoc.sequence.nextValue(name) increments the targeted sequence by one and returns it`
+¦label:function[]
 ¦label:apoc-core[]

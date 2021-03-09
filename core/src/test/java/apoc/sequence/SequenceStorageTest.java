@@ -2,6 +2,7 @@ package apoc.sequence;
 
 import apoc.util.TestUtil;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -27,6 +28,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
+@Ignore("waiting for storage strategy")
 public class SequenceStorageTest {
 
     @Rule
