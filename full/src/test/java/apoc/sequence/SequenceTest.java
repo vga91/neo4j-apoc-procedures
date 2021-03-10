@@ -119,8 +119,6 @@ public class SequenceTest {
         assertEquals(1L, actualValue);
     }
 
-    // todo - testare che la constraint sia sempre quella e che alla fine venga cancellata
-
     @Test
     public void shouldOverrideSequenceWithSameName() {
         db.executeTransactionally("CALL apoc.sequence.create('test', {initialValue: 1})");
@@ -139,8 +137,6 @@ public class SequenceTest {
 
         actualValue = singleResultFirstColumn(db, queryCurrentValue);
         assertEquals(0L, actualValue);
-
-        // todo - testare che se overrido con  createConstraint: false comunque rimane
 
         db.executeTransactionally("CALL apoc.sequence.drop('test')");
 
