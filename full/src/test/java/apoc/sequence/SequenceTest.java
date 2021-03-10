@@ -201,7 +201,7 @@ public class SequenceTest {
             tx.commit();
         }
 
-        testFail(db, queryCurrentValue, QueryExecutionException.class);
+        testCallEmpty(db, queryDrop, emptyMap());
     }
 
     @Test

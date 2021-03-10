@@ -2,6 +2,7 @@ package apoc;
 
 import apoc.custom.CypherProcedures;
 import apoc.custom.CypherProceduresHandler;
+import apoc.sequence.SequenceHandler;
 import apoc.ttl.TTLLifeCycle;
 import apoc.uuid.Uuid;
 import apoc.uuid.UuidHandler;
@@ -46,13 +47,14 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
                 dependencies.apocConfig(),
                 dependencies.globalProceduresRegistry()),
 
-                "cypherProcedures", cypherProcedureHandler
+                "cypherProcedures", cypherProcedureHandler,
+                "sequence", new SequenceHandler(dependencies.apocConfig())
         );
     }
 
     @Override
     public Collection<Class> getContextClasses() {
-        return List.of(CypherProceduresHandler.class, UuidHandler.class);
+        return List.of(CypherProceduresHandler.class, UuidHandler.class, SequenceHandler.class);
     }
 
     @Override

@@ -2,7 +2,6 @@ package apoc.sequence;
 
 import apoc.util.TestUtil;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -28,7 +27,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
-@Ignore("waiting for storage strategy")
 public class SequenceStorageTest {
 
     @Rule
@@ -44,7 +42,7 @@ public class SequenceStorageTest {
         TestUtil.registerProcedure(db, Sequence.class);
     }
 
-    private void restartDb() throws IOException {
+    private void restartDb() {
         databaseManagementService.shutdown();
         databaseManagementService = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot()).build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);

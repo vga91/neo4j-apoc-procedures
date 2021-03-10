@@ -3,13 +3,9 @@ package apoc.sequence;
 import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
-import apoc.util.ArrayBackedList;
 import apoc.util.Util;
-import org.neo4j.exceptions.Neo4jException;
 import org.neo4j.graphdb.ConstraintViolationException;
-import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.procedure.Context;
@@ -21,13 +17,11 @@ import org.neo4j.procedure.UserFunction;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static apoc.sequence.SequenceHandler.STORAGE;
 import static org.neo4j.procedure.Mode.SCHEMA;
 
 public class Sequence {
@@ -40,7 +34,9 @@ public class Sequence {
 
     public static final String SEQUENCE_CONSTRAINT_PREFIX = "Sequence_";
 
-    private static final ConcurrentMap<String, AtomicLong> STORAGE = new ConcurrentHashMap<>();
+    protected static Node getSequenceNode(Transaction tx, String name) {
+        return tx.findNode(SystemLabels.Sequence, SystemPropertyKeys.name.name(), name);
+    }
 
     public static class SequenceResult {
         public final String name;
@@ -54,6 +50,7 @@ public class Sequence {
 
     public synchronized long getAvailableId(String name){
         AtomicLong id = STORAGE.get(name);
+        isSequenceExistent(name, id);
         return id.incrementAndGet();
     }
 
@@ -62,7 +59,6 @@ public class Sequence {
     public Stream<SequenceResult> create(@Name("name") String name, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
 
         SequenceConfig conf = new SequenceConfig(config);
-        System.out.println("Sequence.create");
 
         Stream<SequenceResult> resultStream = withSystemDbTx(tx -> {
             List<Pair<String, Object>> list = new ArrayList<>();
@@ -100,7 +96,9 @@ public class Sequence {
     @Description("apoc.sequence.currentValue(name) returns the targeted sequence")
     public long currentValue(@Name("name") String name) {
 
-        return STORAGE.get(name).get();
+        final AtomicLong id = STORAGE.get(name);
+        isSequenceExistent(name, id);
+        return id.get();
     }
 
     @UserFunction
@@ -116,11 +114,14 @@ public class Sequence {
 
         SequenceConfig conf = new SequenceConfig(config);
 
-        STORAGE.remove(name);
+        final AtomicLong removed = STORAGE.remove(name);
+        isSequenceExistent(name, removed);
 
         withSystemDbTx(tx -> {
             Node node = getSequenceNode(tx, name);
-            node.delete();
+            if (node != null) {
+                node.delete();
+            }
             return null;
         });
 
@@ -132,7 +133,6 @@ public class Sequence {
                 return null;
             });
         }
-
         return list();
     }
 
@@ -140,21 +140,13 @@ public class Sequence {
     @Description("CALL apoc.sequence.list() - provide a list of sequences created")
     public Stream<SequenceResult> list() {
 
-        return STORAGE.entrySet().stream()
-                .map(i -> new SequenceResult(i.getKey(), i.getValue().longValue()));
-
+        return STORAGE.entrySet().stream().map(i -> new SequenceResult(i.getKey(), i.getValue().longValue()));
     }
 
-    private long getValueNode(Node node) {
-        return Util.toLong(node.getProperty(SystemPropertyKeys.value.name()));
-    }
-
-    private Node getSequenceNode(Transaction tx, String name) {
-        Node node = tx.findNode(SystemLabels.Sequence, SystemPropertyKeys.name.name(), name);
-        if (node == null) {
+    private void isSequenceExistent(@Name("name") String name, AtomicLong id) {
+        if (id == null) {
             throw new RuntimeException(String.format("The sequence with name %s does not exist", name));
         }
-        return node;
     }
 
     private <T> T withSystemDbTx(Function<Transaction, T> action) {
