@@ -5,7 +5,6 @@ import apoc.SystemPropertyKeys;
 import apoc.util.TestUtil;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.driver.internal.util.Iterables;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -95,6 +94,7 @@ public class SequenceTest {
 
     @Test
     public void dropSequence() {
+        System.out.println("SequenceTest.dropSequence");
         db.executeTransactionally("CALL apoc.sequence.create('test', {initialValue: 1})");
         testCallEmpty(db, "CALL apoc.sequence.drop('test')", emptyMap());
     }
@@ -127,30 +127,18 @@ public class SequenceTest {
     }
 
     @Test
-    @Ignore("deve spaccare, non overridare, forse si può configurare...")
-    public void shouldOverrideSequenceWithSameName() {
-        System.out.println("SequenceTest.shouldOverrideSequenceWithSameName");
+    public void shouldFailWhenCreateASequenceWithSameName() {
+        System.out.println("SequenceTest.shouldFailWhenCreateASequenceWithSameName");
         db.executeTransactionally("CALL apoc.sequence.create('test', {initialValue: 1})");
-
 
         final String queryCurrentValue = "RETURN apoc.sequence.currentValue('test')";
         long actualValue = singleResultFirstColumn(db, queryCurrentValue);
         assertEquals(1L, actualValue);
 
-        db.executeTransactionally("CALL apoc.sequence.create('test', {initialValue: 5})");
-
-        actualValue = singleResultFirstColumn(db, queryCurrentValue);
-        assertEquals(5L, actualValue);
-
-        db.executeTransactionally("CALL apoc.sequence.create('test')");
-
-        actualValue = singleResultFirstColumn(db, queryCurrentValue);
-        assertEquals(0L, actualValue);
-
-        db.executeTransactionally("CALL apoc.sequence.drop('test')");
-
-        testCallEmpty(db, "CALL apoc.sequence.list", emptyMap());
+        testFail(db, "CALL apoc.sequence.create('test', {initialValue: 5})", QueryExecutionException.class);
+        testCallEmpty(db, "CALL apoc.sequence.drop('test')", emptyMap());
     }
+
     @Test
     public void shouldFailIfNotExists() {
         System.out.println("SequenceTest.shouldFailIfNotExists");

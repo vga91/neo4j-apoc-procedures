@@ -108,40 +108,6 @@ public class SequenceStorageTest {
     }
 
     @Test
-    public void shouldOverrideSequenceWithSameName() throws IOException {
-        testCall(db, "CALL apoc.sequence.create('sameName', {initialValue: 1})", row -> {
-            assertEquals("sameName", row.get("name"));
-            assertEquals(1L, row.get("value"));
-        });
-        restartDb();
-
-        final String queryCurrentValue = "RETURN apoc.sequence.currentValue('sameName')";
-        long actualValue = singleResultFirstColumn(db, queryCurrentValue);
-        assertEquals(1L, actualValue);
-
-        testCall(db, "CALL apoc.sequence.create('sameName', {initialValue: 3})", row -> {
-            assertEquals("sameName", row.get("name"));
-            assertEquals(3L, row.get("value"));
-        });
-        testCall(db, "CALL apoc.sequence.create('sameName', {initialValue: 6})", row -> {
-            assertEquals("sameName", row.get("name"));
-            assertEquals(6L, row.get("value"));
-        });
-        restartDb();
-        actualValue = singleResultFirstColumn(db, queryCurrentValue);
-        assertEquals(6L, actualValue);
-
-        actualValue = singleResultFirstColumn(db, "RETURN apoc.sequence.nextValue('sameName')");
-        assertEquals(7L, actualValue);
-
-        testCall(db, "CALL apoc.sequence.list", row -> {
-            assertEquals("sameName", row.get("name"));
-            assertEquals(7L, row.get("value"));
-        });
-        testCallEmpty(db, "CALL apoc.sequence.drop('sameName')", emptyMap());
-    }
-
-    @Test
     public void shouldReturnTheListAfterRestart() throws IOException {
         testCall(db, "CALL apoc.sequence.create('one', {initialValue: 1})", row -> {
             assertEquals("one", row.get("name"));

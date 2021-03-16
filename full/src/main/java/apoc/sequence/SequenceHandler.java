@@ -3,49 +3,73 @@ package apoc.sequence;
 import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
-import apoc.util.Util;
 import org.neo4j.graphdb.ConstraintViolationException;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.internal.helpers.collection.Pair;
+import org.neo4j.kernel.availability.AvailabilityListener;
+import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.procedure.Name;
+import org.neo4j.scheduler.Group;
 import org.neo4j.scheduler.JobHandle;
+import org.neo4j.scheduler.JobScheduler;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
+import static apoc.ApocConfig.apocConfig;
 import static apoc.sequence.Sequence.SEQUENCE_CONSTRAINT_PREFIX;
 
-public class SequenceHandler extends LifecycleAdapter {
+public class SequenceHandler extends LifecycleAdapter implements AvailabilityListener {
 
     private final ApocConfig apocConfig;
 
+    public static final String SEQUENCES_REFRESH = "apoc.sequences.refresh";
+
     private static final ConcurrentMap<String, AtomicLong> STORAGE = new ConcurrentHashMap<>();
+    private static Group REFRESH_GROUP = Group.STORAGE_MAINTENANCE;
+    private final JobScheduler jobScheduler;
+    private long lastUpdate;
+    private JobHandle restoreProceduresHandle;
+    private final GraphDatabaseAPI api;
 
-    public SequenceHandler(ApocConfig apocConfig) {
-        this.apocConfig = apocConfig;
+    public SequenceHandler(ApocConfig apocConfig, JobScheduler jobScheduler, GraphDatabaseAPI db) {
+        this.apocConfig = apocConfig; // todo - fare direttamente  this.systemDb = apocConfig.getSystemDb();
+        this.jobScheduler = jobScheduler;
+        this.api = db;
     }
 
-    private JobHandle restoreSequencencesHandle;
-
-    @Override
-    public void start() {
-        refreshSequences();
-    }
+//    @Override
+//    public void start() {
+//        System.out.println("SequenceHandler.start");
+//////        refreshSequences();
+////        refreshSequences();
+////        long refreshInterval = apocConfig().getInt(SEQUENCES_REFRESH, 60000);
+////        System.out.println("apocConfig().getInt(SEQUENCES_REFRESH, 60000);");
+////        System.out.println(apocConfig().getInt(SEQUENCES_REFRESH, 60000));
+////        restoreProceduresHandle = jobScheduler.scheduleRecurring(REFRESH_GROUP, () -> {
+////            if (getLastUpdate() > lastUpdate) {
+////                refreshSequences();
+////            }
+////        }, refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
+//    }
 
     private void refreshSequences() {
-        withSystemDbTx(tx-> {
-            tx.findNodes(SystemLabels.Sequence).forEachRemaining(item -> {
 
-                final String name = (String) item.getProperty(SystemPropertyKeys.name.name());
-                final long value = (long) item.getProperty(SystemPropertyKeys.value.name());
+        lastUpdate = System.currentTimeMillis();// todo..... nel caso faccio System.currentTimeMillis() > lastUpdate
+
+        withSystemDbTx(tx-> {
+
+            tx.findNodes(SystemLabels.Sequence).forEachRemaining(node -> {
+
+                tx.acquireWriteLock(node);
+                final String name = (String) node.getProperty(SystemPropertyKeys.name.name());
+                final long value = (long) node.getProperty(SystemPropertyKeys.value.name());
+
                 STORAGE.compute(name, (s, atomicLong) -> {
                     if (atomicLong == null) {
                         return new AtomicLong(value);
@@ -53,6 +77,9 @@ public class SequenceHandler extends LifecycleAdapter {
                         long actual = atomicLong.get();
                         if (actual < value) {
                             atomicLong.compareAndSet(actual, value);
+                        }
+                        if (actual > value) {
+                            node.setProperty(SystemPropertyKeys.value.name(), actual);
                         }
                         return atomicLong;
                     }
@@ -62,26 +89,27 @@ public class SequenceHandler extends LifecycleAdapter {
         });
     }
 
-    @Override
-    public void stop() {
-        withSystemDbTx(tx-> {
-            tx.findNodes(SystemLabels.Sequence).forEachRemaining(node -> {
-                final String name = (String) node.getProperty(SystemPropertyKeys.name.name());
-                final long value = (long) node.getProperty(SystemPropertyKeys.value.name());
-                final long actual = STORAGE.get(name).get();
-                if (actual > value) {
-                    node.setProperty(SystemPropertyKeys.value.name(), actual);
-                }
-            });
-            STORAGE.clear();
-            return null;
-        });
-    }
+//    @Override
+//    public void stop() {
+//        System.out.println("SequenceHandler.stop");
+////        withSystemDbTx(tx-> {
+////            tx.findNodes(SystemLabels.Sequence).forEachRemaining(node -> {
+////                final String name = (String) node.getProperty(SystemPropertyKeys.name.name());
+////                final long value = (long) node.getProperty(SystemPropertyKeys.value.name());
+////                final long actual = STORAGE.get(name).get();
+////                if (actual > value) {
+////                    node.setProperty(SystemPropertyKeys.value.name(), actual);
+////                }
+////            });
+////            STORAGE.clear();
+////            return null;
+////        });
+//    }
 
     public long nextValue(String name) {
         return STORAGE.compute(name, (s, atomicLong) -> {
             if (atomicLong == null) {
-                throw new RuntimeException("sequence not found");
+                sequenceNotFound(name);
             }
             return atomicLong;
         }).incrementAndGet();
@@ -90,7 +118,7 @@ public class SequenceHandler extends LifecycleAdapter {
     public long currentValue(String name) {
         return STORAGE.compute(name, (s, atomicLong) -> {
             if (atomicLong == null) {
-                throw  new RuntimeException("sequence...");
+                sequenceNotFound(name);
             }
             return atomicLong;
         }).get();
@@ -117,7 +145,7 @@ public class SequenceHandler extends LifecycleAdapter {
             boolean existsNode = tx.findNode(SystemLabels.Sequence, SystemPropertyKeys.name.name(), name) != null;
 
             if (existsNode) {
-                throw new RuntimeException("sequence exists");
+                throw new RuntimeException(String.format("The sequence with name %s exists", name));
             }
 
             Node node = tx.createNode(SystemLabels.Sequence);
@@ -126,10 +154,10 @@ public class SequenceHandler extends LifecycleAdapter {
                 node.setProperty(SystemPropertyKeys.constraintPropertyName.name(), conf.getConstraintPropertyName());
             }
 
-
             long init = conf.getInitialValue();
             node.setProperty(SystemPropertyKeys.value.name(), init);
             STORAGE.put(name, new AtomicLong(init));
+
             return Stream.of(new Sequence.SequenceResult(name, init));
         });
 
@@ -174,8 +202,12 @@ public class SequenceHandler extends LifecycleAdapter {
 
     private void isSequenceExistent(@Name("name") String name, AtomicLong id) {
         if (id == null) {
-            throw new RuntimeException(String.format("The sequence with name %s does not exist", name));
+            sequenceNotFound(name);
         }
+    }
+
+    private void sequenceNotFound(@Name("name") String name) {
+        throw new RuntimeException(String.format("The sequence with name %s does not exist", name));
     }
 
     public Stream<Sequence.SequenceResult> list() {
@@ -190,4 +222,59 @@ public class SequenceHandler extends LifecycleAdapter {
         return STORAGE.entrySet().stream().map(i -> new Sequence.SequenceResult(i.getKey(), i.getValue().longValue()));
     }
 
+    @Override
+    public void available() {
+        System.out.println("SequenceHandler.available");
+//        withSystemDbTx(tx-> {
+//            tx.findNodes(SystemLabels.Sequence).forEachRemaining(item -> {
+//
+//                final String name = (String) item.getProperty(SystemPropertyKeys.name.name());
+//                final long value = (long) item.getProperty(SystemPropertyKeys.value.name());
+//                STORAGE.compute(name, (s, atomicLong) -> {
+//                    if (atomicLong == null) {
+//                        return new AtomicLong(value);
+//                    } else {
+//                        long actual = atomicLong.get();
+//                        if (actual < value) {
+//                            atomicLong.compareAndSet(actual, value);
+//                        }
+//                        return atomicLong;
+//                    }
+//                });
+//            });
+//            return null;
+//        });
+
+        refreshSequences();
+        long refreshInterval = apocConfig().getInt(SEQUENCES_REFRESH, 60000);
+        System.out.println("apocConfig().getInt(SEQUENCES_REFRESH, 60000);");
+        System.out.println(apocConfig().getInt(SEQUENCES_REFRESH, 60000));
+        restoreProceduresHandle = jobScheduler.scheduleRecurring(REFRESH_GROUP, () -> {
+//            if (getLastUpdate() > lastUpdate) {
+                refreshSequences();
+//            }
+        }, refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
+    }
+
+    @Override
+    public void unavailable() {
+        System.out.println("SequenceHandler.unavailable");
+        if (restoreProceduresHandle != null) {
+            restoreProceduresHandle.cancel();
+        }
+
+        withSystemDbTx(tx-> {
+            tx.findNodes(SystemLabels.Sequence).forEachRemaining(node -> {
+                tx.acquireWriteLock(node);
+                final String name = (String) node.getProperty(SystemPropertyKeys.name.name());
+                final long value = (long) node.getProperty(SystemPropertyKeys.value.name());
+                final long actual = STORAGE.get(name).get();
+                if (actual > value) {
+                    node.setProperty(SystemPropertyKeys.value.name(), actual);
+                }
+            });
+            STORAGE.clear();
+            return null;
+        });
+    }
 }
