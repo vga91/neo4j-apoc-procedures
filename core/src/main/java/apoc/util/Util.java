@@ -86,7 +86,7 @@ import java.util.zip.ZipInputStream;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.util.DateFormatUtil.getOrCreate;
 import static java.lang.String.format;
-import static org.apache.commons.lang.ArrayUtils.toPrimitive;
+import static org.eclipse.jetty.util.URIUtil.encodePath;
 
 /**
  * @author mh
@@ -923,7 +923,7 @@ public class Util {
 
     public static Map<String, Object> extractCredentialsIfNeeded(String url, boolean failOnError) {
         try {
-            URI uri = new URI(url);
+            URI uri = new URI(encodePath(url));
             String authInfo = uri.getUserInfo();
             if (null != authInfo) {
                 String[] parts = authInfo.split(":");
