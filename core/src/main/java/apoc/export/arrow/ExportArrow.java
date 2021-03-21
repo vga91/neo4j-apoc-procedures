@@ -154,7 +154,6 @@ public class ExportArrow {
 
         String importDir = apocConfig().getString("dbms.directories.import", "import");
         File file_nodes = new File(importDir, "nodes_" + fileName);
-//        File file_nodes = new File(importDir, fileName + "_nodes"); // todo - in questo modo il file diventa fileName.arrow_nodes !!
         File file_rels = new File(importDir, fileName + "_edges");
         final String format = "arrow";
         ProgressInfo progressInfo = new ProgressInfo(fileName, source, format);
@@ -162,7 +161,6 @@ public class ExportArrow {
         ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
         ArrowFormat exporter = new ArrowFormat(db);
 
-        // todo - che fa?
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, false);
 
         try (RootAllocator allocator = new RootAllocator()) {
