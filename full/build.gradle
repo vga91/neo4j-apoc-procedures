@@ -106,6 +106,17 @@ dependencies {
     compileOnly group: 'com.couchbase.client', name: 'java-client', version: '2.7.2'
     testCompile group: 'com.couchbase.client', name: 'java-client', version: '2.7.2'
 
+
+    compileOnly group: 'org.apache.arrow', name: 'arrow-java-root', version: '3.0.0'
+    testCompile group: 'org.apache.arrow', name: 'arrow-java-root', version: '3.0.0'
+
+    compileOnly group: 'org.apache.arrow', name: 'arrow-vector', version: '3.0.0'
+    testCompile group: 'org.apache.arrow', name: 'arrow-vector', version: '3.0.0'
+    compileOnly group: 'org.apache.arrow', name: 'arrow-memory-netty', version: '3.0.0'
+    testCompile group: 'org.apache.arrow', name: 'arrow-memory-netty', version: '3.0.0'
+    compileOnly group: 'org.apache.arrow', name: 'arrow-memory-unsafe', version: '3.0.0'
+    testCompile group: 'org.apache.arrow', name: 'arrow-memory-unsafe', version: '3.0.0'
+
     compileOnly group: 'org.neo4j', name: 'neo4j', version: neo4jVersionEffective
     compileOnly group: 'org.codehaus.jackson', name: 'jackson-mapper-asl', version: '1.9.7'
 
