@@ -9,7 +9,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
-import org.neo4j.graphdb.*;
+import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.Transaction;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -20,7 +24,10 @@ import java.util.Map;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
 import static java.util.Arrays.asList;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * @author mh
@@ -45,13 +52,6 @@ public class CypherProceduresTest  {
         TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
         db.executeTransactionally("CALL apoc.custom.declareProcedure('answer2() :: (answer::INT)','RETURN 42 as answer')");
         TestUtil.testCall(db, "call custom.answer2()", (row) -> assertEquals(42L, row.get("answer")));
-    }
-
-    @Test
-    public void registerSimpleStatementWithOneChar() throws Exception {
-        db.executeTransactionally("call apoc.custom.asProcedure('a','RETURN 42 as answer')");
-        TestUtil.testCall(db, "call custom.a()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
-        TestUtil.testFail(db, "CALL apoc.custom.declareProcedure('b() :: (answer::INT)','RETURN 42 as answer')", QueryExecutionException.class);
     }
 
     @Test
@@ -193,13 +193,6 @@ public class CypherProceduresTest  {
         TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
         db.executeTransactionally("CALL apoc.custom.declareFunction('answer2() :: STRING','RETURN 42 as answer')");
         TestUtil.testCall(db, "return custom.answer2() as row", (row) -> assertEquals(42L, row.get("row")));
-    }
-
-    @Test
-    public void registerSimpleStatementFunctionWithOneChar() throws Exception {
-        db.executeTransactionally("call apoc.custom.asFunction('a','RETURN 42 as answer')");
-        TestUtil.testCall(db, "return custom.a() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
-        TestUtil.testFail(db, "CALL apoc.custom.declareFunction('b() :: STRING','RETURN 42 as answer')", QueryExecutionException.class);
     }
 
     @Test
