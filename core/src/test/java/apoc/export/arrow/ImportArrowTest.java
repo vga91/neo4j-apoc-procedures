@@ -34,9 +34,9 @@ public class ImportArrowTest {
     @BeforeClass
     public static void setUp() throws Exception {
         TestUtil.registerProcedure(db, ImportArrow.class);
-        nodes = Thread.currentThread().getContextClassLoader().getResource("nodes_withSchema.arrow").getPath();
+//        nodes = Thread.currentThread().getContextClassLoader().getResource("nodes_withSchema.arrow").getPath();
 //        nodes = Util.readResourceFile("nodes_withSchema.arrow");
-        edges = Util.readResourceFile("edges_withSchema.arrow");
+//        edges = Util.readResourceFile("edges_withSchema.arrow");
 //        String additionalLink = "match (p:Person{name:'Nora Ephron'}), (m:Movie{title:'When Harry Met Sally'}) create (p)-[:ACTED_IN]->(m)";
 //        try (Transaction tx = db.beginTx()) {
 //            tx.execute(movies);
@@ -47,8 +47,8 @@ public class ImportArrowTest {
 
     @Test
     public void testBasicImport() throws Throwable {
-        URL url = ClassLoader.getSystemResource("nodes_withAllMaybe4.arrow");
-        URL url2 = ClassLoader.getSystemResource("edges_withAllMaybe4.arrow");
+        URL url = ClassLoader.getSystemResource("nodes_withAllMaybe5.arrow");
+        URL url2 = ClassLoader.getSystemResource("edges_withAllMaybe5.arrow");
         String query = "CALL apoc.import.arrow($url, $url2, {})";
         // todo - cambiare
         TestUtil.testCall(db, query, map("url",url.toString().replace("file:", ""), "url2",url2.toString().replace("file:", "")), (row) -> {

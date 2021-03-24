@@ -13,12 +13,15 @@ import com.fasterxml.jackson.core.JsonParser;
 import net.minidev.json.JSONUtil;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.impl.VarBinaryHolderReaderImpl;
+import org.apache.arrow.vector.dictionary.Dictionary;
+import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.SeekableReadChannel;
@@ -86,7 +89,7 @@ public class ImportArrow {
 
                     try (FileInputStream fd = new FileInputStream(fileNodes);
                          ArrowFileReader nodeFileReader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
-                        nodeFileReader.initialize();
+//                        nodeFileReader.initialize();
                         VectorSchemaRoot schemaRoot = nodeFileReader.getVectorSchemaRoot();
 
                         // TODO - COME METTERE IL BATCH SIZE ALL'IMPORT
@@ -98,16 +101,26 @@ public class ImportArrow {
                                 try (BatchTransaction tx = new BatchTransaction(db, Util.toInteger(config.getOrDefault("TODO - BATCH SIZE", 2000)), reporter)) {
                                     while (nodeFileReader.loadNextBatch()) {
 
-                                        final UInt8Vector id = (UInt8Vector) schemaRoot.getVector(ID_FIELD);
-                                        final VarBinaryVector labels = (VarBinaryVector) schemaRoot.getVector(LABELS_FIELD);
+//                                        final UInt8Vector id = (UInt8Vector) schemaRoot.getVector(ID_FIELD);
+//                                        final VarBinaryVector labels = (VarBinaryVector) schemaRoot.getVector(LABELS_FIELD);
 //                                        final UInt8Vector labels = (UInt8Vector) schemaRoot.getVector("labels");
 
-                                        IntStream.range(0, id.getValueCapacity()).forEach(index -> {
+                                        // get the encoded vector
+                                        IntVector intVector = (IntVector) schemaRoot.getVector(ID_FIELD);
+
+                                        // get dictionaries and decode the vector
+                                        Map<Long, Dictionary> dictionaryMap = nodeFileReader.getDictionaryVectors();
+                                        long dictionaryId = intVector.getField().getDictionary().getId();
+                                        UInt8Vector varCharVector =
+                                                (UInt8Vector) DictionaryEncoder.decode(intVector, dictionaryMap.get(dictionaryId));
+
+                                        IntStream.range(0, intVector.getValueCapacity()).forEach(index -> {
                                             Node node = tx.getTransaction().createNode();
 
-                                            asList( new String(labels.get(index)).split(":") ).forEach(label -> {
-                                                node.addLabel(Label.label(label));
-                                            });
+                                            // todo - decommentare
+//                                            asList( new String(labels.get(index)).split(":") ).forEach(label -> {
+//                                                node.addLabel(Label.label(label));
+//                                            });
 
 //                                            node.addLabel(Label.label("prova"));
 
