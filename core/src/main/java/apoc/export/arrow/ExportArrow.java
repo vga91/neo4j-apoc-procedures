@@ -2,6 +2,7 @@ package apoc.export.arrow;
 
 import apoc.ApocConfig;
 import apoc.Pools;
+import apoc.convert.Convert;
 import apoc.export.csv.CsvFormat;
 import apoc.export.cypher.ExportFileManager;
 import apoc.export.cypher.FileManagerFactory;
@@ -11,6 +12,7 @@ import apoc.export.util.ExportUtils;
 import apoc.export.util.FormatUtils;
 import apoc.export.util.NodesAndRelsSubGraph;
 import apoc.export.util.ProgressReporter;
+import apoc.meta.Meta;
 import apoc.result.ProgressInfo;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
@@ -47,8 +49,10 @@ import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.cypher.export.DatabaseSubGraph;
 import org.neo4j.cypher.export.SubGraph;
+import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
@@ -64,10 +68,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -83,6 +88,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static apoc.ApocConfig.apocConfig;
 import static apoc.export.arrow.ArrowUtils.END_FIELD;
@@ -90,11 +96,13 @@ import static apoc.export.arrow.ArrowUtils.ID_FIELD;
 import static apoc.export.arrow.ArrowUtils.LABELS_FIELD;
 import static apoc.export.arrow.ArrowUtils.START_FIELD;
 import static apoc.export.arrow.ArrowUtils.TYPE_FIELD;
+//import static apoc.export.csv.CsvFormat.writeResultHeader;
 import static apoc.util.Util.labelString;
 import static apoc.util.Util.labelStrings;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
 public class ExportArrow {
+    public static final String DICT_PREFIX = "dict___";
     private static ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
 
     @Context
@@ -201,98 +209,76 @@ public class ExportArrow {
     }
 
 
-    private void allocateAfterCheckExistence(Map<String, FieldVector> vectorMap, Map<String, FieldVector> dictVectorMap, int currentIndex, RootAllocator allocator, String key, Object value) {
-        final boolean fieldNotExists = !vectorMap.containsKey(key);
-
-        vectorMap.putIfAbsent(key, new VarBinaryVector(key, allocator));
-        dictVectorMap.putIfAbsent("dict___" + key, new VarBinaryVector(key, allocator));
-//        if (dictionaryProvider.lookup())
-
-        VarBinaryVector labelsVector = (VarBinaryVector) vectorMap.get(key);
-        VarBinaryVector dictLabelsVector = (VarBinaryVector) dictVectorMap.get("dict___" + key);
-
-        if (fieldNotExists) {
-            labelsVector.allocateNewSafe();
-            dictLabelsVector.allocateNewSafe();
-        }
-
+    private <T> void allocateAfterCheckExistence(Map<String, FieldVector> vectorMap, Map<String, FieldVector> dictVectorMap, int currentIndex, RootAllocator allocator, String key, Object value, Class<T> clazz) {
+//        Constructor<?> constructor = null;//FieldVector.class);
         try {
-            final byte[] objBytes = JsonUtil.OBJECT_MAPPER.writeValueAsString(value).getBytes();
-            labelsVector.setSafe(currentIndex, objBytes);
-            dictLabelsVector.setSafe(currentIndex, objBytes);
-        } catch (IOException e) {
+            Constructor<?> constructor = clazz.getConstructor(String.class, BufferAllocator.class);
+//        } catch (NoSuchMethodException e) {
+//            e.printStackTrace();
+//        }
+            final boolean fieldNotExists = !vectorMap.containsKey(key);
+
+            vectorMap.putIfAbsent(key, (FieldVector) constructor.newInstance(key, allocator));
+            dictVectorMap.putIfAbsent(DICT_PREFIX + key, (FieldVector) constructor.newInstance(key, allocator));
+
+            FieldVector labelsVector = vectorMap.get(key);
+            FieldVector dictLabelsVector = dictVectorMap.get(DICT_PREFIX + key);
+
+            if (fieldNotExists) {
+                labelsVector.allocateNewSafe();
+                dictLabelsVector.allocateNewSafe();
+            }
+
+
+            if (labelsVector instanceof VarBinaryVector) {
+                final byte[] objBytes = JsonUtil.OBJECT_MAPPER.writeValueAsBytes(value);
+                ((VarBinaryVector) labelsVector).setSafe(currentIndex, objBytes);
+                ((VarBinaryVector) dictLabelsVector).setSafe(currentIndex, objBytes);
+            } else {
+                ((UInt8Vector) labelsVector).setSafe(currentIndex, (long) value);
+                ((UInt8Vector) dictLabelsVector).setSafe(currentIndex, (long) value);
+            }
+//            final byte[] objBytes = JsonUtil.OBJECT_MAPPER.writeValueAsString(value).getBytes();
+
+        } catch (Exception e) {
             e.printStackTrace(); // todo - Runtime
         }
     }
 
-    private void dump(Object data, ExportConfig exportConfig, ProgressReporter reporter, ExportFileManager printWriter, ArrowFormat exporter, RootAllocator allocator, String fileName) throws Exception {
+    // todo - utilizzare exportConfig
+    private void dump(Object valueToExport, ExportConfig exportConfig, ProgressReporter reporter, ExportFileManager printWriter, ArrowFormat exporter, RootAllocator allocator, String fileName) throws Exception {
         DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
-
-        // TODO - dictionary
-//        DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-//// create dictionary and provider
-//        final VarCharVector dictVectorId = new VarCharVector("dict", allocator);
-
-//        Dictionary dictionaryId =
-//                new Dictionary(dictVectorId, new DictionaryEncoding(1L, false, /*indexType=*/null));
-//        dictProvider.put(dictionaryId);
-//        dictProvider.put(dictionaryLabels);
-//        dictProvider.put(dictionary);
-//        dictProvider.put(dictionary);
-
-
-//        dictVector.allocateNewSafe();
-//        dictVector.setSafe(0, "aa".getBytes());
-//        dictVector.setSafe(1, "bb".getBytes());
-//        dictVector.setSafe(2, "cc".getBytes());
-//        dictVector.setValueCount(3);
-        // create vector and encode it
-//        final VarCharVector vector = new VarCharVector("vector", allocator);
-//        vector.allocateNewSafe();
-//        vector.setSafe(0, "bb".getBytes());
-//        vector.setSafe(1, "bb".getBytes());
-//        vector.setSafe(2, "cc".getBytes());
-//        vector.setSafe(3, "aa".getBytes());
-//        vector.setValueCount(4);
-//// get the encoded vector
-        // IntVector encodedVector = (IntVector) DictionaryEncoder.encode(vector, dictionary);
-
 
         String importDir = apocConfig().getString("dbms.directories.import", "import");
         File file_nodes = new File(importDir, "nodes_" + fileName);
         File file_rels = new File(importDir, "edges_" + fileName);
 
         // populate nodes VectorSchemaRoot
-        final UInt8Vector nodeId = new UInt8Vector(ID_FIELD, allocator);
-        nodeId.allocateNewSafe();
-        final UInt8Vector nodeIdDict = new UInt8Vector("dict___" + ID_FIELD, allocator);
-        nodeIdDict.allocateNewSafe();
-
-        if (data instanceof SubGraph) {
-            SubGraph subGraph = (SubGraph) data;
+//        final UInt8Vector nodeId = new UInt8Vector(ID_FIELD, allocator);
+//        nodeId.allocateNewSafe();
+//        final UInt8Vector nodeIdDict = new UInt8Vector(DICT_PREFIX + ID_FIELD, allocator);
+//        nodeIdDict.allocateNewSafe();
+        if (valueToExport instanceof SubGraph) {
+            SubGraph subGraph = (SubGraph) valueToExport;
 
             Map<String, FieldVector> vectorMap = new TreeMap<>();
             Map<String, FieldVector> dictVectorMap = new TreeMap<>();
-            vectorMap.put(ID_FIELD, nodeId);
-            dictVectorMap.put("dict___" + ID_FIELD, nodeId);
+//            vectorMap.put(ID_FIELD, nodeId);
+//            dictVectorMap.put(DICT_PREFIX + ID_FIELD, nodeId);
 
             AtomicInteger indexNode = new AtomicInteger();
             subGraph.getNodes().forEach(node -> {
-
-                final int currentIndex = indexNode.getAndIncrement();
-
-                nodeId.setSafe(currentIndex, node.getId());
-                nodeIdDict.setSafe(currentIndex, node.getId());
-
-                Map<String, Object> allProperties = node.getAllProperties();
-                allProperties.forEach((key, value) -> allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, key, value));
-
-                if (node.getLabels().iterator().hasNext()) {
-                    allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, LABELS_FIELD, labelString(node));
-                }
-
-                // TODO - check
-                reporter.update(1, 0, allProperties.size());
+//                try {
+                    writeNode(reporter, allocator, vectorMap, dictVectorMap, indexNode, node);
+//                } catch (InvocationTargetException e) {
+//                    e.printStackTrace();
+//                } catch (NoSuchMethodException e) {
+//                    e.printStackTrace();
+//                } catch (InstantiationException e) {
+//                    e.printStackTrace();
+//                } catch (Exception e) {
+//                    e.printStackTrace();
+//                }
             });
 
             vectorMap.values().forEach(item -> item.setValueCount(indexNode.get()));
@@ -304,16 +290,16 @@ public class ExportArrow {
             });
 
             AtomicLong dictIndexTwo = new AtomicLong();
-            List<FieldVector> encodedVectors = vectorMap.values().stream().map(vector -> {
-                return (FieldVector) DictionaryEncoder.encode(vector, dictProvider.lookup(dictIndexTwo.incrementAndGet()));
-            }).collect(Collectors.toList());
+            List<FieldVector> encodedVectors = vectorMap.values().stream().map(vector ->
+                    (FieldVector) DictionaryEncoder.encode(vector, dictProvider.lookup(dictIndexTwo.incrementAndGet()))
+            ).collect(Collectors.toList());
 
 
 //            final List<FieldVector> vectors = new ArrayList<>(vectorMap.values());
             final List<Field> encodedFields = encodedVectors.stream().map(ValueVector::getField).collect(Collectors.toList());
-            VectorSchemaRoot vectorSchemaRoot = new VectorSchemaRoot(encodedFields, encodedVectors);
 
-            try (//VectorSchemaRoot schemaRoot = VectorSchemaRoot.create(makeSchema(exportConfig), allocator);
+
+            try (VectorSchemaRoot vectorSchemaRoot = new VectorSchemaRoot(encodedFields, encodedVectors);
                  FileOutputStream fd = new FileOutputStream(file_nodes);
                  ArrowFileWriter nodeFileWriter = new ArrowFileWriter(vectorSchemaRoot, dictProvider, fd.getChannel())) {
                 nodeFileWriter.start();
@@ -323,10 +309,6 @@ public class ExportArrow {
                 nodeFileWriter.end();
             }
 
-            vectorSchemaRoot.close();
-
-            nodeId.close();
-            nodeIdDict.close();
             vectorMap.values().forEach(ValueVector::close);
             dictVectorMap.values().forEach(ValueVector::close);
 //            dictProvider.close()
@@ -336,50 +318,33 @@ public class ExportArrow {
                 return;
             }
 
-
             // TODO - DIZIONARIO IN RELAZIONI
             DictionaryProvider.MapDictionaryProvider dictProviderRel = new DictionaryProvider.MapDictionaryProvider();
 
             // -- relationships
             AtomicInteger indexRel = new AtomicInteger();
-            final UInt8Vector startId = new UInt8Vector(START_FIELD, allocator);
-            startId.allocateNewSafe();
-            final UInt8Vector startIdDict = new UInt8Vector("dict___" + START_FIELD, allocator);
-            startIdDict.allocateNewSafe();
-            final UInt8Vector endId = new UInt8Vector(END_FIELD, allocator);
-            endId.allocateNewSafe();
-            final UInt8Vector endIdDict = new UInt8Vector("dict___" + END_FIELD, allocator);
-            endIdDict.allocateNewSafe();
-            final VarBinaryVector type = new VarBinaryVector(TYPE_FIELD, allocator);
-            type.allocateNewSafe();
-            final VarBinaryVector typeDict = new VarBinaryVector("dict___" + TYPE_FIELD, allocator);
-            typeDict.allocateNewSafe();
+//            final UInt8Vector startId = new UInt8Vector(START_FIELD, allocator);
+//            startId.allocateNewSafe();
+//            final UInt8Vector startIdDict = new UInt8Vector(DICT_PREFIX + START_FIELD, allocator);
+//            startIdDict.allocateNewSafe();
+//            final UInt8Vector endId = new UInt8Vector(END_FIELD, allocator);
+//            endId.allocateNewSafe();
+//            final UInt8Vector endIdDict = new UInt8Vector(DICT_PREFIX + END_FIELD, allocator);
+//            endIdDict.allocateNewSafe();
+//            final VarBinaryVector type = new VarBinaryVector(TYPE_FIELD, allocator);
+//            type.allocateNewSafe();
+//            final VarBinaryVector typeDict = new VarBinaryVector(DICT_PREFIX + TYPE_FIELD, allocator);
+//            typeDict.allocateNewSafe();
 
             Map<String, FieldVector> vectorRelMap = new TreeMap<>();
             Map<String, FieldVector> dictVectorRelMap = new TreeMap<>();
-            vectorRelMap.put(START_FIELD, startId);
-            vectorRelMap.put(END_FIELD, endId);
-            vectorRelMap.put(TYPE_FIELD, type);
-            dictVectorRelMap.put("dict___" + START_FIELD, startId);
-            dictVectorRelMap.put("dict___" + END_FIELD, endId);
-            dictVectorRelMap.put("dict___" + TYPE_FIELD, type);
 
             subGraph.getRelationships().forEach(rel -> {
-                final int currentIndex = indexRel.getAndIncrement();
-
-                startId.setSafe(currentIndex, rel.getStartNodeId());
-                endId.setSafe(currentIndex, rel.getEndNodeId());
-                startIdDict.setSafe(currentIndex, rel.getStartNodeId());
-                endIdDict.setSafe(currentIndex, rel.getEndNodeId());
-
-                // todo - se type è vuoto?
-                type.setSafe(currentIndex, rel.getType().name().getBytes());
-                typeDict.setSafe(currentIndex, rel.getType().name().getBytes());
-
-                final Map<String, Object> allProperties = rel.getAllProperties();
-                allProperties.forEach((key, value) -> allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, key, value));
-
-                reporter.update(0, 1, allProperties.size());
+//                try {
+                    writeRelationship(reporter, allocator, vectorRelMap, dictVectorRelMap, indexRel, rel);
+//                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+//                    e.printStackTrace();
+//                }
             });
 
             vectorRelMap.values().forEach(item -> item.setValueCount(indexRel.get()));
@@ -389,18 +354,10 @@ public class ExportArrow {
                 item.setValueCount(indexRel.get());
                 dictProviderRel.put(new Dictionary(item, new DictionaryEncoding(dictIndexRel.incrementAndGet(), false, null)));
             });
-
             AtomicLong dictIndexTwoRel = new AtomicLong();
-            List<FieldVector> encodedVectorsRel = vectorRelMap.values().stream().map(vector -> {
-                return (FieldVector) DictionaryEncoder.encode(vector, dictProviderRel.lookup(dictIndexTwoRel.incrementAndGet()));
-            }).collect(Collectors.toList());
-
-            // todo - vedere come ottimizzare
-//            dictVectorId.setValueCount(indexRel.get());
-
-            // todo
-
-//            final List<FieldVector> vectorsRel = new ArrayList<>(vectorRelMap.values());
+            List<FieldVector> encodedVectorsRel = vectorRelMap.values().stream().map(vector ->
+                    (FieldVector) DictionaryEncoder.encode(vector, dictProviderRel.lookup(dictIndexTwoRel.incrementAndGet()))).collect(Collectors.toList()
+            );
             final List<Field> fieldsRel = encodedVectorsRel.stream().map(ValueVector::getField).collect(Collectors.toList());
 //            VectorSchemaRoot vectorRelSchemaRoot = new VectorSchemaRoot(fieldsRel, encodedVectorsRel);
 
@@ -415,20 +372,152 @@ public class ExportArrow {
                 relFileWriter.end();
             }
 
-//            vectorRelSchemaRoot.close();
-
-            startId.close();
-            startIdDict.close();
-            endId.close();
-            endIdDict.close();
-            type.close();
-            typeDict.close();
             vectorRelMap.values().forEach(ValueVector::close);
             dictVectorRelMap.values().forEach(ValueVector::close);
         }
 
-        if (data instanceof Result) {
-            // todo
+        if (valueToExport instanceof Result) {
+            File file = new File(importDir, "result_" + fileName);
+
+            DictionaryProvider.MapDictionaryProvider dictProviderRel = new DictionaryProvider.MapDictionaryProvider();
+            AtomicInteger indexRel = new AtomicInteger();
+
+            Map<String, FieldVector> vectorRelMap = new TreeMap<>();
+            Map<String, FieldVector> dictVectorRelMap = new TreeMap<>();
+
+            // todo - da jsonFormat
+            String[] header = ((Result) valueToExport).columns().toArray(new String[((Result) valueToExport).columns().size()]);
+            ((Result) valueToExport).accept((row) -> {
+                for (String keyName : header) {
+                    Object value = row.get(keyName);
+                    writeArrowResult(reporter, allocator, vectorRelMap, dictVectorRelMap, indexRel, value);
+                }
+                reporter.nextRow();
+                return true;
+            });
+
+
+
+
+            vectorRelMap.values().forEach(item -> item.setValueCount(indexRel.get()));
+            AtomicLong dictIndexRel = new AtomicLong();
+            dictVectorRelMap.values().forEach(item -> {
+                item.setValueCount(indexRel.get());
+                dictProviderRel.put(new Dictionary(item, new DictionaryEncoding(dictIndexRel.incrementAndGet(), false, null)));
+            });
+            AtomicLong dictIndexTwoRel = new AtomicLong();
+            List<FieldVector> encodedVectorsRel = vectorRelMap.values().stream().map(vector ->
+                    (FieldVector) DictionaryEncoder.encode(vector, dictProviderRel.lookup(dictIndexTwoRel.incrementAndGet()))).collect(Collectors.toList()
+            );
+            final List<Field> fieldsRel = encodedVectorsRel.stream().map(ValueVector::getField).collect(Collectors.toList());
+
+
+            try (VectorSchemaRoot vectorRelSchemaRoot = new VectorSchemaRoot(fieldsRel, encodedVectorsRel);
+                 FileOutputStream fd = new FileOutputStream(file);
+                 ArrowFileWriter relFileWriter = new ArrowFileWriter(vectorRelSchemaRoot, dictProviderRel, fd.getChannel())) {
+                relFileWriter.start();
+                // todo - batch
+                relFileWriter.writeBatch();
+                relFileWriter.end();
+            }
+
+            vectorRelMap.values().forEach(ValueVector::close);
+            dictVectorRelMap.values().forEach(ValueVector::close);
+
         }
     }
+
+    private void writeArrowResult(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorRelMap, Map<String, FieldVector> dictVectorRelMap, AtomicInteger indexRel, Object value) {
+        Meta.Types type = Meta.Types.of(value);
+        switch (type) {
+            case NODE:
+                writeNode(reporter, allocator, vectorRelMap, dictVectorRelMap, indexRel, (Node) value);
+                break;
+            case RELATIONSHIP:
+                writeRelationship(reporter, allocator, vectorRelMap, dictVectorRelMap, indexRel, (Relationship) value);
+                break;
+            case PATH:
+                ((Path)value).nodes().forEach(node -> writeNode(reporter, allocator, vectorRelMap, dictVectorRelMap, indexRel, node));
+                ((Path)value).relationships().forEach(relationship -> writeRelationship(reporter, allocator, vectorRelMap, dictVectorRelMap, indexRel, relationship));
+//                        .collect(Collectors.toList()));
+                break;
+            case LIST:
+                ((List) value).forEach(value1 -> {
+                    try {
+                        writeArrowResult(reporter, allocator, vectorRelMap, dictVectorRelMap, indexRel, value1);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+                break;
+
+//                Convert.convertToList(value).stream().map(this::writeArrowResult).collect(Collectors.toList());
+            case MAP:
+                ((Map<String, Object>) value).forEach((key, value1) -> {
+                    try {
+                        writeArrowResult(reporter, allocator, vectorRelMap, dictVectorRelMap, indexRel, value1);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+                break;
+
+            default:
+                allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, indexRel.get(), allocator, ID_FIELD, value, VarBinaryVector.class);
+        }
+    }
+
+    private void writeRelationship(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorRelMap, Map<String, FieldVector> dictVectorRelMap, AtomicInteger indexRel, Relationship rel) {
+//        try {
+        final int currentIndex = indexRel.getAndIncrement();
+
+        allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, START_FIELD, rel.getStartNodeId(), UInt8Vector.class);
+        allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, END_FIELD, rel.getEndNodeId(), UInt8Vector.class);
+        allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, TYPE_FIELD, rel.getType().name(), VarBinaryVector.class);
+
+        // todo - se type è vuoto?
+
+        final Map<String, Object> allProperties = rel.getAllProperties();
+        allProperties.forEach((key, value) -> {
+//                try {
+            allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, key, value, VarBinaryVector.class);
+//                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+//                    e.printStackTrace();
+//                }
+        });
+
+        reporter.update(0, 1, allProperties.size());
+//        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+//            e.printStackTrace();
+//        }
+    }
+
+    private void writeNode(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorMap, Map<String, FieldVector> dictVectorMap, AtomicInteger indexNode, Node node) {
+//        try {
+
+            final int currentIndex = indexNode.getAndIncrement();
+
+            // id field
+            allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, ID_FIELD, node.getId(), UInt8Vector.class);
+
+            Map<String, Object> allProperties = node.getAllProperties();
+            allProperties.forEach((key, value) -> {
+//                try {
+                    allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, key, value, VarBinaryVector.class);
+//                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+//                    e.printStackTrace();
+//                }
+            });
+
+            if (node.getLabels().iterator().hasNext()) {
+                allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, LABELS_FIELD, labelString(node), VarBinaryVector.class);
+            }
+
+            reporter.update(1, 0, allProperties.size());
+//        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+//            e.printStackTrace();
+//        }
+    }
 }
+
+// todo -reporter al Result

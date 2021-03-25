@@ -207,8 +207,7 @@ public class JsonFormat implements Format {
 
     private void writeJsonResult(Reporter reporter, String[] header, JsonGenerator jsonGenerator, Result.ResultRow row, ExportConfig config) throws IOException {
         jsonGenerator.writeStartObject();
-        for (int col = 0; col < header.length; col++) {
-            String keyName = header[col];
+        for (String keyName : header) {
             Object value = row.get(keyName);
             write(reporter, jsonGenerator, config, keyName, value, true);
         }

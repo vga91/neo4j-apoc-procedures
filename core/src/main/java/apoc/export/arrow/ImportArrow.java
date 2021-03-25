@@ -10,6 +10,7 @@ import apoc.util.JsonUtil;
 import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.collect.Iterables;
 import net.minidev.json.JSONUtil;
@@ -159,7 +160,11 @@ public class ImportArrow {
 
                                             // todo - decommentare
                                             asList( new String(labelVector.get(index)).split(":") ).forEach(label -> {
-                                                node.addLabel(Label.label(label));
+                                                try {
+                                                    node.addLabel(Label.label(OBJECT_MAPPER.readValue(label, String.class)));
+                                                } catch (JsonProcessingException e) {
+                                                    e.printStackTrace(); // todo - funzione comune
+                                                }
                                             });
 
 //                                            node.addLabel(Label.label("prova"));

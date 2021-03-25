@@ -47,8 +47,8 @@ public class ImportArrowTest {
 
     @Test
     public void testBasicImport() throws Throwable {
-        URL url = ClassLoader.getSystemResource("nodes_withAllMaybe5.arrow");
-        URL url2 = ClassLoader.getSystemResource("edges_withAllMaybe5.arrow");
+        URL url = ClassLoader.getSystemResource("result_withQuery.arrow");
+        URL url2 = ClassLoader.getSystemResource("edges_withAllMaybeAAAAA.arrow");
         String query = "CALL apoc.import.arrow($url, $url2, {})";
         // todo - cambiare
         TestUtil.testCall(db, query, map("url",url.toString().replace("file:", ""), "url2",url2.toString().replace("file:", "")), (row) -> {
