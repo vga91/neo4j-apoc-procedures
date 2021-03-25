@@ -402,11 +402,12 @@ public class ExportArrow {
 
 //            final List<FieldVector> vectorsRel = new ArrayList<>(vectorRelMap.values());
             final List<Field> fieldsRel = encodedVectorsRel.stream().map(ValueVector::getField).collect(Collectors.toList());
-            VectorSchemaRoot vectorRelSchemaRoot = new VectorSchemaRoot(fieldsRel, encodedVectorsRel);
+//            VectorSchemaRoot vectorRelSchemaRoot = new VectorSchemaRoot(fieldsRel, encodedVectorsRel);
 
 
 //            DictionaryProvider.MapDictionaryProvider dictProviderRel = new DictionaryProvider.MapDictionaryProvider();
-            try (FileOutputStream fd = new FileOutputStream(file_rels);
+            try (VectorSchemaRoot vectorRelSchemaRoot = new VectorSchemaRoot(fieldsRel, encodedVectorsRel);
+                    FileOutputStream fd = new FileOutputStream(file_rels);
                  ArrowFileWriter relFileWriter = new ArrowFileWriter(vectorRelSchemaRoot, dictProviderRel, fd.getChannel())) {
                 relFileWriter.start();
                 // todo - batch
@@ -414,7 +415,7 @@ public class ExportArrow {
                 relFileWriter.end();
             }
 
-            vectorRelSchemaRoot.close();
+//            vectorRelSchemaRoot.close();
 
             startId.close();
             startIdDict.close();
