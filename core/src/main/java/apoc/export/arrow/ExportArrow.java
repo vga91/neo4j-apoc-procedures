@@ -28,7 +28,7 @@ import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.TypeLayout;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.VarBinaryVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -103,7 +103,6 @@ import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
 
 public class ExportArrow {
     public static final String DICT_PREFIX = "dict___";
-    private static ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
 
     @Context
     public Transaction tx;
@@ -161,13 +160,7 @@ public class ExportArrow {
         // todo - parquet?
 
         ExportConfig exportConfig = new ExportConfig(config);
-//        DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
-//
-//        dictProvider.
-
-        String importDir = apocConfig().getString("dbms.directories.import", "import");
-        File file_nodes = new File(importDir, "nodes_" + fileName);
-        File file_rels = new File(importDir, fileName + "_edges");
+        if (StringUtils.isNotBlank(fileName)) apocConfig.checkWriteAllowed(exportConfig);
         final String format = "arrow";
         ProgressInfo progressInfo = new ProgressInfo(fileName, source, format);
         progressInfo.batchSize = exportConfig.getBatchSize();
@@ -230,10 +223,10 @@ public class ExportArrow {
             }
 
 
-            if (labelsVector instanceof VarBinaryVector) {
+            if (labelsVector instanceof VarCharVector) {
                 final byte[] objBytes = JsonUtil.OBJECT_MAPPER.writeValueAsBytes(value);
-                ((VarBinaryVector) labelsVector).setSafe(currentIndex, objBytes);
-                ((VarBinaryVector) dictLabelsVector).setSafe(currentIndex, objBytes);
+                ((VarCharVector) labelsVector).setSafe(currentIndex, objBytes);
+                ((VarCharVector) dictLabelsVector).setSafe(currentIndex, objBytes);
             } else {
                 ((UInt8Vector) labelsVector).setSafe(currentIndex, (long) value);
                 ((UInt8Vector) dictLabelsVector).setSafe(currentIndex, (long) value);
@@ -245,6 +238,8 @@ public class ExportArrow {
         }
     }
 
+    // todo - test con streamsStatements:true
+
     // todo - utilizzare exportConfig
     private void dump(Object valueToExport, ExportConfig exportConfig, ProgressReporter reporter, ExportFileManager printWriter, ArrowFormat exporter, RootAllocator allocator, String fileName) throws Exception {
         DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
@@ -252,6 +247,8 @@ public class ExportArrow {
         String importDir = apocConfig().getString("dbms.directories.import", "import");
         File file_nodes = new File(importDir, "nodes_" + fileName);
         File file_rels = new File(importDir, "edges_" + fileName);
+
+        int batchSize = exportConfig.getBatchSize();
 
         // populate nodes VectorSchemaRoot
 //        final UInt8Vector nodeId = new UInt8Vector(ID_FIELD, allocator);
@@ -303,9 +300,14 @@ public class ExportArrow {
                  FileOutputStream fd = new FileOutputStream(file_nodes);
                  ArrowFileWriter nodeFileWriter = new ArrowFileWriter(vectorSchemaRoot, dictProvider, fd.getChannel())) {
                 nodeFileWriter.start();
-                // todo - batch
 
-                nodeFileWriter.writeBatch();
+                // -- todo: parte comune
+                int currIdx = 0;
+                while (currIdx < indexNode.get()) {
+                    vectorSchemaRoot.setRowCount(batchSize);
+                    nodeFileWriter.writeBatch();
+                    currIdx += batchSize;
+                }
                 nodeFileWriter.end();
             }
 
@@ -323,18 +325,7 @@ public class ExportArrow {
 
             // -- relationships
             AtomicInteger indexRel = new AtomicInteger();
-//            final UInt8Vector startId = new UInt8Vector(START_FIELD, allocator);
-//            startId.allocateNewSafe();
-//            final UInt8Vector startIdDict = new UInt8Vector(DICT_PREFIX + START_FIELD, allocator);
-//            startIdDict.allocateNewSafe();
-//            final UInt8Vector endId = new UInt8Vector(END_FIELD, allocator);
-//            endId.allocateNewSafe();
-//            final UInt8Vector endIdDict = new UInt8Vector(DICT_PREFIX + END_FIELD, allocator);
-//            endIdDict.allocateNewSafe();
-//            final VarBinaryVector type = new VarBinaryVector(TYPE_FIELD, allocator);
-//            type.allocateNewSafe();
-//            final VarBinaryVector typeDict = new VarBinaryVector(DICT_PREFIX + TYPE_FIELD, allocator);
-//            typeDict.allocateNewSafe();
+
 
             Map<String, FieldVector> vectorRelMap = new TreeMap<>();
             Map<String, FieldVector> dictVectorRelMap = new TreeMap<>();
@@ -463,7 +454,7 @@ public class ExportArrow {
                 break;
 
             default:
-                allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, indexRel.get(), allocator, ID_FIELD, value, VarBinaryVector.class);
+                allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, indexRel.get(), allocator, ID_FIELD, value, VarCharVector.class);
         }
     }
 
@@ -473,14 +464,14 @@ public class ExportArrow {
 
         allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, START_FIELD, rel.getStartNodeId(), UInt8Vector.class);
         allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, END_FIELD, rel.getEndNodeId(), UInt8Vector.class);
-        allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, TYPE_FIELD, rel.getType().name(), VarBinaryVector.class);
+        allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, TYPE_FIELD, rel.getType().name(), VarCharVector.class);
 
         // todo - se type è vuoto?
 
         final Map<String, Object> allProperties = rel.getAllProperties();
         allProperties.forEach((key, value) -> {
 //                try {
-            allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, key, value, VarBinaryVector.class);
+            allocateAfterCheckExistence(vectorRelMap, dictVectorRelMap, currentIndex, allocator, key, value, VarCharVector.class);
 //                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
 //                    e.printStackTrace();
 //                }
@@ -503,14 +494,14 @@ public class ExportArrow {
             Map<String, Object> allProperties = node.getAllProperties();
             allProperties.forEach((key, value) -> {
 //                try {
-                    allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, key, value, VarBinaryVector.class);
+                    allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, key, value, VarCharVector.class);
 //                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
 //                    e.printStackTrace();
 //                }
             });
 
             if (node.getLabels().iterator().hasNext()) {
-                allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, LABELS_FIELD, labelString(node), VarBinaryVector.class);
+                allocateAfterCheckExistence(vectorMap, dictVectorMap, currentIndex, allocator, LABELS_FIELD, labelString(node), VarCharVector.class);
             }
 
             reporter.update(1, 0, allProperties.size());
