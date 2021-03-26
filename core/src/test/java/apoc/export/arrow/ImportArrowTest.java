@@ -47,9 +47,9 @@ public class ImportArrowTest {
 
     @Test
     public void testBasicImport() throws Throwable {
-        URL url = ClassLoader.getSystemResource("result_withQuery.arrow");
-        URL url2 = ClassLoader.getSystemResource("edges_withAllMaybeAAAAA.arrow");
-        String query = "CALL apoc.import.arrow($url, $url2, {})";
+        URL url = ClassLoader.getSystemResource("nodes_withAllMaybeQPQPQPQPQPQPPQQPPQPQPQPQ.arrow");
+        URL url2 = ClassLoader.getSystemResource("edges_withAllMaybeQPQPQPQPQPQPPQQPPQPQPQPQ.arrow");
+        String query = "CALL apoc.import.arrow($url, $url2, {batchSize: 200})";
         // todo - cambiare
         TestUtil.testCall(db, query, map("url",url.toString().replace("file:", ""), "url2",url2.toString().replace("file:", "")), (row) -> {
             List<String> expectedNames = new ArrayList<>(Arrays.asList("Robert Zemeckis", "Mike Nichols", "Ron Howard", "Frank Darabont", "Tom Tykwer", "Andy Wachowski", "Lana Wachowski", "Tom Hanks", "John Patrick Stanley", "Nora Ephron", "Penny Marshall", "Rob Reiner"));
@@ -111,4 +111,16 @@ public class ImportArrowTest {
 //            assertJsonNode(nodeFive, "4", null, expectedMapFive);
 //        });
 //    }
+
+
+    @Test
+    public void shouldImportAllJsonWithPropertyMappings() throws Exception {
+        // todo - stesso file ma con config
+
+//        TestUtil.testCall(db, "CALL apoc.import.json($file, $config)",
+//                map("file", filename, "config",
+//                        map("nodePropertyMappings", map("User", map("place", "Point", "born", "LocalDateTime")),
+//                                "relPropertyMappings", map("KNOWS", map("bffSince", "Duration"))), "unwindBatchSize", 1, "txBatchSize", 1),
+//                (r) -> {
+    }
 }

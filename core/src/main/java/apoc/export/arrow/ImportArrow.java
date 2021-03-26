@@ -28,6 +28,7 @@ import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.SeekableReadChannel;
+import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.ArrayUtils;
@@ -74,13 +75,14 @@ public class ImportArrow {
     @Context
     public Log log;
 
-    public ImportArrow(GraphDatabaseService db) {
-        this.db = db;
-    }
-
+//    public ImportArrow(GraphDatabaseService db) {
+//        this.db = db;
+//    }
+//
     public ImportArrow() {}
 
 
+    // TODO TODO TODO TODO - MA VA ESPORTATO PURE LO SCHEMA ????!!?!?!?!!!?
     @Procedure(name = "apoc.import.arrow", mode = Mode.SCHEMA)
     @Description("TODO")
     public Stream<ProgressInfo> importArrow(
@@ -88,12 +90,16 @@ public class ImportArrow {
             @Name(value = "fileEdges", defaultValue = "") String fileEdges,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config // TODO - IMPORT CONFIG HA SENSO?
     ) throws Exception {
+        ImportArrowConfig importConfig = new ImportArrowConfig(config);
         ProgressInfo result =
                 Util.inThread(pools, () -> {
+
+                    // TODO - BATCH HANDLING
 
                     try (RootAllocator allocator = new RootAllocator()) {
                         final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo("progress.arrow", "file", "arrow"));
 
+                        final int batchSize = importConfig.getBatchSize();
                         try (FileInputStream fd = new FileInputStream(fileNodes);
                              ArrowFileReader nodeFileReader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
                             VectorSchemaRoot schemaRoot = nodeFileReader.getVectorSchemaRoot();
@@ -101,10 +107,11 @@ public class ImportArrow {
                             // TODO - COME METTERE IL BATCH SIZE ALL'IMPORT
 //                        while (nodeFileReader.loadNextBatch()) {
 
+
                             // todo - mettere max size quando esporto e vedere che succede.....
                             // ciclo i nodi? - fare batch
 
-                            try (BatchTransaction tx = new BatchTransaction(db, Util.toInteger(config.getOrDefault("TODO - BATCH SIZE", 2000)), reporter)) {
+                            try (BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {
                                 while (nodeFileReader.loadNextBatch()) {
 
                                     // todo - metodo comune con rel
@@ -189,7 +196,7 @@ public class ImportArrow {
                             relFileReader.initialize();
                             VectorSchemaRoot schemaRoot = relFileReader.getVectorSchemaRoot();
 
-                            try (BatchTransaction tx = new BatchTransaction(db, Util.toInteger(config.getOrDefault("TODO - BATCH SIZE", 2000)), reporter)) {
+                            try (BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {
                                 while (relFileReader.loadNextBatch()) {
 
                                     final UInt8Vector start = (UInt8Vector) schemaRoot.getVector(START_FIELD);
