@@ -98,7 +98,7 @@ public class ExportArrowTest {
     @Test
     public void testExportAllArrow() throws Exception {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})");
-        String filename = "osvaldo.arrow";
+        String filename = "ugone.arrow";
         TestUtil.testCall(db, "CALL apoc.export.arrow.all($file,null)",
                 map("file", filename),
                 r -> assertResults(filename, r, "database")
