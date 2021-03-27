@@ -47,13 +47,12 @@ public class ImportArrowTest {
 
     @Test
     public void testBasicImport() throws Throwable {
-        URL url = ClassLoader.getSystemResource("nodes_withAllMaybeQPQPQPQPQPQPPQQPPQPQPQPQ.arrow");
-        URL url2 = ClassLoader.getSystemResource("edges_withAllMaybeQPQPQPQPQPQPPQQPPQPQPQPQ.arrow");
+        URL url = ClassLoader.getSystemResource("nodes_franco.arrow");
+        URL url2 = ClassLoader.getSystemResource("edges_franco.arrow");
         String query = "CALL apoc.import.arrow($url, $url2, {batchSize: 200})";
         // todo - cambiare
-        TestUtil.testCall(db, query, map("url",url.toString().replace("file:", ""), "url2",url2.toString().replace("file:", "")), (row) -> {
-            List<String> expectedNames = new ArrayList<>(Arrays.asList("Robert Zemeckis", "Mike Nichols", "Ron Howard", "Frank Darabont", "Tom Tykwer", "Andy Wachowski", "Lana Wachowski", "Tom Hanks", "John Patrick Stanley", "Nora Ephron", "Penny Marshall", "Rob Reiner"));
-        });
+        TestUtil.testCall(db, query, map("url",url.toString().replace("file:", ""), "url2",url2.toString().replace("file:", "")),
+                (row) -> {});
 
         TestUtil.testResult(db, "MATCH (n) RETURN n",
                 (r) -> {
@@ -66,7 +65,7 @@ public class ImportArrowTest {
         TestUtil.testResult(db, "MATCH ()-[r]->() RETURN r",
                 (r) -> {
                     assertTrue(r.hasNext());
-                    Relationship node = (Relationship) r.next().get("r");
+                    Relationship rel = (Relationship) r.next().get("r");
 //                    assertEquals("prova", node.getLabels().iterator().next().toString());
                     System.out.println("ImportArrowTest.testBasicImport");
         });

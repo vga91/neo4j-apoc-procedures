@@ -1,38 +1,24 @@
 package apoc.export.arrow;
 
 import apoc.Pools;
-import apoc.export.csv.CsvEntityLoader;
-import apoc.export.csv.CsvLoaderConfig;
 import apoc.export.util.BatchTransaction;
 import apoc.export.util.ProgressReporter;
 import apoc.result.ProgressInfo;
-import apoc.util.JsonUtil;
 import apoc.util.Util;
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.google.common.collect.Iterables;
-import net.minidev.json.JSONUtil;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
-import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.complex.impl.VarBinaryHolderReaderImpl;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
-import org.apache.arrow.vector.holders.NullableVarBinaryHolder;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.SeekableReadChannel;
-import org.apache.arrow.vector.ipc.message.ArrowBlock;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.ArrayUtils;
-import org.bouncycastle.util.Arrays;
+import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -48,10 +34,8 @@ import org.neo4j.procedure.Procedure;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -94,29 +78,27 @@ public class ImportArrow {
         ProgressInfo result =
                 Util.inThread(pools, () -> {
 
-                    // TODO - BATCH HANDLING
-
                     try (RootAllocator allocator = new RootAllocator()) {
                         final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo("progress.arrow", "file", "arrow"));
 
                         final int batchSize = importConfig.getBatchSize();
                         try (FileInputStream fd = new FileInputStream(fileNodes);
-                             ArrowFileReader nodeFileReader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
-                            VectorSchemaRoot schemaRoot = nodeFileReader.getVectorSchemaRoot();
+                             ArrowFileReader fileReader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
+                            VectorSchemaRoot schemaRoot = fileReader.getVectorSchemaRoot();
 
                             // TODO - COME METTERE IL BATCH SIZE ALL'IMPORT
-//                        while (nodeFileReader.loadNextBatch()) {
+//                        while (fileReader.loadNextBatch()) {
 
 
                             // todo - mettere max size quando esporto e vedere che succede.....
                             // ciclo i nodi? - fare batch
 
                             try (BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {
-                                while (nodeFileReader.loadNextBatch()) {
+                                while (fileReader.loadNextBatch()) {
 
                                     // todo - metodo comune con rel
                                     // get dictionaries and decode the vector
-                                    Map<Long, Dictionary> dictionaryMap = nodeFileReader.getDictionaryVectors();
+                                    Map<Long, Dictionary> dictionaryMap = fileReader.getDictionaryVectors();
 
                                     Map<String, ValueVector> decodedVectorsMap = schemaRoot.getFieldVectors().stream().collect(Collectors.toMap(ValueVector::getName, vector -> {
                                         long idDictionary = vector.getField().getDictionary().getId();
@@ -141,41 +123,43 @@ public class ImportArrow {
                                         // properties
                                         decodedVectorsMap.entrySet().stream()
                                                 .filter(i -> !List.of(LABELS_FIELD, ID_FIELD).contains(i.getKey())).forEach(propVector -> {
-                                            try {
-//                                                    VarCharVector encodedVector = (VarCharVector) schemaRoot.getVector(index);
-//                                                    long dictionaryVector = encodedVector.getField().getDictionary().getId();
-                                                VarCharVector vector = (VarCharVector) propVector.getValue();
-
-                                                byte[] value = vector.get(index);
-                                                if (value != null) {
-//                                                        String stringValue = new String(value);
-//                                                    node.setProperty(vector.getName(), UtilreadMap( new String(value)) );
-//                                                        if ()
-                                                    Object valueRead = OBJECT_MAPPER.readValue(value, Object.class);
-                                                    if (valueRead instanceof Map) {
-                                                        Stream<Map.Entry<String, Object>> entryStream = flatMap((Map<String, Object>) valueRead, vector.getName());
-                                                        entryStream
-                                                                .filter(e -> e.getValue() != null)
-                                                                .forEach(entry -> node.setProperty(entry.getKey(), entry.getValue()));
-                                                    } else {
-                                                        if (valueRead instanceof Collection) {
-                                                            // TODO - PUO ESSERE ANCHE LISTA DI MAPPE O COSE COSì
-
-//                                                                ((List) valueRead).to
-
-                                                            final Collection valueReadAsList = (Collection) valueRead;
-                                                            valueRead = Iterables.toArray(valueReadAsList, valueReadAsList.iterator().next().getClass());
-
-//                                                                valueRead = ArrayUtils.toArray(valueRead);
-//                                                                valueRead = ((List<String>) valueRead).toArray(new String[3]);//  ((List<String>) valueRead).toArray();
-                                                        }
-                                                        node.setProperty(vector.getName(), valueRead);
-                                                    }
-                                                }
-                                            } catch (IllegalAccessError ignored) {
-                                            } catch (IOException e) {
-                                                e.printStackTrace(); // todo - funzione comune e runtime
-                                            }
+                                                    setCurrentVector(index, node, propVector);
+//                                            try {
+////                                                    VarCharVector encodedVector = (VarCharVector) schemaRoot.getVector(index);
+////                                                    long dictionaryVector = encodedVector.getField().getDictionary().getId();
+//                                                VarCharVector vector = (VarCharVector) propVector.getValue();
+//
+//                                                byte[] value = vector.get(index);
+//                                                if (value != null) {
+////                                                        String stringValue = new String(value);
+////                                                    node.setProperty(vector.getName(), UtilreadMap( new String(value)) );
+////                                                        if ()
+//                                                    Object valueRead = OBJECT_MAPPER.readValue(value, Object.class);
+//                                                    setPropertyByValue(valueRead, propVector.getKey(), node);
+////                                                    if (valueRead instanceof Map) {
+////                                                        Stream<Map.Entry<String, Object>> entryStream = flatMap((Map<String, Object>) valueRead, vector.getName());
+////                                                        entryStream
+////                                                                .filter(e -> e.getValue() != null)
+////                                                                .forEach(entry -> node.setProperty(entry.getKey(), entry.getValue()));
+////                                                    } else {
+////                                                        if (valueRead instanceof Collection) {
+////                                                            // TODO - PUO ESSERE ANCHE LISTA DI MAPPE O COSE COSì
+////
+//////                                                                ((List) valueRead).to
+////
+////                                                            final Collection valueReadAsList = (Collection) valueRead;
+////                                                            valueRead = Iterables.toArray(valueReadAsList, valueReadAsList.iterator().next().getClass());
+////
+//////                                                                valueRead = ArrayUtils.toArray(valueRead);
+//////                                                                valueRead = ((List<String>) valueRead).toArray(new String[3]);//  ((List<String>) valueRead).toArray();
+////                                                        }
+////                                                        node.setProperty(vector.getName(), valueRead);
+////                                                    }
+//                                                }
+//                                            } catch (IllegalAccessError ignored) {
+//                                            } catch (IOException e) {
+//                                                e.printStackTrace(); // todo - funzione comune e runtime
+//                                            }
 //                                    NullableVarBinaryHolder holder = new NullableVarBinaryHolder();
 //                                    ((VarCharVector) vector).get(index, holder);
 //                                    if (holder.isSet != 0) {
@@ -185,49 +169,57 @@ public class ImportArrow {
                                         });
 
                                     });
+
+                                    closeVectors(schemaRoot, decodedVectorsMap);
                                 }
                             } catch (IOException e) {
                                 e.printStackTrace(); // todo - runtime
                             }
+
+//                            schemaRoot.clear();
+//                            schemaRoot.close();
+
                         }
 
                         try (FileInputStream fd = new FileInputStream(fileEdges);
-                             ArrowFileReader relFileReader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
-                            relFileReader.initialize();
-                            VectorSchemaRoot schemaRoot = relFileReader.getVectorSchemaRoot();
+                             ArrowFileReader fileReader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
+                            VectorSchemaRoot schemaRoot = fileReader.getVectorSchemaRoot();
 
                             try (BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {
-                                while (relFileReader.loadNextBatch()) {
+                                while (fileReader.loadNextBatch()) {
 
-                                    final UInt8Vector start = (UInt8Vector) schemaRoot.getVector(START_FIELD);
-                                    final UInt8Vector end = (UInt8Vector) schemaRoot.getVector(END_FIELD);
-                                    final VarCharVector type = (VarCharVector) schemaRoot.getVector(TYPE_FIELD);
+                                    Map<Long, Dictionary> dictionaryMap = fileReader.getDictionaryVectors();
 
-                                    IntStream.range(0, start.getValueCapacity()).forEach(index -> {
+                                    Map<String, ValueVector> decodedVectorsMap = schemaRoot.getFieldVectors().stream().collect(Collectors.toMap(ValueVector::getName, vector -> {
+                                        long idDictionary = vector.getField().getDictionary().getId();
+                                        return DictionaryEncoder.decode(vector, dictionaryMap.get(idDictionary));
+                                    }));
+
+
+
+                                    final UInt8Vector start = (UInt8Vector) decodedVectorsMap.get(START_FIELD);
+                                    final UInt8Vector end = (UInt8Vector) decodedVectorsMap.get(END_FIELD);
+                                    final VarCharVector type = (VarCharVector) decodedVectorsMap.get(TYPE_FIELD);
+
+                                    int sizeId = start.getValueCount();
+
+                                    IntStream.range(0, sizeId).forEach(index -> {
                                         Node from = tx.getTransaction().getNodeById(start.get(index));
                                         Node to = tx.getTransaction().getNodeById(end.get(index));
-                                        // todo - check empty type
+
 //                                RelationshipType relationshipType = type == null ? getRelationshipType(reader) : RelationshipType.withName(label);
                                         RelationshipType relationshipType = RelationshipType.withName(new String(type.get(index)));
                                         Relationship relationship = from.createRelationshipTo(to, relationshipType);
 
-                                        schemaRoot.getFieldVectors().stream()
-                                                .filter(i -> !List.of(START_FIELD, END_FIELD, TYPE_FIELD).contains(i.getName())).forEach(vector -> {
-                                            try {
-                                                byte[] value = ((VarCharVector) vector).get(index);
-                                                JsonParser parser = OBJECT_MAPPER.getFactory().createParser(new String(value));
-                                                relationship.setProperty(vector.getName(), OBJECT_MAPPER.readValue(parser, Object.class));
-                                            } catch (IllegalAccessError ignored) {
-                                            } catch (IOException e) {
-                                                e.printStackTrace(); // TODO - RUNTIME
-                                            }
-//                                    NullableVarBinaryHolder holder = new NullableVarBinaryHolder();
-//                                    ((VarCharVector) vector).get(index, holder);
-//                                    if (holder.isSet != 0) {
-//                                        holder.buffer.getBytes(holder.start, holder.);
-//                                    }
+
+                                        decodedVectorsMap.entrySet().stream()
+                                                .filter(i -> !List.of(START_FIELD, END_FIELD, TYPE_FIELD).contains(i.getKey())).forEach(propVector -> {
+                                            // TODO - METODO COMUNE CON NODE
+                                            setCurrentVector(index, relationship, propVector);
                                         });
                                     });
+
+                                    closeVectors(schemaRoot, decodedVectorsMap);
                                 }
                             }
                         }
@@ -237,5 +229,44 @@ public class ImportArrow {
 
                 });
         return Stream.of(result);
+    }
+
+    private void setCurrentVector(int index, Entity entity, Map.Entry<String, ValueVector> propVector) {
+        try {
+            VarCharVector vector = (VarCharVector) propVector.getValue();
+            byte[] value = vector.get(index);
+            if (value != null) {
+                Object valueRead = OBJECT_MAPPER.readValue(value, Object.class);
+                setPropertyByValue(valueRead, propVector.getKey(), entity);
+            }
+
+        } catch (IllegalAccessError ignored) {
+        } catch (IOException e) {
+            e.printStackTrace(); // TODO - RUNTIME
+        }
+    }
+
+    protected void setPropertyByValue(Object value, String name, Entity entity) {
+        if (value instanceof Map) {
+            Stream<Map.Entry<String, Object>> entryStream = flatMap((Map<String, Object>) value, name);
+            entryStream.filter(e -> e.getValue() != null)
+                    .forEach(entry -> setPropertyByValue(entry.getValue(), entry.getKey(), entity));
+        } else if (value instanceof Collection) {
+            final Collection valueReadAsList = (Collection) value;
+            final Object iterator = valueReadAsList.iterator().next();
+            if (iterator instanceof Map || iterator instanceof Collection) {
+                setPropertyByValue(iterator, name, entity);
+            } else {
+                entity.setProperty(name, Iterables.toArray(valueReadAsList, iterator.getClass()));
+            }
+        } else {
+            entity.setProperty(name, value);
+        }
+//        return value;
+    }
+
+    private void closeVectors(VectorSchemaRoot schemaRoot, Map<String, ValueVector> decodedVectorsMap) {
+        schemaRoot.getFieldVectors().forEach(FieldVector::close);
+        decodedVectorsMap.values().forEach(ValueVector::close);
     }
 }
