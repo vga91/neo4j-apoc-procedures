@@ -26,7 +26,7 @@ public class ExportArrowTest {
     private static File directory = new File("target/import");
     private static File directoryExpected = new File("../docs/asciidoc/modules/ROOT/examples/data/exportJSON");
 
-    static { //noinspection ResultOfMethodCallIgnored
+    static {
         directory.mkdirs();
     }
 
@@ -137,7 +137,8 @@ public class ExportArrowTest {
 //                    assertResults(filename, r, "database");
 //                }
         );
-//        assertFileEquals(filename);
+        assertFileEquals("nodes_" + filename);
+        assertFileEquals("edges_" + filename);
     }
 
 

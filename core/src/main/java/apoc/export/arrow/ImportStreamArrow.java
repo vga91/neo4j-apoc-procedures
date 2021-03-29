@@ -131,7 +131,7 @@ public class ImportStreamArrow {
                                                     .filter(i -> i.getKey().startsWith(STREAM_EDGE_PREFIX))
                                                     .forEach(propVector -> setCurrentVector(index, relationship, propVector, STREAM_EDGE_PREFIX));
 
-                                        } catch (IllegalStateException ignored){ }
+                                        } catch (IllegalStateException ignored) {}
                                     });
 
                                     closeVectors(schemaRoot, decodedVectorsMap);

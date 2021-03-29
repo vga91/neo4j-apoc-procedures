@@ -1,0 +1,2 @@
+¦signature
+¦apoc.load.arrow(file :: STRING?, config = {} :: MAP?) :: (lineNo :: INTEGER?, list :: LIST? OF ANY?, map :: MAP?)

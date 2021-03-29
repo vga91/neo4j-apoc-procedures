@@ -35,7 +35,6 @@ public class JsonImporter implements Closeable {
             "MATCH (e%s {%2$s: row.end.id}) " +
             "CREATE (s)-[r:%s]->(e) SET r += row.properties";
 
-    // TODO - RIUTILIZZARE QUALCOSA DI QUA
     private final List<Map<String, Object>> paramList;
     private final int unwindBatchSize;
     private final int txBatchSize;
@@ -80,7 +79,6 @@ public class JsonImporter implements Closeable {
 
         param.put("properties", convertProperties(type, properties, null));
 
-        // TODO - RIUTILIZZARE QUALCOSA DI QUA
         paramList.add(param);
         if (paramList.size() % txBatchSize == 0) {
             final Collection<List<Map<String, Object>>> results = chunkData();
@@ -151,7 +149,6 @@ public class JsonImporter implements Closeable {
                 throw new IllegalArgumentException("Current type not supported: " + type);
         }
     }
-    // TODO - USARE QUESTA è POSSIBILE???
     public static Stream<Map.Entry<String, Object>> flatMap(Map<String, Object> map, String key) {
         final String prefix = key != null ? key : "";
         return map.entrySet().stream()
@@ -164,7 +161,6 @@ public class JsonImporter implements Closeable {
                 });
     }
 
-    // TODO --- ANCHE  QUESTO
     private List<Object> convertList(Collection<Object> coll, String classType) {
         return coll.stream()
                 .map(c -> {

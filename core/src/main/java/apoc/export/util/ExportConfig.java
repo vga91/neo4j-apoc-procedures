@@ -56,7 +56,6 @@ public class ExportConfig {
 
     public boolean isBulkImport() {
         return bulkImport;
-        // todo ??
     }
 
     public char getDelimChar() {

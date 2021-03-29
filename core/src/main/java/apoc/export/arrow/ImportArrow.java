@@ -1,7 +1,6 @@
 package apoc.export.arrow;
 
 import apoc.Pools;
-import apoc.export.json.ImportJsonConfig;
 import apoc.export.util.BatchTransaction;
 import apoc.export.util.ProgressReporter;
 import apoc.result.ProgressInfo;
@@ -61,8 +60,6 @@ public class ImportArrow {
 
     public ImportArrow() {}
 
-//    private ImportArrowConfig importArrowConfig;
-
     @Procedure(name = "apoc.import.arrow", mode = Mode.SCHEMA)
     @Description("TODO")
     public Stream<ProgressInfo> importArrow(
@@ -81,10 +78,7 @@ public class ImportArrow {
                         try (FileInputStream fd = new FileInputStream(fileNodes);
                              ArrowFileReader fileReader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
 
-
                             VectorSchemaRoot schemaRoot = fileReader.getVectorSchemaRoot();
-
-                            // todo - mettere max size quando esporto e vedere che succede.....
 
                             try (BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {
                                 while (fileReader.loadNextBatch()) {
@@ -105,11 +99,7 @@ public class ImportArrow {
                                         VarCharVector labelVector = (VarCharVector) decodedVectorsMap.get(LABELS_FIELD);
 
                                         asList(new String(labelVector.get(index)).split(":")).forEach(label -> {
-                                            try {
-                                                node.addLabel(Label.label(OBJECT_MAPPER.readValue(label, String.class)));
-                                            } catch (JsonProcessingException e) {
-                                                e.printStackTrace(); // todo - funzione comune
-                                            }
+                                            readLabelAsString(node, label);
                                         });
 
                                         // properties
@@ -122,7 +112,7 @@ public class ImportArrow {
                                     closeVectors(schemaRoot, decodedVectorsMap);
                                 }
                             } catch (IOException e) {
-                                e.printStackTrace(); // todo - runtime
+                                throw new RuntimeException("Error during import arrow file");
                             }
                         }
 
@@ -162,7 +152,6 @@ public class ImportArrow {
                                 }
                             }
                         }
-
                         return reporter.getTotal();
                     }
 
@@ -170,7 +159,13 @@ public class ImportArrow {
         return Stream.of(result);
     }
 
-//    public static Object
+    public static void readLabelAsString(Node node, String label) {
+        try {
+            node.addLabel(Label.label(OBJECT_MAPPER.readValue(label, String.class)));
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Error during reading Label");
+        }
+    }
 
     public static Object getCurrentIndex(byte[] value) {
         try {
@@ -186,39 +181,12 @@ public class ImportArrow {
         byte[] value = vector.get(index);
         if (value != null) {
             Object valueRead = getCurrentIndex(value);
-//                if (entity == null) {
-//                    setPropertyByValue(valueRead, propVector.getKey().replace(normalizeKey, ""), entity);
-
-//                    return value;
-
-//                } else {
-                setPropertyByValue(valueRead, propVector.getKey().replace(normalizeKey, ""), entity);
-//                    return null;
-//                }
+            setPropertyByValue(valueRead, propVector.getKey().replace(normalizeKey, ""), entity);
         }
-
-//        } catch (IllegalAccessError ignored) {
     }
 
-//    private String getClassType(String type, String key) {
-//        final String classType;
-//        switch (type) {
-//            case "node":
-//                classType = importArrowConfig.typeForNode(lastLabels, key);
-//                break;
-//            case "relationship":
-//                classType = importArrowConfig.typeForRel((String) lastRelTypes.get("label"), key);
-//                break;
-//            default:
-//                classType = null;
-//                break;
-//        }
-//        return classType;
-//    }
-
     public static void setPropertyByValue(Object value, String name, Entity entity) {
-//        value = set
-            // todo - properties mapping
+        // todo - properties mapping
 
         if (value instanceof Map) {
             Stream<Map.Entry<String, Object>> entryStream = flatMap((Map<String, Object>) value, name);

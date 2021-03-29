@@ -21,21 +21,15 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowFileWriter;
-import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.arrow.vector.ipc.ArrowWriter;
-import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.cypher.export.DatabaseSubGraph;
 import org.neo4j.cypher.export.SubGraph;
-import org.neo4j.function.TriFunction;
-import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
@@ -52,7 +46,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.nio.channels.Channels;
@@ -68,9 +61,12 @@ import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
 import static apoc.export.arrow.ArrowUtils.DICT_PREFIX;
+import static apoc.export.arrow.ArrowUtils.EDGE_FILE_PREFIX;
 import static apoc.export.arrow.ArrowUtils.END_FIELD;
 import static apoc.export.arrow.ArrowUtils.ID_FIELD;
 import static apoc.export.arrow.ArrowUtils.LABELS_FIELD;
+import static apoc.export.arrow.ArrowUtils.NODE_FILE_PREFIX;
+import static apoc.export.arrow.ArrowUtils.RESULT_FILE_PREFIX;
 import static apoc.export.arrow.ArrowUtils.START_FIELD;
 import static apoc.export.arrow.ArrowUtils.STREAM_EDGE_PREFIX;
 import static apoc.export.arrow.ArrowUtils.STREAM_NODE_PREFIX;
@@ -129,8 +125,6 @@ public class ExportArrow {
         return exportArrow(fileName, source,result,config);
     }
 
-    // TODO - CI SONO DUE org.apache.arrow.memory.DefaultAllocationManagerFactory
-
 
     private Stream<ProgressInfo> exportArrow(@Name("file") String fileName, String source, Object data, Map<String, Object> config) throws Exception {
 
@@ -144,10 +138,8 @@ public class ExportArrow {
 
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, false);
 
-
                 if (exportConfig.streamStatements()) {
 
-                    // todo - test
                     return ExportUtils.getProgressInfoStream(db,
                             pools.getDefaultExecutorService(),
                             terminationGuard,
@@ -209,56 +201,28 @@ public class ExportArrow {
             if (valueToExport instanceof SubGraph) {
                 SubGraph subGraph = (SubGraph) valueToExport;
 
-                File fileNodes = new File(importDir, "nodes_" + fileName);
-                fileStream(reporter, allocator, batchSize, subGraph, fileNodes, ArrowUtils.FunctionType.NODES);
+                File fileNodes = new File(importDir, NODE_FILE_PREFIX + fileName);
+                processArrowStream(reporter, allocator, batchSize, subGraph, fileNodes, ArrowUtils.FunctionType.NODES);
 
                 if (!subGraph.getRelationships().iterator().hasNext()) {
                     return;
                 }
 
-                File fileEdges = new File(importDir, "edges_" + fileName);
-                fileStream(reporter, allocator, batchSize, subGraph, fileEdges, ArrowUtils.FunctionType.EDGES);
-//                try (FileOutputStream fd = new FileOutputStream(fileEdges)) {
-//                    DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
-//                    AtomicInteger index = new AtomicInteger();
-//                    Map<String, FieldVector> vectorMap = new TreeMap<>();
-//
-//                    subGraph.getRelationships().forEach(relationship -> writeRelationship(
-//                            reporter, allocator, vectorMap, index, relationship, dictProvider, batchSize, fd, true));
-//
-//                    checkBatchStatusAndWriteEventually(dictProvider, fd, index, vectorMap, index.get() % batchSize != 0);
-//                }
+                File fileEdges = new File(importDir, EDGE_FILE_PREFIX + fileName);
+                processArrowStream(reporter, allocator, batchSize, subGraph, fileEdges, ArrowUtils.FunctionType.EDGES);
             }
 
             if (valueToExport instanceof Result) {
 
-                File file = new File(importDir, "result_" + fileName);
-                try (FileOutputStream fd = new FileOutputStream(file)) {
-
-                    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
-                    AtomicInteger index = new AtomicInteger();
-                    Map<String, FieldVector> vectorMap = new TreeMap<>();
-
-                    // todo - da jsonFormat
-                    String[] header = ((Result) valueToExport).columns().toArray(new String[((Result) valueToExport).columns().size()]);
-                    ((Result) valueToExport).accept((row) -> {
-                        for (String keyName : header) {
-                            Object value = row.get(keyName);
-                            writeArrowResult(reporter, allocator, vectorMap, index, value, provider, batchSize, fd);
-                        }
-                        reporter.nextRow();
-                        return true;
-                    });
-                    checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize != 0);
-
-                }
-
+                File file = new File(importDir, RESULT_FILE_PREFIX + fileName);
+                processArrowStream(reporter, allocator, batchSize, valueToExport, file, ArrowUtils.FunctionType.RESULT);
             }
+
             reporter.done();
         }
     }
 
-    private void fileStream(ProgressReporter reporter, RootAllocator allocator, int batchSize, SubGraph subGraph, File fileNodes, ArrowUtils.FunctionType function) throws IOException {
+    private void processArrowStream(ProgressReporter reporter, RootAllocator allocator, int batchSize, Object valueToProcess, File fileNodes, ArrowUtils.FunctionType function) throws IOException {
         try (FileOutputStream fd = new FileOutputStream(fileNodes)) {
             DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
             AtomicInteger index = new AtomicInteger();
@@ -266,12 +230,23 @@ public class ExportArrow {
 
             switch (function) {
                 case NODES:
-                    subGraph.getNodes().forEach(node -> writeNode(
+                    ((SubGraph) valueToProcess).getNodes().forEach(node -> writeNode(
                             reporter, allocator, vectorMap, index, node, dictProvider, batchSize, fd, true));
                     break;
                 case EDGES:
-                    subGraph.getRelationships().forEach(relationship -> writeRelationship(
+                    ((SubGraph) valueToProcess).getRelationships().forEach(relationship -> writeRelationship(
                             reporter, allocator, vectorMap, index, relationship, dictProvider, batchSize, fd, true));
+                    break;
+                case RESULT:
+                    String[] header = ((Result) valueToProcess).columns().toArray(new String[((Result) valueToProcess).columns().size()]);
+                    ((Result) valueToProcess).accept((row) -> {
+                        for (String keyName : header) {
+                            Object value = row.get(keyName);
+                            writeArrowResult(reporter, allocator, vectorMap, index, value, dictProvider, batchSize, fd);
+                        }
+                        reporter.nextRow();
+                        return true;
+                    });
                     break;
                 default:
                     throw new RuntimeException("No function type");
@@ -339,20 +314,17 @@ public class ExportArrow {
 
     protected static List<FieldVector> returnEncodedVector(DictionaryProvider.MapDictionaryProvider dictProvider, Map<String, FieldVector> vectorMap, AtomicInteger indexNode) {
 
-        vectorMap.values().forEach(item -> item.setValueCount(indexNode.get()));
-
-        Map<String, FieldVector> dictVectorMap = vectorMap.entrySet().stream()
-                .collect(Collectors.toMap(key -> DICT_PREFIX + key, Map.Entry::getValue, (a, b) -> a, TreeMap::new));
+        final Collection<FieldVector> valuesVector = vectorMap.values();
+        valuesVector.forEach(item -> item.setValueCount(indexNode.get()));
 
         AtomicLong dictIndex = new AtomicLong();
-        // todo - valori uguali ... ma allora ciclo direttamente vector...
-        dictVectorMap.values().forEach(item -> {
-            dictProvider.put(new Dictionary(item, new DictionaryEncoding(dictIndex.incrementAndGet(), false, null)));
-        });
 
-        AtomicLong dictIndexTwo = new AtomicLong();
-        return vectorMap.values().stream().map(vector ->
-                (FieldVector) DictionaryEncoder.encode(vector, dictProvider.lookup(dictIndexTwo.incrementAndGet()))
+        valuesVector.forEach(item -> dictProvider.put(
+                new Dictionary(item, new DictionaryEncoding(dictIndex.incrementAndGet(), false, null))));
+
+        AtomicLong dictIndexEncoded = new AtomicLong();
+        return valuesVector.stream().map(vector ->
+                (FieldVector) DictionaryEncoder.encode(vector, dictProvider.lookup(dictIndexEncoded.incrementAndGet()))
         ).collect(Collectors.toList());
     }
 
@@ -403,7 +375,6 @@ public class ExportArrow {
     }
 
     protected static void writeRelationship(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorMap, AtomicInteger index, Relationship rel, DictionaryProvider.MapDictionaryProvider provider, int batchSize, OutputStream fd, boolean isFile) {
-//        try {
         final int currentIndex = index.getAndIncrement();
 
         allocateAfterCheckExistence(vectorMap, currentIndex, allocator, START_FIELD, rel.getStartNodeId(), UInt8Vector.class);
@@ -411,53 +382,34 @@ public class ExportArrow {
         allocateAfterCheckExistence(vectorMap, currentIndex, allocator, TYPE_FIELD, rel.getType().name(), VarCharVector.class);
 
         final Map<String, Object> allProperties = rel.getAllProperties();
-        allProperties.forEach((key, value) -> {
-//                try {
-            allocateAfterCheckExistence(vectorMap, currentIndex, allocator, isFile ? key : (STREAM_EDGE_PREFIX + key), value, VarCharVector.class);
-//                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-//                    e.printStackTrace();
-//                }
-        });
+        allProperties.forEach((key, value) -> allocateAfterCheckExistence(
+                vectorMap, currentIndex, allocator, isFile ? key : (STREAM_EDGE_PREFIX + key), value, VarCharVector.class));
 
         if (reporter != null) {
             reporter.update(0, 1, allProperties.size());
         }
         checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize == 0, isFile);
-//        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-//            e.printStackTrace();
-//        }
     }
 
     protected static void writeNode(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorMap, AtomicInteger index, Node node, DictionaryProvider.MapDictionaryProvider provider, int batchSize, OutputStream fd, boolean isFile) {
-//        try {
+        final int currentIndex = index.getAndIncrement();
 
-            final int currentIndex = index.getAndIncrement();
+        // id field
+        allocateAfterCheckExistence(vectorMap, currentIndex, allocator, ID_FIELD, node.getId(), UInt8Vector.class);
 
-            // id field
-            allocateAfterCheckExistence(vectorMap, currentIndex, allocator, ID_FIELD, node.getId(), UInt8Vector.class);
+        Map<String, Object> allProperties = node.getAllProperties();
+        allProperties.forEach((key, value) -> allocateAfterCheckExistence(
+                vectorMap, currentIndex, allocator, isFile ? key : (STREAM_NODE_PREFIX + key) , value, VarCharVector.class));
 
-            Map<String, Object> allProperties = node.getAllProperties();
-            allProperties.forEach((key, value) -> {
-//                try {
-                    allocateAfterCheckExistence(vectorMap, currentIndex, allocator, isFile ? key : (STREAM_NODE_PREFIX + key) , value, VarCharVector.class);
-//                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-//                    e.printStackTrace();
-//                }
-            });
+        if (node.getLabels().iterator().hasNext()) {
+            allocateAfterCheckExistence(vectorMap, currentIndex, allocator, LABELS_FIELD, labelString(node), VarCharVector.class);
+        }
 
-            if (node.getLabels().iterator().hasNext()) {
-                allocateAfterCheckExistence(vectorMap, currentIndex, allocator, LABELS_FIELD, labelString(node), VarCharVector.class);
-            }
+        if (reporter != null) {
+            reporter.update(1, 0, allProperties.size());
+        }
 
-            if (reporter != null) {
-                reporter.update(1, 0, allProperties.size());
-            }
-
-            checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize == 0, isFile);
-
-//        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-//            e.printStackTrace();
-//        }
+        checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize == 0, isFile);
     }
 }
 

@@ -1137,6 +1137,31 @@ apoc.example.movies() \| Creates the sample movies graph
 [.procedures, opts=header, cols='5a,1a,1a']
 |===
 | Qualified Name | Type | Release
+|xref::overview/apoc.export/apoc.export.arrow.all.adoc[apoc.export.arrow.all icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export/apoc.export.arrow.data.adoc[apoc.export.arrow.data icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export/apoc.export.arrow.graph.adoc[apoc.export.arrow.graph icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export/apoc.export.arrow.query.adoc[apoc.export.arrow.query icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export/apoc.export.arrow.stream.all.adoc[apoc.export.arrow.stream.all icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
 |xref::overview/apoc.export/apoc.export.csv.all.adoc[apoc.export.csv.all icon:book[]]
 
 apoc.export.csv.all(file,config) - exports whole database as csv to the provided file
@@ -1401,6 +1426,16 @@ calculate a checksum (md5) over a node or a relationship. This deals gracefully 
 [.procedures, opts=header, cols='5a,1a,1a']
 |===
 | Qualified Name | Type | Release
+|xref::overview/apoc.import/apoc.import.arrow.adoc[apoc.import.arrow icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.import/apoc.import.arrow.stream.adoc[apoc.import.arrow.stream icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
 |xref::overview/apoc.import/apoc.import.csv.adoc[apoc.import.csv icon:book[]]
 
 apoc.import.csv(nodes, relationships, config) - imports nodes and relationships from the provided CSV files with given labels and types
@@ -1454,6 +1489,11 @@ apoc.label.exists(element, label) - returns true or false related to label exist
 [.procedures, opts=header, cols='5a,1a,1a']
 |===
 | Qualified Name | Type | Release
+|xref::overview/apoc.load/apoc.load.arrow.adoc[apoc.load.arrow icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
 |xref::overview/apoc.load/apoc.load.csv.adoc[apoc.load.csv icon:book[]]
 
 apoc.load.csv('url',\{config}) YIELD lineNo, list, map - load CSV from URL as stream of values,
@@ -1464,7 +1504,6 @@ apoc.load.csv('url',\{config}) YIELD lineNo, list, map - load CSV from URL as st
 
 apoc.load.csvParams('url', {httpHeader: value}, payload, \{config}) YIELD lineNo, list, map - load from CSV URL (e.g. web-api) while sending headers / payload to load CSV from URL as stream of values,
  config contains any of: {skip:1,limit:5,header:false,sep:'TAB',ignore:['tmp'],nullValues:['na'],arraySep:';',mapping:{years:{type:'int',arraySep:'-',array:false,name:'age',ignore:false}}
-
 |label:procedure[]
 |label:apoc-full[]
 |xref::overview/apoc.load/apoc.load.directory.adoc[apoc.load.directory icon:book[]]
@@ -3051,7 +3090,7 @@ CALL apoc.ttl.expireIn(node,timeDelta,'time-unit') - expire node after specified
 
 
 |label:function[]
-|label:apoc-core[]
+|label:apoc-full[]
 |===
 
 == xref::overview/apoc.util/index.adoc[]

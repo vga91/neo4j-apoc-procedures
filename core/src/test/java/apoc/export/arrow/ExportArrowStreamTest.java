@@ -90,7 +90,6 @@ public class ExportArrowStreamTest {
 //                    assertEquals("json", r.get("format"));
                 });
 
-        // TODO TODO TODO TODO TODO - FARE UNA COSA DEL GENERE COME EXPORTJSONS3TEST
 //        verifyUpload(s3Url, filename);
     }
 
@@ -111,7 +110,6 @@ public class ExportArrowStreamTest {
                 (r) -> {
                     Assertions.assertTrue(r.hasNext());
                     Relationship rel = (Relationship) r.next().get("r");
-//                    assertEquals("prova", node.getLabels().iterator().next().toString());
                     System.out.println("ImportArrowTest.testBasicImport");
                 });
 //        assertFileEquals(filename);

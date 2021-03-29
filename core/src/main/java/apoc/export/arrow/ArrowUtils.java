@@ -2,6 +2,7 @@ package apoc.export.arrow;
 
 public class ArrowUtils {
     public enum FunctionType { NODES, EDGES, RESULT }
+
     public static final String LABELS_FIELD = "_labels";
     public static final String ID_FIELD = "_id";
     public static final String START_FIELD = "_start";
@@ -11,5 +12,7 @@ public class ArrowUtils {
     public static final String STREAM_NODE_PREFIX = "nodeProp___";
     public static final String STREAM_EDGE_PREFIX = "edgeProp___";
 
-    // todo - enum function
+    public static final String NODE_FILE_PREFIX = "nodes_";
+    public static final String EDGE_FILE_PREFIX = "edges_";
+    public static final String RESULT_FILE_PREFIX = "result_";
 }
