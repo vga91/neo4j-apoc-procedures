@@ -9,4 +9,6 @@ public class ArrowUtils {
     protected static final String DICT_PREFIX = "dict___";
     protected static final String STREAM_NODE_PREFIX = "nodeProp___";
     protected static final String STREAM_EDGE_PREFIX = "edgeProp___";
+
+    // todo - enum function
 }

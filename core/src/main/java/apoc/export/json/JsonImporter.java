@@ -78,7 +78,6 @@ public class JsonImporter implements Closeable {
         final Map<String, Object> properties = (Map<String, Object>) param.getOrDefault("properties", Collections.emptyMap());
         updateReporter(type, properties);
 
-        // todo - mettere le props in una mappa ed usare questo se possibile
         param.put("properties", convertProperties(type, properties, null));
 
         // TODO - RIUTILIZZARE QUALCOSA DI QUA
@@ -91,7 +90,6 @@ public class JsonImporter implements Closeable {
         }
     }
 
-    // todo - riutilizzare
     private void writeUnwindBatch(Collection<List<Map<String, Object>>> results) {
         try (final Transaction tx = db.beginTx()) {
             results.forEach(resultList -> {

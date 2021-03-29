@@ -51,6 +51,7 @@ import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.cypher.export.DatabaseSubGraph;
 import org.neo4j.cypher.export.SubGraph;
+import org.neo4j.function.TriFunction;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
@@ -89,6 +90,7 @@ import java.util.Random;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -178,7 +180,7 @@ public class ExportArrow {
 
                 if (exportConfig.streamStatements()) {
 
-                    // todo nb: dovrebbe batchare... vedere se c'è qualche test
+                    // todo - test
                     return ExportUtils.getProgressInfoStream(db,
                             pools.getDefaultExecutorService(),
                             terminationGuard,
@@ -239,34 +241,25 @@ public class ExportArrow {
         try (RootAllocator allocator = new RootAllocator()) {
 
             String importDir = apocConfig().getString("dbms.directories.import", "import");
-            File fileNodes = new File(importDir, "nodes_" + fileName);
-            File fileEdges = new File(importDir, "edges_" + fileName);
 
             int batchSize = exportConfig.getBatchSize();
 
             if (valueToExport instanceof SubGraph) {
                 SubGraph subGraph = (SubGraph) valueToExport;
 
-                try (FileOutputStream fd = new FileOutputStream(fileNodes)) {
-                    DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
-                    AtomicInteger indexNode = new AtomicInteger();
-                    Map<String, FieldVector> vectorMap = new TreeMap<>();
-
-                    subGraph.getNodes().forEach(node -> writeNode(
-                            reporter, allocator, vectorMap, indexNode, node, dictProvider, batchSize, fd, true));
-
-                    checkBatchStatusAndWriteEventually(dictProvider, fd, indexNode, vectorMap, indexNode.get() % batchSize != 0);
-                }
+                File fileNodes = new File(importDir, "nodes_" + fileName);
+                fileStream(reporter, allocator, batchSize, subGraph, fileNodes, "nodes");
 
                 if (!subGraph.getRelationships().iterator().hasNext()) {
                     return;
                 }
 
+                File fileEdges = new File(importDir, "edges_" + fileName);
                 try (FileOutputStream fd = new FileOutputStream(fileEdges)) {
                     DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
                     AtomicInteger index = new AtomicInteger();
-
                     Map<String, FieldVector> vectorMap = new TreeMap<>();
+
                     subGraph.getRelationships().forEach(relationship -> writeRelationship(
                             reporter, allocator, vectorMap, index, relationship, dictProvider, batchSize, fd, true));
 
@@ -283,7 +276,7 @@ public class ExportArrow {
                     AtomicInteger index = new AtomicInteger();
                     Map<String, FieldVector> vectorMap = new TreeMap<>();
 
-                    // todo - da jsonFormat - riciclare in qualche modo
+                    // todo - da jsonFormat
                     String[] header = ((Result) valueToExport).columns().toArray(new String[((Result) valueToExport).columns().size()]);
                     ((Result) valueToExport).accept((row) -> {
                         for (String keyName : header) {
@@ -298,6 +291,26 @@ public class ExportArrow {
 
             }
             reporter.done();
+        }
+    }
+
+    private void fileStream(ProgressReporter reporter, RootAllocator allocator, int batchSize, SubGraph subGraph, File fileNodes, String function) throws IOException {
+        try (FileOutputStream fd = new FileOutputStream(fileNodes)) {
+            DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
+            AtomicInteger index = new AtomicInteger();
+            Map<String, FieldVector> vectorMap = new TreeMap<>();
+
+            switch (function) {
+                case "nodes":
+                    subGraph.getNodes().forEach(node -> writeNode(
+                            reporter, allocator, vectorMap, index, node, dictProvider, batchSize, fd, true));
+                    break;
+                default:
+                    throw new RuntimeException("TODO");
+            }
+
+
+            checkBatchStatusAndWriteEventually(dictProvider, fd, index, vectorMap, index.get() % batchSize != 0);
         }
     }
 
