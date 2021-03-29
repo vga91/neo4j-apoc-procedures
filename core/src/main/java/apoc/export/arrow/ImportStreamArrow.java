@@ -67,7 +67,7 @@ public class ImportStreamArrow {
     @Description("TODO")
     public Stream<ProgressInfo> importArrow(
             @Name("source") byte[] source,
-            @Name(value = "config", defaultValue = "{}") Map<String, Object> config // TODO - IMPORT CONFIG HA SENSO?
+            @Name(value = "config", defaultValue = "{}") Map<String, Object> config
     ) throws Exception {
         ImportArrowConfig importConfig = new ImportArrowConfig(config);
         ProgressInfo result =

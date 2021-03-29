@@ -80,6 +80,8 @@ public class ImportArrow {
                         final int batchSize = importConfig.getBatchSize();
                         try (FileInputStream fd = new FileInputStream(fileNodes);
                              ArrowFileReader fileReader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
+
+
                             VectorSchemaRoot schemaRoot = fileReader.getVectorSchemaRoot();
 
                             // todo - mettere max size quando esporto e vedere che succede.....
