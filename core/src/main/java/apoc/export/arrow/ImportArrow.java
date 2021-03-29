@@ -170,19 +170,34 @@ public class ImportArrow {
         return Stream.of(result);
     }
 
-    protected static void setCurrentVector(int index, Entity entity, Map.Entry<String, ValueVector> propVector, String normalizeKey) {
-        try {
-            VarCharVector vector = (VarCharVector) propVector.getValue();
-            byte[] value = vector.get(index);
-            if (value != null) {
-                Object valueRead = OBJECT_MAPPER.readValue(value, Object.class);
-                setPropertyByValue(valueRead, propVector.getKey().replace(normalizeKey, ""), entity);
-            }
+//    public static Object
 
-        } catch (IllegalAccessError ignored) {
+    public static Object getCurrentIndex(byte[] value) {
+        try {
+            return OBJECT_MAPPER.readValue(value, Object.class);
         } catch (IOException e) {
-            e.printStackTrace(); // TODO - RUNTIME
+            e.printStackTrace();
+            return null;
         }
+    }
+
+    public static void setCurrentVector(int index, Entity entity, Map.Entry<String, ValueVector> propVector, String normalizeKey) {
+        VarCharVector vector = (VarCharVector) propVector.getValue();
+        byte[] value = vector.get(index);
+        if (value != null) {
+            Object valueRead = getCurrentIndex(value);
+//                if (entity == null) {
+//                    setPropertyByValue(valueRead, propVector.getKey().replace(normalizeKey, ""), entity);
+
+//                    return value;
+
+//                } else {
+                setPropertyByValue(valueRead, propVector.getKey().replace(normalizeKey, ""), entity);
+//                    return null;
+//                }
+        }
+
+//        } catch (IllegalAccessError ignored) {
     }
 
 //    private String getClassType(String type, String key) {
@@ -201,7 +216,7 @@ public class ImportArrow {
 //        return classType;
 //    }
 
-    protected static void setPropertyByValue(Object value, String name, Entity entity) {
+    public static void setPropertyByValue(Object value, String name, Entity entity) {
 //        value = set
             // todo - properties mapping
 
@@ -222,7 +237,7 @@ public class ImportArrow {
         }
     }
 
-    protected static void closeVectors(VectorSchemaRoot schemaRoot, Map<String, ValueVector> decodedVectorsMap) {
+    public static void closeVectors(VectorSchemaRoot schemaRoot, Map<String, ValueVector> decodedVectorsMap) {
         schemaRoot.getFieldVectors().forEach(FieldVector::close);
         decodedVectorsMap.values().forEach(ValueVector::close);
     }

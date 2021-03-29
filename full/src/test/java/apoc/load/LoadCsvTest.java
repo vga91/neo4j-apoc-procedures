@@ -43,16 +43,16 @@ public class LoadCsvTest {
             Map.of("headFoo", "three", "headBar", "four"),
             Map.of("headFoo", "five", "headBar", "six")
     );
-
-    @BeforeClass
-    public static void startServer() {
-        mockServer = startClientAndServer(1080);
-    }
-
-    @AfterClass
-    public static void stopServer() {
-        mockServer.stop();
-    }
+//
+//    @BeforeClass
+//    public static void startServer() {
+//        mockServer = startClientAndServer(1080);
+//    }
+//
+//    @AfterClass
+//    public static void stopServer() {
+//        mockServer.stop();
+//    }
 
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule()

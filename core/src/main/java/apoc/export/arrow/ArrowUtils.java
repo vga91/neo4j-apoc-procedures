@@ -1,6 +1,7 @@
 package apoc.export.arrow;
 
 public class ArrowUtils {
+    public enum FunctionType { NODES, EDGES, RESULT }
     public static final String LABELS_FIELD = "_labels";
     public static final String ID_FIELD = "_id";
     public static final String START_FIELD = "_start";
