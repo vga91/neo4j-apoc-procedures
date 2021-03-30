@@ -5,24 +5,18 @@ import apoc.export.util.BatchTransaction;
 import apoc.export.util.ProgressReporter;
 import apoc.result.ProgressInfo;
 import apoc.util.Util;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
-import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.SeekableReadChannel;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -31,7 +25,6 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.io.ByteArrayInputStream;
-import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +34,6 @@ import java.util.stream.Stream;
 
 import static apoc.export.arrow.ArrowUtils.END_FIELD;
 import static apoc.export.arrow.ArrowUtils.ID_FIELD;
-import static apoc.export.arrow.ArrowUtils.LABELS_FIELD;
 import static apoc.export.arrow.ArrowUtils.START_FIELD;
 import static apoc.export.arrow.ArrowUtils.STREAM_EDGE_PREFIX;
 import static apoc.export.arrow.ArrowUtils.STREAM_NODE_PREFIX;
@@ -49,9 +41,6 @@ import static apoc.export.arrow.ArrowUtils.TYPE_FIELD;
 import static apoc.export.arrow.ImportArrow.closeVectors;
 import static apoc.export.arrow.ImportArrow.createNodeFromArrow;
 import static apoc.export.arrow.ImportArrow.createRelFromArrow;
-import static apoc.export.arrow.ImportArrow.setCurrentVector;
-import static apoc.util.JsonUtil.OBJECT_MAPPER;
-import static java.util.Arrays.asList;
 
 public class ImportStreamArrow {
     @Context
@@ -66,7 +55,7 @@ public class ImportStreamArrow {
     public ImportStreamArrow() {}
 
     @Procedure(name = "apoc.import.arrow.stream", mode = Mode.SCHEMA)
-    @Description("TODO")
+    @Description("apoc.import.arrow.stream")
     public Stream<ProgressInfo> importArrow(
             @Name("source") byte[] source,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config
@@ -101,7 +90,9 @@ public class ImportStreamArrow {
                                     IntStream.range(0, sizeId).forEach(index -> {
                                         try {
                                             valueVector.get(index);
-                                            createNodeFromArrow(tx, decodedVectorsMap, index, STREAM_NODE_PREFIX);
+                                            Node node = tx.getTransaction().createNode();
+                                            cache.put(valueVector.get(index), node.getId());
+                                            createNodeFromArrow(node, decodedVectorsMap, index, STREAM_NODE_PREFIX);
                                         } catch (IllegalStateException ignored){ }
 
                                         try {

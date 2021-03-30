@@ -1,2 +1,5 @@
 ¦signature
 ¦apoc.export.arrow.stream.all(config :: MAP?) :: (value :: BYTEARRAY?)
+¦apoc.export.arrow.stream.data(nodes :: LIST? OF NODE?, rels :: LIST? OF RELATIONSHIP?, file :: STRING?, config = {} :: MAP?) :: (value :: BYTEARRAY?)
+¦apoc.export.arrow.stream.graph(graph :: MAP?, file :: STRING?, config = {} :: MAP?) :: (value :: BYTEARRAY?)
+¦apoc.export.arrow.stream.query(query :: STRING?, file :: STRING?, config = {} :: MAP?) :: (value :: BYTEARRAY?)

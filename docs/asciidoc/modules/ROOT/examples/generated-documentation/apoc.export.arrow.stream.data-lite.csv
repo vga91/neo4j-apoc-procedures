@@ -1,0 +1,2 @@
+¦signature
+¦apoc.export.arrow.stream.data(nodes :: LIST? OF NODE?, rels :: LIST? OF RELATIONSHIP?, file :: STRING?, config = {} :: MAP?) :: (value :: BYTEARRAY?)

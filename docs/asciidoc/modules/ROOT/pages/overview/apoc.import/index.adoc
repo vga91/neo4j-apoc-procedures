@@ -15,7 +15,7 @@ TODO
 |label:apoc-core[]
 |xref::overview/apoc.import/apoc.import.arrow.stream.adoc[apoc.import.arrow.stream icon:book[]]
 
-TODO
+apoc.import.arrow.stream
 |label:procedure[]
 |label:apoc-core[]
 |xref::overview/apoc.import/apoc.import.csv.adoc[apoc.import.csv icon:book[]]

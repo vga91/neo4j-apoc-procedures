@@ -1,5 +1,5 @@
 ¦xref::overview/apoc.load/apoc.load.arrow.adoc[apoc.load.arrow icon:book[]] +
 
-`TODO`
+`apoc.load.arrow('file',\{config})` - load arrow from file as stream of values
 ¦label:procedure[]
 ¦label:apoc-core[]

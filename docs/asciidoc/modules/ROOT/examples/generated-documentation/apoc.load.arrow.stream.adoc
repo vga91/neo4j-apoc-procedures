@@ -1,0 +1,5 @@
+¦xref::overview/apoc.load.arrow/apoc.load.arrow.stream.adoc[apoc.load.arrow.stream icon:book[]] +
+
+`apoc.load.arrow.stream('file',\{config})` - load arrow from byte[] as stream of values
+¦label:procedure[]
+¦label:apoc-core[]

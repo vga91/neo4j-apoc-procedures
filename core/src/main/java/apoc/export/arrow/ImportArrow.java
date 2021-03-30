@@ -94,7 +94,8 @@ public class ImportArrow {
                                     int sizeId = decodedVectorsMap.get(ID_FIELD).getValueCount();
 
                                     IntStream.range(0, sizeId).forEach(index -> {
-                                        createNodeFromArrow(tx, decodedVectorsMap, index, "");
+                                        Node node = tx.getTransaction().createNode();
+                                        createNodeFromArrow(node, decodedVectorsMap, index, "");
 
                                     });
 
@@ -151,9 +152,7 @@ public class ImportArrow {
                 .forEach(propVector -> setCurrentVector(index, relationship, propVector, normalizeKey));
     }
 
-    public static void createNodeFromArrow(BatchTransaction tx, Map<String, ValueVector> decodedVectorsMap, int index, String normalizeKey) {
-        Node node = tx.getTransaction().createNode();
-
+    public static void createNodeFromArrow(Node node, Map<String, ValueVector> decodedVectorsMap, int index, String normalizeKey) {
         VarCharVector labelVector = (VarCharVector) decodedVectorsMap.get(LABELS_FIELD);
 
         asList(new String(labelVector.get(index)).split(":")).forEach(label -> {

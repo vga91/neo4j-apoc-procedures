@@ -1,6 +1,21 @@
 ¦Qualified Name¦Type¦Release
 |xref::overview/apoc.export.arrow.stream/apoc.export.arrow.stream.adoc[apoc.export.arrow.stream.all icon:book[]]
 
-TODO
+apoc.export.arrow.stream.all
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export.arrow.stream/apoc.export.arrow.stream.adoc[apoc.export.arrow.stream.data icon:book[]]
+
+apoc.export.arrow.stream.data
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export.arrow.stream/apoc.export.arrow.stream.adoc[apoc.export.arrow.stream.graph icon:book[]]
+
+apoc.export.arrow.stream.graph
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export.arrow.stream/apoc.export.arrow.stream.adoc[apoc.export.arrow.stream.query icon:book[]]
+
+apoc.export.arrow.stream.query
 |label:procedure[]
 |label:apoc-core[]
