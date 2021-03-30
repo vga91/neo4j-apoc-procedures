@@ -1,5 +1,5 @@
 ¦xref::overview/apoc.export.arrow/apoc.export.arrow.graph.adoc[apoc.export.arrow.graph icon:book[]] +
 
-`TODO`
+`apoc.export.arrow.graph(graph,file,config)` - exports given graph object as arrow to the provided file
 ¦label:procedure[]
 ¦label:apoc-core[]

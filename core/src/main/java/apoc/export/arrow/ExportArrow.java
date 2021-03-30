@@ -37,9 +37,7 @@ import java.util.stream.Stream;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.export.arrow.ArrowConstants.EDGE_FILE_PREFIX;
 import static apoc.export.arrow.ArrowConstants.NODE_FILE_PREFIX;
-import static apoc.export.arrow.ArrowConstants.RESULT_FILE_PREFIX;
 import static apoc.export.arrow.ExportArrowCommon.implementExportCommon;
-import static apoc.util.Util.labelString;
 
 public class ExportArrow {
 
@@ -92,7 +90,6 @@ public class ExportArrow {
         String source = String.format("statement: cols(%d)", result.columns().size());
         return exportArrow(fileName, source,result,config);
     }
-
 
     private Stream<ProgressInfo> exportArrow(@Name("file") String fileName, String source, Object data, Map<String, Object> config) throws Exception {
 
@@ -152,7 +149,7 @@ public class ExportArrow {
 
             if (valueToExport instanceof Result) {
 
-                File file = new File(importDir, RESULT_FILE_PREFIX + fileName);
+                File file = new File(importDir, fileName);
                 processArrowFileOutputStream(reporter, allocator, batchSize, valueToExport, file, ArrowConstants.FunctionType.RESULT);
             }
 
@@ -169,5 +166,3 @@ public class ExportArrow {
     }
 
 }
-
-// todo -reporter al Result

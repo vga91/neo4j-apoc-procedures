@@ -48,7 +48,8 @@ public class ImportArrowTest {
                     assertTrue(r.hasNext());
                     Node node1 = (Node) r.next().get("n");
                     assertEquals("User", node1.getLabels().iterator().next().name());
-                    assertEquals(Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs"), node1.getAllProperties().keySet());
+                    final Set<String> expectedPropNode1 = Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height");
+                    assertEquals(expectedPropNode1, node1.getAllProperties().keySet());
                     Node node2 = (Node) r.next().get("n");
                     assertEquals("User", node2.getLabels().iterator().next().name());
                     assertEquals(Set.of("name", "age"), node2.getAllProperties().keySet());

@@ -16,7 +16,6 @@ import java.util.Map;
 
 import static apoc.export.arrow.ArrowConstants.EDGE_FILE_PREFIX;
 import static apoc.export.arrow.ArrowConstants.NODE_FILE_PREFIX;
-import static apoc.export.arrow.ArrowConstants.RESULT_FILE_PREFIX;
 import static apoc.util.MapUtil.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -58,7 +57,7 @@ public class ExportArrowTest {
                 }
         );
 
-        assertFileExists(RESULT_FILE_PREFIX + fileName);
+        assertFileExists(fileName);
     }
 
     @Test

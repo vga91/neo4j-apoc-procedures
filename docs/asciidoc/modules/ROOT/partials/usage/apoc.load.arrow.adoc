@@ -1,1 +1,64 @@
-TODO
+Let's suppose we have this data set:
+
+[source,cypher]
+----
+CREATE (f:User {name:'Adam'})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:Another {foo: 'bar'})
+----
+With this query:
+
+[source,cypher]
+----
+CALL apoc.export.arrow.all("all.arrow",null)
+YIELD nodes, relationships, properties, file, source,format, time
+RETURN *
+----
+
+Will be generated a `nodes_all.arrow` file.
+Using this file we can execute:
+
+[source,cypher]
+----
+CALL apoc.load.arrow('all.arrow')
+----
+with this result:
+
+.Results
+[opts="header"]
+|===
+| lineNo           | list | map
+| 0 | ["Adam", "User"] | {name:'Adam', _labels: "User"}
+| 1 | ["Jim", 42, "User"] | {name:'Jim', age: 42, _labels: "User"}
+| 2 | ["bar", "Another"] | {foo:'bar',  _labels: "Another"}
+|===
+
+We can also skip a value:
+
+[source,cypher]
+----
+CALL apoc.load.arrow('all.arrow', {skip: 1})
+----
+with this result:
+
+.Results
+[opts="header"]
+|===
+| lineNo           | list | map
+| 1 | ["Jim", 42, "User"] | {name:'Jim', age: 42, _labels: "User"}
+| 2 | ["bar", "Another"] | {foo:'bar',  _labels: "Another"}
+|===
+
+Or limit the result:
+
+[source,cypher]
+----
+CALL apoc.load.arrow('all.arrow', {limit: 2})
+----
+with this result:
+
+.Results
+[opts="header"]
+|===
+| lineNo           | list | map
+| 0 | ["Adam", "User"] | {name:'Adam', _labels: "User"}
+| 1 | ["Jim", 42, "User"] | {name:'Jim', age: 42, _labels: "User"}
+|===

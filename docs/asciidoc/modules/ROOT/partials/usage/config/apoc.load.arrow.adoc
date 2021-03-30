@@ -1,1 +1,11 @@
-TODO
+The procedure support the following config parameters:
+
+.Config parameters
+[opts=header]
+|===
+| name | type | default | description
+| skip | boolean | none | skip result rows
+| limit | Long | none | limit result rows
+| ignore | List<String> | [] | which columns to ignore
+| results | EnumSet: map, list or both | [map, list] | to decide whether to return the list, the map or both
+|===

@@ -172,29 +172,27 @@ public class ExportArrowCommon {
                 break;
 
             case LIST:
-                ((List) value).forEach(listItem -> {
-                    try {
-                        writeArrowResult(reporter, allocator, vectorMap, index, listItem, provider, batchSize, fd, isFile);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                });
+                ((List) value).forEach(listItem -> writeResultAndThrowsEventually(
+                        reporter, allocator, vectorMap, index, provider, batchSize, fd, isFile, listItem));
                 break;
 
             case MAP:
-                ((Map<String, Object>) value).forEach((keyItem, valueItem) -> {
-                    try {
-                        writeArrowResult(reporter, allocator, vectorMap, index, valueItem, provider, batchSize, fd, isFile);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                });
+                ((Map<String, Object>) value).forEach((keyItem, valueItem) -> writeResultAndThrowsEventually(
+                        reporter, allocator, vectorMap, index, provider, batchSize, fd, isFile, valueItem));
                 break;
 
             default:
                 index.getAndIncrement();
                 allocateAfterCheckExistence(vectorMap, index.get(), allocator, ID_FIELD, value, VarCharVector.class);
                 checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize == 0, isFile);
+        }
+    }
+
+    private static void writeResultAndThrowsEventually(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorMap, AtomicInteger index, DictionaryProvider.MapDictionaryProvider provider, int batchSize, OutputStream fd, boolean isFile, Object listItem) {
+        try {
+            writeArrowResult(reporter, allocator, vectorMap, index, listItem, provider, batchSize, fd, isFile);
+        } catch (Exception e) {
+            throw new RuntimeException("Error during writing arrow result");
         }
     }
 
@@ -215,10 +213,9 @@ public class ExportArrowCommon {
         checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize == 0, isFile);
     }
 
-    private static void writeNode(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorMap, AtomicInteger index, Node node, DictionaryProvider.MapDictionaryProvider provider, int batchSize, OutputStream fd, boolean isFile) {
+    private static void writeNode(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorMap, AtomicInteger index, Node node, DictionaryProvider.MapDictionaryProvider provider, int batchSize, OutputStream stream, boolean isFile) {
         final int currentIndex = index.getAndIncrement();
 
-        // id field
         allocateAfterCheckExistence(vectorMap, currentIndex, allocator, ID_FIELD, node.getId(), UInt8Vector.class);
 
         Map<String, Object> allProperties = node.getAllProperties();
@@ -233,7 +230,7 @@ public class ExportArrowCommon {
             reporter.update(1, 0, allProperties.size());
         }
 
-        checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize == 0, isFile);
+        checkBatchStatusAndWriteEventually(provider, stream, index, vectorMap, index.get() % batchSize == 0, isFile);
     }
 
     private static <T> void allocateAfterCheckExistence(Map<String, FieldVector> vectorMap, int currentIndex, RootAllocator allocator, String key, Object value, Class<T> clazz) {

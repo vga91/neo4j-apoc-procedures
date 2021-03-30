@@ -1,5 +1,5 @@
 ¦xref::overview/apoc.load/apoc.load.arrow.adoc[apoc.load.arrow icon:book[]] +
 
-`apoc.load.arrow('file',\{config})` - load arrow from file as stream of values
+`apoc.load.arrow('file',$config) YIELD lineNo, list, map` - load arrow from file as stream of values
 ¦label:procedure[]
 ¦label:apoc-core[]

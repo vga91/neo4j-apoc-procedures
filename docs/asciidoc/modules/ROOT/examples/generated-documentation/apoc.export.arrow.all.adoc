@@ -1,5 +1,5 @@
 ¦xref::overview/apoc.export.arrow/apoc.export.arrow.all.adoc[apoc.export.arrow.all icon:book[]] +
 
-`TODO`
+`apoc.export.arrow.all(file, config)` - exports whole database as arrow to the provided file
 ¦label:procedure[]
 ¦label:apoc-core[]

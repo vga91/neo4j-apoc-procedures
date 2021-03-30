@@ -1,5 +1,5 @@
 ¦xref::overview/apoc.export.arrow.stream/apoc.export.arrow.stream.query.adoc[apoc.export.arrow.stream.query icon:book[]] +
 
-`apoc.export.arrow.stream.query`
+`apoc.export.arrow.stream.query(query,{config,...,params:\{params}})` - exports results from the cypher statement as arrow byte[] result
 ¦label:procedure[]
 ¦label:apoc-core[]

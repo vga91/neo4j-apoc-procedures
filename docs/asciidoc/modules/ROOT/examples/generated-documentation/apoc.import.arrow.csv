@@ -1,6 +1,6 @@
 ¦Qualified Name¦Type¦Release
 |xref::overview/apoc.import.arrow/apoc.import.arrow.adoc[apoc.import.arrow.stream icon:book[]]
 
-apoc.import.arrow.stream
+apoc.import.arrow.stream(source, config) - imports nodes and relationships from the provided byte[] source with given labels and types
 |label:procedure[]
 |label:apoc-core[]

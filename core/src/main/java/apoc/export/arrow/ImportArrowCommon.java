@@ -100,7 +100,6 @@ public class ImportArrowCommon {
     }
 
     public static void setPropertyByValue(Object value, String name, Entity entity) {
-        // todo - properties mapping
 
         if (value instanceof Map) {
             Stream<Map.Entry<String, Object>> entryStream = flatMap((Map<String, Object>) value, name);

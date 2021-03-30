@@ -26,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static apoc.export.arrow.ImportArrowCommon.closeVectors;
@@ -80,9 +80,12 @@ public class LoadArrow {
                     return DictionaryEncoder.decode(vector, dictionaryMap.get(idDictionary));
                 }));
 
-                int sizeId = schemaRoot.getRowCount() + (int) loadConfig.getSkip();
+                final long skip = loadConfig.getSkip();
+                final long limit = loadConfig.getLimit();
+                final long limitPlusSkip = limit + skip < 0 ? Long.MAX_VALUE : limit + skip ;
+                long sizeId = Math.min(schemaRoot.getRowCount(), limitPlusSkip);
 
-                final List<ArrowResult> currentBatch = IntStream.range(0, sizeId).mapToObj(id -> new ArrowResult(decodedVectorsMap,
+                final List<ArrowResult> currentBatch = LongStream.range(skip, sizeId).mapToObj(id -> new ArrowResult(decodedVectorsMap,
                         id, loadConfig.getIgnore(), loadConfig.getResults()))
                         .collect(Collectors.toList());
                 arrowResult.addAll(currentBatch);

@@ -13,5 +13,4 @@ public class ArrowConstants {
 
     public static final String NODE_FILE_PREFIX = "nodes_";
     public static final String EDGE_FILE_PREFIX = "edges_";
-    public static final String RESULT_FILE_PREFIX = "result_";
 }

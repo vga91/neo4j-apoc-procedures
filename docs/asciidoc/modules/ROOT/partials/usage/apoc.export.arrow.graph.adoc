@@ -1,1 +1,38 @@
-TODO
+Let's suppose we have this data set:
+
+[source,cypher]
+----
+CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})
+----
+
+With this query:
+
+[source,cypher]
+----
+CALL apoc.graph.fromDB('neo4j',{}) yield graph
+CALL apoc.export.arrow.graph(graph, "graph.arrow",{quotes: 'none'})
+YIELD nodes, relationships, properties, file, source,format, time
+RETURN *
+----
+
+we have this result:
+.Results
+[opts="header"]
+|===
+| file         | source                        | format | nodes | relationships | properties | time
+| "graph.arrow" | "statement: nodes(4), rels(1)" | "arrow" | 4     | 1             | 12          | 123
+|===
+
+
+And will be created 2 files `edges_graph.arrow` and `nodes_graph.arrow` containing respectively relationships and nodes,
+with a set of Apache Arrow's `FieldVector` with this names for nodes' file:
+- `_id`: for node id
+- `_labels`: for node labels, joined with `:`
+- properties with name as FieldVector name
+
+and for edges' file:
+
+- `_start`: for start node id (in case of relationship)
+- `_end`: for end node id (in case of relationship)
+- `_type`: for relationship type
+- properties with name as FieldVector name

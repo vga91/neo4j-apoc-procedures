@@ -1,1 +1,40 @@
-TODO
+Let's suppose we have this data set:
+
+[source,cypher]
+----
+CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})
+----
+
+With this query:
+
+[source,cypher]
+----
+MATCH (n:User)
+MATCH ()-[rels:KNOWS]->()
+WITH collect(n) as node, collect(rels) as rels
+CALL apoc.export.arrow.data(node, rels, "data.arrow", null)
+YIELD nodes, relationships, properties, file, source,format, time
+RETURN *
+----
+
+we have this result:
+.Results
+[opts="header"]
+|===
+| file         | source                        | format | nodes | relationships | properties | time
+| "data.arrow" | "statement: nodes(3), rels(1)" | "arrow" | 3     | 1             | 11          | 123
+|===
+
+
+And will be created 2 files `edges_data.arrow` and `nodes_data.arrow` containing respectively relationships and nodes,
+with a set of Apache Arrow's `FieldVector` with this names for nodes' file:
+- `_id`: for node id
+- `_labels`: for node labels, joined with `:`
+- properties with name as FieldVector name
+
+and for edges' file:
+
+- `_start`: for start node id (in case of relationship)
+- `_end`: for end node id (in case of relationship)
+- `_type`: for relationship type
+- properties with name as FieldVector name

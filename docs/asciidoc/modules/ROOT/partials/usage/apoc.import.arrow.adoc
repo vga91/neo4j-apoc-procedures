@@ -1,1 +1,15 @@
-TODO
+With 2 arrow files formatted like `apoc.export.arrow.*` file output,
+we can execute:
+
+[source,cypher]
+----
+CALL apoc.import.arrow('file:/urlNodeFile.arrow', file:/urlEdgeFile.arrow, {})
+----
+with this result:
+
+.Results
+[opts="header"]
+|===
+| file           | source | format | nodes | relationships | properties
+| "progress.arrow" | "file" | "arrow"  | 2     | 1             | 4
+|===

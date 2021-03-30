@@ -24,6 +24,7 @@ import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class LoadArrowTest {
 
@@ -85,8 +86,76 @@ public class LoadArrowTest {
     }
 
     @Test
-    public void testLoadArrowWithMapping() throws Exception {
-        // TODO
+    public void testLoadArrowWithSkip() throws Exception {
+        URL url = ClassLoader.getSystemResource(NODE_FILE_PREFIX + "all.arrow");
+        testResult(db, "CALL apoc.load.arrow($url, {skip: 1})",map("url", url.getPath()),
+                (row) -> {
+                    Map<String, Object> first = row.next();
+                    assertEquals(1L, first.get("lineNo"));
+                    final Map<String, Object> secondMap = (Map<String, Object>) first.get("map");
+                    final List<Object> secondList = (List<Object>) first.get("list");
+                    assertEquals(Set.of("Jim", 1L, "User", 42L), new HashSet<>(secondList));
+                    assertMaps(Map.of("name", "Jim", ID_FIELD, 1L, LABELS_FIELD, "User", "age", 42L), secondMap);
+
+                    Map<String, Object> second = row.next();
+                    assertEquals(2L, second.get("lineNo"));
+                    final Map<String, Object> thirdMap = (Map<String, Object>) second.get("map");
+                    final List<Object> thirdList = (List<Object>) second.get("list");
+                    assertEquals(Set.of(2L, "User", 12L), new HashSet<>(thirdList));
+                    assertMaps(Map.of(ID_FIELD, 2L, LABELS_FIELD, "User", "age", 12L), thirdMap);
+
+                    Map<String, Object> third = row.next();
+                    assertEquals(3L, third.get("lineNo"));
+                    final Map<String, Object> fourthMap = (Map<String, Object>) third.get("map");
+                    final List<Object> fourthList = (List<Object>) third.get("list");
+                    assertEquals(Set.of("bar", 3L, "Another"), new HashSet<>(fourthList));
+                    assertMaps(Map.of("foo", "bar", ID_FIELD, 3L, LABELS_FIELD, "Another"), fourthMap);
+
+                    assertFalse(row.hasNext());
+                });
+    }
+
+    @Test
+    public void testLoadArrowWithLimit() throws Exception {
+        URL url = ClassLoader.getSystemResource(NODE_FILE_PREFIX + "all.arrow");
+        testResult(db, "CALL apoc.load.arrow($url, {skip: 1, limit: 1})",map("url", url.getPath()),
+                (row) -> {
+                    Map<String, Object> result = row.next();
+                    assertEquals(1L, result.get("lineNo"));
+                    final Map<String, Object> secondMap = (Map<String, Object>) result.get("map");
+                    final List<Object> secondList = (List<Object>) result.get("list");
+                    assertEquals(Set.of("Jim", 1L, "User", 42L), new HashSet<>(secondList));
+                    assertMaps(Map.of("name", "Jim", ID_FIELD, 1L, LABELS_FIELD, "User", "age", 42L), secondMap);
+
+                    assertFalse(row.hasNext());
+                });
+    }
+
+    @Test
+    public void testLoadArrowWithResult() throws Exception {
+        URL url = ClassLoader.getSystemResource(NODE_FILE_PREFIX + "all.arrow");
+        testResult(db, "CALL apoc.load.arrow($url, {skip: 1, results: ['list']})",map("url", url.getPath()),
+                (row) -> {
+                    Map<String, Object> first = row.next();
+                    assertEquals(1L, first.get("lineNo"));
+                    assertTrue(((Map<String, Object>) first.get("map")).isEmpty());
+                    final List<Object> secondList = (List<Object>) first.get("list");
+                    assertEquals(Set.of("Jim", 1L, "User", 42L), new HashSet<>(secondList));
+
+                    Map<String, Object> second = row.next();
+                    assertEquals(2L, second.get("lineNo"));
+                    assertTrue(((Map<String, Object>) second.get("map")).isEmpty());
+                    final List<Object> thirdList = (List<Object>) second.get("list");
+                    assertEquals(Set.of(2L, "User", 12L), new HashSet<>(thirdList));
+
+                    Map<String, Object> third = row.next();
+                    assertEquals(3L, third.get("lineNo"));
+                    assertTrue(((Map<String, Object>) third.get("map")).isEmpty());
+                    final List<Object> fourthList = (List<Object>) third.get("list");
+                    assertEquals(Set.of("bar", 3L, "Another"), new HashSet<>(fourthList));
+
+                    assertFalse(row.hasNext());
+                });
     }
 
 }
