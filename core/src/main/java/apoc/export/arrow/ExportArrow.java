@@ -134,33 +134,29 @@ public class ExportArrow {
         ProgressInfo progressInfo = new ProgressInfo(fileName, source, format);
         progressInfo.batchSize = exportConfig.getBatchSize();
         ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
-        ArrowFormat exporter = new ArrowFormat(db);
 
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, false);
 
-                if (exportConfig.streamStatements()) {
-
-                    return ExportUtils.getProgressInfoStream(db,
-                            pools.getDefaultExecutorService(),
-                            terminationGuard,
-                            format,
-                            exportConfig,
-                            reporter,
-                            cypherFileManager,
-                            progressReporter -> {
-                                try {
-                                    dump(data, exportConfig, reporter, cypherFileManager, exporter, null, fileName);
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
+            if (exportConfig.streamStatements()) {
+                return ExportUtils.getProgressInfoStream(db,
+                        pools.getDefaultExecutorService(),
+                        terminationGuard,
+                        format,
+                        exportConfig,
+                        reporter,
+                        cypherFileManager,
+                        progressReporter -> {
+                            try {
+                                dump(data, exportConfig, reporter, fileName);
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
-                    );
-
-                } else {
-                    dump(data, exportConfig, reporter, cypherFileManager, exporter, null, fileName);
-                    return reporter.stream();
-                }
-
+                        }
+                );
+            } else {
+                dump(data, exportConfig, reporter, fileName);
+                return reporter.stream();
+            }
     }
 
 
@@ -190,7 +186,7 @@ public class ExportArrow {
         }
     }
 
-    private void dump(Object valueToExport, ExportConfig exportConfig, ProgressReporter reporter, ExportFileManager printWriter, ArrowFormat exporter, RootAllocator allocatorunused, String fileName) throws Exception {
+    private void dump(Object valueToExport, ExportConfig exportConfig, ProgressReporter reporter, String fileName) throws Exception {
 
         try (RootAllocator allocator = new RootAllocator()) {
 
@@ -222,39 +218,49 @@ public class ExportArrow {
         }
     }
 
-    private void processArrowStream(ProgressReporter reporter, RootAllocator allocator, int batchSize, Object valueToProcess, File fileNodes, ArrowUtils.FunctionType function) throws IOException {
-        try (FileOutputStream fd = new FileOutputStream(fileNodes)) {
-            DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
-            AtomicInteger index = new AtomicInteger();
-            Map<String, FieldVector> vectorMap = new TreeMap<>();
+    public static void processArrowStream(ProgressReporter reporter, RootAllocator allocator, int batchSize, Object valueToProcess, File file, ArrowUtils.FunctionType function) throws IOException {
+        try (FileOutputStream fd = new FileOutputStream(file)) {
 
-            switch (function) {
-                case NODES:
-                    ((SubGraph) valueToProcess).getNodes().forEach(node -> writeNode(
-                            reporter, allocator, vectorMap, index, node, dictProvider, batchSize, fd, true));
-                    break;
-                case EDGES:
-                    ((SubGraph) valueToProcess).getRelationships().forEach(relationship -> writeRelationship(
-                            reporter, allocator, vectorMap, index, relationship, dictProvider, batchSize, fd, true));
-                    break;
-                case RESULT:
-                    String[] header = ((Result) valueToProcess).columns().toArray(new String[((Result) valueToProcess).columns().size()]);
-                    ((Result) valueToProcess).accept((row) -> {
-                        for (String keyName : header) {
-                            Object value = row.get(keyName);
-                            writeArrowResult(reporter, allocator, vectorMap, index, value, dictProvider, batchSize, fd);
-                        }
-                        reporter.nextRow();
-                        return true;
-                    });
-                    break;
-                default:
-                    throw new RuntimeException("No function type");
-            }
+            implementExportCommon(allocator, batchSize, valueToProcess, function, reporter, fd, true);
 
-
-            checkBatchStatusAndWriteEventually(dictProvider, fd, index, vectorMap, index.get() % batchSize != 0);
         }
+    }
+
+    public static void implementExportCommon(RootAllocator allocator, int batchSize, Object valueToProcess, ArrowUtils.FunctionType function, ProgressReporter reporter, OutputStream fd, boolean isFile) {
+        DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
+        AtomicInteger index = new AtomicInteger();
+        Map<String, FieldVector> vectorMap = new TreeMap<>();
+
+        switch (function) {
+            case NODES:
+                ((SubGraph) valueToProcess).getNodes().forEach(node -> writeNode(
+                        reporter, allocator, vectorMap, index, node, dictProvider, batchSize, fd, isFile));
+                break;
+            case EDGES:
+                ((SubGraph) valueToProcess).getRelationships().forEach(relationship -> writeRelationship(
+                        reporter, allocator, vectorMap, index, relationship, dictProvider, batchSize, fd, isFile));
+                break;
+            case RESULT:
+                String[] header = ((Result) valueToProcess).columns().toArray(new String[((Result) valueToProcess).columns().size()]);
+                ((Result) valueToProcess).accept((row) -> {
+                    for (String keyName : header) {
+                        Object value = row.get(keyName);
+                        writeArrowResult(reporter, allocator, vectorMap, index, value, dictProvider, batchSize, fd, isFile);
+                    }
+                    reporter.nextRow();
+                    return true;
+                });
+                break;
+            case STREAM:
+                ((SubGraph) valueToProcess).getNodes().forEach(node -> writeNode(
+                        reporter, allocator, vectorMap, index, node, dictProvider, batchSize, fd, isFile));
+                ((SubGraph) valueToProcess).getRelationships().forEach(relationship -> writeRelationship(
+                        reporter, allocator, vectorMap, index, relationship, dictProvider, batchSize, fd, isFile));
+                break;
+            default:
+                throw new RuntimeException("No function type");
+        }
+        checkBatchStatusAndWriteEventually(dictProvider, fd, index, vectorMap, index.get() % batchSize != 0, isFile);
     }
 
     private static void checkBatchStatusAndWriteEventually(DictionaryProvider.MapDictionaryProvider dictProvider, OutputStream fd, AtomicInteger indexNode, Map<String, FieldVector> vectorMap, boolean isBatchReadyForWrite) {
@@ -329,28 +335,28 @@ public class ExportArrow {
     }
 
 
-    private void writeArrowResult(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorMap, AtomicInteger index, Object value, DictionaryProvider.MapDictionaryProvider provider, int batchSize, FileOutputStream fd) {
+    private static void writeArrowResult(ProgressReporter reporter, RootAllocator allocator, Map<String, FieldVector> vectorMap, AtomicInteger index, Object value, DictionaryProvider.MapDictionaryProvider provider, int batchSize, OutputStream fd, boolean isFile) {
         Meta.Types type = Meta.Types.of(value);
         switch (type) {
             case NODE:
-                writeNode(reporter, allocator, vectorMap, index, (Node) value, provider, batchSize, fd, true);
+                writeNode(reporter, allocator, vectorMap, index, (Node) value, provider, batchSize, fd, isFile);
                 break;
 
             case RELATIONSHIP:
-                writeRelationship(reporter, allocator, vectorMap, index, (Relationship) value, provider, batchSize, fd, true);
+                writeRelationship(reporter, allocator, vectorMap, index, (Relationship) value, provider, batchSize, fd, isFile);
                 break;
 
             case PATH:
                 ((Path) value).nodes().forEach(node -> writeNode(
                         reporter, allocator, vectorMap, index, node, provider, batchSize, fd, true));
                 ((Path) value).relationships().forEach(relationship ->
-                    writeRelationship(reporter, allocator, vectorMap, index, relationship, provider, batchSize, fd, true));
+                    writeRelationship(reporter, allocator, vectorMap, index, relationship, provider, batchSize, fd, isFile));
                 break;
 
             case LIST:
                 ((List) value).forEach(listItem -> {
                     try {
-                        writeArrowResult(reporter, allocator, vectorMap, index, listItem, provider, batchSize, fd);
+                        writeArrowResult(reporter, allocator, vectorMap, index, listItem, provider, batchSize, fd, isFile);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -360,7 +366,7 @@ public class ExportArrow {
             case MAP:
                 ((Map<String, Object>) value).forEach((keyItem, valueItem) -> {
                     try {
-                        writeArrowResult(reporter, allocator, vectorMap, index, valueItem, provider, batchSize, fd);
+                        writeArrowResult(reporter, allocator, vectorMap, index, valueItem, provider, batchSize, fd, isFile);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -370,7 +376,7 @@ public class ExportArrow {
             default:
                 index.getAndIncrement();
                 allocateAfterCheckExistence(vectorMap, index.get(), allocator, ID_FIELD, value, VarCharVector.class);
-                checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize == 0);
+                checkBatchStatusAndWriteEventually(provider, fd, index, vectorMap, index.get() % batchSize == 0, isFile);
         }
     }
 
