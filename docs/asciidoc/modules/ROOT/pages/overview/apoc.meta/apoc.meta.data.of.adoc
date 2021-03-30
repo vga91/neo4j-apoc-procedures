@@ -21,8 +21,8 @@ apoc.meta.data.of(graph = {} :: ANY?, config = {} :: MAP?) :: (label :: STRING?,
 [.procedures, opts=header]
 |===
 | Name | Type | Default 
-|graph|ANY?|null
-|config|MAP?|null
+|graph|ANY?|{}
+|config|MAP?|{}
 |===
 
 == Output parameters

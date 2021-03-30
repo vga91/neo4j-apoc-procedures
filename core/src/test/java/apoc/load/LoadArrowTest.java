@@ -23,6 +23,7 @@ import static apoc.export.arrow.ArrowConstants.NODE_FILE_PREFIX;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public class LoadArrowTest {
 
@@ -78,6 +79,8 @@ public class LoadArrowTest {
                     final List<Object> fourthList = (List<Object>) fourth.get("list");
                     assertEquals(Set.of("bar", 3L, "Another"), new HashSet<>(fourthList));
                     assertMaps(Map.of("foo", "bar", ID_FIELD, 3L, LABELS_FIELD, "Another"), fourthMap);
+
+                    assertFalse(row.hasNext());
                 });
     }
 

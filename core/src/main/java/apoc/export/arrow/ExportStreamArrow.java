@@ -48,18 +48,18 @@ public class ExportStreamArrow {
 
     @Procedure("apoc.export.arrow.stream.all")
     @Description("apoc.export.arrow.stream.all(config) - exports whole database as arrow byte[] result")
-    public Stream<ByteArrayResult> all(@Name("config") Map<String, Object> config) throws Exception {
+    public Stream<ByteArrayResult> all(@Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
         return exportArrow(new DatabaseSubGraph(tx), config);
     }
 
     @Procedure("apoc.export.arrow.stream.data")
-    @Description("apoc.export.arrow.data(nodes,rels,config) - exports given nodes and relationships as arrow byte[] result")
+    @Description("apoc.export.arrow.stream.data(nodes, rels, config) - exports given nodes and relationships as arrow byte[] result")
     public Stream<ByteArrayResult> data(@Name("nodes") List<Node> nodes, @Name("rels") List<Relationship> rels, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
         return exportArrow(new NodesAndRelsSubGraph(tx, nodes, rels), config);
     }
 
     @Procedure("apoc.export.arrow.stream.graph")
-    @Description("apoc.export.arrow.graph(graph,config) - exports given graph object as arrow byte[] result")
+    @Description("apoc.export.arrow.stream.graph(graph,config) - exports given graph object as arrow byte[] result")
     public Stream<ByteArrayResult> graph(@Name("graph") Map<String,Object> graph, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
         Collection<Node> nodes = (Collection<Node>) graph.get("nodes");
         Collection<Relationship> rels = (Collection<Relationship>) graph.get("relationships");
@@ -67,7 +67,7 @@ public class ExportStreamArrow {
     }
 
     @Procedure("apoc.export.arrow.stream.query")
-    @Description("apoc.export.arrow.query(query,{config,...,params:{params}}) - exports results from the cypher statement as arrow byte[] result")
+    @Description("apoc.export.arrow.stream.query(query,{config,...,params:{params}}) - exports results from the cypher statement as arrow byte[] result")
     public Stream<ByteArrayResult> query(@Name("query") String query, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
         Map<String,Object> params = config == null ? Collections.emptyMap() : (Map<String,Object>)config.getOrDefault("params", Collections.emptyMap());
         Result result = tx.execute(query,params);

@@ -93,8 +93,4 @@ public class LoadArrow {
             return arrowResult.stream();
         }
     }
-
-
-
-
 }

@@ -76,7 +76,6 @@ public class JsonImporter implements Closeable {
 
         final Map<String, Object> properties = (Map<String, Object>) param.getOrDefault("properties", Collections.emptyMap());
         updateReporter(type, properties);
-
         param.put("properties", convertProperties(type, properties, null));
 
         paramList.add(param);

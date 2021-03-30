@@ -81,9 +81,9 @@ public class ExportArrowTest {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})");
         String fileName = "data.arrow";
 
-        TestUtil.testCall(db, "MATCH (nod:User) " +
+        TestUtil.testCall(db, "MATCH (n:User) " +
                         "MATCH ()-[rels:KNOWS]->() " +
-                        "WITH collect(nod) as node, collect(rels) as rels "+
+                        "WITH collect(n) as node, collect(rels) as rels "+
                         "CALL apoc.export.arrow.data(node, rels, $file, null) " +
                         "YIELD nodes, relationships, properties, file, source,format, time " +
                         "RETURN *",

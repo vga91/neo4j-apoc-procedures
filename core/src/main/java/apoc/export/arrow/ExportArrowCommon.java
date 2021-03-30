@@ -70,7 +70,6 @@ public class ExportArrowCommon {
                         Object value = row.get(keyName);
                         writeArrowResult(reporter, allocator, vectorMap, index, value, dictProvider, batchSize, fd, isFile);
                     }
-                    reporter.nextRow();
                     return true;
                 });
                 break;
