@@ -14,7 +14,7 @@ apoc.meta.data.of(\{graph}, \{config})  - examines a subset of the graph to prov
 
 [source]
 ----
-apoc.meta.data.of(graph :: ANY?, config = {} :: MAP?) :: (label :: STRING?, property :: STRING?, count :: INTEGER?, unique :: BOOLEAN?, index :: BOOLEAN?, existence :: BOOLEAN?, type :: STRING?, array :: BOOLEAN?, sample :: LIST? OF ANY?, leftCount :: INTEGER?, rightCount :: INTEGER?, left :: INTEGER?, right :: INTEGER?, other :: LIST? OF STRING?, otherLabels :: LIST? OF STRING?, elementType :: STRING?)
+apoc.meta.data.of(graph = {} :: ANY?, config = {} :: MAP?) :: (label :: STRING?, property :: STRING?, count :: INTEGER?, unique :: BOOLEAN?, index :: BOOLEAN?, existence :: BOOLEAN?, type :: STRING?, array :: BOOLEAN?, sample :: LIST? OF ANY?, leftCount :: INTEGER?, rightCount :: INTEGER?, left :: INTEGER?, right :: INTEGER?, other :: LIST? OF STRING?, otherLabels :: LIST? OF STRING?, elementType :: STRING?)
 ----
 
 == Input parameters
@@ -22,7 +22,7 @@ apoc.meta.data.of(graph :: ANY?, config = {} :: MAP?) :: (label :: STRING?, prop
 |===
 | Name | Type | Default 
 |graph|ANY?|null
-|config|MAP?|{}
+|config|MAP?|null
 |===
 
 == Output parameters
@@ -50,4 +50,3 @@ apoc.meta.data.of(graph :: ANY?, config = {} :: MAP?) :: (label :: STRING?, prop
 [[usage-apoc.meta.data.of]]
 == Usage Examples
 include::partial$usage/apoc.meta.data.of.adoc[]
-
