@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static apoc.export.arrow.ExportArrow.implementExportCommon;
+import static apoc.export.arrow.ExportArrowCommon.implementExportCommon;
 
 public class ExportStreamArrow {
 
@@ -87,18 +87,18 @@ public class ExportStreamArrow {
 
             if (valueToExport instanceof SubGraph) {
 
-                return processArrowStreamByteArray(allocator, batchSize, valueToExport, ArrowUtils.FunctionType.STREAM);
+                return processArrowByteArrayOutputStream(allocator, batchSize, valueToExport, ArrowConstants.FunctionType.STREAM);
             }
 
             if (valueToExport instanceof Result) {
-                return processArrowStreamByteArray(allocator, batchSize, valueToExport, ArrowUtils.FunctionType.RESULT);
+                return processArrowByteArrayOutputStream(allocator, batchSize, valueToExport, ArrowConstants.FunctionType.RESULT);
             }
 
             return null;
         }
     }
 
-    private static byte[] processArrowStreamByteArray(RootAllocator allocator, int batchSize, Object valueToProcess, ArrowUtils.FunctionType function) throws IOException {
+    private static byte[] processArrowByteArrayOutputStream(RootAllocator allocator, int batchSize, Object valueToProcess, ArrowConstants.FunctionType function) throws IOException {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
             implementExportCommon(allocator, batchSize, valueToProcess, function, null, out, false);

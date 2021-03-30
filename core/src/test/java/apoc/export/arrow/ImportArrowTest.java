@@ -34,15 +34,6 @@ public class ImportArrowTest {
     @BeforeClass
     public static void setUp() throws Exception {
         TestUtil.registerProcedure(db, ImportArrow.class);
-//        nodes = Thread.currentThread().getContextClassLoader().getResource("nodes_withSchema.arrow").getPath();
-//        nodes = Util.readResourceFile("nodes_withSchema.arrow");
-//        edges = Util.readResourceFile("edges_withSchema.arrow");
-//        String additionalLink = "match (p:Person{name:'Nora Ephron'}), (m:Movie{title:'When Harry Met Sally'}) create (p)-[:ACTED_IN]->(m)";
-//        try (Transaction tx = db.beginTx()) {
-//            tx.execute(movies);
-//            tx.execute(additionalLink);
-//            tx.commit();
-//        }
     }
 
     @Test
@@ -69,57 +60,5 @@ public class ImportArrowTest {
 //                    assertEquals("prova", node.getLabels().iterator().next().toString());
                     System.out.println("ImportArrowTest.testBasicImport");
         });
-    }
-
-//    @Test
-//    public void testToJsonCollectNodes() throws Exception {
-//        db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place: point({x: 56.7, y: 12.78, z: 1.1, crs: 'wgs-84-3d'})}),(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:User),(e {pippo:'pluto'})");
-//        String query = "MATCH (u) RETURN apoc.convert.toJson(collect(u)) as list";
-//        TestUtil.testCall(db, query, (row) -> {
-//            List<String> users = List.of("User");
-//            List<Object> valueAsList = Util.fromJson((String) row.get("list"), List.class);
-//            Assert.assertEquals(5, valueAsList.size());
-//
-//            Map<String, Object> nodeOne = (Map<String, Object>) valueAsList.get(0);
-//            Map<String, Object> expectedMap = Map.of("name", "Adam",
-//                    "age", 42L,
-//                    "male", true,
-//                    "kids", List.of("Sam", "Anna", "Grace"),
-//                    "born", "2015-07-04T19:32:24",
-//                    "place", Map.of(
-//                            "latitude", 56.7, "longitude", 12.78, "crs", "wgs-84-3d", "height", 1.1
-//                    ));
-//            assertJsonNode(nodeOne, "0", users, expectedMap);
-//
-//            Map<String, Object> nodeTwo = (Map<String, Object>) valueAsList.get(1);
-//            Map<String, Object> expectedMapTwo = Map.of(
-//                    "name", "Jim",
-//                    "age", 42L);
-//            assertJsonNode(nodeTwo, "1", users, expectedMapTwo);
-//
-//            Map<String, Object> nodeThree = (Map<String, Object>) valueAsList.get(2);
-//            Map<String, Object> expectedMapThree = Map.of(
-//                    "age", 12L);
-//            assertJsonNode(nodeThree, "2", users, expectedMapThree);
-//
-//            Map<String, Object> nodeFour= (Map<String, Object>) valueAsList.get(3);
-//            assertJsonNode(nodeFour, "3", users, null);
-//
-//            Map<String, Object> nodeFive = (Map<String, Object>) valueAsList.get(4);
-//            Map<String, Object> expectedMapFive = Map.of("pippo", "pluto");
-//            assertJsonNode(nodeFive, "4", null, expectedMapFive);
-//        });
-//    }
-
-
-    @Test
-    public void shouldImportAllJsonWithPropertyMappings() throws Exception {
-        // todo - stesso file ma con config
-
-//        TestUtil.testCall(db, "CALL apoc.import.json($file, $config)",
-//                map("file", filename, "config",
-//                        map("nodePropertyMappings", map("User", map("place", "Point", "born", "LocalDateTime")),
-//                                "relPropertyMappings", map("KNOWS", map("bffSince", "Duration"))), "unwindBatchSize", 1, "txBatchSize", 1),
-//                (r) -> {
     }
 }

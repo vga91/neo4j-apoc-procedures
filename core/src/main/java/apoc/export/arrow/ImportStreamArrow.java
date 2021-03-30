@@ -10,12 +10,8 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.Dictionary;
-import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
-import org.apache.arrow.vector.ipc.SeekableReadChannel;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
@@ -25,22 +21,23 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static apoc.export.arrow.ArrowUtils.END_FIELD;
-import static apoc.export.arrow.ArrowUtils.ID_FIELD;
-import static apoc.export.arrow.ArrowUtils.START_FIELD;
-import static apoc.export.arrow.ArrowUtils.STREAM_EDGE_PREFIX;
-import static apoc.export.arrow.ArrowUtils.STREAM_NODE_PREFIX;
-import static apoc.export.arrow.ArrowUtils.TYPE_FIELD;
-import static apoc.export.arrow.ImportArrow.closeVectors;
-import static apoc.export.arrow.ImportArrow.createNodeFromArrow;
-import static apoc.export.arrow.ImportArrow.createRelFromArrow;
+import static apoc.export.arrow.ArrowConstants.END_FIELD;
+import static apoc.export.arrow.ArrowConstants.ID_FIELD;
+import static apoc.export.arrow.ArrowConstants.START_FIELD;
+import static apoc.export.arrow.ArrowConstants.STREAM_EDGE_PREFIX;
+import static apoc.export.arrow.ArrowConstants.STREAM_NODE_PREFIX;
+import static apoc.export.arrow.ArrowConstants.TYPE_FIELD;
+import static apoc.export.arrow.ImportArrowCommon.closeVectors;
+import static apoc.export.arrow.ImportArrowCommon.createNodeFromArrow;
+import static apoc.export.arrow.ImportArrowCommon.createRelFromArrow;
+import static apoc.export.arrow.ImportArrowCommon.getDecodedVectorMap;
 
 public class ImportStreamArrow {
     @Context
@@ -63,22 +60,18 @@ public class ImportStreamArrow {
         ImportArrowConfig importConfig = new ImportArrowConfig(config);
         ProgressInfo result =
                 Util.inThread(pools, () -> {
-                    try (RootAllocator allocator = new RootAllocator()) {
-                        Map<Long, Long> cache = new HashMap<>(1024*32);
+                    final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo("progress.arrow", "file", "arrow"));
+                    final int batchSize = importConfig.getBatchSize();
+                    Map<Long, Long> cache = new HashMap<>(1024*32);
 
-                        final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo("progress.arrow", "file", "arrow"));
-                        final int batchSize = importConfig.getBatchSize();
-                        try (ArrowStreamReader streamReader = new ArrowStreamReader(new ByteArrayInputStream(source), allocator)) {
+                        try (RootAllocator allocator = new RootAllocator();
+                             ArrowStreamReader streamReader = new ArrowStreamReader(new ByteArrayInputStream(source), allocator);
+                             VectorSchemaRoot schemaRoot = streamReader.getVectorSchemaRoot();
+                             BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {
 
-                            VectorSchemaRoot schemaRoot = streamReader.getVectorSchemaRoot();
-                            try (BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {
                                 while (streamReader.loadNextBatch()) {
-                                    Map<Long, Dictionary> dictionaryMap = streamReader.getDictionaryVectors();
 
-                                    Map<String, ValueVector> decodedVectorsMap = schemaRoot.getFieldVectors().stream().collect(Collectors.toMap(ValueVector::getName, vector -> {
-                                        long idDictionary = vector.getField().getDictionary().getId();
-                                        return DictionaryEncoder.decode(vector, dictionaryMap.get(idDictionary));
-                                    }));
+                                    Map<String, ValueVector> decodedVectorsMap = getDecodedVectorMap(streamReader, schemaRoot);
 
                                     final UInt8Vector valueVector = (UInt8Vector) decodedVectorsMap.get(ID_FIELD);
                                     final UInt8Vector start = (UInt8Vector) decodedVectorsMap.get(START_FIELD);
@@ -105,11 +98,11 @@ public class ImportStreamArrow {
 
                                     closeVectors(schemaRoot, decodedVectorsMap);
                                 }
-                            }
+
+                            return reporter.getTotal();
                         }
-                        return reporter.getTotal();
-                    }
                 });
         return Stream.of(result);
     }
+
 }
