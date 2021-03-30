@@ -47,6 +47,8 @@ import static apoc.export.arrow.ArrowUtils.STREAM_EDGE_PREFIX;
 import static apoc.export.arrow.ArrowUtils.STREAM_NODE_PREFIX;
 import static apoc.export.arrow.ArrowUtils.TYPE_FIELD;
 import static apoc.export.arrow.ImportArrow.closeVectors;
+import static apoc.export.arrow.ImportArrow.createNodeFromArrow;
+import static apoc.export.arrow.ImportArrow.createRelFromArrow;
 import static apoc.export.arrow.ImportArrow.setCurrentVector;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
 import static java.util.Arrays.asList;
@@ -99,38 +101,14 @@ public class ImportStreamArrow {
                                     IntStream.range(0, sizeId).forEach(index -> {
                                         try {
                                             valueVector.get(index);
-                                            Node node = tx.getTransaction().createNode();
-                                            cache.put(valueVector.get(index), node.getId());
-
-                                            VarCharVector labelVector = (VarCharVector) decodedVectorsMap.get(LABELS_FIELD);
-
-                                            asList(new String(labelVector.get(index)).split(":")).forEach(label -> {
-                                                try {
-                                                    node.addLabel(Label.label(OBJECT_MAPPER.readValue(label, String.class)));
-                                                } catch (JsonProcessingException e) {
-                                                    e.printStackTrace(); // todo - funzione comune
-                                                }
-                                            });
-
-                                            // properties
-                                            decodedVectorsMap.entrySet().stream()
-                                                    .filter(i -> i.getKey().startsWith(STREAM_NODE_PREFIX))
-                                                    .forEach(propVector -> setCurrentVector(index, node, propVector, STREAM_NODE_PREFIX));
+                                            createNodeFromArrow(tx, decodedVectorsMap, index, STREAM_NODE_PREFIX);
                                         } catch (IllegalStateException ignored){ }
 
                                         try {
                                             start.get(index);
-
                                             Node from = tx.getTransaction().getNodeById(cache.get(start.get(index)));
                                             Node to = tx.getTransaction().getNodeById(cache.get(end.get(index)));
-
-                                            RelationshipType relationshipType = RelationshipType.withName(new String(type.get(index)));
-                                            Relationship relationship = from.createRelationshipTo(to, relationshipType);
-
-                                            decodedVectorsMap.entrySet().stream()
-                                                    .filter(i -> i.getKey().startsWith(STREAM_EDGE_PREFIX))
-                                                    .forEach(propVector -> setCurrentVector(index, relationship, propVector, STREAM_EDGE_PREFIX));
-
+                                            createRelFromArrow(decodedVectorsMap, from, to, type, index, STREAM_EDGE_PREFIX);
                                         } catch (IllegalStateException ignored) {}
                                     });
 

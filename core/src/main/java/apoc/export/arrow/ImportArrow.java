@@ -94,18 +94,7 @@ public class ImportArrow {
                                     int sizeId = decodedVectorsMap.get(ID_FIELD).getValueCount();
 
                                     IntStream.range(0, sizeId).forEach(index -> {
-                                        Node node = tx.getTransaction().createNode();
-
-                                        VarCharVector labelVector = (VarCharVector) decodedVectorsMap.get(LABELS_FIELD);
-
-                                        asList(new String(labelVector.get(index)).split(":")).forEach(label -> {
-                                            readLabelAsString(node, label);
-                                        });
-
-                                        // properties
-                                        decodedVectorsMap.entrySet().stream()
-                                                .filter(i -> !List.of(LABELS_FIELD, ID_FIELD).contains(i.getKey()))
-                                                .forEach(propVector -> setCurrentVector(index, node, propVector, ""));
+                                        createNodeFromArrow(tx, decodedVectorsMap, index, "");
 
                                     });
 
@@ -139,13 +128,7 @@ public class ImportArrow {
                                     IntStream.range(0, sizeId).forEach(index -> {
                                         Node from = tx.getTransaction().getNodeById(start.get(index));
                                         Node to = tx.getTransaction().getNodeById(end.get(index));
-
-                                        RelationshipType relationshipType = RelationshipType.withName(new String(type.get(index)));
-                                        Relationship relationship = from.createRelationshipTo(to, relationshipType);
-
-                                        decodedVectorsMap.entrySet().stream()
-                                                .filter(i -> !List.of(START_FIELD, END_FIELD, TYPE_FIELD).contains(i.getKey()))
-                                                .forEach(propVector -> setCurrentVector(index, relationship, propVector, ""));
+                                        createRelFromArrow(decodedVectorsMap, from, to, type, index, "");
                                     });
 
                                     closeVectors(schemaRoot, decodedVectorsMap);
@@ -157,6 +140,30 @@ public class ImportArrow {
 
                 });
         return Stream.of(result);
+    }
+
+    public static void createRelFromArrow( Map<String, ValueVector> decodedVectorsMap, Node from, Node to, VarCharVector type, int index, String normalizeKey) {
+        RelationshipType relationshipType = RelationshipType.withName(new String(type.get(index)));
+        Relationship relationship = from.createRelationshipTo(to, relationshipType);
+
+        decodedVectorsMap.entrySet().stream()
+                .filter(i -> !List.of(START_FIELD, END_FIELD, TYPE_FIELD).contains(i.getKey()))
+                .forEach(propVector -> setCurrentVector(index, relationship, propVector, normalizeKey));
+    }
+
+    public static void createNodeFromArrow(BatchTransaction tx, Map<String, ValueVector> decodedVectorsMap, int index, String normalizeKey) {
+        Node node = tx.getTransaction().createNode();
+
+        VarCharVector labelVector = (VarCharVector) decodedVectorsMap.get(LABELS_FIELD);
+
+        asList(new String(labelVector.get(index)).split(":")).forEach(label -> {
+            readLabelAsString(node, label);
+        });
+
+        // properties
+        decodedVectorsMap.entrySet().stream()
+                .filter(i -> !List.of(LABELS_FIELD, ID_FIELD).contains(i.getKey()))
+                .forEach(propVector -> setCurrentVector(index, node, propVector, normalizeKey));
     }
 
     public static void readLabelAsString(Node node, String label) {

@@ -2,17 +2,10 @@ package apoc.export.arrow;
 
 import apoc.ApocConfig;
 import apoc.Pools;
-import apoc.export.cypher.ExportFileManager;
 import apoc.export.util.ExportConfig;
 import apoc.export.util.NodesAndRelsSubGraph;
-import apoc.export.util.ProgressReporter;
 import apoc.result.ByteArrayResult;
-import apoc.result.ProgressInfo;
-import apoc.util.Util;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.neo4j.cypher.export.DatabaseSubGraph;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -96,59 +89,13 @@ public class ExportStreamArrow {
             if (valueToExport instanceof SubGraph) {
 
                 return processArrowStreamByteArray(allocator, batchSize, valueToExport, ArrowUtils.FunctionType.STREAM);
-//                implementExportCommon(allocator, batchSize, valueToProcess, function, null, fd, false);
-
-
-//                if (!subGraph.getRelationships().iterator().hasNext()) {
-//                    return null;
-//                }
-//
-//                implementExportCommon(reporter, allocator, batchSize, valueToProcess, function, fd, false);
-
-//                File fileNodes = new File(importDir, NODE_FILE_PREFIX + fileName);
-//                processArrowStream(reporter, allocator, batchSize, subGraph, fileNodes, ArrowUtils.FunctionType.NODES);
-//
-//                if (!subGraph.getRelationships().iterator().hasNext()) {
-//                    return;
-//                }
-//
-//                File fileEdges = new File(importDir, EDGE_FILE_PREFIX + fileName);
-//                processArrowStream(reporter, allocator, batchSize, subGraph, fileEdges, ArrowUtils.FunctionType.EDGES);
             }
 
             if (valueToExport instanceof Result) {
                 return processArrowStreamByteArray(allocator, batchSize, valueToExport, ArrowUtils.FunctionType.RESULT);
-
-//                implementExportCommon(reporter, allocator, batchSize, valueToProcess, function, fd, false);
-//                File file = new File(importDir, RESULT_FILE_PREFIX + fileName);
-//                processArrowStream(reporter, allocator, batchSize, valueToExport, file, ArrowUtils.FunctionType.RESULT);
             }
 
             return null;
-
-
-//            DictionaryProvider.MapDictionaryProvider dictProvider = new DictionaryProvider.MapDictionaryProvider();
-//            AtomicInteger indexNode = new AtomicInteger();
-//            Map<String, FieldVector> vectorMap = new TreeMap<>();
-//            subGraph.getNodes().forEach(node -> writeNode(null, allocator, vectorMap, indexNode, node, dictProvider, batchSize, out, false));
-//            subGraph.getRelationships().forEach(rel -> writeRelationship(null, allocator, vectorMap, indexNode, rel, dictProvider, batchSize, out, false));
-//
-//            checkBatchStatusAndWriteEventually(dictProvider, out, indexNode, vectorMap, indexNode.get() % batchSize != 0, false);
-
-//            List<FieldVector> encodedVectors = returnEncodedVector(dictProvider, vectorMap, indexNode);
-
-//            // todo - fine robe da mergiare
-//            try (VectorSchemaRoot root = new VectorSchemaRoot(getFields(encodedVectors), encodedVectors);
-//                    ArrowStreamWriter writer = new ArrowStreamWriter(root, dictProvider, Channels.newChannel(out))) {
-//
-////                writeWithBatch(batchSize, indexNode, root, writer);
-//                writeBatch(writer);
-//            }
-
-//            closeFieldVectors(vectorMap, encodedVectors);
-//            writer.start();
-//            writer.writeBatch();
-//            writer.end();
         }
     }
 
