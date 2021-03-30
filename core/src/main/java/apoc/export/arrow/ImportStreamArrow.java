@@ -21,10 +21,8 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -40,6 +38,7 @@ import static apoc.export.arrow.ImportArrowCommon.createRelFromArrow;
 import static apoc.export.arrow.ImportArrowCommon.getDecodedVectorMap;
 
 public class ImportStreamArrow {
+
     @Context
     public GraphDatabaseService db;
 
@@ -60,7 +59,7 @@ public class ImportStreamArrow {
         ImportArrowConfig importConfig = new ImportArrowConfig(config);
         ProgressInfo result =
                 Util.inThread(pools, () -> {
-                    final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo("progress.arrow", "file", "arrow"));
+                    final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo("progress.arrow", "byteArray", "arrow"));
                     final int batchSize = importConfig.getBatchSize();
                     Map<Long, Long> cache = new HashMap<>(1024*32);
 

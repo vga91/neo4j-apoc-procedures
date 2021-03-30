@@ -45,7 +45,8 @@ public class ImportArrowCommon {
 
 
     public static void createRelFromArrow(Map<String, ValueVector> decodedVectorsMap, Node from, Node to, VarCharVector type, int index, String normalizeKey, ProgressReporter reporter) {
-        RelationshipType relationshipType = RelationshipType.withName(new String(type.get(index)));
+        final String typeName = readLabelAsString(new String(type.get(index)));
+        RelationshipType relationshipType = RelationshipType.withName(typeName);
         Relationship relationship = from.createRelationshipTo(to, relationshipType);
 
         decodedVectorsMap.entrySet().stream()
@@ -60,7 +61,7 @@ public class ImportArrowCommon {
         VarCharVector labelVector = (VarCharVector) decodedVectorsMap.get(LABELS_FIELD);
 
         asList(new String(labelVector.get(index)).split(":")).forEach(label -> {
-            readLabelAsString(node, label);
+            node.addLabel(Label.label(readLabelAsString(label)));
         });
 
         // properties
@@ -71,9 +72,9 @@ public class ImportArrowCommon {
         reporter.update(1, 0, 0);
     }
 
-    public static void readLabelAsString(Node node, String label) {
+    public static String readLabelAsString(String label) {
         try {
-            node.addLabel(Label.label(OBJECT_MAPPER.readValue(label, String.class)));
+            return OBJECT_MAPPER.readValue(label, String.class);
         } catch (JsonProcessingException e) {
             throw new RuntimeException("Error during reading Label");
         }
@@ -124,6 +125,6 @@ public class ImportArrowCommon {
     }
 
     private static boolean filterPropertyEntries(String normalizeKey, Map.Entry<String, ValueVector> i, List<String> startField) {
-        return StringUtils.isBlank(normalizeKey) && !startField.contains(i.getKey()) || i.getKey().startsWith(normalizeKey);
+        return StringUtils.isBlank(normalizeKey) ? !startField.contains(i.getKey()) : i.getKey().startsWith(normalizeKey);
     }
 }

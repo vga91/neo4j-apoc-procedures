@@ -50,11 +50,12 @@ public class ArrowResult {
                 return ((UInt8Vector) vector).get(lineNo);
             } else {
                 byte[] value = ((VarCharVector) vector).get(lineNo);
-                return getCurrentIndex(value);
+                if (value != null) {
+                    return getCurrentIndex(value);
+                }
             }
-        } catch (IllegalStateException e) {
-            return null;
-        }
+        } catch (IllegalStateException ignored) {}
+        return null;
     }
 
     private  void removeIgnored(Map<String, ValueVector> header, List<String> ignore) {

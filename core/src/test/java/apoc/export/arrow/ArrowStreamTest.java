@@ -26,6 +26,7 @@ import java.util.Set;
 import static apoc.util.MapUtil.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.neo4j.internal.helpers.collection.Iterables.asSet;
 import static org.neo4j.internal.helpers.collection.Iterables.count;
 import static org.neo4j.internal.helpers.collection.Iterables.firstOrNull;
 
@@ -139,17 +140,17 @@ public class ArrowStreamTest {
 
         TestUtil.testCall(db, "CALL apoc.import.arrow.stream($result, null)",
                 map("result", result),
-                this::assertResults);
+                row -> assertResults(row, "byteArray"));
 
         assertionGraph(4,1,2,1, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs"));
     }
 
 
-    private void assertResults(Map<String, Object> r) {
+    protected static void assertResults(Map<String, Object> r, String source) {
         assertEquals(4L, r.get("nodes"));
         assertEquals(1L, r.get("relationships"));
         assertEquals(12L, r.get("properties"));
-        assertEquals("file", r.get("source"));
+        assertEquals(source, r.get("source"));
         assertEquals("arrow", r.get("format"));
         assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
     }

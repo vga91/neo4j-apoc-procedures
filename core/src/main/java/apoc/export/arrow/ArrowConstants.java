@@ -8,7 +8,6 @@ public class ArrowConstants {
     public static final String START_FIELD = "_start";
     public static final String END_FIELD = "_end";
     public static final String TYPE_FIELD = "_type";
-    public static final String DICT_PREFIX = "dict___";
     public static final String STREAM_NODE_PREFIX = "nodeProp___";
     public static final String STREAM_EDGE_PREFIX = "edgeProp___";
 

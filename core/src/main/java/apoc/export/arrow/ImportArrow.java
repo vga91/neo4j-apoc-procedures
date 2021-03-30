@@ -12,9 +12,7 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowFileReader;
 import org.apache.arrow.vector.ipc.SeekableReadChannel;
-import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
@@ -107,7 +105,6 @@ public class ImportArrow {
                         }
                         return reporter.getTotal();
                     }
-
                 });
         return Stream.of(result);
     }

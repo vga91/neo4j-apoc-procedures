@@ -1,27 +1,28 @@
 package apoc.load;
 
 import apoc.util.TestUtil;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
-import org.mockserver.integration.ClientAndServer;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.net.URL;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_USE_NEO4J_CONFIG;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.convert.ConvertJsonTest.assertMaps;
+import static apoc.export.arrow.ArrowConstants.ID_FIELD;
+import static apoc.export.arrow.ArrowConstants.LABELS_FIELD;
+import static apoc.export.arrow.ArrowConstants.NODE_FILE_PREFIX;
 import static apoc.util.MapUtil.map;
-import static apoc.util.TestUtil.testCall;
-import static java.util.Arrays.asList;
+import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
-import static org.mockserver.integration.ClientAndServer.startClientAndServer;
 
 public class LoadArrowTest {
 
@@ -38,13 +39,51 @@ public class LoadArrowTest {
 
     @Test
     public void testLoadArrow() throws Exception {
-        URL url = ClassLoader.getSystemResource("result_withQuery.arrow");
-        testCall(db, "CALL apoc.load.arrow($url)",map("url", url.getPath()),
+        URL url = ClassLoader.getSystemResource(NODE_FILE_PREFIX + "all.arrow");
+        testResult(db, "CALL apoc.load.arrow($url)",map("url", url.getPath()),
                 (row) -> {
-                    assertEquals(new ArrayList<>(List.of(1L, 0L, "KNOWS", "P5M1DT12H", 1993L)), row.get("list"));
-                    assertEquals(List.of(1, 0, "KNOWS", "P5M1DT12H", 1993), row.get("map"));
-                    // todo - assertion
+                    Map<String, Object> first = row.next();
+                    assertEquals(0L, first.get("lineNo"));
+                    final List<Object> list = (List<Object>) first.get("list");
+                    assertEquals(8, list.size());
+                    final Map<String, Object> firstMap = (Map<String, Object>) first.get("map");
+                    assertEquals(8, firstMap.size());
+                    assertEquals(Set.of("born", "name", ID_FIELD, "place", LABELS_FIELD, "age", "male", "kids"), firstMap.keySet());
+                    assertMaps(Map.of("latitude", 33.46789, "longitude", 13.1, "crs", "wgs-84-3d", "height", 100.0), (Map<String, Object>) firstMap.get("place"));
+                    assertEquals("2015-07-04T19:32:24", firstMap.get("born"));
+                    assertEquals("Adam", firstMap.get("name"));
+                    assertEquals(0L, firstMap.get("_id"));
+                    assertEquals("User", firstMap.get("_labels"));
+                    assertEquals(42L, firstMap.get("age"));
+                    assertEquals(true, firstMap.get("male"));
+                    assertEquals(List.of("Sam","Anna","Grace"), firstMap.get("kids"));
+
+                    Map<String, Object> second = row.next();
+                    assertEquals(1L, second.get("lineNo"));
+                    final Map<String, Object> secondMap = (Map<String, Object>) second.get("map");
+                    final List<Object> secondList = (List<Object>) second.get("list");
+                    assertEquals(Set.of("Jim", 1L, "User", 42L), new HashSet<>(secondList));
+                    assertMaps(Map.of("name", "Jim", ID_FIELD, 1L, LABELS_FIELD, "User", "age", 42L), secondMap);
+
+                    Map<String, Object> third = row.next();
+                    assertEquals(2L, third.get("lineNo"));
+                    final Map<String, Object> thirdMap = (Map<String, Object>) third.get("map");
+                    final List<Object> thirdList = (List<Object>) third.get("list");
+                    assertEquals(Set.of(2L, "User", 12L), new HashSet<>(thirdList));
+                    assertMaps(Map.of(ID_FIELD, 2L, LABELS_FIELD, "User", "age", 12L), thirdMap);
+
+                    Map<String, Object> fourth = row.next();
+                    assertEquals(3L, fourth.get("lineNo"));
+                    final Map<String, Object> fourthMap = (Map<String, Object>) fourth.get("map");
+                    final List<Object> fourthList = (List<Object>) fourth.get("list");
+                    assertEquals(Set.of("bar", 3L, "Another"), new HashSet<>(fourthList));
+                    assertMaps(Map.of("foo", "bar", ID_FIELD, 3L, LABELS_FIELD, "Another"), fourthMap);
                 });
+    }
+
+    @Test
+    public void testLoadArrowWithMapping() throws Exception {
+        // TODO
     }
 
 }
