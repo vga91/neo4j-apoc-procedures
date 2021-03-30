@@ -1,5 +1,6 @@
 package apoc.export.arrow;
 
+import apoc.export.util.ProgressReporter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Iterables;
 import org.apache.arrow.vector.FieldVector;
@@ -9,6 +10,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.ipc.ArrowReader;
+import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -42,16 +44,19 @@ public class ImportArrowCommon {
     }
 
 
-    public static void createRelFromArrow(Map<String, ValueVector> decodedVectorsMap, Node from, Node to, VarCharVector type, int index, String normalizeKey) {
+    public static void createRelFromArrow(Map<String, ValueVector> decodedVectorsMap, Node from, Node to, VarCharVector type, int index, String normalizeKey, ProgressReporter reporter) {
         RelationshipType relationshipType = RelationshipType.withName(new String(type.get(index)));
         Relationship relationship = from.createRelationshipTo(to, relationshipType);
 
         decodedVectorsMap.entrySet().stream()
-                .filter(i -> !List.of(START_FIELD, END_FIELD, TYPE_FIELD).contains(i.getKey()))
-                .forEach(propVector -> setCurrentVector(index, relationship, propVector, normalizeKey));
+                .filter(i -> filterPropertyEntries(normalizeKey, i, List.of(START_FIELD, END_FIELD, TYPE_FIELD)))
+                .forEach(propVector -> setCurrentVector(index, relationship, propVector, normalizeKey, reporter));
+
+        reporter.update(0, 1, 0);
+
     }
 
-    public static void createNodeFromArrow(Node node, Map<String, ValueVector> decodedVectorsMap, int index, String normalizeKey) {
+    public static void createNodeFromArrow(Node node, Map<String, ValueVector> decodedVectorsMap, int index, String normalizeKey, ProgressReporter reporter) {
         VarCharVector labelVector = (VarCharVector) decodedVectorsMap.get(LABELS_FIELD);
 
         asList(new String(labelVector.get(index)).split(":")).forEach(label -> {
@@ -60,8 +65,10 @@ public class ImportArrowCommon {
 
         // properties
         decodedVectorsMap.entrySet().stream()
-                .filter(i -> !List.of(LABELS_FIELD, ID_FIELD).contains(i.getKey()))
-                .forEach(propVector -> setCurrentVector(index, node, propVector, normalizeKey));
+                .filter(i -> filterPropertyEntries(normalizeKey, i, List.of(LABELS_FIELD, ID_FIELD)))
+                .forEach(propVector -> setCurrentVector(index, node, propVector, normalizeKey, reporter));
+
+        reporter.update(1, 0, 0);
     }
 
     public static void readLabelAsString(Node node, String label) {
@@ -81,12 +88,13 @@ public class ImportArrowCommon {
         }
     }
 
-    public static void setCurrentVector(int index, Entity entity, Map.Entry<String, ValueVector> propVector, String normalizeKey) {
+    private static void setCurrentVector(int index, Entity entity, Map.Entry<String, ValueVector> propVector, String normalizeKey, ProgressReporter reporter) {
         VarCharVector vector = (VarCharVector) propVector.getValue();
         byte[] value = vector.get(index);
         if (value != null) {
             Object valueRead = getCurrentIndex(value);
             setPropertyByValue(valueRead, propVector.getKey().replace(normalizeKey, ""), entity);
+            reporter.update(0,0,1);
         }
     }
 
@@ -113,5 +121,9 @@ public class ImportArrowCommon {
     public static void closeVectors(VectorSchemaRoot schemaRoot, Map<String, ValueVector> decodedVectorsMap) {
         schemaRoot.getFieldVectors().forEach(FieldVector::close);
         decodedVectorsMap.values().forEach(ValueVector::close);
+    }
+
+    private static boolean filterPropertyEntries(String normalizeKey, Map.Entry<String, ValueVector> i, List<String> startField) {
+        return StringUtils.isBlank(normalizeKey) && !startField.contains(i.getKey()) || i.getKey().startsWith(normalizeKey);
     }
 }

@@ -1,9 +1,7 @@
 package apoc.export.arrow;
 
 import apoc.ApocSettings;
-import apoc.export.json.ExportJson;
 import apoc.graph.Graphs;
-import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -14,9 +12,11 @@ import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.Map;
 
+import static apoc.export.arrow.ArrowConstants.EDGE_FILE_PREFIX;
+import static apoc.export.arrow.ArrowConstants.NODE_FILE_PREFIX;
+import static apoc.export.arrow.ArrowConstants.RESULT_FILE_PREFIX;
 import static apoc.util.MapUtil.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -24,9 +24,8 @@ import static org.junit.Assert.assertTrue;
 public class ExportArrowTest {
 
     private static File directory = new File("target/import");
-    private static File directoryExpected = new File("../docs/asciidoc/modules/ROOT/examples/data/exportJSON");
 
-    static {
+    static { //noinspection ResultOfMethodCallIgnored
         directory.mkdirs();
     }
 
@@ -48,124 +47,98 @@ public class ExportArrowTest {
     @Test
     public void testExportArrowQuery() throws Exception {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})");
-        String filename = "withQuery.arrow";
+        String fileName = "query.arrow";
         TestUtil.testCall(db, "CALL apoc.export.arrow.query('MATCH p=()-[r]->() RETURN r',$file,{})",
-                map("file", filename),
-                r -> {}
-//                (r) -> {
-//                    assertResults(filename, r, "database");
-//                }
+                map("file", fileName),
+                r -> {
+                    assertEquals(1L, r.get("relationships"));
+                    assertEquals(fileName, r.get("file"));
+                    assertEquals(2L, r.get("properties"));
+                    assertEquals("statement: cols(1)", r.get("source"));
+                }
         );
-//        assertFileEquals(filename);
-    }
 
+        assertFileExists(RESULT_FILE_PREFIX + fileName);
+    }
 
     @Test
     public void testExportGraphArrow() throws Exception {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})");
-        String fileName = "graphUNO.arrow";
+        String fileName = "graph.arrow";
         TestUtil.testCall(db, "CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
                         "CALL apoc.export.arrow.graph(graph, $file,{quotes: 'none'}) " +
                         "YIELD nodes, relationships, properties, file, source,format, time " +
                         "RETURN *", map("file", fileName),
-                (r) -> {});
-        // todo - assertion
-//        assertEquals(EXPECTED_NONE_QUOTES, readFile(fileName));
+                (r) -> assertResults(fileName, r, "graph")
+        );
+
+        assertFileExists(NODE_FILE_PREFIX + fileName);
+        assertFileExists(EDGE_FILE_PREFIX + fileName);
     }
 
     @Test
     public void testExportDataArrow() throws Exception {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})");
-        String filename = "dataUNO.arrow";
-//        String s3Url = getS3Url(filename);
+        String fileName = "data.arrow";
 
         TestUtil.testCall(db, "MATCH (nod:User) " +
-                        "MATCH ()-[reels:KNOWS]->() " +
-                        "WITH collect(nod) as node, collect(reels) as rels "+
+                        "MATCH ()-[rels:KNOWS]->() " +
+                        "WITH collect(nod) as node, collect(rels) as rels "+
                         "CALL apoc.export.arrow.data(node, rels, $file, null) " +
                         "YIELD nodes, relationships, properties, file, source,format, time " +
                         "RETURN *",
-                map("file", filename),
-                (r) -> {
-//                    assertEquals(s3Url, r.get("file"));
-//                    assertEquals("json", r.get("format"));
-                });
+                map("file", fileName),
+                (r) ->  {
+                    assertEquals(3L, r.get("nodes"));
+                    assertEquals(1L, r.get("relationships"));
+                    assertEquals(11L, r.get("properties"));
+                }
+        );
 
-        // TODO TODO TODO TODO TODO - FARE UNA COSA DEL GENERE COME EXPORTJSONS3TEST
-//        verifyUpload(s3Url, filename);
+        assertFileExists(NODE_FILE_PREFIX + fileName);
+        assertFileExists(EDGE_FILE_PREFIX + fileName);
     }
 
     @Test
     public void testExportAllArrow() throws Exception {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})");
-        String filename = "franco.arrow";
+        String filename = "all.arrow";
         TestUtil.testCall(db, "CALL apoc.export.arrow.all($file,null)",
                 map("file", filename),
                 r -> assertResults(filename, r, "database")
-//                (r) -> {
-//                    assertResults(filename, r, "database");
-//                }
-        );
-//        assertFileEquals(filename);
-    }
-
-    @Test
-    public void testExportAllArrowWithoutRels() throws Exception {
-        db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})");
-        String filename = "withAllMaybeNOREL.arrow";
-        TestUtil.testCall(db, "CALL apoc.export.arrow.all($file,null)",
-                map("file", filename),
-                r -> {}
-//                (r) -> {
-//                    assertResults(filename, r, "database");
-//                }
         );
 
-        // todo - asserire che non ci sia il file edges_
-//        assertFileEquals(filename);
+        assertFileExists(NODE_FILE_PREFIX + filename);
+        assertFileExists(EDGE_FILE_PREFIX + filename);
     }
 
 
     @Test
     public void testExportAllArrowBatch() throws Exception {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})");
-        String filename = "streamFile.arrow";
+        String filename = "stream.arrow";
         TestUtil.testCall(db, "CALL apoc.export.arrow.all($file,{batchSize: 21, streamStatements: true})",
                 map("file", filename),
                 r -> assertResults(filename, r, "database")
-//                (r) -> {
-//                    assertResults(filename, r, "database");
-//                }
         );
-        assertFileEquals("nodes_" + filename);
-        assertFileEquals("edges_" + filename);
+
+        assertFileExists(NODE_FILE_PREFIX + filename);
+        assertFileExists(EDGE_FILE_PREFIX + filename);
     }
 
 
-    // todo - nella documentazione dico che devono essere passati tutti e due
-    private void assertResults(String filename, Map<String, Object> r, final String source) {
+    private void assertResults(String fileName, Map<String, Object> r, final String source) {
         assertEquals(4L, r.get("nodes"));
         assertEquals(1L, r.get("relationships"));
         assertEquals(12L, r.get("properties"));
         assertEquals(source + ": nodes(4), rels(1)", r.get("source"));
-        assertEquals(filename, r.get("file"));
+        assertEquals(fileName, r.get("file"));
         assertEquals("arrow", r.get("format"));
         assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
     }
 
-    private void assertFileEquals(String fileName) {
-        String actualText = TestUtil.readFileToString(new File(directory, fileName));
-        assertStreamEquals(fileName, actualText);
+    private void assertFileExists(String fileName) {
+        assertTrue(new File(directory, fileName).exists());
     }
 
-    private void assertStreamEquals(String fileName, String actualText) {
-        // TODO - necessario?
-//        String expectedText = TestUtil.readFileToString(new File(directoryExpected, fileName));
-//        String[] actualArray = actualText.split("\n");
-//        String[] expectArray = expectedText.split("\n");
-//        assertEquals(expectArray.length, actualArray.length);
-//        for (int i = 0; i < actualArray.length; i++) {
-//            assertEquals(JsonUtil.parse(expectArray[i],null, Object.class), JsonUtil.parse(actualArray[i],null, Object.class));
-//        }
-    }
 }

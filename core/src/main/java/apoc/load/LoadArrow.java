@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static apoc.export.arrow.ImportArrow.closeVectors;
+import static apoc.export.arrow.ImportArrowCommon.closeVectors;
 
 public class LoadArrow {
 

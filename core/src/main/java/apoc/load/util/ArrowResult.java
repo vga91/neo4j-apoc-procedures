@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static apoc.export.arrow.ImportArrow.getCurrentIndex;
+import static apoc.export.arrow.ImportArrowCommon.getCurrentIndex;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 

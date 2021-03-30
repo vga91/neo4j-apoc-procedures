@@ -85,14 +85,14 @@ public class ImportStreamArrow {
                                             valueVector.get(index);
                                             Node node = tx.getTransaction().createNode();
                                             cache.put(valueVector.get(index), node.getId());
-                                            createNodeFromArrow(node, decodedVectorsMap, index, STREAM_NODE_PREFIX);
+                                            createNodeFromArrow(node, decodedVectorsMap, index, STREAM_NODE_PREFIX, reporter);
                                         } catch (IllegalStateException ignored){ }
 
                                         try {
                                             start.get(index);
                                             Node from = tx.getTransaction().getNodeById(cache.get(start.get(index)));
                                             Node to = tx.getTransaction().getNodeById(cache.get(end.get(index)));
-                                            createRelFromArrow(decodedVectorsMap, from, to, type, index, STREAM_EDGE_PREFIX);
+                                            createRelFromArrow(decodedVectorsMap, from, to, type, index, STREAM_EDGE_PREFIX, reporter);
                                         } catch (IllegalStateException ignored) {}
                                     });
 

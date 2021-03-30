@@ -76,7 +76,7 @@ public class ImportArrow {
                                     int sizeId = decodedVectorsMap.get(ID_FIELD).getValueCount();
                                     IntStream.range(0, sizeId).forEach(index -> {
                                         Node node = tx.getTransaction().createNode();
-                                        createNodeFromArrow(node, decodedVectorsMap, index, "");
+                                        createNodeFromArrow(node, decodedVectorsMap, index, "", reporter);
                                     });
                                     closeVectors(schemaRoot, decodedVectorsMap);
                                 }
@@ -99,7 +99,7 @@ public class ImportArrow {
                                 IntStream.range(0, sizeId).forEach(index -> {
                                     Node from = tx.getTransaction().getNodeById(start.get(index));
                                     Node to = tx.getTransaction().getNodeById(end.get(index));
-                                    createRelFromArrow(decodedVectorsMap, from, to, type, index, "");
+                                    createRelFromArrow(decodedVectorsMap, from, to, type, index, "", reporter);
                                 });
 
                                 closeVectors(schemaRoot, decodedVectorsMap);
