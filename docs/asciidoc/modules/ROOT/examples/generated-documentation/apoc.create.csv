@@ -11,7 +11,7 @@
 ¦procedure¦apoc.create.setProperty¦apoc.create.setProperty(nodes :: ANY?, key :: STRING?, value :: ANY?) :: (node :: NODE?)¦apoc.create.setProperty( [node,id,ids,nodes], key, value) - sets the given property on the node(s)
 ¦procedure¦apoc.create.setRelProperties¦apoc.create.setRelProperties(rels :: ANY?, keys :: LIST? OF STRING?, values :: LIST? OF ANY?) :: (rel :: RELATIONSHIP?)¦apoc.create.setRelProperties( [rel,id,ids,rels], [keys], [values]) - sets the given properties on the relationship(s)
 ¦procedure¦apoc.create.setRelProperty¦apoc.create.setRelProperty(relationships :: ANY?, key :: STRING?, value :: ANY?) :: (rel :: RELATIONSHIP?)¦apoc.create.setRelProperty( [rel,id,ids,rels], key, value) - sets the given property on the relationship(s)
-¦procedure¦apoc.create.uuids¦apoc.create.uuids(count :: INTEGER?) :: (row :: INTEGER?, uuid :: STRING?)¦apoc.create.uuids(count) yield uuid - creates 'count' UUIDs
+¦procedure¦apoc.create.uuids¦apoc.create.uuids(count :: INTEGER?) :: (row :: INTEGER?, uuid :: STRING?)¦apoc.create.uuids(count) yield uuid - creates 'count' UUIDs 
 ¦procedure¦apoc.create.vNode¦apoc.create.vNode(label :: LIST? OF STRING?, props :: MAP?) :: (node :: NODE?)¦apoc.create.vNode(['Label'], {key:value,...}) returns a virtual node
 ¦procedure¦apoc.create.vNodes¦apoc.create.vNodes(label :: LIST? OF STRING?, props :: LIST? OF MAP?) :: (node :: NODE?)¦apoc.create.vNodes(['Label'], [{key:value,...}]) returns virtual nodes
 ¦procedure¦apoc.create.vPattern¦apoc.create.vPattern(from :: MAP?, relType :: STRING?, props :: MAP?, to :: MAP?) :: (from :: NODE?, rel :: RELATIONSHIP?, to :: NODE?)¦apoc.create.vPattern({_labels:['LabelA'],key:value},'KNOWS',{key:value,...}, {_labels:['LabelB'],key:value}) returns a virtual pattern
