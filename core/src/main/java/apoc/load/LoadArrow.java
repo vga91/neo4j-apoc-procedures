@@ -37,7 +37,7 @@ public class LoadArrow {
     public GraphDatabaseService db;
 
     @Procedure
-    @Description("apoc.load.arrow('file',{config}) - load arrow from file as stream of values")
+    @Description("apoc.load.arrow('file',$config) YIELD lineNo, list, map - load arrow from file as stream of values")
     public Stream<ArrowResult> arrow(
             @Name("file") String file,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config
@@ -52,7 +52,7 @@ public class LoadArrow {
     }
 
     @Procedure("apoc.load.arrow.stream")
-    @Description("apoc.load.arrow.stream('file',{config}) - load arrow from byte[] as stream of values")
+    @Description("apoc.load.arrow.stream('source',$config) YIELD lineNo, list, map - load arrow from source byte[] as stream of values")
     public Stream<ArrowResult> arrow(
             @Name("source") byte[] source,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config

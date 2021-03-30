@@ -92,14 +92,14 @@ public class ExportArrow {
 
 
     @Procedure
-    @Description("TODO")
+    @Description("apoc.export.arrow.all(file, config) - exports whole database as arrow to the provided file")
     public Stream<ProgressInfo> all(@Name("file") String fileName, @Name("config") Map<String, Object> config) throws Exception {
         String source = String.format("database: nodes(%d), rels(%d)", Util.nodeCount(tx), Util.relCount(tx));
         return exportArrow(fileName, source, new DatabaseSubGraph(tx), config);
     }
 
     @Procedure
-    @Description("TODO")
+    @Description("apoc.export.arrow.data(nodes,rels,file,config) - exports given nodes and relationships as csv to the provided file")
     public Stream<ProgressInfo> data(@Name("nodes") List<Node> nodes, @Name("rels") List<Relationship> rels, @Name("file") String fileName, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
 
         String source = String.format("data: nodes(%d), rels(%d)", nodes.size(), rels.size());
@@ -107,7 +107,7 @@ public class ExportArrow {
     }
 
     @Procedure
-    @Description("TODO")
+    @Description("apoc.export.arrow.graph(graph,file,config) - exports given graph object as arrow to the provided file")
     public Stream<ProgressInfo> graph(@Name("graph") Map<String,Object> graph, @Name("file") String fileName, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
 
         Collection<Node> nodes = (Collection<Node>) graph.get("nodes");
@@ -117,7 +117,7 @@ public class ExportArrow {
     }
 
     @Procedure
-    @Description("TODO")
+    @Description("apoc.export.arrow.query(query,file,{config,...,params:{params}}) - exports results from the cypher statement as arrow to the provided file")
     public Stream<ProgressInfo> query(@Name("query") String query, @Name("file") String fileName, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
         Map<String,Object> params = config == null ? Collections.emptyMap() : (Map<String,Object>)config.getOrDefault("params", Collections.emptyMap());
         Result result = tx.execute(query,params);

@@ -54,8 +54,8 @@ public class ImportStreamArrow {
 
     public ImportStreamArrow() {}
 
-    @Procedure(name = "apoc.import.arrow.stream", mode = Mode.SCHEMA)
-    @Description("apoc.import.arrow.stream")
+    @Procedure(name = "apoc.import.arrow.stream", mode = Mode.WRITE)
+    @Description("apoc.import.arrow.stream(source, config) - imports nodes and relationships from the provided byte[] source with given labels and types")
     public Stream<ProgressInfo> importArrow(
             @Name("source") byte[] source,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config

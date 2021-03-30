@@ -60,8 +60,8 @@ public class ImportArrow {
 
     public ImportArrow() {}
 
-    @Procedure(name = "apoc.import.arrow", mode = Mode.SCHEMA)
-    @Description("TODO")
+    @Procedure(name = "apoc.import.arrow", mode = Mode.WRITE)
+    @Description("apoc.import.arrow(fileNodes, fileEdges, config) - imports nodes and relationships from the provided arrow files with given labels and types")
     public Stream<ProgressInfo> importArrow(
             @Name("fileNodes") String fileNodes,
             @Name(value = "fileEdges", defaultValue = "") String fileEdges,
