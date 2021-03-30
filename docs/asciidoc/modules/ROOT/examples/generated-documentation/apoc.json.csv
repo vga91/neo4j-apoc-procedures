@@ -1,6 +1,2 @@
-¦Qualified Name¦Type¦Release
-|xref::overview/apoc.json/apoc.json.adoc[apoc.json.path icon:book[]]
-
-apoc.json.path('\{json}','json-path')
-|label:function[]
-|label:apoc-core[]
+¦type¦qualified name¦signature¦description
+¦function¦apoc.json.path¦apoc.json.path(json :: STRING?, path = $ :: STRING?) :: (ANY?)¦apoc.json.path('\{json}','json-path')

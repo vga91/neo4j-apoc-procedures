@@ -1,6 +1,2 @@
-¦Qualified Name¦Type¦Release
-|xref::overview/apoc.diff/apoc.diff.adoc[apoc.diff.nodes icon:book[]]
-
-
-|label:function[]
-|label:apoc-core[]
+¦type¦qualified name¦signature¦description
+¦function¦apoc.diff.nodes¦apoc.diff.nodes(leftNode :: NODE?, rightNode :: NODE?) :: (MAP?)¦
