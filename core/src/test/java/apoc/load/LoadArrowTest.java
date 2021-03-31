@@ -44,7 +44,6 @@ public class LoadArrowTest {
     public void setUp() throws Exception {
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, false);
-        apocConfig().setProperty("apoc.json.zip.url", "https://github.com/neo4j-contrib/neo4j-apoc-procedures/blob/3.4/src/test/resources/testload.zip?raw=true!person.json");
         TestUtil.registerProcedure(db, LoadArrow.class);
     }
 
