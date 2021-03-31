@@ -16,8 +16,11 @@ import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.procedure.Name;
 
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -30,10 +33,15 @@ import static apoc.export.arrow.ArrowConstants.LABELS_FIELD;
 import static apoc.export.arrow.ArrowConstants.START_FIELD;
 import static apoc.export.arrow.ArrowConstants.TYPE_FIELD;
 import static apoc.export.json.JsonImporter.flatMap;
+import static apoc.util.FileUtils.changeFileUrlIfImportDirectoryConstrained;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
 import static java.util.Arrays.asList;
 
 public class ImportArrowCommon {
+
+    public static String getPathNormalized(@Name("file") String file) throws URISyntaxException, IOException {
+        return new URI(changeFileUrlIfImportDirectoryConstrained(file)).getPath();
+    }
 
     public static Map<String, ValueVector> getDecodedVectorMap(ArrowReader streamReader, VectorSchemaRoot schemaRoot) throws IOException {
         Map<Long, Dictionary> dictionaryMap = streamReader.getDictionaryVectors();

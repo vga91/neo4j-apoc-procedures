@@ -34,6 +34,7 @@ import static apoc.export.arrow.ImportArrowCommon.closeVectors;
 import static apoc.export.arrow.ImportArrowCommon.createNodeFromArrow;
 import static apoc.export.arrow.ImportArrowCommon.createRelFromArrow;
 import static apoc.export.arrow.ImportArrowCommon.getDecodedVectorMap;
+import static apoc.export.arrow.ImportArrowCommon.getPathNormalized;
 
 public class ImportArrow {
 
@@ -63,7 +64,7 @@ public class ImportArrow {
 
                     try (RootAllocator allocator = new RootAllocator()) {
 
-                        try (FileInputStream fd = new FileInputStream(fileNodes);
+                        try (FileInputStream fd = new FileInputStream(getPathNormalized(fileNodes));
                              ArrowFileReader reader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator);
                              VectorSchemaRoot schemaRoot = reader.getVectorSchemaRoot();
                              BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {
@@ -80,7 +81,7 @@ public class ImportArrow {
                                 }
                         }
 
-                        try (FileInputStream fd = new FileInputStream(fileEdges);
+                        try (FileInputStream fd = new FileInputStream(getPathNormalized(fileEdges));
                              ArrowFileReader reader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator);
                              VectorSchemaRoot schemaRoot = reader.getVectorSchemaRoot();
                              BatchTransaction tx = new BatchTransaction(db, batchSize, reporter)) {

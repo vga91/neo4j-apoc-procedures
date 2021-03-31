@@ -22,6 +22,7 @@ import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +31,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static apoc.export.arrow.ImportArrowCommon.closeVectors;
+import static apoc.export.arrow.ImportArrowCommon.getPathNormalized;
 
 public class LoadArrow {
 
@@ -44,12 +46,13 @@ public class LoadArrow {
     ) throws Exception {
 
         try (RootAllocator allocator = new RootAllocator();
-             FileInputStream fd = new FileInputStream(new URI(file).getPath());
+             FileInputStream fd = new FileInputStream(getPathNormalized(file));
              ArrowFileReader reader = new ArrowFileReader(new SeekableReadChannel(fd.getChannel()), allocator)) {
 
             return getArrowResultFromInputStream(config, reader);
         }
     }
+
 
     @Procedure("apoc.load.arrow.stream")
     @Description("apoc.load.arrow.stream('source',$config) YIELD lineNo, list, map - load arrow from source byte[] as stream of values")

@@ -4,10 +4,13 @@ import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +24,7 @@ import static apoc.export.arrow.ArrowConstants.ID_FIELD;
 import static apoc.export.arrow.ArrowConstants.LABELS_FIELD;
 import static apoc.export.arrow.ArrowConstants.NODE_FILE_PREFIX;
 import static apoc.util.MapUtil.map;
+import static apoc.util.TestUtil.getUrlFileName;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -28,8 +32,13 @@ import static org.junit.Assert.assertTrue;
 
 public class LoadArrowTest {
 
+    private static final String URL_IMPORT = NODE_FILE_PREFIX + "all.arrow";
+
     @Rule
-    public DbmsRule db = new ImpermanentDbmsRule();
+    public DbmsRule db = new ImpermanentDbmsRule()
+            .withSetting(GraphDatabaseSettings.load_csv_file_url_root, Paths.get(getUrlFileName(URL_IMPORT).toURI()).getParent());
+
+    public LoadArrowTest() throws URISyntaxException {}
 
     @Before
     public void setUp() throws Exception {
@@ -78,6 +87,36 @@ public class LoadArrowTest {
                     assertEquals(3L, fourth.get("lineNo"));
                     final Map<String, Object> fourthMap = (Map<String, Object>) fourth.get("map");
                     final List<Object> fourthList = (List<Object>) fourth.get("list");
+                    assertEquals(Set.of("bar", 3L, "Another"), new HashSet<>(fourthList));
+                    assertMaps(Map.of("foo", "bar", ID_FIELD, 3L, LABELS_FIELD, "Another"), fourthMap);
+
+                    assertFalse(row.hasNext());
+                });
+    }
+
+    @Test
+    public void testLoadArrowWithoutFileProtocol() throws Exception {
+        apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, true);
+        testResult(db, "CALL apoc.load.arrow($url, {skip: 1})",map("url", URL_IMPORT),
+                (row) -> {
+                    Map<String, Object> first = row.next();
+                    assertEquals(1L, first.get("lineNo"));
+                    final Map<String, Object> secondMap = (Map<String, Object>) first.get("map");
+                    final List<Object> secondList = (List<Object>) first.get("list");
+                    assertEquals(Set.of("Jim", 1L, "User", 42L), new HashSet<>(secondList));
+                    assertMaps(Map.of("name", "Jim", ID_FIELD, 1L, LABELS_FIELD, "User", "age", 42L), secondMap);
+
+                    Map<String, Object> second = row.next();
+                    assertEquals(2L, second.get("lineNo"));
+                    final Map<String, Object> thirdMap = (Map<String, Object>) second.get("map");
+                    final List<Object> thirdList = (List<Object>) second.get("list");
+                    assertEquals(Set.of(2L, "User", 12L), new HashSet<>(thirdList));
+                    assertMaps(Map.of(ID_FIELD, 2L, LABELS_FIELD, "User", "age", 12L), thirdMap);
+
+                    Map<String, Object> third = row.next();
+                    assertEquals(3L, third.get("lineNo"));
+                    final Map<String, Object> fourthMap = (Map<String, Object>) third.get("map");
+                    final List<Object> fourthList = (List<Object>) third.get("list");
                     assertEquals(Set.of("bar", 3L, "Another"), new HashSet<>(fourthList));
                     assertMaps(Map.of("foo", "bar", ID_FIELD, 3L, LABELS_FIELD, "Another"), fourthMap);
 
