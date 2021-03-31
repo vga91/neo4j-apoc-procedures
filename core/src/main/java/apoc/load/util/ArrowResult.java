@@ -1,5 +1,6 @@
 package apoc.load.util;
 
+import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -46,13 +47,13 @@ public class ArrowResult {
 
     private Object getVectorValue(int lineNo, ValueVector vector) {
         try {
-            if (vector instanceof UInt8Vector) {
-                return ((UInt8Vector) vector).get(lineNo);
-            } else {
+            if (vector instanceof VarCharVector) {
                 byte[] value = ((VarCharVector) vector).get(lineNo);
                 if (value != null) {
                     return getCurrentIndex(value);
                 }
+            } else {
+                return vector.getObject(lineNo);
             }
         } catch (IllegalStateException ignored) {}
         return null;
