@@ -1,0 +1,15 @@
+With an arrow byte[] formatted like `apoc.export.arrow.stream.*` file output,
+we can execute:
+
+[source,cypher]
+----
+CALL apoc.import.arrow.stream([byteArrayArrow], {})
+----
+with this result:
+
+.Results
+[opts="header"]
+|===
+| file           | source | format | nodes | relationships | properties
+| "progress.arrow" | "byteArray" | "arrow"  | 2     | 1             | 4
+|===

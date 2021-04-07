@@ -1,0 +1,5 @@
+¦xref::overview/apoc.export.arrow.stream/apoc.export.arrow.stream.graph.adoc[apoc.export.arrow.stream.graph icon:book[]] +
+
+`apoc.export.arrow.stream.graph(graph,config)` - exports given graph object as arrow byte[] result
+¦label:procedure[]
+¦label:apoc-core[]

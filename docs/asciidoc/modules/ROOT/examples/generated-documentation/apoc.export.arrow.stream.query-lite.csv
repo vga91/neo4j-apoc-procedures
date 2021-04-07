@@ -1,0 +1,2 @@
+¦signature
+¦apoc.export.arrow.stream.query(query :: STRING?, config = {} :: MAP?) :: (value :: BYTEARRAY?)

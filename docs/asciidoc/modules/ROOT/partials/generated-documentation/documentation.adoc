@@ -1137,6 +1137,26 @@ apoc.example.movies() \| Creates the sample movies graph
 [.procedures, opts=header, cols='5a,1a,1a']
 |===
 | Qualified Name | Type | Release
+|xref::overview/apoc.export/apoc.export.arrow.stream.all.adoc[apoc.export.arrow.stream.all icon:book[]]
+
+apoc.export.arrow.stream.all(config) - exports whole database as arrow byte[] result
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export/apoc.export.arrow.stream.data.adoc[apoc.export.arrow.stream.data icon:book[]]
+
+apoc.export.arrow.stream.data(nodes, rels, config) - exports given nodes and relationships as arrow byte[] result
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export/apoc.export.arrow.stream.graph.adoc[apoc.export.arrow.stream.graph icon:book[]]
+
+apoc.export.arrow.stream.graph(graph,config) - exports given graph object as arrow byte[] result
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.export/apoc.export.arrow.stream.query.adoc[apoc.export.arrow.stream.query icon:book[]]
+
+apoc.export.arrow.stream.query(query,{config,...,params:\{params}}) - exports results from the cypher statement as arrow byte[] result
+|label:procedure[]
+|label:apoc-core[]
 |xref::overview/apoc.export/apoc.export.csv.all.adoc[apoc.export.csv.all icon:book[]]
 
 apoc.export.csv.all(file,config) - exports whole database as csv to the provided file
@@ -1401,6 +1421,11 @@ calculate a checksum (md5) over a node or a relationship. This deals gracefully 
 [.procedures, opts=header, cols='5a,1a,1a']
 |===
 | Qualified Name | Type | Release
+|xref::overview/apoc.import/apoc.import.arrow.stream.adoc[apoc.import.arrow.stream icon:book[]]
+
+apoc.import.arrow.stream(source, config) - imports nodes and relationships from the provided byte[] source with given labels and types
+|label:procedure[]
+|label:apoc-core[]
 |xref::overview/apoc.import/apoc.import.csv.adoc[apoc.import.csv icon:book[]]
 
 apoc.import.csv(nodes, relationships, config) - imports nodes and relationships from the provided CSV files with given labels and types
@@ -1964,7 +1989,7 @@ apoc.mongodb.get(host-or-key,db,collection,query,[compatibleValues=false\|true],
 |label:apoc-full[]
 |xref::overview/apoc.mongodb/apoc.mongodb.get.byObjectId.adoc[apoc.mongodb.get.byObjectId icon:book[]]
 
-apoc.mongodb.get.byObjectId(hostOrKey, db, collection, objectIdValue, config(default:{})) - get the document by Object id value 
+apoc.mongodb.get.byObjectId(hostOrKey, db, collection, objectIdValue, config(default:{})) - get the document by Object id value
 |label:procedure[]
 |label:apoc-core[]
 |xref::overview/apoc.mongodb/apoc.mongodb.insert.adoc[apoc.mongodb.insert icon:book[]]

@@ -1,0 +1,5 @@
+¦xref::overview/apoc.export.arrow.stream/apoc.export.arrow.stream.all.adoc[apoc.export.arrow.stream.all icon:book[]] +
+
+`apoc.export.arrow.stream.all(config)` - exports whole database as arrow byte[] result
+¦label:procedure[]
+¦label:apoc-core[]

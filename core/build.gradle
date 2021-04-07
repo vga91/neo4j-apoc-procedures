@@ -98,6 +98,11 @@ dependencies {
     compileOnly group: 'org.neo4j', name: 'neo4j', version: neo4jVersionEffective
     compileOnly group: 'org.codehaus.jackson', name: 'jackson-mapper-asl', version: '1.9.7'
 
+    compileOnly group: 'org.apache.arrow', name: 'arrow-vector', version: '3.0.0'
+    testCompile group: 'org.apache.arrow', name: 'arrow-vector', version: '3.0.0'
+    compileOnly group: 'org.apache.arrow', name: 'arrow-memory-netty', version: '3.0.0'
+    testCompile group: 'org.apache.arrow', name: 'arrow-memory-netty', version: '3.0.0'
+
     testCompile 'org.mock-server:mockserver-netty:3.10.8'
     testCompile 'org.mock-server:mockserver-client-java:3.10.8'
 

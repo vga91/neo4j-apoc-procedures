@@ -1,0 +1,5 @@
+¦xref::overview/apoc.export.arrow.stream/apoc.export.arrow.stream.data.adoc[apoc.export.arrow.stream.data icon:book[]] +
+
+`apoc.export.arrow.stream.data(nodes, rels, config)` - exports given nodes and relationships as arrow byte[] result
+¦label:procedure[]
+¦label:apoc-core[]

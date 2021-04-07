@@ -1,0 +1,23 @@
+Let's suppose we have this data set:
+
+[source,cypher]
+----
+CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})
+----
+
+With this query:
+
+[source,cypher]
+----
+CALL apoc.export.arrow.stream.all()
+----
+
+we receive a byte[] with a set of Apache Arrow's `FieldVector` with this names:
+- `_id`: for node id
+- `_labels`: for node labels, joined with `:`
+- `_start`: for start node id (in case of relationship)
+- `_end`: for end node id (in case of relationship)
+- `_type`: for relationship type
+- To distinguish the properties of nodes and relations,
+a prefix "nodeProp___" will be placed to the node props and a "edgeProp___" to the edge props.
+So for example, the property `name` will be stored in a FieldVector with name `nodeProp___name`

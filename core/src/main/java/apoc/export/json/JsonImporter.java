@@ -149,7 +149,7 @@ public class JsonImporter implements Closeable {
         }
     }
 
-    private Stream<Map.Entry<String, Object>> flatMap(Map<String, Object> map, String key) {
+    public static Stream<Map.Entry<String, Object>> flatMap(Map<String, Object> map, String key) {
         final String prefix = key != null ? key : "";
         return map.entrySet().stream()
                 .flatMap(e -> {

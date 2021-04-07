@@ -1,0 +1,2 @@
+¦signature
+¦apoc.export.arrow.stream.graph(graph :: MAP?, config = {} :: MAP?) :: (value :: BYTEARRAY?)
