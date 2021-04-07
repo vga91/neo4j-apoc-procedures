@@ -60,7 +60,7 @@ public class ExportStreamArrow {
 
     @Procedure("apoc.export.arrow.stream.graph")
     @Description("apoc.export.arrow.stream.graph(graph,config) - exports given graph object as arrow byte[] result")
-    public Stream<ByteArrayResult> graph(@Name("graph") Map<String,Object> graph, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
+    public Stream<ByteArrayResult> graph(@Name("graph") Map<String, Object> graph, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
         Collection<Node> nodes = (Collection<Node>) graph.get("nodes");
         Collection<Relationship> rels = (Collection<Relationship>) graph.get("relationships");
         return exportArrow(new NodesAndRelsSubGraph(tx, nodes, rels), config);
@@ -69,9 +69,9 @@ public class ExportStreamArrow {
     @Procedure("apoc.export.arrow.stream.query")
     @Description("apoc.export.arrow.stream.query(query,{config,...,params:{params}}) - exports results from the cypher statement as arrow byte[] result")
     public Stream<ByteArrayResult> query(@Name("query") String query, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
-        Map<String,Object> params = config == null ? Collections.emptyMap() : (Map<String,Object>)config.getOrDefault("params", Collections.emptyMap());
-        Result result = tx.execute(query,params);
-        return exportArrow(result,config);
+        Map<String, Object> params = config == null ? Collections.emptyMap() : (Map<String, Object>) config.getOrDefault("params", Collections.emptyMap());
+        Result result = tx.execute(query, params);
+        return exportArrow(result, config);
     }
 
     private Stream<ByteArrayResult> exportArrow(Object data, Map<String, Object> config) throws Exception {
@@ -90,7 +90,6 @@ public class ExportStreamArrow {
             if (valueToExport instanceof Result) {
                 return processArrowByteArrayOutputStream(allocator, batchSize, valueToExport, ArrowConstants.FunctionType.RESULT);
             }
-
             return null;
         }
     }

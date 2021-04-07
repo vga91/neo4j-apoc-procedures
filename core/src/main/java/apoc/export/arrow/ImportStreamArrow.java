@@ -48,7 +48,8 @@ public class ImportStreamArrow {
     @Context
     public Log log;
 
-    public ImportStreamArrow() {}
+    public ImportStreamArrow() {
+    }
 
     @Procedure(name = "apoc.import.arrow.stream", mode = Mode.WRITE)
     @Description("apoc.import.arrow.stream(source, config) - imports nodes and relationships from the provided byte[] source with given labels and types")
@@ -61,7 +62,7 @@ public class ImportStreamArrow {
                 Util.inThread(pools, () -> {
                     final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo("progress.arrow", "byteArray", "arrow"));
                     final int batchSize = importConfig.getBatchSize();
-                    Map<Long, Long> cache = new HashMap<>(1024*32);
+                    Map<Long, Long> cache = new HashMap<>(1024 * 32);
 
                     try (RootAllocator allocator = new RootAllocator();
                          ArrowStreamReader streamReader = new ArrowStreamReader(new ByteArrayInputStream(source), allocator);
@@ -85,7 +86,8 @@ public class ImportStreamArrow {
                                     Node node = tx.getTransaction().createNode();
                                     cache.put(idNode.get(index), node.getId());
                                     createNodeFromArrow(node, decodedVectorsMap, index, STREAM_NODE_PREFIX, reporter);
-                                } catch (IllegalStateException ignored) {}
+                                } catch (IllegalStateException ignored) {
+                                }
 
                                 if (startId != null) {
                                     try {
@@ -93,13 +95,12 @@ public class ImportStreamArrow {
                                         Node from = tx.getTransaction().getNodeById(cache.get(startId.get(index)));
                                         Node to = tx.getTransaction().getNodeById(cache.get(endId.get(index)));
                                         createRelFromArrow(decodedVectorsMap, from, to, typeRel, index, STREAM_EDGE_PREFIX, reporter);
-                                    } catch (IllegalStateException ignored) {}
+                                    } catch (IllegalStateException ignored) {
+                                    }
                                 }
                             });
-
                             closeVectors(schemaRoot, decodedVectorsMap);
                         }
-
                         return reporter.getTotal();
                     }
                 });

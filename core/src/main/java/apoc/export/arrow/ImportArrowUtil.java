@@ -94,7 +94,7 @@ public class ImportArrowUtil {
         if (value != null) {
             Object valueRead = getCurrentIndex(value);
             setPropertyByValue(valueRead, propVector.getKey().replace(normalizeKey, ""), entity);
-            reporter.update(0,0,1);
+            reporter.update(0, 0, 1);
         }
     }
 

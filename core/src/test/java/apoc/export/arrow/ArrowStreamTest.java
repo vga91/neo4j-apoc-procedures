@@ -51,25 +51,25 @@ public class ArrowStreamTest {
 
     @Test
     public void testExportArrowQuery() throws Exception {
-        assertionGraph(4,1,2,1, Set.of("name", "age", "male", "kids", "born", "place"));
+        assertionGraph(4, 1, 2, 1, Set.of("name", "age", "male", "kids", "born", "place"));
 
         final String query = "CALL apoc.export.arrow.stream.query('MATCH (n:User) RETURN n') " +
                 "YIELD value RETURN value";
         final byte[] result = getBytesFromExportQuery(query);
 
         db.executeTransactionally(DELETE_ALL);
-        assertionGraph(0,0,0,0, Collections.emptySet());
+        assertionGraph(0, 0, 0, 0, Collections.emptySet());
 
         testCall(db, "CALL apoc.import.arrow.stream($result, null)",
                 map("result", result),
                 row -> assertResults(row, "byteArray", 3L, 0L, 9L));
 
-        assertionGraph(3,0,1,0, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height"));
+        assertionGraph(3, 0, 1, 0, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height"));
     }
 
     @Test
     public void testExportArrowGraph() throws Exception {
-        assertionGraph(4,1,2,1, Set.of("name", "age", "male", "kids", "born", "place"));
+        assertionGraph(4, 1, 2, 1, Set.of("name", "age", "male", "kids", "born", "place"));
 
         final String query = "CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
                 "CALL apoc.export.arrow.stream.graph(graph,{quotes: 'none'}) " +
@@ -77,39 +77,39 @@ public class ArrowStreamTest {
         final byte[] result = getBytesFromExportQuery(query);
 
         db.executeTransactionally(DELETE_ALL);
-        assertionGraph(0,0,0,0, Collections.emptySet());
+        assertionGraph(0, 0, 0, 0, Collections.emptySet());
 
         testCall(db, "CALL apoc.import.arrow.stream($result, null)",
                 map("result", result),
                 row -> assertResults(row, "byteArray", 4L, 1L, 12L));
 
-        assertionGraph(4,1,2,1, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height"));
+        assertionGraph(4, 1, 2, 1, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height"));
     }
 
     @Test
     public void testExportArrowData() throws Exception {
-        assertionGraph(4,1,2,1, Set.of("name", "age", "male", "kids", "born", "place"));
+        assertionGraph(4, 1, 2, 1, Set.of("name", "age", "male", "kids", "born", "place"));
 
         final String query = "MATCH (n:User) " +
                 "MATCH ()-[rels:KNOWS]->() " +
-                "WITH collect(n) as node, collect(rels) as rels "+
+                "WITH collect(n) as node, collect(rels) as rels " +
                 "CALL apoc.export.arrow.stream.data(node, rels, null) " +
                 "YIELD value RETURN value";
         final byte[] result = getBytesFromExportQuery(query);
 
         db.executeTransactionally(DELETE_ALL);
-        assertionGraph(0,0,0,0, Collections.emptySet());
+        assertionGraph(0, 0, 0, 0, Collections.emptySet());
 
         testCall(db, "CALL apoc.import.arrow.stream($result, null)",
                 map("result", result),
                 row -> assertResults(row, "byteArray", 3L, 1L, 11L));
 
-        assertionGraph(3,1,1,1, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height"));
+        assertionGraph(3, 1, 1, 1, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height"));
     }
 
     @Test
     public void testExportArrowAll() throws Exception {
-        assertionGraph(4,1,2,1, Set.of("name", "age", "male", "kids", "born", "place"));
+        assertionGraph(4, 1, 2, 1, Set.of("name", "age", "male", "kids", "born", "place"));
 
         final String query = "CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
                 "CALL apoc.export.arrow.stream.all() " +
@@ -117,13 +117,13 @@ public class ArrowStreamTest {
         final byte[] result = getBytesFromExportQuery(query);
 
         db.executeTransactionally(DELETE_ALL);
-        assertionGraph(0,0,0,0, Collections.emptySet());
+        assertionGraph(0, 0, 0, 0, Collections.emptySet());
 
         testCall(db, "CALL apoc.import.arrow.stream($result, null)",
                 map("result", result),
                 row -> assertResults(row, "byteArray", 4L, 1L, 12L));
 
-        assertionGraph(4,1,2,1, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height"));
+        assertionGraph(4, 1, 2, 1, Set.of("name", "age", "male", "kids", "born", "place.latitude", "place.longitude", "place.crs", "place.height"));
     }
 
     private void assertionGraph(int nodes, int rels, int labels, int types, Set<String> propKeysFirstNode) {
@@ -141,7 +141,7 @@ public class ArrowStreamTest {
     }
 
     private byte[] getBytesFromExportQuery(String query) {
-        try(Transaction tx = db.beginTx()) {
+        try (Transaction tx = db.beginTx()) {
             byte[] result = tx.execute(query).<byte[]>columnAs("value").next();
             tx.commit();
             return result;
@@ -154,6 +154,6 @@ public class ArrowStreamTest {
         assertEquals(properties, r.get("properties"));
         assertEquals(source, r.get("source"));
         assertEquals("arrow", r.get("format"));
-        assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
+        assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
     }
 }
