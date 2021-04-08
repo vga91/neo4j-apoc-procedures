@@ -96,7 +96,7 @@ public class ExportStreamArrow {
 
     private static byte[] processArrowByteArrayOutputStream(RootAllocator allocator, int batchSize, Object valueToProcess, ArrowConstants.FunctionType function) throws IOException {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            implementArrowExport(allocator, batchSize, valueToProcess, function, null, out);
+//            implementArrowExport(allocator, batchSize, valueToProcess, function, null, out);
             return out.toByteArray();
         }
     }

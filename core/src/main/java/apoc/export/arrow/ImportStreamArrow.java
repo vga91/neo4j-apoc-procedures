@@ -57,7 +57,7 @@ public class ImportStreamArrow {
             @Name("source") byte[] source,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config
     ) throws Exception {
-        ImportArrowConfig importConfig = new ImportArrowConfig(config);
+        ArrowConfig importConfig = new ArrowConfig(config);
         ProgressInfo result =
                 Util.inThread(pools, () -> {
                     final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo("progress.arrow", "byteArray", "arrow"));
