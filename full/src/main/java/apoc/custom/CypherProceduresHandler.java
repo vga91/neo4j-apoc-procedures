@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
-import static java.util.Collections.emptySet;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -98,8 +98,8 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     private final JobScheduler jobScheduler;
     private long lastUpdate;
     private final ThrowingFunction<Context, Transaction, ProcedureException> transactionComponentFunction;
-    private Set<ProcedureSignature> registeredProcedureSignatures = emptySet();
-    private Set<UserFunctionSignature> registeredUserFunctionSignatures = emptySet();
+    private Map<QualifiedName, ProcedureSignature> registeredProcedureSignatures = emptyMap();
+    private Map<QualifiedName, UserFunctionSignature> registeredUserFunctionSignatures = emptyMap();
     private static Group REFRESH_GROUP = Group.STORAGE_MAINTENANCE;
     private JobHandle restoreProceduresHandle;
 
@@ -206,25 +206,27 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     public void restoreProceduresAndFunctions() {
         lastUpdate = System.currentTimeMillis();
-        Set<ProcedureSignature> currentProcedureSignatures = Collections.synchronizedSet(new HashSet<>());
-        Set<UserFunctionSignature> currentUserFunctionSignatures = Collections.synchronizedSet(new HashSet<>());
+        Map<QualifiedName, ProcedureSignature> currentProcedureSignatures = Collections.synchronizedMap(new HashMap<>());
+        Map<QualifiedName, UserFunctionSignature> currentUserFunctionSignatures = Collections.synchronizedMap(new HashMap<>());
 
         readSignatures().forEach(descriptor -> {
             descriptor.register();
             if (descriptor instanceof ProcedureDescriptor) {
                 ProcedureSignature signature = ((ProcedureDescriptor) descriptor).getSignature();
-                currentProcedureSignatures.add(signature);
-                registeredProcedureSignatures.remove(signature);
+                final QualifiedName signatureName = signature.name();
+                currentProcedureSignatures.put(signatureName, signature);
+                registeredProcedureSignatures.remove(signatureName);
             } else {
                 UserFunctionSignature signature = ((UserFunctionDescriptor) descriptor).getSignature();
-                currentUserFunctionSignatures.add(signature);
-                registeredUserFunctionSignatures.remove(signature);
+                final QualifiedName signatureName = signature.name();
+                currentUserFunctionSignatures.put(signatureName, signature);
+                registeredUserFunctionSignatures.remove(signatureName);
             }
         });
 
         // de-register removed procs/functions
-        registeredProcedureSignatures.forEach(signature -> registerProcedure(signature, null));
-        registeredUserFunctionSignatures.forEach(signature -> registerFunction(signature, null, false));
+        registeredProcedureSignatures.values().forEach(signature -> registerProcedure(signature, null));
+        registeredUserFunctionSignatures.values().forEach(signature -> registerFunction(signature, null, false));
 
         registeredProcedureSignatures = currentProcedureSignatures;
         registeredUserFunctionSignatures = currentUserFunctionSignatures;
@@ -362,7 +364,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                     }
                 }
             }, true);
-            registeredProcedureSignatures.add(signature);
+            registeredProcedureSignatures.put(signature.name(), signature);
             return true;
         } catch (Exception e) {
             log.error("Could not register procedure: " + signature.name() + " with " + statement + "\n accepting" + signature.inputSignature() + " resulting in " + signature.outputSignature() + " mode " + signature.mode(), e);
@@ -409,7 +411,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
                 }
             }, true);
-            registeredUserFunctionSignatures.add(signature);
+            registeredUserFunctionSignatures.put(signature.name(), signature);
             return true;
         } catch (Exception e) {
             log.error("Could not register function: " + signature + "\nwith: " + statement + "\n single result " + forceSingle, e);
@@ -612,7 +614,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             ).stream().filter(n -> n.hasLabel(SystemLabels.Procedure)).forEach(node -> {
                 ProcedureDescriptor descriptor = procedureDescriptor(node);
                 registerProcedure(descriptor.getSignature(), null);
-                registeredProcedureSignatures.remove(descriptor.getSignature());
+                registeredProcedureSignatures.remove(descriptor.getSignature().name().toString());
                 node.delete();
                 setLastUpdate(tx);
             });

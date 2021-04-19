@@ -8,14 +8,18 @@ import org.junit.rules.TemporaryFolder;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 /**
  * @author mh
@@ -184,5 +188,108 @@ public class CypherProceduresStorageTest {
                 "[['int','int'],['float','float'],['string','string'],['map','map'],['list int','list int'],['bool','bool'],['date','date'],['datetime','datetime'],['point','point']], true)");
         restartDb();
         TestUtil.testCall(db, "return custom.answer(42,3.14,'foo',{a:1},[1],true,date(),datetime(),point({x:1,y:2})) as data", (row) -> assertEquals(9, ((List)row.get("data")).size()));
+    }
+
+
+    @Test(expected = QueryExecutionException.class)
+    public void shouldOverloadAndRemoveCorrectlyTheProcedure() throws IOException {
+        db.executeTransactionally("call apoc.custom.asProcedure('test_ghost','RETURN 100 as result')");
+
+        TestUtil.testCall(db, "call custom.test_ghost", res -> {
+            final Map<String, Object> row = (Map<String, Object>) res.get("row");
+            assertEquals(100L, row.get("result"));
+        });
+        db.executeTransactionally("call apoc.custom.asProcedure('test_ghost','RETURN $count as result','read',[['result','int']],[['count','int']])");
+
+        TestUtil.testCall(db, "call custom.test_ghost(15)", res -> assertEquals(15L, res.get("result")));
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        try {
+            db.executeTransactionally("call custom.test_ghost");
+            fail("Should fails because of 'Expected parameter'");
+        } catch (QueryExecutionException e) {
+            assertEquals("Expected parameter(s): count", e.getMessage());
+        }
+        TestUtil.testCall(db, "call apoc.custom.list", row -> {
+            assertEquals(asList(asList("count", "integer")), row.get("inputs"));
+            assertEquals(asList(asList("result", "integer")), row.get("outputs"));
+            assertEquals("test_ghost", row.get("name"));
+            assertEquals("RETURN $count as result", row.get("statement"));
+            assertEquals("procedure", row.get("type"));
+        });
+        TestUtil.testResult(db, "call apoc.custom.removeProcedure('test_ghost')", res -> {});
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        TestUtil.testCallEmpty(db, "call apoc.custom.list", Collections.emptyMap());
+        try {
+            TestUtil.count(db, "call custom.test_ghost(1)");
+            fail("Should fails because of 'unknown procedure'");
+        } catch (QueryExecutionException e) {
+            final String expectedMsg = "There is no procedure with the name `custom.test_ghost` registered for this database instance. " +
+                    "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.";
+            assertEquals(expectedMsg, e.getMessage());
+        }
+
+        restartDb();
+
+        TestUtil.testCallEmpty(db, "call apoc.custom.list", Collections.emptyMap());
+        try {
+            TestUtil.count(db, "call custom.test_ghost(1)");
+        } catch (QueryExecutionException e) {
+            final String expectedMsg = "There is no procedure with the name `custom.test_ghost` registered for this database instance. " +
+                    "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.";
+            assertEquals(expectedMsg, e.getMessage());
+            throw e;
+        }
+    }
+
+    @Test(expected = QueryExecutionException.class)
+    public void shouldOverloadAndRemoveCorrectlyTheFunction() throws IOException {
+        db.executeTransactionally("call apoc.custom.asFunction('test_ghost','RETURN 100 as result')");
+
+        TestUtil.testCall(db, "return custom.test_ghost() as row", res -> {
+            final Map<String, Object> row = (Map<String, Object>) ((List) res.get("row")).get(0);
+            assertEquals(100L, row.get("result"));
+        });
+        db.executeTransactionally("call apoc.custom.asFunction('test_ghost','RETURN $count as result','long',[['count','number']])");
+
+        TestUtil.testCall(db, "return custom.test_ghost(15) as result", res -> assertEquals(15L, res.get("result")));
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        try {
+            db.executeTransactionally("return custom.test_ghost() as row");
+            fail("Should fails because of wrong 'required number of arguments'");
+        } catch (QueryExecutionException e) {
+            assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 1 got 0"));
+        }
+        TestUtil.testCall(db, "call apoc.custom.list", row -> {
+            assertEquals(asList(asList("count", "number")), row.get("inputs"));
+            assertEquals("integer", row.get("outputs"));
+            assertEquals("test_ghost", row.get("name"));
+            assertEquals("RETURN $count as result", row.get("statement"));
+            assertEquals("function", row.get("type"));
+        });
+        TestUtil.testResult(db, "call apoc.custom.removeFunction('test_ghost')", res -> {});
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        final String expectedMsg = "Unknown function 'custom.test_ghost'";
+
+        TestUtil.testCallEmpty(db, "call apoc.custom.list", Collections.emptyMap());
+        try {
+            TestUtil.count(db, "return custom.test_ghost(1)");
+            fail("Should fails because of 'unknown function'");
+        } catch (QueryExecutionException e) {
+            assertTrue(e.getMessage().contains(expectedMsg));
+        }
+
+        restartDb();
+
+        TestUtil.testCallEmpty(db, "call apoc.custom.list", Collections.emptyMap());
+        try {
+            TestUtil.count(db, "return custom.test_ghost(1)");
+        } catch (QueryExecutionException e) {
+            assertTrue(e.getMessage().contains(expectedMsg));
+            throw e;
+        }
     }
 }
