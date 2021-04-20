@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
-import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -98,8 +98,8 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     private final JobScheduler jobScheduler;
     private long lastUpdate;
     private final ThrowingFunction<Context, Transaction, ProcedureException> transactionComponentFunction;
-    private Map<QualifiedName, ProcedureSignature> registeredProcedureSignatures = emptyMap();
-    private Map<QualifiedName, UserFunctionSignature> registeredUserFunctionSignatures = emptyMap();
+    private Set<ProcedureSignature> registeredProcedureSignatures = emptySet();
+    private Set<UserFunctionSignature> registeredUserFunctionSignatures = emptySet();
     private static Group REFRESH_GROUP = Group.STORAGE_MAINTENANCE;
     private JobHandle restoreProceduresHandle;
 
@@ -139,7 +139,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     public Stream<ProcedureOrFunctionDescriptor> readSignatures() {
         List<ProcedureOrFunctionDescriptor> descriptors;
         try (Transaction tx = systemDb.beginTx()) {
-             descriptors = tx.findNodes(SystemLabels.ApocCypherProcedures, SystemPropertyKeys.database.name(), api.databaseName()).stream().map(node -> {
+            descriptors = tx.findNodes(SystemLabels.ApocCypherProcedures, SystemPropertyKeys.database.name(), api.databaseName()).stream().map(node -> {
                 if (node.hasLabel(SystemLabels.Procedure)) {
                     return procedureDescriptor(node);
                 } else if (node.hasLabel(SystemLabels.Function)) {
@@ -206,27 +206,25 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     public void restoreProceduresAndFunctions() {
         lastUpdate = System.currentTimeMillis();
-        Map<QualifiedName, ProcedureSignature> currentProcedureSignatures = Collections.synchronizedMap(new HashMap<>());
-        Map<QualifiedName, UserFunctionSignature> currentUserFunctionSignatures = Collections.synchronizedMap(new HashMap<>());
+        Set<ProcedureSignature> currentProcedureSignatures = Collections.synchronizedSet(new HashSet<>());
+        Set<UserFunctionSignature> currentUserFunctionSignatures = Collections.synchronizedSet(new HashSet<>());
 
         readSignatures().forEach(descriptor -> {
             descriptor.register();
             if (descriptor instanceof ProcedureDescriptor) {
                 ProcedureSignature signature = ((ProcedureDescriptor) descriptor).getSignature();
-                final QualifiedName signatureName = signature.name();
-                currentProcedureSignatures.put(signatureName, signature);
-                registeredProcedureSignatures.remove(signatureName);
+                currentProcedureSignatures.add(signature);
+                registeredProcedureSignatures.remove(signature);
             } else {
                 UserFunctionSignature signature = ((UserFunctionDescriptor) descriptor).getSignature();
-                final QualifiedName signatureName = signature.name();
-                currentUserFunctionSignatures.put(signatureName, signature);
-                registeredUserFunctionSignatures.remove(signatureName);
+                currentUserFunctionSignatures.add(signature);
+                registeredUserFunctionSignatures.remove(signature);
             }
         });
 
         // de-register removed procs/functions
-        registeredProcedureSignatures.values().forEach(signature -> registerProcedure(signature, null));
-        registeredUserFunctionSignatures.values().forEach(signature -> registerFunction(signature, null, false));
+        registeredProcedureSignatures.forEach(signature -> registerProcedure(signature, null));
+        registeredUserFunctionSignatures.forEach(signature -> registerFunction(signature, null, false));
 
         registeredProcedureSignatures = currentProcedureSignatures;
         registeredUserFunctionSignatures = currentUserFunctionSignatures;
@@ -364,7 +362,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                     }
                 }
             }, true);
-            registeredProcedureSignatures.put(signature.name(), signature);
+            registeredProcedureSignatures.add(signature);
             return true;
         } catch (Exception e) {
             log.error("Could not register procedure: " + signature.name() + " with " + statement + "\n accepting" + signature.inputSignature() + " resulting in " + signature.outputSignature() + " mode " + signature.mode(), e);
@@ -411,7 +409,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
                 }
             }, true);
-            registeredUserFunctionSignatures.put(signature.name(), signature);
+            registeredUserFunctionSignatures.add(signature);
             return true;
         } catch (Exception e) {
             log.error("Could not register function: " + signature + "\nwith: " + statement + "\n single result " + forceSingle, e);
@@ -614,7 +612,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             ).stream().filter(n -> n.hasLabel(SystemLabels.Procedure)).forEach(node -> {
                 ProcedureDescriptor descriptor = procedureDescriptor(node);
                 registerProcedure(descriptor.getSignature(), null);
-                registeredProcedureSignatures.remove(descriptor.getSignature().name().toString());
+                registeredProcedureSignatures.remove(descriptor.getSignature());
                 node.delete();
                 setLastUpdate(tx);
             });
