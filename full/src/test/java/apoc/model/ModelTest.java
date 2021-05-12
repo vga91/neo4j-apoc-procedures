@@ -24,7 +24,6 @@ import static org.junit.Assume.*;
 
 public class ModelTest {
 
-    public static String JDBC_URL;
     @Rule
     public TestName testName = new TestName();
 
