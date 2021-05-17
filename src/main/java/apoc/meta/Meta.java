@@ -1,5 +1,6 @@
 package apoc.meta;
 
+import org.apache.commons.collections4.IterableUtils;
 import org.neo4j.logging.Log;
 import apoc.result.GraphResult;
 import apoc.result.MapResult;
@@ -413,9 +414,11 @@ public class    Meta {
     }
 
     private Map<String, Integer> labelsInUse(TokenRead ops, Collection<String> labelNames) {
+        final Iterable<Label> allLabelsInUse = tx.getAllLabelsInUse();
+        final Set<Label> allLabelsAsList = Iterables.asSet(allLabelsInUse);
         Stream<String> labels = (labelNames == null || labelNames.isEmpty()) ?
-                Iterables.stream(tx.getAllLabelsInUse()).map(Label::name) :
-                labelNames.stream();
+                Iterables.stream(allLabelsInUse).map(Label::name) :
+                labelNames.stream().filter(labelName -> allLabelsAsList.contains(Label.label(labelName)));
         return labels.collect(toMap(t -> t, ops::nodeLabel));
     }
 
@@ -521,6 +524,7 @@ public class    Meta {
                 for (ConstraintDefinition cd : schema.getConstraints(label)) { profile.noteConstraint(label, cd); }
                 for (IndexDefinition index : schema.getIndexes(label)) { profile.noteIndex(label, index); }
 
+                // todo - e qui?
                 long labelCount = countStore.get(labelName);
                 long sample = getSampleForLabelCount(labelCount, config.getSample());
 
@@ -577,6 +581,7 @@ public class    Meta {
                     indexed.add(prop);
                 }
             }
+            // todo - e qui?
             long labelCount = countStore.get(labelName);
             long sample = getSampleForLabelCount(labelCount, config.getSample());
             try (ResourceIterator<Node> nodes = tx.findNodes(label)) {
@@ -696,6 +701,9 @@ public class    Meta {
         for(String entityName : metaData.keySet()) {
             Map<String, MetaResult> entityData = metaData.get(entityName);
             Map<String, Object> entityProperties = new LinkedHashMap<>();
+            if (entityData.isEmpty()) {
+                continue;
+            }
             boolean isRelationship = true;
             for (String entityDataKey : entityData.keySet()) {
                 MetaResult metaResult = entityData.get(entityDataKey);
