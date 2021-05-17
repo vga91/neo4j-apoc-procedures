@@ -1,6 +1,5 @@
 package apoc.meta;
 
-import org.apache.commons.collections4.IterableUtils;
 import org.neo4j.logging.Log;
 import apoc.result.GraphResult;
 import apoc.result.MapResult;
@@ -524,7 +523,6 @@ public class    Meta {
                 for (ConstraintDefinition cd : schema.getConstraints(label)) { profile.noteConstraint(label, cd); }
                 for (IndexDefinition index : schema.getIndexes(label)) { profile.noteIndex(label, index); }
 
-                // todo - e qui?
                 long labelCount = countStore.get(labelName);
                 long sample = getSampleForLabelCount(labelCount, config.getSample());
 
@@ -581,7 +579,6 @@ public class    Meta {
                     indexed.add(prop);
                 }
             }
-            // todo - e qui?
             long labelCount = countStore.get(labelName);
             long sample = getSampleForLabelCount(labelCount, config.getSample());
             try (ResourceIterator<Node> nodes = tx.findNodes(label)) {
