@@ -417,7 +417,7 @@ public class MetaTest {
                     assertEquals(1, rel2Properties.size());
                     assertEquals("relationship", rel2.get("type"));
                     assertEquals(1L, rel2.get("count"));
-                });
+        });
     }
 
     @Test
