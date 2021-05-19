@@ -4,6 +4,7 @@ import apoc.Extended;
 import apoc.load.util.LoadJdbcConfig;
 import apoc.result.VirtualNode;
 import org.neo4j.graphdb.*;
+import org.neo4j.logging.Log;
 import org.neo4j.procedure.Procedure;
 import org.neo4j.procedure.*;
 import schemacrawler.schema.*;
@@ -27,6 +28,9 @@ public class Model {
 
     @Context
     public Transaction tx;
+
+    @Context
+    public Log log;
 
     private Node createNode(String label, String name, boolean virtual) {
         if (virtual) {
@@ -63,7 +67,7 @@ public class Model {
                 .withSchemaInfoLevel(SchemaInfoLevelBuilder.standard());
         SchemaCrawlerOptions options = optionsBuilder.toOptions();
 
-        Catalog catalog = SchemaCrawlerUtility.getCatalog(getConnection(url, new LoadJdbcConfig(config)),
+        Catalog catalog = SchemaCrawlerUtility.getCatalog(getConnection(url, new LoadJdbcConfig(config), log),
                 options);
 
         DatabaseModel databaseModel = new DatabaseModel();

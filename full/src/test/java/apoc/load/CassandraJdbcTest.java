@@ -15,6 +15,7 @@ import org.testcontainers.containers.CassandraContainer;
 import java.sql.SQLException;
 import java.util.Map;
 
+import static apoc.ApocConfig.apocConfig;
 import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.Assert.assertEquals;
@@ -48,6 +49,15 @@ public class CassandraJdbcTest extends AbstractJdbcTest {
         if (cassandra != null) {
             cassandra.stop();
         }
+    }
+
+    @Test
+    public void testLoadJdbcWithAuthKey()  {
+        apocConfig().setProperty("apoc.jdbc.myKey.user", cassandra.getUsername());
+        apocConfig().setProperty("apoc.jdbc.myKey.password", cassandra.getPassword());
+        testCall(db, "CALL apoc.load.jdbc($url,'SELECT * FROM \"PERSON\"',[], $config)", Util.map("url", getUrl(),
+                "config", Util.map("authKey", "myKey")),
+                (row) -> assertResult(row));
     }
 
     @Test
@@ -85,6 +95,9 @@ public class CassandraJdbcTest extends AbstractJdbcTest {
                             IsMapContaining.hasEntry("EFFECTIVE_FROM_DATE", (Object)effectiveFromDate.toLocalDateTime())
                             ));
                 });
+        
+        // reset 'SURNAME' field to preserve other tests
+        db.executeTransactionally("CALL apoc.load.jdbcUpdate($url,'DELETE \"SURNAME\" FROM \"PERSON\" WHERE \"NAME\" = ?', ['John'])", Util.map("url", getUrl()));
     }
 
     @Test

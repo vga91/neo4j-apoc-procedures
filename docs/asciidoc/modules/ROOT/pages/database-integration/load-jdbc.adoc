@@ -395,11 +395,24 @@ Credentials can be passed in two ways:
 CALL apoc.load.jdbc('jdbc:derby:derbyDB;user=apoc;password=Ap0c!#Db;create=true', 'PERSON')
 ----
 
-* by config parameter.
+* by `credentials` config parameter.
 
 [source,cypher]
 ----
 CALL apoc.load.jdbc('jdbc:derby:derbyDB', 'PERSON',[],{credentials:{user:'apoc',password:'Ap0c!#Db'}})
+----
+
+* in `apoc.conf`, through the `authKey` config parameter.
+
+.apoc.conf
+----
+apoc.jdbc.myKey.user=myUsername
+apoc.jdbc.myKey.password=myPassword
+----
+
+[source,cypher]
+----
+CALL apoc.load.jdbc('jdbc:postgresql://localhost:55120/test', 'PERSON',[],{authKey: 'myKey'});
 ----
 
 Google BigQuery using Simba drivers requires an additional parameter 'autoCommit' to be used e.g.

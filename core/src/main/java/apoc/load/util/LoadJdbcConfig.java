@@ -17,6 +17,7 @@ public class LoadJdbcConfig {
     private ZoneId zoneId = null;
 
     private Credentials credentials;
+    private String authKey;
 
     private final Long fetchSize;
 
@@ -31,12 +32,17 @@ public class LoadJdbcConfig {
             throw new IllegalArgumentException(String.format("The timezone field contains an error: %s", e.getMessage()));
         }
         this.credentials = config.containsKey("credentials") ? createCredentials((Map<String, String>) config.get("credentials")) : null;
+        this.authKey = (String) config.get("authKey");
         this.fetchSize = Util.toLong(config.getOrDefault("fetchSize", 5000L));
         this.autoCommit = Util.toBoolean(config.getOrDefault("autoCommit", false));
     }
 
     public ZoneId getZoneId(){
         return this.zoneId;
+    }
+
+    public String getAuthKey() {
+        return authKey;
     }
 
     public Credentials getCredentials() {

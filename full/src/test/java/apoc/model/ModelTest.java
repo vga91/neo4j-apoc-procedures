@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static apoc.ApocConfig.apocConfig;
 import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.Assert.assertEquals;
@@ -57,55 +58,21 @@ public class ModelTest {
     }
 
     @Test
+    public void testLoadJdbcSchemaWithAuthKey() {
+        apocConfig().setProperty("apoc.jdbc.myKey.user", mysql.getUsername());
+        apocConfig().setProperty("apoc.jdbc.myKey.password", mysql.getPassword());
+        testCall(db, "CALL apoc.model.jdbc($url, $config)",
+                Util.map("url", mysql.getJdbcUrl(), "config", Util.map("schema", "test", "authKey", "myKey")),
+                this::assertionsLoadJdbcSchema);
+    }
+    
+    @Test
     public void testLoadJdbcSchema() {
         testCall(db, "CALL apoc.model.jdbc($url, $config)",
                 Util.map("url", mysql.getJdbcUrl(),
                         "config", Util.map("schema", "test",
                                 "credentials", Util.map("user", mysql.getUsername(), "password", mysql.getPassword()))),
-                (row) -> {
-                    Long count = db.executeTransactionally("MATCH (n) RETURN count(n) AS count", Collections.emptyMap(),
-                            result -> Iterators.single(result.columnAs("count")));
-                    assertEquals(0L, count.longValue());
-                    List<Node> nodes = (List<Node>) row.get("nodes");
-                    List<Relationship> rels = (List<Relationship>) row.get("relationships");
-                    assertEquals( 28, nodes.size());
-                    assertEquals( 27, rels.size());
-
-                    // schema
-                    Node schema = nodes.stream().filter(node -> node.hasLabel(Label.label("Schema"))).findFirst().orElse(null);
-                    assertNotNull("should have schema", schema);
-                    assertEquals("test", schema.getProperty("name"));
-
-                    // tables
-                    nodes.stream().filter(node -> node.hasLabel(Label.label("Table")))
-                            .forEach(table -> {
-                                Relationship rel = table.getSingleRelationship(RelationshipType.withName("IN_SCHEMA"), Direction.OUTGOING);
-                                assertNotNull("should have relationship IN_SCHEMA", rel);
-                                assertEquals(schema, rel.getEndNode());
-                            });
-                    List<String> tables = nodes.stream().filter(node -> node.hasLabel(Label.label("Table")))
-                            .map(node -> node.getProperty("name").toString())
-                            .collect(Collectors.toList());
-                    assertEquals(3, tables.size());
-                    assertEquals(Arrays.asList("country", "city", "countrylanguage"), tables);
-
-                    List<Node> columns = nodes.stream().filter(node -> node.hasLabel(Label.label("Column")))
-                            .collect(Collectors.toList());
-                    assertEquals(24, columns.size());
-
-                    List<String> countryNodes = filterColumnsByTableName(columns, "country");
-                    List<String> expectedCountryCols = Arrays.asList("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2");
-                    assertEquals(expectedCountryCols, countryNodes);
-
-                    List<String> cityNodes = filterColumnsByTableName(columns, "city");
-                    List<String> expectedCityCols = Arrays.asList("ID", "Name", "CountryCode", "District", "Population");
-                    assertEquals(expectedCityCols, cityNodes);
-
-                    List<String> countrylanguageNodes = filterColumnsByTableName(columns, "countrylanguage");
-                    List<String> expectedCountrylanguageCols = Arrays.asList("CountryCode", "Language", "IsOfficial", "Percentage");
-                    assertEquals(expectedCountrylanguageCols, countrylanguageNodes);
-
-                });
+                this::assertionsLoadJdbcSchema);
     }
 
     @Test
@@ -206,6 +173,50 @@ public class ModelTest {
                     assertEquals(expectedCountrylanguageCols, countrylanguageNodes);
 
                 });
+    }
+
+    private void assertionsLoadJdbcSchema(java.util.Map<String, Object> row) {
+        Long count = db.executeTransactionally("MATCH (n) RETURN count(n) AS count", Collections.emptyMap(),
+                result -> Iterators.single(result.columnAs("count")));
+        assertEquals(0L, count.longValue());
+        List<Node> nodes = (List<Node>) row.get("nodes");
+        List<Relationship> rels = (List<Relationship>) row.get("relationships");
+        assertEquals( 28, nodes.size());
+        assertEquals( 27, rels.size());
+
+        // schema
+        Node schema = nodes.stream().filter(node -> node.hasLabel(Label.label("Schema"))).findFirst().orElse(null);
+        assertNotNull("should have schema", schema);
+        assertEquals("test", schema.getProperty("name"));
+
+        // tables
+        nodes.stream().filter(node -> node.hasLabel(Label.label("Table")))
+                .forEach(table -> {
+                    Relationship rel = table.getSingleRelationship(RelationshipType.withName("IN_SCHEMA"), Direction.OUTGOING);
+                    assertNotNull("should have relationship IN_SCHEMA", rel);
+                    assertEquals(schema, rel.getEndNode());
+                });
+        List<String> tables = nodes.stream().filter(node -> node.hasLabel(Label.label("Table")))
+                .map(node -> node.getProperty("name").toString())
+                .collect(Collectors.toList());
+        assertEquals(3, tables.size());
+        assertEquals(Arrays.asList("country", "city", "countrylanguage"), tables);
+
+        List<Node> columns = nodes.stream().filter(node -> node.hasLabel(Label.label("Column")))
+                .collect(Collectors.toList());
+        assertEquals(24, columns.size());
+
+        List<String> countryNodes = filterColumnsByTableName(columns, "country");
+        List<String> expectedCountryCols = Arrays.asList("Code", "Name", "Continent", "Region", "SurfaceArea", "IndepYear", "Population", "LifeExpectancy", "GNP", "GNPOld", "LocalName", "GovernmentForm", "HeadOfState", "Capital", "Code2");
+        assertEquals(expectedCountryCols, countryNodes);
+
+        List<String> cityNodes = filterColumnsByTableName(columns, "city");
+        List<String> expectedCityCols = Arrays.asList("ID", "Name", "CountryCode", "District", "Population");
+        assertEquals(expectedCityCols, cityNodes);
+
+        List<String> countrylanguageNodes = filterColumnsByTableName(columns, "countrylanguage");
+        List<String> expectedCountrylanguageCols = Arrays.asList("CountryCode", "Language", "IsOfficial", "Percentage");
+        assertEquals(expectedCountrylanguageCols, countrylanguageNodes);
     }
 
     private List<String> filterColumnsByTableName(List<Node> columns, String tableName) {

@@ -194,6 +194,12 @@ public class JdbcTest extends AbstractJdbcTest {
     public void testLoadJdbcUpdateParamsUrlWithSpecialCharWithAuthentication() throws Exception {
         testCall(db, "CALL apoc.load.jdbcUpdate('jdbc:derby:derbyDB','UPDATE PERSON SET NAME = ? WHERE NAME = ?',['John','John'],{credentials:{user:'apoc',password:'Ap0c!#Db'}})",
                 (row) -> assertEquals(Util.map("count", 1 ), row.get("row")));
+        
+        // with authKey
+        apocConfig().setProperty("apoc.jdbc.myKey.user", "apoc");
+        apocConfig().setProperty("apoc.jdbc.myKey.password", "Ap0c!#Db");
+        testCall(db, "CALL apoc.load.jdbcUpdate('jdbc:derby:derbyDB','UPDATE PERSON SET NAME = ? WHERE NAME = ?',['John','John'],{authKey: 'myKey'})",
+                (row) -> assertEquals(Util.map("count", 1 ), row.get("row")));
     }
 
     @Test
@@ -202,7 +208,7 @@ public class JdbcTest extends AbstractJdbcTest {
         thrown.expectMessage("In config param credentials must be passed both user and password.");
         TestUtil.singleResultFirstColumn(db,"CALL apoc.load.jdbc($url, 'PERSON',[],{credentials:{user:'',password:'Ap0c!#Db'}})", Util.map("url","jdbc:derby:derbyDB"));
     }
-
+    
     @Test
     public void testLoadJdbcUrlWithSpecialCharWithoutUserWithAuthentication() throws Exception {
         thrown.expect(QueryExecutionException.class);
@@ -248,7 +254,7 @@ public class JdbcTest extends AbstractJdbcTest {
         thrown.expectMessage("In config param credentials must be passed both user and password.");
         TestUtil.singleResultFirstColumn(db, "CALL apoc.load.jdbc($url, 'PERSON',[],{credentials:{user:'apoc',password:''}})", Util.map("url","jdbc:derby:derbyDB"));
     }
-
+    
     @Test
     public void testLoadJdbcUrlWithSpecialCharWithoutPasswordWithAuthentication() throws Exception {
         thrown.expect(QueryExecutionException.class);

@@ -13,6 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.sql.SQLException;
 
+import static apoc.ApocConfig.apocConfig;
 import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.Assert.assertEquals;
@@ -47,7 +48,22 @@ public class PostgresJdbcTest extends AbstractJdbcTest {
             postgress.stop();
         }
     }
-
+    
+    @Test
+    public void testLoadJdbcWithAuthKey()  {
+        apocConfig().setProperty("apoc.jdbc.myKey.user", postgress.getUsername());
+        apocConfig().setProperty("apoc.jdbc.myKey.password", postgress.getPassword());
+        testCall(db, "CALL apoc.load.jdbc($url,'PERSON',[], $config)", Util.map("url", postgress.getJdbcUrl(),
+                "config", Util.map("schema", "test", "authKey", "myKey")),
+                (row) -> assertResult(row));
+        
+        // authKey and urlKey
+        apocConfig().setProperty("apoc.jdbc.myUrlKey.url", getUrlWithAuth());
+        testCall(db, "CALL apoc.load.jdbc('myUrlKey','PERSON',[], $config)", Util.map("url", postgress.getJdbcUrl(),
+                "config", Util.map("schema", "test", "authKey", "myKey")),
+                (row) -> assertResult(row));
+    }
+    
     @Test
     public void testLoadJdbc() throws Exception {
         testCall(db, "CALL apoc.load.jdbc($url,'PERSON',[], $config)", Util.map("url", postgress.getJdbcUrl(),
@@ -71,6 +87,11 @@ public class PostgresJdbcTest extends AbstractJdbcTest {
                         "config", Util.map("schema", "test",
                                 "credentials", Util.map("user", postgress.getUsername(), "password", postgress.getPassword()))),
                 (row) -> assertEquals( Util.map("count", 1 ), row.get("row")));
+        
+        // update with urlKey and simultaneously reset 'SURNAME' field to preserve other tests
+        apocConfig().setProperty("apoc.jdbc.myKey.url", getUrlWithAuth());
+        testCall(db, "CALL apoc.load.jdbcUpdate('myKey','UPDATE PERSON SET \"SURNAME\" = ? WHERE \"NAME\" = ?',[null, 'John'])", 
+                (row) -> assertEquals( Util.map("count", 1 ), row.get("row")));
     }
 
     @Test
@@ -80,6 +101,10 @@ public class PostgresJdbcTest extends AbstractJdbcTest {
                         "config", Util.map("schema", "test",
                                 "credentials", Util.map("user", postgress.getUsername(), "password", postgress.getPassword()))),
                 (row) -> assertResult(row));
+    }
+
+    private String getUrlWithAuth() {
+        return postgress.getJdbcUrl() + "&user=" + postgress.getUsername() + "&password=" + postgress.getPassword();
     }
     
 }

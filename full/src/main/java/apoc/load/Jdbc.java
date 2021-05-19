@@ -79,7 +79,7 @@ public class Jdbc {
         String url = getUrlOrKey(urlOrKey);
         String query = getSqlOrKey(tableOrSelect);
         try {
-            Connection connection = getConnection(url,loadJdbcConfig);
+            Connection connection = getConnection(url,loadJdbcConfig,log);
             // see https://jdbc.postgresql.org/documentation/91/query.html#query-with-cursors
             connection.setAutoCommit(loadJdbcConfig.isAutoCommit());
             try {
@@ -120,7 +120,7 @@ public class Jdbc {
         String url = getUrlOrKey(urlOrKey);
         LoadJdbcConfig jdbcConfig = new LoadJdbcConfig(config);
         try {
-            Connection connection = getConnection(url,jdbcConfig);
+            Connection connection = getConnection(url,jdbcConfig,log);
             try {
                 PreparedStatement stmt = connection.prepareStatement(query,ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
                 stmt.setFetchSize(5000);
