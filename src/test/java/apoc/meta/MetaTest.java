@@ -471,6 +471,7 @@ public class MetaTest {
     @Test
     public void testSubGraphLNotMatchingLabels() {
         db.executeTransactionally("CREATE (:A)-[:X]->(b:B),(b)-[:Y]->(:C)");
+        
         testCall(db,"CALL apoc.meta.subGraph({labels:['A', 'B', 'NotMatching'], includeRels: ['X', 'NotMatchingRel']})", (row) -> {
             List<Node> nodes = ((List<Node>) row.get("nodes")).stream().sorted(comparing(node -> (String) node.getProperty("name"))).collect(Collectors.toList());
             List<Relationship> rels = (List<Relationship>) row.get("relationships");
