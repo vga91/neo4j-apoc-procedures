@@ -1,8 +1,10 @@
 package apoc.export.json;
 
 import apoc.ApocSettings;
+import apoc.util.BinaryFileType;
 import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
+import apoc.util.Utils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -25,6 +27,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.util.BinaryTestUtil.fileToBinary;
 import static apoc.util.MapUtil.map;
 
 public class ImportJsonTest {
@@ -41,7 +44,7 @@ public class ImportJsonTest {
 
     @Before
     public void setUp() throws Exception {
-        TestUtil.registerProcedure(db, ImportJson.class);
+        TestUtil.registerProcedure(db, ImportJson.class, Utils.class);
     }
 
     @Test
@@ -52,40 +55,7 @@ public class ImportJsonTest {
         // when
         TestUtil.testCall(db, "CALL apoc.import.json($file, null)",
                 map("file", filename),
-                (r) -> {
-                    // then
-                    Assert.assertEquals("all.json", r.get("file"));
-                    Assert.assertEquals("file", r.get("source"));
-                    Assert.assertEquals("json", r.get("format"));
-                    Assert.assertEquals(3L, r.get("nodes"));
-                    Assert.assertEquals(1L, r.get("relationships"));
-                    Assert.assertEquals(15L, r.get("properties"));
-                    Assert.assertEquals(4L, r.get("rows"));
-                    Assert.assertEquals(true, r.get("done"));
-
-                    try(Transaction tx = db.beginTx()) {
-                        final long countNodes = tx.execute("MATCH (n:User) RETURN count(n) AS count")
-                                .<Long>columnAs("count")
-                                .next();
-                        Assert.assertEquals(3L, countNodes);
-
-                        final long countRels = tx.execute("MATCH ()-[r:KNOWS]->() RETURN count(r) AS count")
-                                .<Long>columnAs("count")
-                                .next();
-                        Assert.assertEquals(1L, countRels);
-
-                        final Map<String, Object> props = tx.execute("MATCH (n:User {name: 'Adam'}) RETURN n")
-                                .<Node>columnAs("n")
-                                .next()
-                                .getAllProperties();
-
-                        Assert.assertEquals(9, props.size());
-                        Assert.assertEquals("wgs-84", props.get("place.crs"));
-                        Assert.assertEquals(33.46789D, props.get("place.latitude"));
-                        Assert.assertEquals(13.1D, props.get("place.longitude"));
-                        Assert.assertFalse(props.containsKey("place"));
-                    }
-                }
+                (r) -> assertionsAllJson(r, false)
         );
     }
 
@@ -175,5 +145,48 @@ public class ImportJsonTest {
                     }
                 }
         );
+    }
+
+    @Test
+    public void shouldImportAllJsonToBinary()  {
+        TestUtil.testCall(db, "CALL apoc.import.json($file, $config)",
+                map("config", map("binary", BinaryFileType.DEFLATE.name()),
+                        "file", fileToBinary(new File(directory, "all.json"), BinaryFileType.DEFLATE.name())),
+                (r) -> assertionsAllJson(r, true));
+    }
+
+    private void assertionsAllJson(Map<String, Object> r, boolean isBinary) {
+        // then
+        Assert.assertEquals(isBinary ? null : "all.json", r.get("file"));
+        Assert.assertEquals(isBinary ? "binary" : "file", r.get("source"));
+        Assert.assertEquals("json", r.get("format"));
+        Assert.assertEquals(3L, r.get("nodes"));
+        Assert.assertEquals(1L, r.get("relationships"));
+        Assert.assertEquals(15L, r.get("properties"));
+        Assert.assertEquals(4L, r.get("rows"));
+        Assert.assertEquals(true, r.get("done"));
+
+        try(Transaction tx = db.beginTx()) {
+            final long countNodes = tx.execute("MATCH (n:User) RETURN count(n) AS count")
+                    .<Long>columnAs("count")
+                    .next();
+            Assert.assertEquals(3L, countNodes);
+
+            final long countRels = tx.execute("MATCH ()-[r:KNOWS]->() RETURN count(r) AS count")
+                    .<Long>columnAs("count")
+                    .next();
+            Assert.assertEquals(1L, countRels);
+
+            final Map<String, Object> props = tx.execute("MATCH (n:User {name: 'Adam'}) RETURN n")
+                    .<Node>columnAs("n")
+                    .next()
+                    .getAllProperties();
+
+            Assert.assertEquals(9, props.size());
+            Assert.assertEquals("wgs-84", props.get("place.crs"));
+            Assert.assertEquals(33.46789D, props.get("place.latitude"));
+            Assert.assertEquals(13.1D, props.get("place.longitude"));
+            Assert.assertFalse(props.containsKey("place"));
+        }
     }
 }
