@@ -414,10 +414,10 @@ public class    Meta {
 
     private Map<String, Integer> labelsInUse(TokenRead ops, Collection<String> labelNames) {
         final Iterable<Label> allLabelsInUse = tx.getAllLabelsInUse();
-        final Set<Label> allLabelsAsList = Iterables.asSet(allLabelsInUse);
+        final Set<Label> allLabelsAsSet = Iterables.asSet(allLabelsInUse);
         Stream<String> labels = (labelNames == null || labelNames.isEmpty()) ?
                 Iterables.stream(allLabelsInUse).map(Label::name) :
-                labelNames.stream().filter(labelName -> allLabelsAsList.contains(Label.label(labelName)));
+                labelNames.stream().filter(labelName -> allLabelsAsSet.contains(Label.label(labelName)));
         return labels.collect(toMap(t -> t, ops::nodeLabel));
     }
 
@@ -697,10 +697,10 @@ public class    Meta {
         Map<String, Object> relationships = new LinkedHashMap<>();
         for(String entityName : metaData.keySet()) {
             Map<String, MetaResult> entityData = metaData.get(entityName);
-            Map<String, Object> entityProperties = new LinkedHashMap<>();
             if (entityData.isEmpty()) {
                 continue;
             }
+            Map<String, Object> entityProperties = new LinkedHashMap<>();
             boolean isRelationship = true;
             for (String entityDataKey : entityData.keySet()) {
                 MetaResult metaResult = entityData.get(entityDataKey);
