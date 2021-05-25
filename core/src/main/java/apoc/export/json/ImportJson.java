@@ -25,8 +25,6 @@ public class ImportJson {
 
     @Context
     public Pools pools;
-
-    // todo - il primo parametro può essere anche un byte[]
     
     @Procedure(value = "apoc.import.json", mode = Mode.WRITE)
     @Description("apoc.import.json(fileOrBinary,config) - imports the json list to the provided file")
