@@ -1,14 +1,18 @@
 package apoc.export.csv;
 
-import apoc.util.ImportCommonConfig;
+import apoc.util.CompressionAlgo;
+import apoc.util.CompressionConfig;
 
+import java.nio.charset.Charset;
 import java.util.Map;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Config class to store the configuration for loading the CSV file. Names and defaults are based on the import tool's
  * <a href="http://neo4j.com/docs/operations-manual/current/tools/import/command-line-usage/">command line options</a>.
  */
-public class CsvLoaderConfig extends ImportCommonConfig {
+public class CsvLoaderConfig extends CompressionConfig {
 
     public static final String DELIMITER = "delimiter";
     private static final String ARRAY_DELIMITER = "arrayDelimiter";
@@ -35,6 +39,7 @@ public class CsvLoaderConfig extends ImportCommonConfig {
     private final boolean ignoreDuplicateNodes;
 
     private CsvLoaderConfig(Builder builder) {
+        super(Map.of(COMPRESSION, builder.compressionAlgo, CHARSET, builder.charset));
         this.delimiter = builder.delimiter;
         this.arrayDelimiter = builder.arrayDelimiter;
         this.quotationCharacter = builder.quotationCharacter;
@@ -95,7 +100,6 @@ public class CsvLoaderConfig extends ImportCommonConfig {
     }
 
     public static CsvLoaderConfig from(Map<String, Object> config) {
-        config = fromCommon(config);
         Builder builder = builder();
 
         if (config.get(DELIMITER) != null) builder.delimiter(getCharacterOrString(config, DELIMITER));
@@ -105,7 +109,9 @@ public class CsvLoaderConfig extends ImportCommonConfig {
         if (config.get(SKIP_LINES) != null) builder.skipLines((int) config.get(SKIP_LINES));
         if (config.get(BATCH_SIZE) != null) builder.batchSize((int) config.get(BATCH_SIZE));
         if (config.get(IGNORE_DUPLICATE_NODES) != null) builder.ignoreDuplicateNodes((boolean) config.get(IGNORE_DUPLICATE_NODES));
-
+        builder.binary((String) config.getOrDefault(COMPRESSION, CompressionAlgo.GZIP.name()));
+        builder.charset((String) config.getOrDefault(CHARSET, UTF_8.name()));
+        
         return builder.build();
     }
 
@@ -120,6 +126,8 @@ public class CsvLoaderConfig extends ImportCommonConfig {
         private int skipLines = SKIP_LINES_DEFAULT;
         private int batchSize = BATCH_SIZE_DEFAULT;
         private boolean ignoreDuplicateNodes = IGNORE_DUPLICATE_NODES_DEFAULT;
+        private String compressionAlgo = null;
+        private String charset = UTF_8.name();
 
         private Builder() {
         }
@@ -156,6 +164,16 @@ public class CsvLoaderConfig extends ImportCommonConfig {
 
         public Builder ignoreDuplicateNodes(boolean ignoreDuplicateNodes) {
             this.ignoreDuplicateNodes = ignoreDuplicateNodes;
+            return this;
+        }
+
+        public Builder binary(String binary) {
+            this.compressionAlgo = binary;
+            return this;
+        }
+
+        public Builder charset(String charset) {
+            this.charset = charset;
             return this;
         }
 

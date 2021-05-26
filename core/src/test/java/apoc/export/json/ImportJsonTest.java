@@ -1,7 +1,7 @@
 package apoc.export.json;
 
 import apoc.ApocSettings;
-import apoc.util.BinaryFileType;
+import apoc.util.CompressionAlgo;
 import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
 import apoc.util.Utils;
@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import static apoc.util.BinaryTestUtil.fileToBinary;
+import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.MapUtil.map;
 
 public class ImportJsonTest {
@@ -150,8 +151,8 @@ public class ImportJsonTest {
     @Test
     public void shouldImportAllJsonToBinary()  {
         TestUtil.testCall(db, "CALL apoc.import.json($file, $config)",
-                map("config", map("binary", BinaryFileType.DEFLATE.name()),
-                        "file", fileToBinary(new File(directory, "all.json"), BinaryFileType.DEFLATE.name())),
+                map("config", map(COMPRESSION, CompressionAlgo.DEFLATE.name()),
+                        "file", fileToBinary(new File(directory, "all.json"), CompressionAlgo.DEFLATE.name())),
                 (r) -> assertionsAllJson(r, true));
     }
 
