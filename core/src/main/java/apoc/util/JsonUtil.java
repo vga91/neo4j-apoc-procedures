@@ -16,6 +16,7 @@ import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import org.neo4j.graphdb.spatial.Point;
 import org.neo4j.values.storable.DurationValue;
+import org.parboiled.common.StringUtils;
 
 import java.io.FilterInputStream;
 import java.io.IOException;
@@ -80,7 +81,9 @@ public class JsonUtil {
     
     public static Stream<Object> loadJson(Object urlOrBinary, Map<String, Object> headers, String payload, String path, boolean failOnError, String compressionAlgo) {
         try { 
-            InputStream input = checkDataTypeAndGetResult(urlOrBinary, binary -> getInputStreamFromBinary(binary, compressionAlgo), url -> { 
+            InputStream input = checkDataTypeAndGetResult(urlOrBinary, 
+                    binary -> getInputStreamFromBinary(binary, compressionAlgo), 
+                    url -> { 
                 url = Util.getLoadUrlByConfigFile("json", url, "url").orElse(url);
                 apocConfig().checkReadAllowed(url);
                 url = FileUtils.changeFileUrlIfImportDirectoryConstrained(url);
@@ -89,7 +92,7 @@ public class JsonUtil {
             JsonParser parser = OBJECT_MAPPER.getFactory().createParser(input);
             MappingIterator<Object> it = OBJECT_MAPPER.readValues(parser, Object.class);
             Stream<Object> stream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false);
-            return (path == null || path.isEmpty()) ? stream : stream.map((value) -> JsonPath.parse(value, JSON_PATH_CONFIG).read(path));
+            return StringUtils.isEmpty(path) ? stream : stream.map((value) -> JsonPath.parse(value, JSON_PATH_CONFIG).read(path));
         } catch (IOException e) {
             String u = urlOrBinary instanceof String ? Util.cleanUrl((String) urlOrBinary) : null;
             if(!failOnError) {
