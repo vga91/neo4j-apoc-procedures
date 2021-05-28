@@ -95,10 +95,11 @@ public class MultiStatementCypherSubGraphExporter {
         int batchSize = config.getBatchSize();
         ExportConfig.OptimizationType useOptimizations = config.getOptimizationType();
 
-        PrintWriter schemaWriter = cypherFileManager.getPrintWriter("schema");
-        PrintWriter nodesWriter = cypherFileManager.getPrintWriter("nodes");
-        PrintWriter relationshipsWriter = cypherFileManager.getPrintWriter("relationships");
-        PrintWriter cleanupWriter = cypherFileManager.getPrintWriter("cleanup");
+        final String compression = config.getCompressionAlgo();
+        PrintWriter schemaWriter = cypherFileManager.getPrintWriter("schema", compression);
+        PrintWriter nodesWriter = cypherFileManager.getPrintWriter("nodes", compression);
+        PrintWriter relationshipsWriter = cypherFileManager.getPrintWriter("relationships", compression);
+        PrintWriter cleanupWriter = cypherFileManager.getPrintWriter("cleanup", compression);
 
         switch (useOptimizations) {
             case NONE:
@@ -124,7 +125,7 @@ public class MultiStatementCypherSubGraphExporter {
     }
 
     public void exportOnlySchema(ExportFileManager cypherFileManager, ExportConfig config) {
-        PrintWriter schemaWriter = cypherFileManager.getPrintWriter("schema");
+        PrintWriter schemaWriter = cypherFileManager.getPrintWriter("schema", config.getCompressionAlgo());
         exportSchema(schemaWriter, config);
         schemaWriter.close();
     }

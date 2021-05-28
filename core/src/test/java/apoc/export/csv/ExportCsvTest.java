@@ -2,8 +2,14 @@ package apoc.export.csv;
 
 import apoc.ApocSettings;
 import apoc.graph.Graphs;
+import apoc.util.BinaryTestUtil;
+import apoc.util.CompressionAlgo;
 import apoc.meta.Meta;
 import apoc.util.TestUtil;
+import com.google.common.primitives.Bytes;
+import org.apache.commons.compress.utils.ByteUtils;
+import org.apache.commons.io.output.ByteArrayOutputStream;
+import org.apache.commons.lang3.StringUtils;
 import apoc.util.Util;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -14,15 +20,19 @@ import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.Arrays;
 import java.util.function.Consumer;
 
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.*;
 
@@ -118,7 +128,11 @@ public class ExportCsvTest {
     }
 
     private String readFile(String fileName) {
-        return TestUtil.readFileToString(new File(directory, fileName));
+        return readFile(fileName, UTF_8, CompressionAlgo.NONE);
+    }
+    
+    private String readFile(String fileName, Charset charset, CompressionAlgo compression) {
+        return BinaryTestUtil.readFileToString(new File(directory, fileName), charset, compression);
     }
 
     @Test
@@ -133,6 +147,16 @@ public class ExportCsvTest {
             final String expectedMessage = "Failed to invoke procedure `apoc.export.csv.all`: Caused by: java.lang.RuntimeException: The string value of the field quote is not valid";
             assertEquals(expectedMessage, e.getMessage());
         }
+    }
+    
+    @Test
+    public void testExportAllCsvCompressed() throws Exception {
+        String fileName = "all.csv";
+        final CompressionAlgo compressionAlgo = CompressionAlgo.GZIP;
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,{compression: 'GZIP'})",
+                map("file", fileName, "compression", compressionAlgo.name()),
+                (r) -> assertResults(fileName, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName + compressionAlgo.getFileExt(), UTF_8, compressionAlgo));
     }
 
     @Test
@@ -300,47 +324,68 @@ public class ExportCsvTest {
 
     @Test public void testExportAllCsvStreaming() throws Exception {
         String statement = "CALL apoc.export.csv.all(null,{stream:true,batchSize:2,useOptimizations:{unwindBatchSize:2}})";
+        assertExportStreaming(statement, false);
+    }
+    
+    // TODO - TEST CON COMPRESS
+
+    @Test 
+    public void testExportAllCsvStreamingCompressed() throws Exception {
+        String statement = "CALL apoc.export.csv.all(null,{compression: 'GZIP', stream:true,batchSize:2,useOptimizations:{unwindBatchSize:2}})";
+        assertExportStreaming(statement, true);
+
+//        stream.close();
+//            assertEquals(EXPECTED, CompressionAlgo.valueOf("GZIP").decompress(stream.toByteArray(), UTF_8));
+//        }
+    }
+
+    private void assertExportStreaming(String statement, boolean isCompressed) {
         StringBuilder sb=new StringBuilder();
         testResult(db, statement, (res) -> {
-            Map<String, Object> r = res.next();
-            assertEquals(2L, r.get("batchSize"));
-            assertEquals(1L, r.get("batches"));
-            assertEquals(2L, r.get("nodes"));
-            assertEquals(2L, r.get("rows"));
-            assertEquals(0L, r.get("relationships"));
-            assertEquals(6L, r.get("properties"));
-            assertNull("Should get file",r.get("file"));
-            assertEquals("csv", r.get("format"));
-            assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
-            sb.append(r.get("data"));
-            r = res.next();
-            assertEquals(2L, r.get("batchSize"));
-            assertEquals(2L, r.get("batches"));
-            assertEquals(4L, r.get("nodes"));
-            assertEquals(4L, r.get("rows"));
-            assertEquals(0L, r.get("relationships"));
-            assertEquals(10L, r.get("properties"));
-            assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-            sb.append(r.get("data"));
-            r = res.next();
-            assertEquals(2L, r.get("batchSize"));
-            assertEquals(3L, r.get("batches"));
-            assertEquals(6L, r.get("nodes"));
-            assertEquals(6L, r.get("rows"));
-            assertEquals(0L, r.get("relationships"));
-            assertEquals(12L, r.get("properties"));
-            assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-            sb.append(r.get("data"));
-            r = res.next();
-            assertEquals(2L, r.get("batchSize"));
-            assertEquals(4L, r.get("batches"));
-            assertEquals(6L, r.get("nodes"));
-            assertEquals(8L, r.get("rows"));
-            assertEquals(2L, r.get("relationships"));
-            assertEquals(12L, r.get("properties"));
-            assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-            sb.append(r.get("data"));
-        });
+                try {
+                    final CompressionAlgo algo = CompressionAlgo.valueOf("GZIP");
+                    Map<String, Object> r = res.next();
+                    assertEquals(2L, r.get("batchSize"));
+                    assertEquals(1L, r.get("batches"));
+                    assertEquals(2L, r.get("nodes"));
+                    assertEquals(2L, r.get("rows"));
+                    assertEquals(0L, r.get("relationships"));
+                    assertEquals(6L, r.get("properties"));
+                    assertNull("Should get file", r.get("file"));
+                    assertEquals("csv", r.get("format"));
+                    assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
+                    sb.append(isCompressed ? algo.decompress((byte[]) r.get("data"), UTF_8) : r.get("data"));
+                    r = res.next();
+                    assertEquals(2L, r.get("batchSize"));
+                    assertEquals(2L, r.get("batches"));
+                    assertEquals(4L, r.get("nodes"));
+                    assertEquals(4L, r.get("rows"));
+                    assertEquals(0L, r.get("relationships"));
+                    assertEquals(10L, r.get("properties"));
+                    assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
+                    sb.append(isCompressed ? algo.decompress((byte[]) r.get("data"), UTF_8) : r.get("data"));
+                    r = res.next();
+                    assertEquals(2L, r.get("batchSize"));
+                    assertEquals(3L, r.get("batches"));
+                    assertEquals(6L, r.get("nodes"));
+                    assertEquals(6L, r.get("rows"));
+                    assertEquals(0L, r.get("relationships"));
+                    assertEquals(12L, r.get("properties"));
+                    assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
+                    sb.append(isCompressed ? algo.decompress((byte[]) r.get("data"), UTF_8) : r.get("data"));
+                    r = res.next();
+                    assertEquals(2L, r.get("batchSize"));
+                    assertEquals(4L, r.get("batches"));
+                    assertEquals(6L, r.get("nodes"));
+                    assertEquals(8L, r.get("rows"));
+                    assertEquals(2L, r.get("relationships"));
+                    assertEquals(12L, r.get("properties"));
+                    sb.append(isCompressed ? algo.decompress((byte[]) r.get("data"), UTF_8) : r.get("data"));
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+
         assertEquals(EXPECTED, sb.toString());
     }
 

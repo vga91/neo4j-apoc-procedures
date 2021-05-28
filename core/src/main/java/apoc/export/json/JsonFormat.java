@@ -73,7 +73,8 @@ public class JsonFormat implements Format {
                 throw new RuntimeException(e);
             }
         };
-        return dump(writer.getPrintWriter("json"), reporter, consumer);
+        // TODO - CHE SUCCEDE?
+        return dump(writer.getPrintWriter("json", config.getCompressionAlgo()), reporter, consumer);
     }
 
     private void writeJsonRelationshipContainerEnd(JsonGenerator jsonGenerator) throws IOException {
@@ -135,6 +136,7 @@ public class JsonFormat implements Format {
     }
 
     private void writeJsonContainerStart(JsonGenerator jsonGenerator) throws IOException {
+        // todo
         switch (format) {
             case ARRAY_JSON:
                 jsonGenerator.writeStartArray();
@@ -157,7 +159,7 @@ public class JsonFormat implements Format {
                 throw new RuntimeException(e);
             }
         };
-        return dump(writer.getPrintWriter("json"), reporter, consumer);
+        return dump(writer.getPrintWriter("json", config.getCompressionAlgo()), reporter, consumer);
     }
 
     private JsonGenerator getJsonGenerator(Writer writer) throws IOException {

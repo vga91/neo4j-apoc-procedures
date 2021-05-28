@@ -66,6 +66,7 @@ public class ExportCsvTest {
         }
     }
 
+    // TODO - CHE CAZZ E' --> fare test con binario
     @Test
     public void testExportAllCsvHDFS() throws Exception {
         String hdfsUrl = String.format("%s/user/%s/all.csv", miniDFSCluster.getURI().toString(), System.getProperty("user.name"));

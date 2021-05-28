@@ -3,6 +3,7 @@ package apoc.util;
 import apoc.ApocConfig;
 import apoc.export.util.CountingInputStream;
 import apoc.export.util.CountingReader;
+import apoc.export.util.ExportConfig;
 import apoc.util.hdfs.HDFSUtils;
 import apoc.util.s3.S3URLConnection;
 import apoc.util.s3.S3UploadUtils;

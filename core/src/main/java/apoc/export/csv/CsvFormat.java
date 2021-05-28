@@ -282,6 +282,15 @@ public class CsvFormat implements Format {
         return result;
     }
 
+    private void writeNodes(SubGraph graph, CSVWriter out, Reporter reporter, ExportConfig config) {
+        Map<String,Class> nodePropTypes = collectPropTypesForNodes(graph);
+        List<String> nodeHeader = generateHeader(nodePropTypes, config.useTypes(), NODE_HEADER_FIXED_COLUMNS);
+        String[] header = nodeHeader.toArray(new String[nodeHeader.size()]);
+        out.writeNext(header, applyQuotesToAll); // todo types
+        int cols = header.length;
+        writeNodes(graph, out, reporter, nodeHeader.subList(NODE_HEADER_FIXED_COLUMNS.length, nodeHeader.size()), cols, config.getBatchSize(), config.getDelim());
+    }
+
     private void writeNodes(SubGraph graph, CSVWriter out, Reporter reporter, List<String> header, int cols, int batchSize, String delimiter) {
         String[] row=new String[cols];
         int nodes = 0;
@@ -312,6 +321,15 @@ public class CsvFormat implements Format {
             }
             offset++;
         }
+    }
+
+    private void writeRels(SubGraph graph, CSVWriter out, Reporter reporter, ExportConfig config) {
+        Map<String,Class> relPropTypes = collectPropTypesForRelationships(graph);
+        List<String> header = generateHeader(relPropTypes, config.useTypes(), REL_HEADER_FIXED_COLUMNS);
+        out.writeNext(header.toArray(new String[header.size()]), applyQuotesToAll);
+        int cols = header.size();
+        int offset = 0;
+        writeRels(graph, out, reporter, header.subList(REL_HEADER_FIXED_COLUMNS.length, header.size()), cols, offset, config.getBatchSize(), config.getDelim());
     }
 
     private void writeRels(SubGraph graph, CSVWriter out, Reporter reporter, List<String> relHeader, int cols, int offset, int batchSize, String delimiter) {

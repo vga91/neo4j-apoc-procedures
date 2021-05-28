@@ -2,6 +2,7 @@ package apoc.util;
 
 import org.apache.commons.io.FileUtils;
 import java.io.File;
+import java.nio.charset.Charset;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -16,5 +17,11 @@ public class BinaryTestUtil {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public static String readFileToString(File file, Charset charset, String compression) throws Exception {
+        return compression.equals(CompressionAlgo.NONE.name()) ?
+                TestUtil.readFileToString(file, charset)
+                : CompressionAlgo.valueOf(compression).decompress(FileUtils.readFileToByteArray(file), charset);
     }
 }

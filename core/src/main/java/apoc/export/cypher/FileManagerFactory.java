@@ -1,9 +1,18 @@
 package apoc.export.cypher;
 
 import java.io.OutputStream;
+import apoc.util.FileUtils;
+import com.opencsv.CSVWriter;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Map;
+import java.io.Writer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -48,7 +57,7 @@ public class FileManagerFactory {
         }
 
         @Override
-        public StringWriter getStringWriter(String type) {
+        public StringWriter getStringWriter(String type, String compression) {
             return null;
         }
 
