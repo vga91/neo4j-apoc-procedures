@@ -31,7 +31,7 @@ public class XmlGraphMLFormat implements Format {
     public ProgressInfo dump(SubGraph graph, ExportFileManager writer, Reporter reporter, ExportConfig config) throws Exception {
         try (Transaction tx = db.beginTx()) {
             XmlGraphMLWriter graphMlWriter = new XmlGraphMLWriter();
-            graphMlWriter.write(graph, writer.getPrintWriter("graphml"), reporter, config);
+            graphMlWriter.write(graph, writer.getPrintWriter("graphml", config.getCompressionAlgo()), reporter, config);
             tx.commit();
         }
         return reporter.getTotal();

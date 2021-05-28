@@ -11,8 +11,12 @@ public class CompressionConfig {
     private final Charset charset;
 
     public CompressionConfig(Map<String, Object> config) {
+        this(config, CompressionAlgo.GZIP.name());
+    }
+
+    public CompressionConfig(Map<String, Object> config, String defaultValue) {
         if (config == null) config = Collections.emptyMap();
-        this.compressionAlgo = (String) config.getOrDefault("compression", "GZIP");
+        this.compressionAlgo = (String) config.getOrDefault("compression", defaultValue);
         this.charset = Charset.forName((String) config.getOrDefault("charset", "UTF-8"));
     }
 

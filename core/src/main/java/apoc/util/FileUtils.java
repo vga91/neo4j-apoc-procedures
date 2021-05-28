@@ -6,6 +6,7 @@ import apoc.export.util.CountingReader;
 import apoc.util.hdfs.HDFSUtils;
 import apoc.util.s3.S3URLConnection;
 import apoc.util.s3.S3UploadUtils;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.io.output.WriterOutputStream;
 import org.apache.commons.lang.StringUtils;
 import org.neo4j.configuration.GraphDatabaseSettings;
@@ -46,6 +47,12 @@ public class FileUtils {
     public static final Pattern S3_PATTERN = Pattern.compile("^(s3:\\/\\/)(?:[^@\\/\\n]+@)?([^\\/\\n]+)");
 
     private static final List<String> NON_FILE_PROTOCOLS = Arrays.asList(HTTP_PROTOCOL, S3_PROTOCOL, GCS_PROTOCOL, HDFS_PROTOCOL);
+    
+    // todo - su deflate non ne sono sicuro
+    // posso fare un getOrDefault... -->
+//    private static final Map<String, Object> MAP_FILE_COMPRESSED = Map.of(CompressionAlgo.FRAMED_SNAPPY.name(), ".sz", 
+//            CompressionAlgo.BZIP2.name(), ".bz2", CompressionAlgo.GZIP.name(), ".gz",
+//            CompressionAlgo.DEFLATE.name(), ".zz", CompressionAlgo.BLOCK_LZ4.name(), ".lz4");
 
     public static CountingReader readerFor(String fileName) throws IOException {
         return readerFor(fileName, null, null);
@@ -148,9 +155,39 @@ public class FileUtils {
     }
 
     public static PrintWriter getPrintWriter(String fileName, Writer out) {
-        OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()));
-        return outputStream == null ? null : new PrintWriter(outputStream);
+        // todo - alla fine di tutto togliere
+        return getPrintWriter(fileName, out, "NONE");
     }
+    
+    // TODO
+    // TODO - COME CREATE DEI TAR.GZ NEL CASO DI CSV CON BULK IMPORT????
+    // TODO
+    // TODO
+    // TODO
+
+
+    public static PrintWriter getPrintWriter(String fileName, Writer out, String compressionType) {
+        
+        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(compressionType);
+        fileName += compressionAlgo.getFileExt();
+
+        OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()));
+
+        try {
+            // TODO - POTREI METTERE STA RIGA 
+            OutputStream stream = compressionAlgo.getOutputStream(outputStream);
+            return stream == null ? null : new PrintWriter(stream);
+        } catch (Exception e) {
+            // todo
+            throw new RuntimeException(e);
+        }
+    }
+
+//    public static Writer getWriter(String fileName, Writer out) {
+//        // TODO...
+//        OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()));
+//        return outputStream == null ? null : new PrintWriter(outputStream);
+//    }
 
     public static OutputStream getOutputStream(String fileName, OutputStream out) {
         if (fileName == null) return null;
@@ -175,6 +212,7 @@ public class FileUtils {
         return new BufferedOutputStream(outputStream);
     }
 
+    // todo ..
     private static OutputStream getOrCreateOutputStream(String fileName, OutputStream out) {
         try {
             OutputStream outputStream;
@@ -311,4 +349,5 @@ public class FileUtils {
     private static String encodeExceptQM(String url) {
         return encodePath(url).replace("%3F", "?");
     }
+    
 }

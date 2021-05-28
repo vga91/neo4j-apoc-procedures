@@ -60,6 +60,7 @@ public class ExportCSV {
     @Description("apoc.export.csv.data(nodes,rels,file,config) - exports given nodes and relationships as csv to the provided file")
     public Stream<ProgressInfo> data(@Name("nodes") List<Node> nodes, @Name("rels") List<Relationship> rels, @Name("file") String fileName, @Name("config") Map<String, Object> config) throws Exception {
         ExportConfig exportConfig = new ExportConfig(config);
+        // todo - che fa sto bulk
         preventBulkImport(exportConfig);
         String source = String.format("data: nodes(%d), rels(%d)", nodes.size(), rels.size());
         return exportCsv(fileName, source, new NodesAndRelsSubGraph(tx, nodes, rels), exportConfig);
@@ -115,6 +116,7 @@ public class ExportCSV {
         if (data instanceof SubGraph)
             exporter.dump((SubGraph)data,printWriter,reporter,c);
         if (data instanceof Result)
+            // TODO - FARE PURE QUA...
             exporter.dump((Result)data,printWriter,reporter,c);
     }
 }

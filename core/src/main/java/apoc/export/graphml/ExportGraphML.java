@@ -107,7 +107,7 @@ public class ExportGraphML {
         ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, source, format));
         XmlGraphMLWriter exporter = new XmlGraphMLWriter();
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, false);
-        final PrintWriter graphMl = cypherFileManager.getPrintWriter(format);
+        final PrintWriter graphMl = cypherFileManager.getPrintWriter(format, exportConfig.getCompressionAlgo());
         if (exportConfig.streamStatements()) {
             return ExportUtils.getProgressInfoStream(db, pools.getDefaultExecutorService() ,terminationGuard, format, exportConfig, reporter, cypherFileManager,
                     (reporterWithConsumer) -> {

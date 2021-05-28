@@ -78,15 +78,28 @@ public class ExportJsonTest {
 
     @Test
     public void testExportAllJsonStream() throws Exception {
+        // TODO - FIX
         String filename = "all.json";
         TestUtil.testCall(db, "CALL apoc.export.json.all(null, {stream: true})",
-                map("file", filename),
                 (r) -> {
                     assertStreamResults(r, "database");
                     assertStreamEquals(filename, r.get("data").toString());
                 }
         );
     }
+
+//    @Test
+//    public void testExportAllJsonStreamWithCompression() throws Exception {
+//        // TODO - FIX
+//        String filename = "all.json";
+//        TestUtil.testCall(db, "CALL apoc.export.json.all(null, {stream: true})",
+//                map("file", filename),
+//                (r) -> {
+//                    assertStreamResults(r, "database");
+//                    assertStreamEquals(filename, r.get("data").toString());
+//                }
+//        );
+//    }
 
     @Test
     public void testExportPointMapDatetimeJson() throws Exception {

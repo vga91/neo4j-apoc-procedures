@@ -63,22 +63,28 @@ public class CsvFormat implements Format {
     }
 
     @Override
-    public ProgressInfo dump(SubGraph graph, ExportFileManager writer, Reporter reporter, ExportConfig config) {
+    public ProgressInfo dump(SubGraph graph, ExportFileManager fileManager, Reporter reporter, ExportConfig config) {
         try (Transaction tx = db.beginTx()) {
             if (config.isBulkImport()) {
-                writeAllBulkImport(graph, reporter, config, writer);
+                writeAllBulkImport(graph, reporter, config, fileManager);
             } else {
-                try (PrintWriter printWriter = writer.getPrintWriter("csv")) {
-                    CSVWriter out = getCsvWriter(printWriter, config);
+                // -- TODO
+                try (Writer writer = fileManager.getPrintWriter("csv", config.getCompressionAlgo())) {
+//                try (Writer writer = fileManager.getWriter("csv", config.getCompression())) {
+                    CSVWriter out = getCsvWriter(writer, config);
                     writeAll(graph, reporter, config, out);
                 }
             }
             tx.commit();
             reporter.done();
             return reporter.getTotal();
+        } catch (Exception e) {
+            // TODO
+            throw new RuntimeException(e);
         }
     }
 
+    // TODO - IN BASE AL CONFIG VEDO COSA FARE
     private CSVWriter getCsvWriter(Writer writer, ExportConfig config)
     {
         CSVWriter out;
@@ -113,7 +119,7 @@ public class CsvFormat implements Format {
     }
 
     public ProgressInfo dump(Result result, ExportFileManager writer, Reporter reporter, ExportConfig config) {
-        try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv");) {
+        try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv", config.getCompressionAlgo())) {
             CSVWriter out = getCsvWriter(printWriter, config);
             String[] header = writeResultHeader(result, out);
 
@@ -123,7 +129,7 @@ public class CsvFormat implements Format {
                     String key = header[col];
                     Object value = row.get(key);
                     data[col] = FormatUtils.toString(value);
-                    reporter.update(value instanceof Node ? 1: 0,value instanceof Relationship ? 1: 0 , value instanceof Entity ? 0 : 1);
+                    reporter.update(value instanceof Node ? 1 : 0, value instanceof Relationship ? 1 : 0, value instanceof Entity ? 0 : 1);
                 }
                 out.writeNext(data, applyQuotesToAll);
                 reporter.nextRow();
@@ -143,7 +149,7 @@ public class CsvFormat implements Format {
         return header;
     }
 
-    public void writeAll(SubGraph graph, Reporter reporter, ExportConfig config, CSVWriter out) {
+    public void writeAll(SubGraph graph, Reporter reporter, ExportConfig config, CSVWriter out) throws IOException {
         Map<String,Class> nodePropTypes = collectPropTypesForNodes(graph);
         Map<String,Class> relPropTypes = collectPropTypesForRelationships(graph);
         List<String> nodeHeader = generateHeader(nodePropTypes, config.useTypes(), NODE_HEADER_FIXED_COLUMNS);
@@ -151,6 +157,7 @@ public class CsvFormat implements Format {
         List<String> header = new ArrayList<>(nodeHeader);
         header.addAll(relHeader);
         out.writeNext(header.toArray(new String[header.size()]), applyQuotesToAll);
+//        out.flush();
         int cols = header.size();
 
         writeNodes(graph, out, reporter, nodeHeader.subList(NODE_HEADER_FIXED_COLUMNS.length, nodeHeader.size()), cols, config.getBatchSize(), config.getDelim());
@@ -248,10 +255,16 @@ public class CsvFormat implements Format {
     }
 
     private void writeRow(ExportConfig config, ExportFileManager writer, Set<String> headerNode, List<List<String>> rows, String name) {
-        try (PrintWriter pw = writer.getPrintWriter(name);
+//        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+//        OutputStreamWriter streamWriter = new OutputStreamWriter(stream);
+//        PrintWriter pw = new CSVWriter(streamWriter);
+////        
+        
+        // TODO - CHE FA STA COSA?? - SI PUO SEMPLIFICARE?
+        try (PrintWriter pw = writer.getPrintWriter(name, config.getCompressionAlgo());
              CSVWriter csvWriter = getCsvWriter(pw, config)) {
             if (config.isSeparateHeader()) {
-                try (PrintWriter pwHeader = writer.getPrintWriter("header." + name)) {
+                try (PrintWriter pwHeader = writer.getPrintWriter("header." + name, config.getCompressionAlgo())) {
                     CSVWriter csvWriterHeader = getCsvWriter(pwHeader, config);
                     csvWriterHeader.writeNext(headerNode.toArray(new String[headerNode.size()]), false);
                 }
@@ -264,10 +277,10 @@ public class CsvFormat implements Format {
         }
     }
 
-    public void writeAll2(SubGraph graph, Reporter reporter, ExportConfig config, CSVWriter out) {
-        writeNodes(graph, out, reporter,config);
-        writeRels(graph, out, reporter,config);
-    }
+//    public void writeAll2(SubGraph graph, Reporter reporter, ExportConfig config, CSVWriter out) {
+//        writeNodes(graph, out, reporter,config);
+//        writeRels(graph, out, reporter,config);
+//    }
 
     private List<String> generateHeader(Map<String, Class> propTypes, boolean useTypes, String... starters) {
         List<String> result = new ArrayList<>();

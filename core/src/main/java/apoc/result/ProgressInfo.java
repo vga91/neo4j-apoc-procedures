@@ -1,5 +1,9 @@
 package apoc.result;
 
+import apoc.export.util.ExportConfig;
+import apoc.util.CompressionAlgo;
+
+import java.io.IOException;
 import java.io.StringWriter;
 
 /**
@@ -19,7 +23,7 @@ public class ProgressInfo {
     public long batchSize = -1;
     public long batches;
     public boolean done;
-    public String data;
+    public Object data;
 
     public ProgressInfo(String file, String source, String format) {
         this.file = file;
@@ -66,9 +70,18 @@ public class ProgressInfo {
         this.rows++;
     }
 
-    public ProgressInfo drain(StringWriter writer) {
+    public ProgressInfo drain(StringWriter writer, ExportConfig config) {
+        // todo - equals("NONE") lo metto come funzione...
         if (writer != null) {
-            this.data = writer.toString();
+            try {
+                final String compression = config.getCompressionAlgo();
+                final String writerString = writer.toString();
+                this.data = compression.equals(CompressionAlgo.NONE.name())
+                        ? writerString
+                        : CompressionAlgo.valueOf(compression).compress(writerString, config.getCharset());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             writer.getBuffer().setLength(0);
         }
         return this;
