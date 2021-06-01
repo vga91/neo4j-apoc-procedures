@@ -38,7 +38,6 @@ public class FileManagerFactory {
         private final String fileName;
         private final String fileType;
         private final boolean separatedFiles;
-        // todo - e questo, come ci arriva?
         private PrintWriter writer;
         private ExportConfig config;
 
@@ -55,7 +54,6 @@ public class FileManagerFactory {
             if (this.separatedFiles) {
                 return FileUtils.getPrintWriter(normalizeFileName(fileName, type), null, config);
             } else {
-                // todo .. ma scusa, quando è diverso da null?
                 if (this.writer == null) {
                     this.writer = FileUtils.getPrintWriter(normalizeFileName(fileName, null), null, config);
                 }
@@ -64,7 +62,7 @@ public class FileManagerFactory {
         }
 
         @Override
-        public StringWriter getStringWriter(String type/*, String compression*/) {
+        public StringWriter getStringWriter(String type) {
             return null;
         }
 
@@ -100,40 +98,17 @@ public class FileManagerFactory {
             this.config = config;
         }
 
-//        @Override
-//        public PrintWriter getPrintWriter(String type) {
-//            if (this.separatedFiles) {
-//                return new PrintWriter(getStringWriter(type));
-//            } else {
-//                switch (type) {
-//                    case "csv":
-//                    case "json":
-//                    case "graphml":
-//                        break;
-//                    default:
-//                        type = "cypher";
-//                }
-//                return new PrintWriter(getStringWriter(type));
-//            }
-//        }
-
-//        @Override
-//        public Writer getWriter(String type, String compression) throws IOException{
-//            return null;
-//            // TODO - POI VEDIAMO SE SERVE.. NEL CASO NON LO METTO NELLA INTERFACCIA
-//        }
-
         @Override
-        public StringWriter getStringWriter(String type){//, String compression) {
+        public StringWriter getStringWriter(String type) {
             // todo - e poi che fa?
             return writers.computeIfAbsent(type, (key) -> new StringWriter());
         }
 
         @Override
-        public PrintWriter getPrintWriter(String type){//, String compression) {
+        public PrintWriter getPrintWriter(String type) {
             final String compression = config.getCompressionAlgo();
             if (this.separatedFiles) {
-                return new PrintWriter(getStringWriter(type/*, compression*/));
+                return new PrintWriter(getStringWriter(type));
             } else {
                 switch (type) {
                     case "csv":
@@ -143,13 +118,12 @@ public class FileManagerFactory {
                     default:
                         type = "cypher";
                 }
-                return new PrintWriter(getStringWriter(type/*, compression*/));
+                return new PrintWriter(getStringWriter(type));
             }
         }
 
         @Override
         public synchronized Object drain(String type) {
-            // todo - ma allora questo che fa? - exportCypher
             StringWriter writer = writers.get(type);
             if (writer != null) {
                 try {

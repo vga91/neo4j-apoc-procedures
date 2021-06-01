@@ -17,12 +17,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.Charset;
-import java.util.List;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 public enum CompressionAlgo {
 
@@ -53,7 +48,7 @@ public enum CompressionAlgo {
     }
 
     public OutputStream getOutputStream(OutputStream stream) throws Exception {
-        return compressor == null ? stream : (OutputStream) compressor.getConstructor(OutputStream.class).newInstance(stream);
+        return isNone() ? stream : (OutputStream) compressor.getConstructor(OutputStream.class).newInstance(stream);
     }
 
     public String decompress(byte[] byteArray, Charset charset) throws Exception {
@@ -64,21 +59,15 @@ public enum CompressionAlgo {
     }
 
     public InputStream getInputStream(InputStream stream) throws Exception {
-        return decompressor == null ? stream : (InputStream) decompressor.getConstructor(InputStream.class).newInstance(stream);
+        return isNone() ? stream : (InputStream) decompressor.getConstructor(InputStream.class).newInstance(stream);
     }
 
     public String getFileExt() {
         return fileExt;
     }
-
-    //    public byte[] compress(String string, Charset charset) throws Exception {
-//        Constructor<?> constructor = compressor.getConstructor(OutputStream.class);
-//        try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-//            try (OutputStream outputStream = (OutputStream) constructor.newInstance((OutputStream) stream)) {
-//                outputStream.write(string.getBytes(charset));
-//            }
-//            return stream.toByteArray();
-//        }
-//    }
+    
+    public boolean isNone() {
+        return compressor == null;
+    }
 
 }

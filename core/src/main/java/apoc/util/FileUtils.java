@@ -156,28 +156,9 @@ public class FileUtils {
     }
 
     public static PrintWriter getPrintWriter(String fileName, Writer out, ExportConfig config) {
-        
-//        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(compressionType);
-//        fileName += compressionAlgo.getFileExt();
-
         OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()), config);
         return outputStream == null ? null : new PrintWriter(outputStream);
-        // TODO - METODO COMUNE
-//        try {
-//            // TODO - POTREI METTERE STA RIGA 
-//            OutputStream stream = compressionAlgo.getOutputStream(outputStream);
-//            return stream == null ? null : new PrintWriter(stream);
-//        } catch (Exception e) {
-//            // todo
-//            throw new RuntimeException(e);
-//        }
     }
-
-//    public static Writer getWriter(String fileName, Writer out) {
-//        // TODO...
-//        OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()));
-//        return outputStream == null ? null : new PrintWriter(outputStream);
-//    }
 
     public static OutputStream getOutputStream(String fileName, OutputStream out, ExportConfig config) {
         if (fileName == null) return null;
@@ -202,19 +183,14 @@ public class FileUtils {
             outputStream = getOrCreateOutputStream(fileName, out);
 //            outputStream = fileName.equals("-") ? out : new FileOutputStream(fileName);
         }
+        
         try {
-            // TODO - POTREI METTERE STA RIGA 
-            // TODO - NECESSARIO CREARE UN'ALTRA CLASSE OUTPUTSTREAM?
-            OutputStream stream = compressionAlgo.getOutputStream(outputStream);
-//            return stream == null ? null : new PrintWriter(stream);
-            return new BufferedOutputStream(stream);
+            return new BufferedOutputStream(compressionAlgo.getOutputStream(outputStream));
         } catch (Exception e) {
-            // todo
             throw new RuntimeException(e);
         }
     }
 
-    // todo ..
     private static OutputStream getOrCreateOutputStream(String fileName, OutputStream out) {
         try {
             OutputStream outputStream;
@@ -351,5 +327,4 @@ public class FileUtils {
     private static String encodeExceptQM(String url) {
         return encodePath(url).replace("%3F", "?");
     }
-    
 }
