@@ -62,7 +62,7 @@ public class FileManagerFactory {
             });
 
         @Override
-        public StringWriter getStringWriter(String type/*, String compression*/) {
+        public StringWriter getStringWriter(String type) {
             return null;
         }
 
@@ -101,6 +101,17 @@ public class FileManagerFactory {
         @Override
         public PrintWriter getPrintWriter(String type) {
             if (!this.separatedFiles) {
+        public StringWriter getStringWriter(String type) {
+            // todo - e poi che fa?
+            return writers.computeIfAbsent(type, (key) -> new StringWriter());
+        }
+
+        @Override
+        public PrintWriter getPrintWriter(String type) {
+            final String compression = config.getCompressionAlgo();
+            if (this.separatedFiles) {
+                return new PrintWriter(getStringWriter(type));
+            } else {
                 switch (type) {
                     case "csv":
                     case "json":
@@ -109,7 +120,7 @@ public class FileManagerFactory {
                     default:
                         type = "cypher";
                 }
-                return new PrintWriter(getStringWriter(type/*, compression*/));
+                return new PrintWriter(getStringWriter(type));
             }
             return new PrintWriter(getStringWriter(type));
         }
@@ -121,7 +132,6 @@ public class FileManagerFactory {
 
         @Override
         public synchronized String drain(String type) {
-        public synchronized Object drain(String type) {
             // todo - ma allora questo che fa? - exportCypher
             StringWriter writer = writers.get(type);
             if (writer != null) {

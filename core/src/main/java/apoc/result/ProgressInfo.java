@@ -71,7 +71,6 @@ public class ProgressInfo {
     }
 
     public ProgressInfo drain(StringWriter writer, ExportConfig config) {
-        // todo - equals("NONE") lo metto come funzione...
         if (writer != null) {
             try {
                 final String compression = config.getCompressionAlgo();

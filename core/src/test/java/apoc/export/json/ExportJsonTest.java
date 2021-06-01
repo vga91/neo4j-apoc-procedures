@@ -89,7 +89,6 @@ public class ExportJsonTest {
 
     @Test
     public void testExportAllJsonStream() {
-        // TODO - FIX
         String filename = "all.json";
         TestUtil.testCall(db, "CALL apoc.export.json.all(null, {stream: true})",
                 (r) -> {
@@ -159,17 +158,12 @@ public class ExportJsonTest {
 
         TestUtil.testCall(db, "CALL apoc.export.json.query($query,$file)",
                 map("file", filename, "query", query),
-                (r) -> {
-                    assertTrue("Should get statement",r.get("source").toString().contains("statement: cols(1)"));
-                    assertEquals(filename, r.get("file"));
-                    assertEquals("json", r.get("format"));
-                });
+                (r) -> assertionsListNode(filename, r));
         assertFileEquals(filename);
     }
 
     @Test
     public void testExportListNodeWithCompression() {
-
         String query = "MATCH (u:User) RETURN COLLECT(u) as list";
         final CompressionAlgo algo = DEFLATE;
         String expectedFile = "listNode.json";
@@ -177,13 +171,14 @@ public class ExportJsonTest {
 
         TestUtil.testCall(db, "CALL apoc.export.json.query($query, $file, $config)",
                 map("file", filename, "query", query, "config", map("compression", algo.name())),
-                (r) -> {
-                    assertTrue("Should get statement",r.get("source").toString().contains("statement: cols(1)"));
-                    // TODO....
-                    assertEquals(filename, r.get("file"));
-                    assertEquals("json", r.get("format"));
-                });
+                (r) -> assertionsListNode(filename, r));
         assertFileEquals(expectedFile, algo);
+    }
+
+    private void assertionsListNode(String filename, Map<String, Object> r) {
+        assertTrue("Should get statement", r.get("source").toString().contains("statement: cols(1)"));
+        assertEquals(filename, r.get("file"));
+        assertEquals("json", r.get("format"));
     }
     
     @Test

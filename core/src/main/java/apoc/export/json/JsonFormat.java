@@ -135,7 +135,6 @@ public class JsonFormat implements Format {
     }
 
     private void writeJsonContainerStart(JsonGenerator jsonGenerator) throws IOException {
-        // todo
         switch (format) {
             case ARRAY_JSON:
                 jsonGenerator.writeStartArray();

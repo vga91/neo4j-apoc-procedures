@@ -117,7 +117,7 @@ public class CsvFormat implements Format {
     }
 
     public ProgressInfo dump(Result result, ExportFileManager writer, Reporter reporter, ExportConfig config) {
-        try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv");) {
+        try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv")) {
             CSVWriter out = getCsvWriter(printWriter, config);
             String[] header = writeResultHeader(result, out);
 
@@ -256,7 +256,7 @@ public class CsvFormat implements Format {
         try (PrintWriter pw = writer.getPrintWriter(name);
              CSVWriter csvWriter = getCsvWriter(pw, config)) {
             if (config.isSeparateHeader()) {
-                try (PrintWriter pwHeader = writer.getPrintWriter("header." + name, config.getCompressionAlgo())) {
+                try (PrintWriter pwHeader = writer.getPrintWriter("header." + name)) {
                     CSVWriter csvWriterHeader = getCsvWriter(pwHeader, config);
                     csvWriterHeader.writeNext(headerNode.toArray(new String[headerNode.size()]), false);
                 }
