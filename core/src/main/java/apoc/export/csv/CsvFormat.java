@@ -68,21 +68,17 @@ public class CsvFormat implements Format {
             if (config.isBulkImport()) {
                 writeAllBulkImport(graph, reporter, config, fileManager);
             } else {
-                try (PrintWriter printWriter = writer.getPrintWriter("csv")) {
-                    CSVWriter out = getCsvWriter(printWriter, config);
+                try (PrintWriter writer = fileManager.getPrintWriter("csv")) {
+                    CSVWriter out = getCsvWriter(writer, config);
                     writeAll(graph, reporter, config, out);
                 }
             }
             tx.commit();
             reporter.done();
             return reporter.getTotal();
-        } catch (Exception e) {
-            // TODO
-            throw new RuntimeException(e);
         }
     }
 
-    // TODO - IN BASE AL CONFIG VEDO COSA FARE
     private CSVWriter getCsvWriter(Writer writer, ExportConfig config)
     {
         CSVWriter out;
@@ -127,7 +123,7 @@ public class CsvFormat implements Format {
                     String key = header[col];
                     Object value = row.get(key);
                     data[col] = FormatUtils.toString(value);
-                    reporter.update(value instanceof Node ? 1 : 0, value instanceof Relationship ? 1 : 0, value instanceof Entity ? 0 : 1);
+                    reporter.update(value instanceof Node ? 1: 0,value instanceof Relationship ? 1 : 0, value instanceof Entity ? 0 : 1);
                 }
                 out.writeNext(data, applyQuotesToAll);
                 reporter.nextRow();
@@ -147,7 +143,7 @@ public class CsvFormat implements Format {
         return header;
     }
 
-    public void writeAll(SubGraph graph, Reporter reporter, ExportConfig config, CSVWriter out) throws IOException {
+    public void writeAll(SubGraph graph, Reporter reporter, ExportConfig config, CSVWriter out) {
         Map<String,Class> nodePropTypes = collectPropTypesForNodes(graph);
         Map<String,Class> relPropTypes = collectPropTypesForRelationships(graph);
         List<String> nodeHeader = generateHeader(nodePropTypes, config.useTypes(), NODE_HEADER_FIXED_COLUMNS);
@@ -155,7 +151,6 @@ public class CsvFormat implements Format {
         List<String> header = new ArrayList<>(nodeHeader);
         header.addAll(relHeader);
         out.writeNext(header.toArray(new String[header.size()]), applyQuotesToAll);
-//        out.flush();
         int cols = header.size();
 
         writeNodes(graph, out, reporter, nodeHeader.subList(NODE_HEADER_FIXED_COLUMNS.length, nodeHeader.size()), cols, config.getBatchSize(), config.getDelim());
@@ -253,6 +248,7 @@ public class CsvFormat implements Format {
     }
 
     private void writeRow(ExportConfig config, ExportFileManager writer, Set<String> headerNode, List<List<String>> rows, String name) {
+
         try (PrintWriter pw = writer.getPrintWriter(name);
              CSVWriter csvWriter = getCsvWriter(pw, config)) {
             if (config.isSeparateHeader()) {

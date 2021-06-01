@@ -1,0 +1,54 @@
+To compress a file through an export procedure,
+you can pass in config parameter the value compression: `COMPRESSION_TYPE`,
+where `COMPRESSION_TYPE` can be `BYTES`, `GZIP`, `BZIP2`, `DEFLATE`, `BLOCK_LZ4` or `FRAMED_SNAPPY`.
+By default is `NONE`, that is without compression.
+
+Note that to compress a file, the exported fileName must have an extension based on compression type:
+
+.Compression Type
+[opts=header]
+|===
+| type | extension
+| GZIP | .gz
+| BZIP2 | .bz2
+| DEFLATE | .zz
+| BLOCK_LZ4 | .lz4
+| FRAMED_SNAPPY | .sz
+|===
+
+
+So, if you want to export a file `test.csv` with a `GZIP` compression, you must specify a file  `test.csv.gz`.
+For example:
+
+[source,cypher]
+----
+CALL apoc.export.csv.all("test.csv.gz", {compression: "GZIP"})
+----
+
+This works also with a multi-file export, for example:
+
+[source,cypher]
+----
+CALL apoc.export.csv.all("testBulk.csv.zz",{compression: "DEFLATE", bulkImport: true, separateHeader: true, delim: ';'})
+----
+
+with a series of `testBulk.<nodes/relationships>.<label/rel>.csv.zz` files.
+
+
+Moreover, you can use it with a a file split into batches:
+
+[source,cypher]
+----
+CALL apoc.export.csv.all(null, {compression: 'DEFLATE',stream:true,batchSize:2,useOptimizations:{unwindBatchSize:2}})
+YIELD data RETURN data
+----
+
+
+.Results
+[opts="header"]
+|===
+| data         
+| `compressed byte array`
+| `compressed byte array`
+| `compressed byte array`
+|===
