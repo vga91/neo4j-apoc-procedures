@@ -68,8 +68,7 @@ public class CsvFormat implements Format {
             if (config.isBulkImport()) {
                 writeAllBulkImport(graph, reporter, config, fileManager);
             } else {
-                // -- TODO
-                try (Writer writer = fileManager.getPrintWriter("csv", config.getCompressionAlgo())) {
+                try (Writer writer = fileManager.getPrintWriter("csv")) {
 //                try (Writer writer = fileManager.getWriter("csv", config.getCompression())) {
                     CSVWriter out = getCsvWriter(writer, config);
                     writeAll(graph, reporter, config, out);
@@ -119,7 +118,7 @@ public class CsvFormat implements Format {
     }
 
     public ProgressInfo dump(Result result, ExportFileManager writer, Reporter reporter, ExportConfig config) {
-        try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv", config.getCompressionAlgo())) {
+        try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv")) {
             CSVWriter out = getCsvWriter(printWriter, config);
             String[] header = writeResultHeader(result, out);
 
@@ -260,11 +259,10 @@ public class CsvFormat implements Format {
 //        PrintWriter pw = new CSVWriter(streamWriter);
 ////        
         
-        // TODO - CHE FA STA COSA?? - SI PUO SEMPLIFICARE?
-        try (PrintWriter pw = writer.getPrintWriter(name, config.getCompressionAlgo());
+        try (PrintWriter pw = writer.getPrintWriter(name);
              CSVWriter csvWriter = getCsvWriter(pw, config)) {
             if (config.isSeparateHeader()) {
-                try (PrintWriter pwHeader = writer.getPrintWriter("header." + name, config.getCompressionAlgo())) {
+                try (PrintWriter pwHeader = writer.getPrintWriter("header." + name)) {
                     CSVWriter csvWriterHeader = getCsvWriter(pwHeader, config);
                     csvWriterHeader.writeNext(headerNode.toArray(new String[headerNode.size()]), false);
                 }

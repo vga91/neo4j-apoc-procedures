@@ -44,26 +44,27 @@ public enum CompressionAlgo {
     }
 
     public byte[] compress(String string, Charset charset) throws Exception {
-        Constructor<?> constructor = compressor.getConstructor(OutputStream.class);
-//        try (
-                ByteArrayOutputStream stream = new ByteArrayOutputStream();//) {
-            try (OutputStream outputStream = (OutputStream) constructor.newInstance(stream)) {
+        try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
+            try (OutputStream outputStream = getOutputStream(stream)) {
                 outputStream.write(string.getBytes(charset));
             }
             return stream.toByteArray();
-//        }
-    }
-
-    public String decompress(byte[] byteArray, Charset charset) throws Exception {
-        Constructor<?> constructor = decompressor.getConstructor(InputStream.class);
-        try (ByteArrayInputStream stream = new ByteArrayInputStream(byteArray);
-                InputStream inputStream = (InputStream) constructor.newInstance((InputStream) stream)) {
-            return IOUtils.toString(inputStream, charset);
         }
     }
 
     public OutputStream getOutputStream(OutputStream stream) throws Exception {
         return compressor == null ? stream : (OutputStream) compressor.getConstructor(OutputStream.class).newInstance(stream);
+    }
+
+    public String decompress(byte[] byteArray, Charset charset) throws Exception {
+        try (ByteArrayInputStream stream = new ByteArrayInputStream(byteArray);
+                InputStream inputStream = getInputStream(stream)) {
+            return IOUtils.toString(inputStream, charset);
+        }
+    }
+
+    public InputStream getInputStream(InputStream stream) throws Exception {
+        return decompressor == null ? stream : (InputStream) decompressor.getConstructor(InputStream.class).newInstance(stream);
     }
 
     public String getFileExt() {

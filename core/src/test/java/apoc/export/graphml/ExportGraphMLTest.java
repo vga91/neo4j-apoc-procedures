@@ -2,6 +2,8 @@ package apoc.export.graphml;
 
 import apoc.ApocSettings;
 import apoc.graph.Graphs;
+import apoc.util.BinaryTestUtil;
+import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import junit.framework.TestCase;
@@ -18,6 +20,7 @@ import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
+import org.testcontainers.shaded.org.apache.commons.lang.builder.StandardToStringStyle;
 import org.xmlunit.builder.DiffBuilder;
 import org.xmlunit.diff.DefaultNodeMatcher;
 import org.xmlunit.diff.Diff;
@@ -28,6 +31,7 @@ import javax.xml.namespace.QName;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +39,7 @@ import java.util.Map;
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.util.BinaryTestUtil.getDecompressedData;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
@@ -370,6 +375,16 @@ public class ExportGraphMLTest {
     }
 
     @Test
+    public void testExportAllGraphMLWithCompression() {
+        final CompressionAlgo algo = CompressionAlgo.DEFLATE;
+        File output = new File(directory, "all.graphml");
+        TestUtil.testCall(db, "CALL apoc.export.graphml.all($file, $config)",
+                map("file", output.getAbsolutePath(), "config", map("compression", algo.name())),
+                (r) -> assertResults(output, r, "database"));
+        assertXMLEquals(BinaryTestUtil.readFileToString(output, StandardCharsets.UTF_8, algo), EXPECTED_FALSE);
+    }
+
+    @Test
     public void testExportGraphGraphML() throws Exception {
         File output = new File(directory, "graph.graphml");
         TestUtil.testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
@@ -597,6 +612,17 @@ public class ExportGraphMLTest {
                 (r) -> {
                     assertStreamResults(r, "database");
                     assertXMLEquals(r.get("data"), EXPECTED_FALSE);
+                });
+    }
+
+    @Test
+    public void testExportAllGraphMLStreamWithCompression() {
+        final CompressionAlgo algo = CompressionAlgo.BZIP2;
+        TestUtil.testCall(db, "CALL apoc.export.graphml.all(null, $config)",
+                map("config", map("compression", algo.name(), "stream", true)),
+                (r) -> { 
+                    assertStreamResults(r, "database");
+                    assertXMLEquals(getDecompressedData(algo, r.get("data")), EXPECTED_FALSE);
                 });
     }
 }

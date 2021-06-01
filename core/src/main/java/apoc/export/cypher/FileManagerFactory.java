@@ -1,16 +1,12 @@
 package apoc.export.cypher;
 
+import apoc.export.util.ExportConfig;
+import apoc.util.CompressionAlgo;
 import apoc.util.FileUtils;
-import com.opencsv.CSVWriter;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import org.apache.commons.lang3.StringUtils;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.io.Writer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -19,20 +15,22 @@ import java.util.concurrent.ConcurrentMap;
  * @since 06.12.17
  */
 public class FileManagerFactory {
-    public static ExportFileManager createFileManager(String fileName, boolean separatedFiles) {
+    public static ExportFileManager createFileManager(String fileName, boolean separatedFiles, ExportConfig config) {
         if (fileName == null) {
-            // questo lo fa se non c'è filename... ossia?
-            // ... todo - ah ok, per lo streams
-            // ... ma quindi se non è null non lo fa...
-            return new StringExportCypherFileManager(separatedFiles);
+            return new StringExportCypherFileManager(separatedFiles, config);
         }
-        // todo - per vedere se separare in più file
-        
-        // todo - a sto punto se separa in più file dovrei fare tipo un tar.gz
+        fileName = fileName.trim();
 
-        int indexOfDot = fileName.lastIndexOf(".");
+        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(config.getCompressionAlgo());
+        final String fileExt = compressionAlgo.getFileExt();
+        // TODO - evaluate if validation is necessary
+        if (!fileName.endsWith(fileExt)) {
+            throw new RuntimeException("The file must have the extension " + fileExt);
+        }
+
+        int indexOfDot = StringUtils.lastOrdinalIndexOf(fileName, ".", compressionAlgo.equals(CompressionAlgo.NONE) ? 1 : 2);
         String fileType = fileName.substring(indexOfDot + 1);
-        return new PhysicalExportFileManager(fileType, fileName, separatedFiles);
+        return new PhysicalExportFileManager(fileType, fileName, separatedFiles, config);
     }
 
     private static class PhysicalExportFileManager implements ExportFileManager {
@@ -42,63 +40,31 @@ public class FileManagerFactory {
         private final boolean separatedFiles;
         // todo - e questo, come ci arriva?
         private PrintWriter writer;
+        private ExportConfig config;
 
-        public PhysicalExportFileManager(String fileType, String fileName, boolean separatedFiles) {
+        public PhysicalExportFileManager(String fileType, String fileName, boolean separatedFiles, ExportConfig config) {
             this.fileType = fileType;
             this.fileName = fileName;
             this.separatedFiles = separatedFiles;
+            this.config = config;
         }
         
-//        public Writer getWriter(String fileExtension, String compressionType) throws IOException {
-//            
-//            // TODO - FILENAME NDO LO PRENDE?
-//            // TODO 2 -- .GZ RENDERLO DIVERSO IN BASE AL TIPO DI COMPRESSIONE
-//            
-//            if (compressionType.equals("GZIP")) {
-//                // TODO - IMPLEMENTARE UN SUPPLIER NELLA COMPRESSION ALGO...
-//
-////                try (
-//                FileOutputStream byteArrayOutputStream = new FileOutputStream(normalizeFileName(fileName, fileExtension + ".gz"));
-//                     GzipCompressorOutputStream stream = new GzipCompressorOutputStream(byteArrayOutputStream);
-////                File stream = new File("destinaton_zip_filepath.csv.gz");
-////                OutputStreamWriter streamWriter = new FileWriter(stream); // --> FileWriter con fileName... forse è questo 
-////                     ) { // --> FileWriter con fileName... forse è questo 
-//                    return new PrintWriter(stream);
-////                    CSVWriter out = new CSVWriter(streamWriter);
-////                }
-//            } else {
-//                return getPrintWriter(fileExtension);
-//            }
-//        }
-
-//        @Override
-//        public PrintWriter getPrintWriter(String type) {
-//            return getPrintWriter(type, "NONE");
-//        }
-
         @Override
-        public PrintWriter getPrintWriter(String type, String compressionType) {
-            // TODO - POTREI PASSARE IL CONFIG E FARE COSE...
+        public PrintWriter getPrintWriter(String type) {
 
-//            if ()
-            return getPrintWriter1todo(type, compressionType);
-        }
-
-        private PrintWriter getPrintWriter1todo(String type, String compressionType) {
             if (this.separatedFiles) {
-                return FileUtils.getPrintWriter(normalizeFileName(fileName, type), null, compressionType);
+                return FileUtils.getPrintWriter(normalizeFileName(fileName, type), null, config);
             } else {
                 // todo .. ma scusa, quando è diverso da null?
                 if (this.writer == null) {
-                    // TODO ..
-                    this.writer = FileUtils.getPrintWriter(normalizeFileName(fileName, null), null, compressionType);
+                    this.writer = FileUtils.getPrintWriter(normalizeFileName(fileName, null), null, config);
                 }
                 return this.writer;
             }
         }
 
         @Override
-        public StringWriter getStringWriter(String type, String compression) {
+        public StringWriter getStringWriter(String type/*, String compression*/) {
             return null;
         }
 
@@ -126,10 +92,12 @@ public class FileManagerFactory {
     private static class StringExportCypherFileManager implements ExportFileManager {
 
         private boolean separatedFiles;
+        private ExportConfig config;
         private ConcurrentMap<String, StringWriter> writers = new ConcurrentHashMap<>();
 
-        public StringExportCypherFileManager(boolean separatedFiles) {
+        public StringExportCypherFileManager(boolean separatedFiles, ExportConfig config) {
             this.separatedFiles = separatedFiles;
+            this.config = config;
         }
 
 //        @Override
@@ -156,15 +124,16 @@ public class FileManagerFactory {
 //        }
 
         @Override
-        public StringWriter getStringWriter(String type, String compression) {
+        public StringWriter getStringWriter(String type){//, String compression) {
             // todo - e poi che fa?
             return writers.computeIfAbsent(type, (key) -> new StringWriter());
         }
 
         @Override
-        public PrintWriter getPrintWriter(String type, String compression) {
+        public PrintWriter getPrintWriter(String type){//, String compression) {
+            final String compression = config.getCompressionAlgo();
             if (this.separatedFiles) {
-                return new PrintWriter(getStringWriter(type, compression));
+                return new PrintWriter(getStringWriter(type/*, compression*/));
             } else {
                 switch (type) {
                     case "csv":
@@ -174,18 +143,27 @@ public class FileManagerFactory {
                     default:
                         type = "cypher";
                 }
-                return new PrintWriter(getStringWriter(type, compression));
+                return new PrintWriter(getStringWriter(type/*, compression*/));
             }
         }
 
         @Override
-        public synchronized String drain(String type) {
+        public synchronized Object drain(String type) {
             // todo - ma allora questo che fa? - exportCypher
             StringWriter writer = writers.get(type);
             if (writer != null) {
-                String text = writer.toString();
-                writer.getBuffer().setLength(0);
-                return text;
+                try {
+                    // TODO - COMMON CON L'ALTRO DRAIN...
+                    final String compression = config.getCompressionAlgo();
+                    final String writerString = writer.toString();
+                    Object data = compression.equals(CompressionAlgo.NONE.name())
+                            ? writerString
+                            : CompressionAlgo.valueOf(compression).compress(writerString, config.getCharset());
+                    writer.getBuffer().setLength(0);
+                    return data;
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }
             else return null;
         }

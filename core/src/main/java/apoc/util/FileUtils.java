@@ -3,6 +3,7 @@ package apoc.util;
 import apoc.ApocConfig;
 import apoc.export.util.CountingInputStream;
 import apoc.export.util.CountingReader;
+import apoc.export.util.ExportConfig;
 import apoc.util.hdfs.HDFSUtils;
 import apoc.util.s3.S3URLConnection;
 import apoc.util.s3.S3UploadUtils;
@@ -154,33 +155,22 @@ public class FileUtils {
         return !NON_FILE_PROTOCOLS.stream().anyMatch(protocol -> fileNameLowerCase.startsWith(protocol));
     }
 
-    public static PrintWriter getPrintWriter(String fileName, Writer out) {
-        // todo - alla fine di tutto togliere
-        return getPrintWriter(fileName, out, "NONE");
-    }
-    
-    // TODO
-    // TODO - COME CREATE DEI TAR.GZ NEL CASO DI CSV CON BULK IMPORT????
-    // TODO
-    // TODO
-    // TODO
-
-
-    public static PrintWriter getPrintWriter(String fileName, Writer out, String compressionType) {
+    public static PrintWriter getPrintWriter(String fileName, Writer out, ExportConfig config) {
         
-        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(compressionType);
-        fileName += compressionAlgo.getFileExt();
+//        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(compressionType);
+//        fileName += compressionAlgo.getFileExt();
 
-        OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()));
-
-        try {
-            // TODO - POTREI METTERE STA RIGA 
-            OutputStream stream = compressionAlgo.getOutputStream(outputStream);
-            return stream == null ? null : new PrintWriter(stream);
-        } catch (Exception e) {
-            // todo
-            throw new RuntimeException(e);
-        }
+        OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()), config);
+        return outputStream == null ? null : new PrintWriter(outputStream);
+        // TODO - METODO COMUNE
+//        try {
+//            // TODO - POTREI METTERE STA RIGA 
+//            OutputStream stream = compressionAlgo.getOutputStream(outputStream);
+//            return stream == null ? null : new PrintWriter(stream);
+//        } catch (Exception e) {
+//            // todo
+//            throw new RuntimeException(e);
+//        }
     }
 
 //    public static Writer getWriter(String fileName, Writer out) {
@@ -189,8 +179,11 @@ public class FileUtils {
 //        return outputStream == null ? null : new PrintWriter(outputStream);
 //    }
 
-    public static OutputStream getOutputStream(String fileName, OutputStream out) {
+    public static OutputStream getOutputStream(String fileName, OutputStream out, ExportConfig config) {
         if (fileName == null) return null;
+        
+        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(config.getCompressionAlgo());
+        
         OutputStream outputStream;
         if (isHdfs(fileName)) {
             try {
@@ -209,7 +202,16 @@ public class FileUtils {
             outputStream = getOrCreateOutputStream(fileName, out);
 //            outputStream = fileName.equals("-") ? out : new FileOutputStream(fileName);
         }
-        return new BufferedOutputStream(outputStream);
+        try {
+            // TODO - POTREI METTERE STA RIGA 
+            // TODO - NECESSARIO CREARE UN'ALTRA CLASSE OUTPUTSTREAM?
+            OutputStream stream = compressionAlgo.getOutputStream(outputStream);
+//            return stream == null ? null : new PrintWriter(stream);
+            return new BufferedOutputStream(stream);
+        } catch (Exception e) {
+            // todo
+            throw new RuntimeException(e);
+        }
     }
 
     // todo ..

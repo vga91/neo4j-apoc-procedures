@@ -1,6 +1,8 @@
 package apoc.export.cypher;
 
 import apoc.graph.Graphs;
+import apoc.util.BinaryTestUtil;
+import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.Before;
@@ -22,7 +24,9 @@ import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.export.cypher.ExportCypherTest.ExportCypherResults.*;
 import static apoc.export.util.ExportFormat.*;
+import static apoc.util.BinaryTestUtil.getDecompressedData;
 import static apoc.util.Util.map;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.*;
 
 /**
@@ -81,11 +85,22 @@ public class ExportCypherTest {
         });
     }
 
-    // TODO - PURE A QUESTO?
     @Test
     public void testExportAllCypherStreaming() {
+        final String query = "CALL apoc.export.cypher.all(null,{useOptimizations: { type: 'none'}, streamStatements:true,batchSize:3, format: 'neo4j-shell'})";
+        assertExportAllCypherStreaming(CompressionAlgo.NONE, query);
+    }
+
+    @Test
+    public void testExportAllWithCompressionCypherStreaming() {
+        final CompressionAlgo algo = CompressionAlgo.BZIP2;
+        final String query = "CALL apoc.export.cypher.all(null,{compression: '" + algo.name() + "', useOptimizations: { type: 'none'}, streamStatements:true,batchSize:3, format: 'neo4j-shell'})";
+        assertExportAllCypherStreaming(algo, query);
+    }
+
+    private void assertExportAllCypherStreaming(CompressionAlgo none, String query) {
         StringBuilder sb = new StringBuilder();
-        TestUtil.testResult(db, "CALL apoc.export.cypher.all(null,{useOptimizations: { type: 'none'}, streamStatements:true,batchSize:3, format: 'neo4j-shell'})", (res) -> {
+        TestUtil.testResult(db, query, (res) -> {
             Map<String, Object> r = res.next();
             assertEquals(3L, r.get("batchSize"));
             assertEquals(1L, r.get("batches"));
@@ -96,7 +111,7 @@ public class ExportCypherTest {
             assertNull("Should get file",r.get("file"));
             assertEquals("cypher", r.get("format"));
             assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-            sb.append(r.get("cypherStatements"));
+            sb.append(getDecompressedData(none, r.get("cypherStatements")));
             r = res.next();
             assertEquals(3L, r.get("batchSize"));
             assertEquals(2L, r.get("batches"));
@@ -105,7 +120,7 @@ public class ExportCypherTest {
             assertEquals(1L, r.get("relationships"));
             assertEquals(6L, r.get("properties"));
             assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-            sb.append(r.get("cypherStatements"));
+            sb.append(getDecompressedData(none, r.get("cypherStatements")));
         });
         assertEquals(EXPECTED_NEO4J_SHELL.replace("LIMIT 20000", "LIMIT 3"), sb.toString());
     }
@@ -139,8 +154,12 @@ public class ExportCypherTest {
         assertEquals(EXPECTED_NEO4J_SHELL, readFile(fileName));
     }
 
-    private static String readFile(String fileName) throws FileNotFoundException {
-        return TestUtil.readFileToString(new File(directory, fileName));
+    private static String readFile(String fileName) {
+        return readFile(fileName, CompressionAlgo.NONE);
+    }
+    
+    private static String readFile(String fileName, CompressionAlgo algo) {
+        return BinaryTestUtil.readFileToString(new File(directory, fileName), UTF_8, algo);
     }
 
     @Test
@@ -464,6 +483,16 @@ public class ExportCypherTest {
     }
 
     @Test
+    public void testExportQueryCypherShellWithCompressionWithUnwindBatchSizeWithBatchSizeOptimized() throws Exception {
+        String fileName = "allPlainOptimized.cypher";
+        final CompressionAlgo algo = CompressionAlgo.DEFLATE;
+        TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,{compression: '" + algo.name() + "', format:'cypher-shell', useOptimizations: { type: 'unwind_batch', unwindBatchSize: 2}, batchSize: 2})",
+                map("file", fileName),
+                (r) -> assertResultsOptimized(fileName, r));
+        assertEquals(EXPECTED_QUERY_CYPHER_SHELL_OPTIMIZED_UNWIND, readFile(fileName, algo));
+    }
+
+    @Test
     public void testExportQueryCypherShellWithUnwindBatchSizeWithBatchSizeOddDataset() throws Exception {
         String fileName = "allPlainOdd.cypher";
         TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,{format:'cypher-shell', useOptimizations: { type: 'unwind_batch', unwindBatchSize: 2}, batchSize: 2})",
@@ -478,6 +507,16 @@ public class ExportCypherTest {
                 map("file", fileName),
                 (r) -> assertResultsOdd(fileName, r));
         assertEquals(EXPECTED_QUERY_CYPHER_SHELL_PARAMS_OPTIMIZED_ODD, readFile(fileName));
+    }
+    
+    @Test
+    public void testExportWithCompressionQueryCypherShellUnwindBatchParamsWithOddDataset() {
+        String fileName = "allPlainOdd.cypher";
+        final CompressionAlgo algo = CompressionAlgo.BZIP2;
+        TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,{compression: '" + algo.name() + "', format:'cypher-shell', useOptimizations: { type: 'unwind_batch_params', unwindBatchSize: 2}, batchSize:2})",
+                map("file", fileName),
+                (r) -> assertResultsOdd(fileName, r));
+        assertEquals(EXPECTED_QUERY_CYPHER_SHELL_PARAMS_OPTIMIZED_ODD, readFile(fileName, algo));
     }
 
     @Test

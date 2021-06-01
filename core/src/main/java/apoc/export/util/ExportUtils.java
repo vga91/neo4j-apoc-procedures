@@ -28,10 +28,7 @@ public class ExportUtils {
         long timeout = exportConfig.getTimeoutSeconds();
         final ArrayBlockingQueue<ProgressInfo> queue = new ArrayBlockingQueue<>(1000);
         ProgressReporter reporterWithConsumer = reporter.withConsumer(
-                (pi) -> {
-                    final String compression = exportConfig.getCompressionAlgo();
-                    QueueUtil.put(queue, pi == ProgressInfo.EMPTY ? ProgressInfo.EMPTY : new ProgressInfo(pi).drain(cypherFileManager.getStringWriter(format, compression), exportConfig), timeout);
-                }
+                (pi) -> QueueUtil.put(queue, pi == ProgressInfo.EMPTY ? ProgressInfo.EMPTY : new ProgressInfo(pi).drain(cypherFileManager.getStringWriter(format/*, compression*/), exportConfig), timeout)
         );
         Util.inTxFuture(executorService, db, tx -> {
             dump.accept(reporterWithConsumer);
