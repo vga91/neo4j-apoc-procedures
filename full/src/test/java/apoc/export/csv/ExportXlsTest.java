@@ -3,6 +3,7 @@ package apoc.export.csv;
 import apoc.ApocSettings;
 import apoc.export.xls.ExportXls;
 import apoc.graph.Graphs;
+import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
@@ -66,6 +67,17 @@ public class ExportXlsTest {
     }
 
     @Test
+    public void testExportAllXlsWithCompression() {
+        String fileName = "all.xlsx";
+        final CompressionAlgo algo = CompressionAlgo.GZIP;
+        TestUtil.testCall(db, "CALL apoc.export.xls.all($file, $config)",
+                map("file", fileName, "config", map("compression", algo.name())),
+                (r) -> assertResults(fileName, r, "database"));
+
+        assertExcelFileForGraph(fileName + algo.getFileExt(), algo);
+    }
+
+    @Test
     public void testExportGraphXls() throws Exception {
         String fileName = "graph.xlsx";
         TestUtil.testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
@@ -106,7 +118,7 @@ public class ExportXlsTest {
                 map("file", fileName, "conf", map("headerNodeId", nodeId,
                         "headerRelationshipId", relId, "headerStartNodeId", startNodeId, "headerEndNodeId", endNodeId)),
                 (r) -> assertResults(fileName, r, "graph", 208L, 2L, 206));
-        assertExcelFileForGraph(fileName, nodeId, List.of(relId, startNodeId, endNodeId));
+        assertExcelFileForGraph(fileName, nodeId, List.of(relId, startNodeId, endNodeId), CompressionAlgo.NONE);
         db.executeTransactionally("MATCH (n:Test) DETACH DELETE n");
     }
 
@@ -179,11 +191,17 @@ public class ExportXlsTest {
     }
 
     private void assertExcelFileForGraph(String fileName) {
-        assertExcelFileForGraph(fileName, "<nodeId>", List.of("<relationshipId>", "<startNodeId>", "<endNodeId>"));
+        assertExcelFileForGraph(fileName, CompressionAlgo.NONE);
     }
 
-    private void assertExcelFileForGraph(String fileName, String headerNode, List<String> headerRel) {
-        try (InputStream inp = new FileInputStream(new File(directory, fileName)); Transaction tx = db.beginTx()) {
+    private void assertExcelFileForGraph(String fileName, CompressionAlgo algo) {
+        assertExcelFileForGraph(fileName, "<nodeId>", List.of("<relationshipId>", "<startNodeId>", "<endNodeId>"), algo);
+    }
+
+    private void assertExcelFileForGraph(String fileName, String headerNode, List<String> headerRel, CompressionAlgo algo) {
+        try (InputStream fileInputStream = new FileInputStream(new File(directory, fileName));
+             InputStream inp = algo.getInputStream(fileInputStream);
+             Transaction tx = db.beginTx()) {
             Workbook wb = WorkbookFactory.create(inp);
 
             int numberOfSheets = wb.getNumberOfSheets();
@@ -214,7 +232,7 @@ public class ExportXlsTest {
                 assertEquals(expected, actual);
             }
             tx.commit();
-        } catch (IOException|InvalidFormatException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

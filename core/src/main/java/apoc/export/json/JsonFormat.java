@@ -73,8 +73,7 @@ public class JsonFormat implements Format {
                 throw new RuntimeException(e);
             }
         };
-        // TODO - CHE SUCCEDE?
-        return dump(writer.getPrintWriter("json", config.getCompressionAlgo()), reporter, consumer);
+        return dump(writer.getPrintWriter("json"), reporter, consumer);
     }
 
     private void writeJsonRelationshipContainerEnd(JsonGenerator jsonGenerator) throws IOException {
@@ -159,7 +158,7 @@ public class JsonFormat implements Format {
                 throw new RuntimeException(e);
             }
         };
-        return dump(writer.getPrintWriter("json", config.getCompressionAlgo()), reporter, consumer);
+        return dump(writer.getPrintWriter("json"), reporter, consumer);
     }
 
     private JsonGenerator getJsonGenerator(Writer writer) throws IOException {

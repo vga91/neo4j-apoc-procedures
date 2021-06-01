@@ -1,5 +1,7 @@
 package apoc.export.cypher;
 
+import apoc.export.util.ExportConfig;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -7,14 +9,11 @@ import java.io.StringWriter;
 import java.io.Writer;
 
 public interface ExportFileManager {
-    PrintWriter getPrintWriter(String type, String compression);
+    PrintWriter getPrintWriter(String type);
 
-//    PrintWriter getPrintWriter(String type);
+    StringWriter getStringWriter(String type);
 
-//    Writer getWriter(String type, String compression) throws IOException;
-    StringWriter getStringWriter(String type, String compression);
-
-    String drain(String type);
+    Object drain(String type);
 
     String getFileName();
 

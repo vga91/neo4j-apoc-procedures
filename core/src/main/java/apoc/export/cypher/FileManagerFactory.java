@@ -1,14 +1,11 @@
 package apoc.export.cypher;
 
 import java.io.OutputStream;
+import apoc.export.util.ExportConfig;
+import apoc.util.CompressionAlgo;
 import apoc.util.FileUtils;
-import com.opencsv.CSVWriter;
-import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
+import org.apache.commons.lang3.StringUtils;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Map;
@@ -23,14 +20,22 @@ import static apoc.util.FileUtils.getOutputStream;
  * @since 06.12.17
  */
 public class FileManagerFactory {
-    public static ExportFileManager createFileManager(String fileName, boolean separatedFiles) {
+    public static ExportFileManager createFileManager(String fileName, boolean separatedFiles, ExportConfig config) {
         if (fileName == null || "".equals(fileName)) {
-            return new StringExportCypherFileManager(separatedFiles);
+            return new StringExportCypherFileManager(separatedFiles, config);
+        }
+        fileName = fileName.trim();
+
+        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(config.getCompressionAlgo());
+        final String fileExt = compressionAlgo.getFileExt();
+        // TODO - evaluate if validation is necessary
+        if (!fileName.endsWith(fileExt)) {
+            throw new RuntimeException("The file must have the extension " + fileExt);
         }
 
-        int indexOfDot = fileName.lastIndexOf(".");
+        int indexOfDot = StringUtils.lastOrdinalIndexOf(fileName, ".", compressionAlgo.equals(CompressionAlgo.NONE) ? 1 : 2);
         String fileType = fileName.substring(indexOfDot + 1);
-        return new PhysicalExportFileManager(fileType, fileName, separatedFiles);
+        return new PhysicalExportFileManager(fileType, fileName, separatedFiles, config);
     }
 
     private static class PhysicalExportFileManager implements ExportFileManager {
@@ -39,25 +44,25 @@ public class FileManagerFactory {
         private final String fileType;
         private final boolean separatedFiles;
         private final Map<String, PrintWriter> writerCache;
+        private ExportConfig config;
 
-        public PhysicalExportFileManager(String fileType, String fileName, boolean separatedFiles) {
+        public PhysicalExportFileManager(String fileType, String fileName, boolean separatedFiles, ExportConfig config) {
             this.fileType = fileType;
             this.fileName = fileName;
             this.separatedFiles = separatedFiles;
+            this.config = config;
             this.writerCache = new ConcurrentHashMap<>();
         }
 
-        @Override
         public PrintWriter getPrintWriter(String type) {
             String newFileName = this.separatedFiles ? normalizeFileName(fileName, type) : normalizeFileName(fileName, null);
             return writerCache.computeIfAbsent(newFileName, (key) -> {
                 OutputStream outputStream = getOutputStream(newFileName);
                 return outputStream == null ? null : new PrintWriter(outputStream);
             });
-        }
 
         @Override
-        public StringWriter getStringWriter(String type, String compression) {
+        public StringWriter getStringWriter(String type/*, String compression*/) {
             return null;
         }
 
@@ -85,10 +90,12 @@ public class FileManagerFactory {
     private static class StringExportCypherFileManager implements ExportFileManager {
 
         private final boolean separatedFiles;
+        private final ExportConfig config;
         private final ConcurrentMap<String, StringWriter> writers = new ConcurrentHashMap<>();
 
-        public StringExportCypherFileManager(boolean separatedFiles) {
+        public StringExportCypherFileManager(boolean separatedFiles, ExportConfig config) {
             this.separatedFiles = separatedFiles;
+            this.config = config;
         }
 
         @Override
@@ -102,6 +109,7 @@ public class FileManagerFactory {
                     default:
                         type = "cypher";
                 }
+                return new PrintWriter(getStringWriter(type/*, compression*/));
             }
             return new PrintWriter(getStringWriter(type));
         }
@@ -113,11 +121,22 @@ public class FileManagerFactory {
 
         @Override
         public synchronized String drain(String type) {
+        public synchronized Object drain(String type) {
+            // todo - ma allora questo che fa? - exportCypher
             StringWriter writer = writers.get(type);
             if (writer != null) {
-                String text = writer.toString();
-                writer.getBuffer().setLength(0);
-                return text;
+                try {
+                    // TODO - COMMON CON L'ALTRO DRAIN...
+                    final String compression = config.getCompressionAlgo();
+                    final String writerString = writer.toString();
+                    Object data = compression.equals(CompressionAlgo.NONE.name())
+                            ? writerString
+                            : CompressionAlgo.valueOf(compression).compress(writerString, config.getCharset());
+                    writer.getBuffer().setLength(0);
+                    return data;
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }
             else return null;
         }

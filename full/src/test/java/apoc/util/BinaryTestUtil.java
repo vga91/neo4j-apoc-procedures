@@ -19,9 +19,14 @@ public class BinaryTestUtil {
         }
     }
 
-    public static String readFileToString(File file, Charset charset, String compression) throws Exception {
-        return compression.equals(CompressionAlgo.NONE.name()) ?
-                TestUtil.readFileToString(file, charset)
-                : CompressionAlgo.valueOf(compression).decompress(FileUtils.readFileToByteArray(file), charset);
+    public static String readFileToString(File file, Charset charset, CompressionAlgo compression) {
+        try {
+            return compression.equals(CompressionAlgo.NONE) ?
+                    TestUtil.readFileToString(file, charset)
+                    : compression.decompress(FileUtils.readFileToByteArray(file), charset);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
+    
 }
