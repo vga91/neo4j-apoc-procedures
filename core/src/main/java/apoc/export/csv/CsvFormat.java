@@ -248,7 +248,6 @@ public class CsvFormat implements Format {
     }
 
     private void writeRow(ExportConfig config, ExportFileManager writer, Set<String> headerNode, List<List<String>> rows, String name) {
-
         try (PrintWriter pw = writer.getPrintWriter(name);
              CSVWriter csvWriter = getCsvWriter(pw, config)) {
             if (config.isSeparateHeader()) {
@@ -263,6 +262,11 @@ public class CsvFormat implements Format {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public void writeAll2(SubGraph graph, Reporter reporter, ExportConfig config, CSVWriter out) {
+        writeNodes(graph, out, reporter,config);
+        writeRels(graph, out, reporter,config);
     }
 
     private List<String> generateHeader(Map<String, Class> propTypes, boolean useTypes, String... starters) {
