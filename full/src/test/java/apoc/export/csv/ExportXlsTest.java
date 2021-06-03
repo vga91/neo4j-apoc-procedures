@@ -72,6 +72,20 @@ public class ExportXlsTest {
     }
 
     @Test
+    public void testExportGraphXlsWithMoreThan100Nodes()  {
+        db.executeTransactionally("UNWIND range(1,100) as range CREATE (n:Test)");
+        String fileName = "graph.xlsx";
+        TestUtil.testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
+                        "CALL apoc.export.xls.graph(graph, $file,null) " +
+                        "YIELD nodes, relationships, properties, file, source,format, time " +
+                        "RETURN *",
+                map("file", fileName),
+                (r) -> assertResults(fileName, r, "graph", true));
+        assertExcelFileForGraph(fileName);
+        db.executeTransactionally("MATCH (n:Test) DETACH DELETE n");
+    }
+
+    @Test
     public void testExportQueryXls() throws Exception {
         String fileName = "query.xlsx";
         String query = "MATCH (u:User) return u.age, u.name, u.male, u.kids, labels(u)";
@@ -124,15 +138,18 @@ public class ExportXlsTest {
         db.executeTransactionally("MATCH p = (u:User{name: 'Andrea'})-[r:COMPANY]->(c:Company{name: 'Larus'}) DELETE p");
     }
 
-
-    private void assertResults(String fileName, Map<String, Object> r, final String source) {
-        assertEquals(8L, r.get("nodes")); // we're exporting nodes with multiple label multiple times
+    private void assertResults(String fileName, Map<String, Object> r, final String source, boolean test100) {
+        assertEquals(test100 ? 108L : 8L, r.get("nodes")); // we're exporting nodes with multiple label multiple times
         assertEquals(2L, r.get("relationships"));
         assertEquals(25L, r.get("properties"));
-        assertEquals(source + ": nodes(6), rels(2)", r.get("source"));
+        assertEquals(source + String.format(": nodes(%s), rels(2)", test100 ? 106 : 6), r.get("source"));
         assertEquals(fileName, r.get("file"));
         assertEquals("xls", r.get("format"));
         assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
+    }
+
+    private void assertResults(String fileName, Map<String, Object> r, final String source) {
+        assertResults(fileName, r, source, false);
     }
 
     private void assertExcelFileForGraph(String fileName) {

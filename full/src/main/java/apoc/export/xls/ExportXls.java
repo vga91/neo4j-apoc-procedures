@@ -26,6 +26,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -120,7 +121,6 @@ public class ExportXls {
 
         for (String header: result.columns()) {
             Cell cell = headerRow.createCell(columnNum);
-            sheet.autoSizeColumn(columnNum);
             cell.setCellValue(header);
             columnNum++;
         }
@@ -133,6 +133,8 @@ public class ExportXls {
                 columnNum = amendCell(row, columnNum, map.get(header), config, styles);
             }
         }
+        // autoSize when all sizes are kwnown
+        IntStream.range(0, columnNum).forEach(sheet::autoSizeColumn);
     }
 
     private void dumpSubGraph(SubGraph subgraph, XlsExportConfig config, ProgressReporter reporter, SXSSFWorkbook wb, Map<Class, CellStyle> styles) {
@@ -169,7 +171,7 @@ public class ExportXls {
 
             List<String> magicKeys = triple.getMiddle();
             List<String> keys = triple.getRight();
-            Row row = sheet.getRow(0);
+            Row row = sheet.rowIterator().next();
             int cellNum = 0;
             for (String key: ListUtils.union(magicKeys,keys)) {
                 sheet.autoSizeColumn(cellNum);
