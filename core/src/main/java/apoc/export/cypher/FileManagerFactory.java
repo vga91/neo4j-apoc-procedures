@@ -4,6 +4,7 @@ import java.io.OutputStream;
 import apoc.export.util.ExportConfig;
 import apoc.util.CompressionAlgo;
 import apoc.util.FileUtils;
+import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.PrintWriter;
@@ -102,7 +103,6 @@ public class FileManagerFactory {
         public PrintWriter getPrintWriter(String type) {
             if (!this.separatedFiles) {
         public StringWriter getStringWriter(String type) {
-            // todo - e poi che fa?
             return writers.computeIfAbsent(type, (key) -> new StringWriter());
         }
 
@@ -135,18 +135,7 @@ public class FileManagerFactory {
             // todo - ma allora questo che fa? - exportCypher
             StringWriter writer = writers.get(type);
             if (writer != null) {
-                try {
-                    // TODO - COMMON CON L'ALTRO DRAIN...
-                    final String compression = config.getCompressionAlgo();
-                    final String writerString = writer.toString();
-                    Object data = compression.equals(CompressionAlgo.NONE.name())
-                            ? writerString
-                            : CompressionAlgo.valueOf(compression).compress(writerString, config.getCharset());
-                    writer.getBuffer().setLength(0);
-                    return data;
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
+                return Util.getStringOrCompressedData(writer, config);
             }
             else return null;
         }

@@ -24,7 +24,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 
 import static apoc.util.CompressionAlgo.BLOCK_LZ4;
-import static apoc.util.CompressionAlgo.GZIP;
 import static apoc.util.CompressionAlgo.NONE;
 import static apoc.util.MapUtil.map;
 import static junit.framework.TestCase.assertTrue;
@@ -83,7 +82,7 @@ public class ExportCsvTest {
     }
 
     private void assertHdfsFile(CompressionAlgo compression) {
-        String hdfsUrl = String.format("hdfs://localhost:12345/user/%s/all.csv", System.getProperty("user.name"));
+        String hdfsUrl = String.format("hdfs://localhost:12345/user/%s/all.csv" + compression.getFileExt(), System.getProperty("user.name"));
         TestUtil.testCall(db, "CALL apoc.export.csv.all($file, $config)", 
                 map("file", hdfsUrl, "config", map("compression", compression.name())),
                 (r) -> {
