@@ -413,9 +413,11 @@ public class    Meta {
     }
 
     private Map<String, Integer> labelsInUse(TokenRead ops, Collection<String> labelNames) {
+        final Iterable<Label> allLabelsInUse = tx.getAllLabelsInUse();
+        final Set<Label> allLabelsAsSet = Iterables.asSet(allLabelsInUse);
         Stream<String> labels = (labelNames == null || labelNames.isEmpty()) ?
-                Iterables.stream(tx.getAllLabelsInUse()).map(Label::name) :
-                labelNames.stream();
+                Iterables.stream(allLabelsInUse).map(Label::name) :
+                labelNames.stream().filter(labelName -> allLabelsAsSet.contains(Label.label(labelName)));
         return labels.collect(toMap(t -> t, ops::nodeLabel));
     }
 
@@ -621,6 +623,9 @@ public class    Meta {
         Map<String, List<Map<String, Object>>> startNodeNameToRelationshipsMap = new HashMap<>();
         for (String entityName : metaData.keySet()) {
             Map<String, MetaResult> entityData = metaData.get(entityName);
+            if (entityData.isEmpty()) {
+                continue;
+            }
             Map<String, Object> entityProperties = new LinkedHashMap<>();
             Map<String, Object> entityRelationships = new LinkedHashMap<>();
             List<String> labels = new LinkedList<>();
