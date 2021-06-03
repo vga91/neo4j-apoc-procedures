@@ -62,17 +62,17 @@ public class ExportXlsTest {
 
     @Test
     public void testExportAllXlsWithCompression() {
-        String fileName = "all.xlsx";
         final CompressionAlgo algo = CompressionAlgo.GZIP;
+        String fileName = "all.xlsx" + algo.getFileExt();
         TestUtil.testCall(db, "CALL apoc.export.xls.all($file, $config)",
                 map("file", fileName, "config", map("compression", algo.name())),
                 (r) -> assertResults(fileName, r, "database"));
 
-        assertExcelFileForGraph(fileName + algo.getFileExt(), algo);
+        assertExcelFileForGraph(fileName, algo);
     }
 
     @Test
-    public void testExportGraphXls() throws Exception {
+    public void testExportGraphXls()  {
         String fileName = "graph.xlsx";
         TestUtil.testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
                         "CALL apoc.export.xls.graph(graph, $file,null) " +

@@ -377,7 +377,7 @@ public class ExportGraphMLTest {
     @Test
     public void testExportAllGraphMLWithCompression() {
         final CompressionAlgo algo = CompressionAlgo.DEFLATE;
-        File output = new File(directory, "all.graphml");
+        File output = new File(directory, "all.graphml" + algo.getFileExt());
         TestUtil.testCall(db, "CALL apoc.export.graphml.all($file, $config)",
                 map("file", output.getAbsolutePath(), "config", map("compression", algo.name())),
                 (r) -> assertResults(output, r, "database"));

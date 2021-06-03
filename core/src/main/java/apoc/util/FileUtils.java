@@ -48,12 +48,6 @@ public class FileUtils {
     public static final Pattern S3_PATTERN = Pattern.compile("^(s3:\\/\\/)(?:[^@\\/\\n]+@)?([^\\/\\n]+)");
 
     private static final List<String> NON_FILE_PROTOCOLS = Arrays.asList(HTTP_PROTOCOL, S3_PROTOCOL, GCS_PROTOCOL, HDFS_PROTOCOL);
-    
-    // todo - su deflate non ne sono sicuro
-    // posso fare un getOrDefault... -->
-//    private static final Map<String, Object> MAP_FILE_COMPRESSED = Map.of(CompressionAlgo.FRAMED_SNAPPY.name(), ".sz", 
-//            CompressionAlgo.BZIP2.name(), ".bz2", CompressionAlgo.GZIP.name(), ".gz",
-//            CompressionAlgo.DEFLATE.name(), ".zz", CompressionAlgo.BLOCK_LZ4.name(), ".lz4");
 
     public static CountingReader readerFor(String fileName) throws IOException {
         return readerFor(fileName, null, null);

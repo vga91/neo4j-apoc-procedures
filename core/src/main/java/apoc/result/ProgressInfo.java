@@ -1,9 +1,8 @@
 package apoc.result;
 
 import apoc.export.util.ExportConfig;
-import apoc.util.CompressionAlgo;
+import apoc.util.Util;
 
-import java.io.IOException;
 import java.io.StringWriter;
 
 /**
@@ -72,16 +71,7 @@ public class ProgressInfo {
 
     public ProgressInfo drain(StringWriter writer, ExportConfig config) {
         if (writer != null) {
-            try {
-                final String compression = config.getCompressionAlgo();
-                final String writerString = writer.toString();
-                this.data = compression.equals(CompressionAlgo.NONE.name())
-                        ? writerString
-                        : CompressionAlgo.valueOf(compression).compress(writerString, config.getCharset());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            writer.getBuffer().setLength(0);
+            this.data = Util.getStringOrCompressedData(writer, config);
         }
         return this;
     }

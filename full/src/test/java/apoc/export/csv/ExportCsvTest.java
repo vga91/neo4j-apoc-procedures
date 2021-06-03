@@ -16,24 +16,18 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
-import org.neo4j.graphdb.Result;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
 
 import static apoc.util.CompressionAlgo.BLOCK_LZ4;
-import static apoc.util.CompressionAlgo.GZIP;
 import static apoc.util.CompressionAlgo.NONE;
 import static apoc.util.MapUtil.map;
-import static apoc.util.TestUtil.testResult;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author mh
@@ -88,7 +82,7 @@ public class ExportCsvTest {
     }
 
     private void assertHdfsFile(CompressionAlgo compression) {
-        String hdfsUrl = String.format("hdfs://localhost:12345/user/%s/all.csv", System.getProperty("user.name"));
+        String hdfsUrl = String.format("hdfs://localhost:12345/user/%s/all.csv" + compression.getFileExt(), System.getProperty("user.name"));
         TestUtil.testCall(db, "CALL apoc.export.csv.all($file, $config)", 
                 map("file", hdfsUrl, "config", map("compression", compression.name())),
                 (r) -> {

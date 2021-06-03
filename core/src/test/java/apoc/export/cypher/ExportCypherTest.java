@@ -484,8 +484,8 @@ public class ExportCypherTest {
 
     @Test
     public void testExportQueryCypherShellWithCompressionWithUnwindBatchSizeWithBatchSizeOptimized() throws Exception {
-        String fileName = "allPlainOptimized.cypher";
         final CompressionAlgo algo = CompressionAlgo.DEFLATE;
+        String fileName = "allPlainOptimized.cypher" + algo.getFileExt();
         TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,{compression: '" + algo.name() + "', format:'cypher-shell', useOptimizations: { type: 'unwind_batch', unwindBatchSize: 2}, batchSize: 2})",
                 map("file", fileName),
                 (r) -> assertResultsOptimized(fileName, r));
@@ -511,8 +511,8 @@ public class ExportCypherTest {
     
     @Test
     public void testExportWithCompressionQueryCypherShellUnwindBatchParamsWithOddDataset() {
-        String fileName = "allPlainOdd.cypher";
         final CompressionAlgo algo = CompressionAlgo.BZIP2;
+        String fileName = "allPlainOdd.cypher" + algo.getFileExt();
         TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,{compression: '" + algo.name() + "', format:'cypher-shell', useOptimizations: { type: 'unwind_batch_params', unwindBatchSize: 2}, batchSize:2})",
                 map("file", fileName),
                 (r) -> assertResultsOdd(fileName, r));

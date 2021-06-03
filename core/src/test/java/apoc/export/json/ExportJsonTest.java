@@ -99,13 +99,14 @@ public class ExportJsonTest {
 
     @Test
     public void testExportAllJsonStreamWithCompression() {
-        String filename = "all.json";
         final CompressionAlgo algo = FRAMED_SNAPPY;
+        String expectedFile = "all.json";
+        String filename = expectedFile + algo.getFileExt();
         TestUtil.testCall(db, "CALL apoc.export.json.all(null, $config)",
                 map("file", filename, "config", map("stream", true, "compression", algo.name())),
                 (r) -> {
                     assertStreamResults(r, "database");
-                    assertStreamEquals(filename, getDecompressedData(algo, r.get("data")));
+                    assertStreamEquals(expectedFile, getDecompressedData(algo, r.get("data")));
                 }
         );
     }
