@@ -1,5 +1,6 @@
 package apoc.meta;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.neo4j.logging.Log;
 import apoc.result.GraphResult;
 import apoc.result.MapResult;
@@ -413,12 +414,13 @@ public class    Meta {
     }
 
     private Map<String, Integer> labelsInUse(TokenRead ops, Collection<String> labelNames) {
-        final Iterable<Label> allLabelsInUse = tx.getAllLabelsInUse();
-        final Set<Label> allLabelsAsSet = Iterables.asSet(allLabelsInUse);
-        Stream<String> labels = (labelNames == null || labelNames.isEmpty()) ?
-                Iterables.stream(allLabelsInUse).map(Label::name) :
-                labelNames.stream().filter(labelName -> allLabelsAsSet.contains(Label.label(labelName)));
-        return labels.collect(toMap(t -> t, ops::nodeLabel));
+        Stream<Label> stream = Iterables.stream(tx.getAllLabelsInUse());
+        if (CollectionUtils.isNotEmpty(labelNames)) {
+            stream = stream.filter(rel -> labelNames.contains(rel.name()));
+        }
+        return stream
+                .map(Label::name)
+                .collect(toMap(t -> t, ops::nodeLabel));
     }
 
     // todo ask index for distinct values if index size < 10 or so
