@@ -28,6 +28,7 @@ import static apoc.util.TestUtil.testCall;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
+import static java.util.Comparator.comparing;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.neo4j.driver.Values.isoDuration;
@@ -371,6 +372,53 @@ public class MetaTest {
                     assertEquals(false, actedInRoleProperty.get("existence"));
                 });
     }
+    
+    @Test
+    public void testMetaSchemaWithNodesAndRelsWithoutProps() {
+        db.executeTransactionally("CREATE (:Other), (:Other)-[:REL_1]->(:Movie)<-[:REL_2 {baz: 'baa'}]-(:Director), (:Director {alpha: 'beta'}), (:Actor {foo:'bar'}), (:Person)");
+        testCall(db, "CALL apoc.meta.schema()",
+                (row) -> {
+                    Map<String, Object> value = (Map<String, Object>) row.get("value");
+                    assertEquals(7, value.size());
+
+                    Map<String, Object>  other = (Map<String, Object>) value.get("Other");
+                    Map<String, Object>  otherProperties = (Map<String, Object>) other.get("properties");
+                    assertEquals(0, otherProperties.size());
+                    assertEquals("node", other.get("type"));
+                    assertEquals(2L, other.get("count"));
+                    Map<String, Object>  Movie = (Map<String, Object>) value.get("Movie");
+                    Map<String, Object>  movieProperties = (Map<String, Object>) Movie.get("properties");
+                    assertEquals(0, movieProperties.size());
+                    assertEquals("node", Movie.get("type"));
+                    assertEquals(1L, Movie.get("count"));
+                    Map<String, Object>  director = (Map<String, Object>) value.get("Director");
+                    Map<String, Object>  directorProperties = (Map<String, Object>) director.get("properties");
+                    assertEquals(1, directorProperties.size());
+                    assertEquals("node", director.get("type"));
+                    assertEquals(2L, director.get("count"));
+                    Map<String, Object>  person = (Map<String, Object>) value.get("Person");
+                    Map<String, Object>  personProperties = (Map<String, Object>) person.get("properties");
+                    assertEquals(0, personProperties.size());
+                    assertEquals("node", person.get("type"));
+                    assertEquals(1L, person.get("count"));
+                    Map<String, Object>  actor = (Map<String, Object>) value.get("Actor");
+                    Map<String, Object>  actorProperties = (Map<String, Object>) actor.get("properties");
+                    assertEquals(1, actorProperties.size());
+                    assertEquals("node", actor.get("type"));
+                    assertEquals(1L, actor.get("count"));
+
+                    Map<String, Object>  rel1 = (Map<String, Object>) value.get("REL_1");
+                    Map<String, Object>  rel1Properties = (Map<String, Object>) rel1.get("properties");
+                    assertEquals(0, rel1Properties.size());
+                    assertEquals("relationship", rel1.get("type"));
+                    assertEquals(1L, rel1.get("count"));
+                    Map<String, Object>  rel2 = (Map<String, Object>) value.get("REL_2");
+                    Map<String, Object>  rel2Properties = (Map<String, Object>) rel2.get("properties");
+                    assertEquals(1, rel2Properties.size());
+                    assertEquals("relationship", rel2.get("type"));
+                    assertEquals(1L, rel2.get("count"));
+        });
+    }
 
     @Test
     public void testSubGraphNoLimits() throws Exception {
@@ -417,6 +465,33 @@ public class MetaTest {
             assertEquals(2, nodes.size());
             assertEquals(true, nodes.stream().map(n -> Iterables.first(n.getLabels()).name()).allMatch(n -> n.equals("A") || n.equals("C")));
             assertEquals(0, rels.size());
+        });
+    }
+    
+    @Test
+    public void testSubGraphLNotMatchingLabels() {
+        db.executeTransactionally("CREATE (:A)-[:X]->(b:B),(b)-[:Y]->(:C)");
+        
+        testCall(db,"CALL apoc.meta.subGraph({labels:['A', 'B', 'NotMatching'], includeRels: ['X', 'NotMatchingRel']})", (row) -> {
+            List<Node> nodes = ((List<Node>) row.get("nodes")).stream().sorted(comparing(node -> (String) node.getProperty("name"))).collect(Collectors.toList());
+            List<Relationship> rels = (List<Relationship>) row.get("relationships");
+            assertEquals(2, nodes.size());
+            final Node nodeA = nodes.get(0);
+            assertEquals(1L, nodeA.getProperty("count"));
+            assertEquals("A", nodeA.getProperty("name"));
+            assertEquals("A", Iterables.first(nodeA.getLabels()).name());
+            final Node nodeB = nodes.get(1);
+            assertEquals(1L, nodeB.getProperty("count"));
+            assertEquals("B", nodeB.getProperty("name"));
+            assertEquals("B", Iterables.first(nodeB.getLabels()).name());
+
+            assertEquals(1, rels.size());
+            final Relationship relationship = rels.get(0);
+            assertEquals(1L, relationship.getProperty("count"));
+            assertEquals(1L, relationship.getProperty("in"));
+            assertEquals(1L, relationship.getProperty("out"));
+            assertEquals("X", relationship.getProperty("type"));
+            assertEquals("X", relationship.getType().name());
         });
     }
 

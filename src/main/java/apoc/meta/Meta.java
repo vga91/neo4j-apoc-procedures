@@ -1,5 +1,6 @@
 package apoc.meta;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.neo4j.logging.Log;
 import apoc.result.GraphResult;
 import apoc.result.MapResult;
@@ -413,10 +414,13 @@ public class    Meta {
     }
 
     private Map<String, Integer> labelsInUse(TokenRead ops, Collection<String> labelNames) {
-        Stream<String> labels = (labelNames == null || labelNames.isEmpty()) ?
-                Iterables.stream(tx.getAllLabelsInUse()).map(Label::name) :
-                labelNames.stream();
-        return labels.collect(toMap(t -> t, ops::nodeLabel));
+        Stream<Label> stream = Iterables.stream(tx.getAllLabelsInUse());
+        if (CollectionUtils.isNotEmpty(labelNames)) {
+            stream = stream.filter(rel -> labelNames.contains(rel.name()));
+        }
+        return stream
+                .map(Label::name)
+                .collect(toMap(t -> t, ops::nodeLabel));
     }
 
     // todo ask index for distinct values if index size < 10 or so
@@ -695,6 +699,9 @@ public class    Meta {
         Map<String, Object> relationships = new LinkedHashMap<>();
         for(String entityName : metaData.keySet()) {
             Map<String, MetaResult> entityData = metaData.get(entityName);
+            if (entityData.isEmpty()) {
+                continue;
+            }
             Map<String, Object> entityProperties = new LinkedHashMap<>();
             boolean isRelationship = true;
             for (String entityDataKey : entityData.keySet()) {
