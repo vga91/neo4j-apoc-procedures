@@ -7,9 +7,11 @@ import apoc.export.util.NodesAndRelsSubGraph;
 import apoc.export.util.ProgressReporter;
 import apoc.result.ProgressInfo;
 import apoc.util.Util;
-import org.apache.commons.collections4.ListUtils;
+import org.apache.commons.collections4.SetUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.streaming.SXSSFCell;
+import org.apache.poi.xssf.streaming.SXSSFRow;
 import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.neo4j.cypher.export.DatabaseSubGraph;
@@ -25,6 +27,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -133,7 +136,7 @@ public class ExportXls {
                 columnNum = amendCell(row, columnNum, map.get(header), config, styles);
             }
         }
-        // autoSize when all sizes are kwnown
+        // autoSize when all sizes are known
         IntStream.range(0, columnNum).forEach(sheet::autoSizeColumn);
     }
 
@@ -142,7 +145,7 @@ public class ExportXls {
         // left: sheet instance
         // middle: list of "magic" property keys: <id> for nodes, <startNodeId> and <endNodeId> for rels
         // right: list of  "normal" property keys
-        Map<String, Triple<SXSSFSheet, List<String>, List<String>>> sheetAndPropsForName = new HashMap<>();
+        Map<String, Triple<SXSSFSheet, Set<String>, Set<String>>> sheetAndPropsForName = new HashMap<>();
 
         for (Node node : subgraph.getNodes()) {
             final List<String> labels;
@@ -157,28 +160,20 @@ public class ExportXls {
             }
             for (String label :labels) {
                 String labelName = (config.isPrefixSheetWithEntityType() ? "Node-" : "") + label;
-                createRowForEntity(wb, sheetAndPropsForName, node, labelName, reporter, config, styles);
+                createRowForEntity(wb, sheetAndPropsForName, node, labelName, reporter, config, styles, subgraph);
             }
         }
         for (Relationship relationship: subgraph.getRelationships()) {
             String relationshipType = (config.isPrefixSheetWithEntityType() ? "Rel-" : "") + relationship.getType().name();
-            createRowForEntity(wb, sheetAndPropsForName, relationship, relationshipType, reporter, config,styles);
+            createRowForEntity(wb, sheetAndPropsForName, relationship, relationshipType, reporter, config,styles, subgraph);
         }
-
         // spit out header lines
-        for (Triple<SXSSFSheet,List<String>, List<String>> triple: sheetAndPropsForName.values()) {
+        for (Triple<SXSSFSheet, Set<String>, Set<String>> triple: sheetAndPropsForName.values()) {
             Sheet sheet = triple.getLeft();
 
-            List<String> magicKeys = triple.getMiddle();
-            List<String> keys = triple.getRight();
-            Row row = sheet.rowIterator().next();
-            int cellNum = 0;
-            for (String key: ListUtils.union(magicKeys,keys)) {
-                sheet.autoSizeColumn(cellNum);
-                Cell cell = row.createCell(cellNum++);
-                cell.setCellValue(key);
-
-            }
+            Set<String> magicKeys = triple.getMiddle();
+            Set<String> keys = triple.getRight();
+            IntStream.range(0, magicKeys.size() + keys.size()).forEach(sheet::autoSizeColumn);
         }
     }
 
@@ -195,20 +190,40 @@ public class ExportXls {
         return styles;
     }
 
-    private void createRowForEntity(Workbook wb, Map<String, Triple<SXSSFSheet, List<String>, List<String>>> sheetAndPropsForName, Entity entity, String sheetName, ProgressReporter reporter, XlsExportConfig config, Map<Class, CellStyle> styles) {
-        Triple<SXSSFSheet, List<String>, List<String>> triple = sheetAndPropsForName.computeIfAbsent(sheetName, s -> {
+    private void createRowForEntity(Workbook wb, Map<String, Triple<SXSSFSheet, Set<String>, Set<String>>> sheetAndPropsForName, Entity entity, String sheetName, ProgressReporter reporter, XlsExportConfig config, Map<Class, CellStyle> styles, SubGraph subGraph) {
+        Triple<SXSSFSheet, Set<String>, Set<String>> triple = sheetAndPropsForName.computeIfAbsent(sheetName, s -> {
             SXSSFSheet sheet = (SXSSFSheet) wb.createSheet(sheetName);
             sheet.trackAllColumnsForAutoSizing();
-            sheet.createRow(0); // placeholder for header line
-            return Triple.of(
-                    sheet,
-                    entity instanceof Node ?
-                            Arrays.asList(config.getHeaderNodeId()) :
-                            Arrays.asList(config.getHeaderRelationshipId(), config.getHeaderStartNodeId(), config.getHeaderEndNodeId()),
-                    new ArrayList<>());
+            final SXSSFRow row = sheet.createRow(0);// placeholder for header line
+
+            final Stream streamEntities;
+            final Set<String> magicKeys;
+            // get all properties keys
+            if (entity instanceof Node) {
+                streamEntities = StreamSupport.stream(subGraph.getNodes().spliterator(), false)
+                        .filter(node -> node.hasLabel(Label.label(sheetName)));
+                magicKeys = Set.of(config.getHeaderNodeId());
+            } else {
+                streamEntities = StreamSupport.stream(subGraph.getRelationships().spliterator(), false)
+                        .filter(rel -> rel.isType(RelationshipType.withName(sheetName)));
+                magicKeys = Set.of(config.getHeaderRelationshipId(), config.getHeaderStartNodeId(), config.getHeaderEndNodeId());
+            }
+            
+            final Set<String> properties = (Set<String>) streamEntities
+                    .flatMap(i -> StreamSupport.stream(((Entity) i).getPropertyKeys().spliterator(), false))
+                    .collect(Collectors.toSet());
+
+            // populate the first cell immediately
+            AtomicInteger cellNum = new AtomicInteger();
+            SetUtils.union(magicKeys, properties).forEach(headerKey -> {
+                final SXSSFCell cell = row.createCell(cellNum.getAndIncrement());
+                cell.setCellValue(headerKey);
+            });
+            
+            return Triple.of(sheet, magicKeys, properties);
         });
         Sheet sheet = triple.getLeft();
-        List<String> propertyKeys = triple.getRight();
+        Set<String> propertyKeys = triple.getRight();
 
         int lastRowNum = sheet.getLastRowNum();
         Row row = sheet.createRow(lastRowNum+1);
@@ -234,12 +249,6 @@ public class ExportXls {
         // deal with property keys already being known
         for (String key: propertyKeys) {
             cellNum = amendCell(row, cellNum, props.remove(key), config, styles);
-        }
-
-        // add remaining properties as new keys
-        for (String key: props.keySet()) {
-            propertyKeys.add(key);
-            cellNum = amendCell(row, cellNum, props.get(key), config, styles);
         }
     }
 
