@@ -963,8 +963,7 @@ public class Util {
     public static boolean isSelfRel(Relationship rel) {
         return rel.getStartNodeId() == rel.getEndNodeId();
     }
-
-
+    
     public static PointValue toPoint(Map<String, Object> pointMap, Map<String, Object> defaultPointMap) {
         double x;
         double y;
