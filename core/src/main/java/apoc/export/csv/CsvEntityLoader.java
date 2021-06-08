@@ -64,19 +64,7 @@ public class CsvEntityLoader {
         idMapping.putIfAbsent(idSpace, new HashMap<>());
         final Map<String, Long> idspaceIdMapping = idMapping.get(idSpace);
 
-        final Map<String, Mapping> mapping = fields.stream().collect(
-                Collectors.toMap(
-                        CsvHeaderField::getName,
-                        f -> {
-                            final Map<String, Object> mappingMap = Collections
-                                    .unmodifiableMap(Stream.of(
-                                            new AbstractMap.SimpleEntry<>("type", f.getType()),
-                                            new AbstractMap.SimpleEntry<>("array", f.isArray())
-                                    ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
-                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false);
-                        }
-                )
-        );
+        final Map<String, Mapping> mapping = getMapping(fields);
 
         final CSVReader csv = new CSVReader(reader, clc.getDelimiter(), clc.getQuotationCharacter());
 
@@ -176,20 +164,7 @@ public class CsvEntityLoader {
                 .filter(field -> !CsvLoaderConstants.END_ID_FIELD.equals(field.getType()))
                 .collect(Collectors.toList());
 
-        final Map<String, Mapping> mapping = fields.stream().collect(
-                Collectors.toMap(
-                        CsvHeaderField::getName,
-                        f -> {
-                            final Map<String, Object> mappingMap = Collections
-                                    .unmodifiableMap(Stream.of(
-                                            new AbstractMap.SimpleEntry<>("type", f.getType()),
-                                            new AbstractMap.SimpleEntry<>("array", f.isArray())
-                                    ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
-
-                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false);
-                        }
-                )
-        );
+        final Map<String, Mapping> mapping = getMapping(fields);
 
         final CSVReader csv = new CSVReader(reader, clc.getDelimiter());
         final String[] loadCsvCompatibleHeader = fields.stream().map(f -> f.getName()).toArray(String[]::new);
@@ -238,6 +213,24 @@ public class CsvEntityLoader {
                 reporter.update(0, 1, props);
             }
         }
+    }
+
+    private Map<String, Mapping> getMapping(List<CsvHeaderField> fields) {
+        return fields.stream().collect(
+                Collectors.toMap(
+                        CsvHeaderField::getName,
+                        f -> {
+                            final Map<String, Object> mappingMap = Collections
+                                    .unmodifiableMap(Stream.of(
+                                            new AbstractMap.SimpleEntry<>("type", f.getType()),
+                                            new AbstractMap.SimpleEntry<>("array", f.isArray()),
+                                            new AbstractMap.SimpleEntry<>("optionalData", f.getOptionalData())
+                                    ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
+
+                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false);
+                        }
+                )
+        );
     }
 
     private static String readFirstLine(CountingReader reader) throws IOException {
