@@ -23,7 +23,10 @@ import java.util.function.Consumer;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 /**
  * @author mh
@@ -99,7 +102,7 @@ public class ExportCsvTest {
             ",,,,,,,,0,1,KNOWS%n" +
             ",,,,,,,,3,4,NEXT_DELIVERY%n");
 
-    private static File directory = new File("target/import");
+    public static File directory = new File("target/import");
     static { //noinspection ResultOfMethodCallIgnored
         directory.mkdirs();
     }
@@ -116,7 +119,7 @@ public class ExportCsvTest {
         db.executeTransactionally("CREATE (f:Address1:Address {name:'Andrea', city: 'Milano', street:'Via Garibaldi, 7'})-[:NEXT_DELIVERY]->(a:Address {name: 'Bar Sport'}), (b:Address {street: 'via Benni'})");
     }
 
-    private String readFile(String fileName) {
+    public static String readFile(String fileName) {
         return TestUtil.readFileToString(new File(directory, fileName));
     }
 
