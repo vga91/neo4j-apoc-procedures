@@ -19,7 +19,10 @@ import java.util.function.Consumer;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 /**
  * @author mh
@@ -80,7 +83,7 @@ public class ExportCsvTest {
             ",,,,,,,,0,1,KNOWS%n" +
             ",,,,,,,,3,4,NEXT_DELIVERY%n");
 
-    private static File directory = new File("target/import");
+    public static File directory = new File("target/import");
     static { //noinspection ResultOfMethodCallIgnored
         directory.mkdirs();
     }
@@ -97,7 +100,7 @@ public class ExportCsvTest {
         db.executeTransactionally("CREATE (f:Address1:Address {name:'Andrea', city: 'Milano', street:'Via Garibaldi, 7'})-[:NEXT_DELIVERY]->(a:Address {name: 'Bar Sport'}), (b:Address {street: 'via Benni'})");
     }
 
-    private String readFile(String fileName) {
+    public static String readFile(String fileName) {
         return TestUtil.readFileToString(new File(directory, fileName));
     }
 
@@ -230,11 +233,16 @@ public class ExportCsvTest {
         assertEquals(EXPECTED_QUERY_NODES, readFile(fileName));
     }
 
-    private void assertResults(String fileName, Map<String, Object> r, final String source) {
-        assertEquals(6L, r.get("nodes"));
-        assertEquals(2L, r.get("relationships"));
-        assertEquals(12L, r.get("properties"));
-        assertEquals(source + ": nodes(6), rels(2)", r.get("source"));
+    private static void assertResults(String fileName, Map<String, Object> r, final String source) {
+        assertResults(fileName, r, source, 6L, 2L, 12L);
+    }
+
+    public static void assertResults(String fileName, Map<String, Object> r, final String source, 
+                                     long expectedNodes, long expectedRels, long expectedProps) {
+        assertEquals(expectedNodes, r.get("nodes"));
+        assertEquals(expectedRels, r.get("relationships"));
+        assertEquals(expectedProps, r.get("properties"));
+        assertEquals(source + String.format(": nodes(%d), rels(%d)", expectedNodes, expectedRels), r.get("source"));
         assertEquals(fileName, r.get("file"));
         assertEquals("csv", r.get("format"));
         assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);

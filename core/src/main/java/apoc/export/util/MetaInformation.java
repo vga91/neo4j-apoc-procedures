@@ -11,8 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static apoc.export.util.BulkImportUtil.allowedMapping;
 import static apoc.gephi.GephiFormatUtils.getCaption;
 import static java.util.Arrays.asList;
+import static org.apache.commons.lang3.ClassUtils.primitiveToWrapper;
 
 /**
  * @author mh
@@ -52,9 +54,17 @@ public class MetaInformation {
 
     public static String typeFor(Class value, Set<String> allowed) {
         if (value == void.class) return null; // Is this necessary?
+        final boolean isArray = value.isArray();
+        value = isArray ? value.getComponentType() : value;
+        // csv case
+        if (allowed == null) {
+            return allowedMapping.getOrDefault(primitiveToWrapper(value), "string")
+                    + (isArray ? "[]" : "");
+        }
+        // graphML case
+        String name = value.getSimpleName().toLowerCase();
+        boolean isAllowed = allowed.contains(name);
         Meta.Types type = Meta.Types.of(value);
-        String name = (value.isArray() ? value.getComponentType() : value).getSimpleName().toLowerCase();
-        boolean isAllowed = allowed != null && allowed.contains(name);
         switch (type) {
             case NULL:
                 return null;
