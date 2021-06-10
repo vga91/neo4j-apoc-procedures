@@ -7,6 +7,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.common.DependencyResolver;
 import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.TransientTransactionFailureException;
@@ -25,12 +26,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.map;
+import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -41,6 +47,7 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.neo4j.driver.internal.util.Iterables.count;
+import static org.neo4j.test.assertion.Assert.assertEventually;
 
 public class PeriodicTest {
 
@@ -441,6 +448,55 @@ public class PeriodicTest {
                 "MATCH (p:Person {name: 'John Doe'}) RETURN p.name AS name",
                 row -> assertEquals( row.get( "name" ), "John Doe" )
         );
+    }
+
+    @Test
+    public void testRepeatParams1() throws InterruptedException {
+        final List<String> labels = IntStream.range(0, 20).mapToObj(i -> UUID.randomUUID().toString()).collect(toList());
+        // rate set to 1 second
+        // without tolerateErrors, any of these procedures should throw an exception because of toInteger(rand()*2) = 0 or 1
+        // and then they don't repeat after a second
+        labels.forEach(label -> db.executeTransactionally(
+                format("CALL apoc.periodic.repeat('%1$s', 'CREATE (n:`%1$s` {id: 1 / toInteger(rand()*2)})', 1, {tolerateErrors: true})", label)));
+        Thread.sleep(10000);
+
+        testCall(db, "CALL apoc.periodic.list() YIELD name RETURN count(name) as count", r -> assertEquals(20L, r.get("count")));
+
+        labels.forEach(label -> {
+            testCall(db, format("MATCH (n:`%s`) RETURN count(n) as count", label), r -> assertTrue((long) r.get("count") > 0));
+            db.executeTransactionally(format("CALL apoc.periodic.cancel('%s')", label));
+        });
+    }
+
+    @Test
+    public void testRepeatParamsWithRetry() throws InterruptedException {
+        final List<String> labels = IntStream.range(0, 20).mapToObj(i -> UUID.randomUUID().toString()).collect(toList());
+        // rate set to 60 seconds
+        // without retries, any of these procedures should not create node because of toInteger(rand()*2) = 0 or 1
+        labels.forEach(label -> db.executeTransactionally(
+                format("CALL apoc.periodic.repeat('%1$s', 'CREATE (n:`%1$s` {id: 1 / toInteger(rand()*2)})', 60, {retries: 10})", label)));
+
+        Thread.sleep(3000);
+        
+        labels.forEach(label -> {
+            testCall(db, format("MATCH (n:`%s`) RETURN count(n) as count", label), r -> assertTrue((long) r.get("count") > 0));
+            db.executeTransactionally(format("CALL apoc.periodic.cancel('%s')", label));
+        });
+    }
+    
+    @Test
+    public void testRepeatParamsWithRetryAndTolerate() {
+        // 2 "certainly failing" procedures, one with tolerateErrors: true and one with tolerateErrors: false
+        db.executeTransactionally("CALL apoc.periodic.repeat('retryAndTolerate', 'MATCH (n:Chuck) WITH count(n) as c CREATE (:Norris {id: 1/c})', 1, {retries: 3, tolerateErrors: true})");
+        db.executeTransactionally("CALL apoc.periodic.repeat('retryAndNOTolerate', 'MATCH (n:Chuck) WITH count(n) as c CREATE (:Norris {id: 1/c})', 1, {retries: 3, tolerateErrors: false})");
+        assertEventually(() -> db.executeTransactionally("CALL apoc.periodic.list()",
+                emptyMap(), (r) -> {
+                    final ResourceIterator<String> nameIterator = r.columnAs("name");
+                    // only first periodic remains, because of 'tolerateErrors: true'
+                    return nameIterator.next().equals("retryAndTolerate") && !nameIterator.hasNext();
+                }), (value) -> value, 15L, TimeUnit.SECONDS);
+
+        db.executeTransactionally("CALL apoc.periodic.cancel('retryAndTolerate')");
     }
 
     private long tryReadCount(int maxAttempts, String statement, long expected) throws InterruptedException {
