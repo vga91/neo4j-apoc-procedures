@@ -210,14 +210,14 @@ public class Util {
         return retryInTx(log, db, function, retry, maxRetries, callbackForRetry, false);
     }
 
-    public static <T> T retryInTx(Log log, GraphDatabaseService db, Function<Transaction, T> function, long retry, long maxRetries, Consumer<Long> callbackForRetry, boolean tolerateError) {
+    public static <T> T retryInTx(Log log, GraphDatabaseService db, Function<Transaction, T> function, long retry, long maxRetries, Consumer<Long> callbackForRetry, boolean tolerateErrors) {
         try (Transaction tx = db.beginTx()) {
             T result = function.apply(tx);
             tx.commit();
             return result;
         } catch (Exception e) {
             if (retry >= maxRetries) {
-                if (tolerateError) {
+                if (tolerateErrors) {
                     if (log != null) {
                         log.error(String.format("Max number of attempts (%d) reached.", maxRetries));
                     }
@@ -231,7 +231,7 @@ public class Util {
             }
             callbackForRetry.accept(retry);
             Util.sleep(100);
-            return retryInTx(log, db, function, retry + 1, maxRetries, callbackForRetry, tolerateError);
+            return retryInTx(log, db, function, retry + 1, maxRetries, callbackForRetry, tolerateErrors);
         }
     }
 
