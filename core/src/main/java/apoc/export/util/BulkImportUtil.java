@@ -8,6 +8,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static apoc.export.util.MetaInformation.typeFor;
+
 public class BulkImportUtil {
 
     public static Map<Class<?>, String> allowedMapping = Collections.unmodifiableMap(new HashMap(){{
@@ -29,12 +31,9 @@ public class BulkImportUtil {
     }});
 
 
-    public static String formatHeader(Map.Entry<String, Class> r) {
-        if (allowedMapping.containsKey(r.getValue())) {
-            return r.getKey() + ":" + allowedMapping.get(r.getValue());
-        } else {
-            return r.getKey();
-        }
+    public static String formatHeader(Map.Entry<String, Class> r, boolean isImportToolArrays) {
+        String type = typeFor(r.getValue(), null, isImportToolArrays);
+        return r.getKey() + type;
     }
 
 }

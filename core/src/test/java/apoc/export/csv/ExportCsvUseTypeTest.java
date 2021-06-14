@@ -20,6 +20,7 @@ import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.Assert.assertEquals;
 
+
 // Created to not affect ExportCsvTest results
 public class ExportCsvUseTypeTest {
 
@@ -55,13 +56,13 @@ public class ExportCsvUseTypeTest {
     @Test
     public void testExportCsvAll() {
         String fileName = "manyTypes.csv";
-        testCall(db, "CALL apoc.export.csv.all($file, {useTypes: true, quotes: 'none'})", map("file", fileName),
+        testCall(db, "CALL apoc.export.csv.all($file, {useTypes: true, quotes: 'none', importToolArrays: true})", map("file", fileName),
                 (r) -> assertResults(fileName, r, "database", 2L, 1L, 17L));
-        final String expected = Util.readResourceFile("manyTypes.csv");
+        final String expected = Util.readResourceFile(fileName);
         assertEquals(expected, readFile(fileName));
 
         // -- streaming mode
-        String statement = "CALL apoc.export.csv.all(null, {stream:true, useTypes: true, quotes: 'none'})";
+        String statement = "CALL apoc.export.csv.all(null, {stream:true, useTypes: true, quotes: 'none', importToolArrays: true})";
         testCall(db, statement, (r) -> assertEquals(expected, r.get("data")));
     }
 
@@ -69,11 +70,24 @@ public class ExportCsvUseTypeTest {
     public void testExportCsvGraph() {
         String fileName = "manyTypes.csv";
         testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
-                        "CALL apoc.export.csv.graph(graph, $file,{useTypes: true, quotes: 'none'}) " +
+                        "CALL apoc.export.csv.graph(graph, $file,{useTypes: true, quotes: 'none', importToolArrays: true}) " +
                         "YIELD nodes, relationships, properties, file, source,format, time " +
                         "RETURN *", map("file", fileName),
                 (r) -> assertResults(fileName, r, "graph", 2L, 1L, 17L));
-        final String expected = Util.readResourceFile("manyTypes.csv");
+        final String expected = Util.readResourceFile(fileName);
         assertEquals(expected, readFile(fileName));
+    }
+
+    @Test
+    public void testExportCsvGraphWithoutImportToolArrays() {
+        String fileName = "manyTypesWithArrayLegacy.csv";
+        testCall(db, "CALL apoc.export.csv.all($file, {useTypes: true, quotes: 'none'})", map("file", fileName),
+                (r) -> assertResults(fileName, r, "database", 2L, 1L, 17L));
+        final String expected = Util.readResourceFile(fileName);
+        assertEquals(expected, readFile(fileName));
+
+        // -- streaming mode
+        String statement = "CALL apoc.export.csv.all(null, {stream:true, useTypes: true, quotes: 'none'})";
+        testCall(db, statement, (r) -> assertEquals(expected, r.get("data")));
     }
 }

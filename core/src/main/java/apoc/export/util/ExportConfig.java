@@ -29,8 +29,9 @@ public class ExportConfig extends CompressionConfig {
 
     private int batchSize;
     private boolean silent;
-    private boolean bulkImport = false;
+    private boolean bulkImport;
     private boolean sampling;
+    private boolean importToolArrays;
     private String delim;
     private String quotes;
     private boolean useTypes;
@@ -60,6 +61,10 @@ public class ExportConfig extends CompressionConfig {
 
     public boolean isBulkImport() {
         return bulkImport;
+    }
+
+    public boolean isImportToolArrays() {
+        return importToolArrays;
     }
 
     public char getDelimChar() {
@@ -94,6 +99,7 @@ public class ExportConfig extends CompressionConfig {
         this.caption = convertCaption(config.getOrDefault("caption", asList("name", "title", "label", "id")));
         this.nodesOfRelationships = toBoolean(config.get("nodesOfRelationships"));
         this.bulkImport = toBoolean(config.get("bulkImport"));
+        this.importToolArrays = toBoolean(config.getOrDefault("importToolArrays", false));
         this.separateHeader = toBoolean(config.get("separateHeader"));
         this.format = ExportFormat.fromString((String) config.getOrDefault("format", "cypher-shell"));
         this.cypherFormat = CypherFormat.fromString((String) config.getOrDefault("cypherFormat", "create"));
