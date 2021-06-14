@@ -348,6 +348,30 @@ _id:id,_labels:label,five:date,four:localdatetime,one:datetime,seven,six:duratio
 ----
 
 
+Note that, in case of lists,
+to export in a format valid for neo4j-admin-import,
+you need to add the configuration `{importToolArrays: true}`,
+otherwise the header will not have the wording `:DataType[]`
+and the array will be converted using the `com.fasterxml.jackson.databind.ObjectMapper.writeValueAsString()`.
+That is, with a node `(n:Test {propList: ["a", "b", "c"]})`,
+using `{importToolArrays: true, arrayDelim: ';'}`, we would have:
+
+[source,csv]
+----
+_id:id,_labels:label,propList:string[]
+0,:Test,a;b;c
+----
+
+otherwise, with `{importToolArrays: false}`:
+
+[source,csv]
+----
+_id:id,_labels:label,propList
+0,:Test,["a","b","c"]
+----
+
+This consideration is also valid with `{bulkImport: true}`.
+
 [[export-cypher-query-csv]]
 === Export results of Cypher query to CSV
 

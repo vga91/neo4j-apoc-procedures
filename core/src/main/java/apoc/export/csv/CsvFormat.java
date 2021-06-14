@@ -122,7 +122,7 @@ public class CsvFormat implements Format {
                 for (int col = 0; col < header.length; col++) {
                     String key = header[col];
                     Object value = row.get(key);
-                    data[col] = FormatUtils.toString(value);
+                    data[col] = FormatUtils.toString(value, config.isImportToolArrays(), config.getArrayDelim());
                     reporter.update(value instanceof Node ? 1: 0,value instanceof Relationship ? 1: 0 , value instanceof Entity ? 0 : 1);
                 }
                 out.writeNext(data, applyQuotesToAll);
@@ -146,15 +146,15 @@ public class CsvFormat implements Format {
     public void writeAll(SubGraph graph, Reporter reporter, ExportConfig config, CSVWriter out) {
         Map<String,Class> nodePropTypes = collectPropTypesForNodes(graph);
         Map<String,Class> relPropTypes = collectPropTypesForRelationships(graph);
-        List<Map.Entry<String, String>> nodeHeader = generateHeader(nodePropTypes, config.useTypes(), NODE_HEADER_FIXED_COLUMNS);
-        List<Map.Entry<String, String>> relHeader = generateHeader(relPropTypes, config.useTypes(), REL_HEADER_FIXED_COLUMNS);
+        List<Map.Entry<String, String>> nodeHeader = generateHeader(nodePropTypes, config, NODE_HEADER_FIXED_COLUMNS);
+        List<Map.Entry<String, String>> relHeader = generateHeader(relPropTypes, config, REL_HEADER_FIXED_COLUMNS);
         List<Map.Entry<String, String>> header = new ArrayList<>(nodeHeader);
         header.addAll(relHeader);
         out.writeNext(header.stream().map(e -> e.getKey() + e.getValue()).toArray(String[]::new), applyQuotesToAll);
         int cols = header.size();
 
-        writeNodes(graph, out, reporter, getNamesHeader(nodeHeader, NODE_HEADER_FIXED_COLUMNS.length), cols, config.getBatchSize());
-        writeRels(graph, out, reporter, getNamesHeader(relHeader, REL_HEADER_FIXED_COLUMNS.length), cols, nodeHeader.size(), config.getBatchSize());
+        writeNodes(graph, out, reporter, getNamesHeader(nodeHeader, NODE_HEADER_FIXED_COLUMNS.length), cols, config);
+        writeRels(graph, out, reporter, getNamesHeader(relHeader, REL_HEADER_FIXED_COLUMNS.length), cols, nodeHeader.size(), config);
     }
 
     private List<String> getNamesHeader(List<Map.Entry<String, String>> nodeHeader, int length) {
@@ -173,7 +173,8 @@ public class CsvFormat implements Format {
 
     private void writeNodesBulkImport(Reporter reporter, ExportConfig config, ExportFileManager writer, Map<Iterable<Label>, List<Node>> objectNode) {
         objectNode.entrySet().forEach(entrySet -> {
-            Set<String> headerNode = generateHeaderNodeBulkImport(entrySet);
+            boolean isImportToolArrays = config.isImportToolArrays();
+            Set<String> headerNode = generateHeaderNodeBulkImport(entrySet, isImportToolArrays);
 
             List<List<String>> rows = entrySet.getValue()
                     .stream()
@@ -184,7 +185,7 @@ public class CsvFormat implements Format {
                                 return joinLabels(entrySet.getKey(), config.getArrayDelim());
                             }
                             String prop = s.split(":")[0];
-                            return "".equals(prop) ? String.valueOf(n.getId()) : cleanPoint(FormatUtils.toString(n.getProperty(prop, "")));
+                            return "".equals(prop) ? String.valueOf(n.getId()) : cleanPoint(FormatUtils.toString(n.getProperty(prop, ""), isImportToolArrays, config.getArrayDelim()));
                         }).collect(Collectors.toList());
                     })
                     .collect(Collectors.toList());
@@ -195,8 +196,9 @@ public class CsvFormat implements Format {
     }
 
     private void writeRelsBulkImport(Reporter reporter, ExportConfig config, ExportFileManager writer, Map<RelationshipType, List<Relationship>> objectRel) {
+        boolean isImportToolArrays = config.isImportToolArrays();
         objectRel.entrySet().forEach(entrySet -> {
-            Set<String> headerRel = generateHeaderRelationshipBulkImport(entrySet);
+            Set<String> headerRel = generateHeaderRelationshipBulkImport(entrySet, isImportToolArrays);
 
             List<List<String>> rows = entrySet.getValue()
                     .stream()
@@ -212,7 +214,7 @@ public class CsvFormat implements Format {
                                     return entrySet.getKey().name();
                                 default:
                                     String prop = s.split(":")[0];
-                                    return "".equals(prop) ? String.valueOf(r.getId()) : cleanPoint(FormatUtils.toString(r.getProperty(prop, "")));
+                                    return "".equals(prop) ? String.valueOf(r.getId()) : cleanPoint(FormatUtils.toString(r.getProperty(prop, ""), isImportToolArrays, config.getArrayDelim()));
                             }
                         }).collect(Collectors.toList());
                     })
@@ -228,27 +230,27 @@ public class CsvFormat implements Format {
         return point;
     }
 
-    private Set<String> generateHeaderNodeBulkImport(Map.Entry<Iterable<Label>, List<Node>> entrySet) {
+    private Set<String> generateHeaderNodeBulkImport(Map.Entry<Iterable<Label>, List<Node>> entrySet, boolean isImportToolArrays) {
         Set<String> headerNode = new LinkedHashSet<>();
         headerNode.add(":ID");
         Map<String,Class> keyTypes = new LinkedHashMap<>();
         entrySet.getValue().forEach(node -> updateKeyTypes(keyTypes, node));
         final LinkedHashSet<String> otherFields = keyTypes.entrySet().stream()
-                .map(stringClassEntry -> formatHeader(stringClassEntry))
+                .map(stringClassEntry -> formatHeader(stringClassEntry, isImportToolArrays))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         headerNode.addAll(otherFields);
         headerNode.add(":LABEL");
         return headerNode;
     }
 
-    private Set<String> generateHeaderRelationshipBulkImport(Map.Entry<RelationshipType, List<Relationship>> entrySet) {
+    private Set<String> generateHeaderRelationshipBulkImport(Map.Entry<RelationshipType, List<Relationship>> entrySet, boolean isImportToolArrays) {
         Set<String> headerNode = new LinkedHashSet<>();
         Map<String,Class> keyTypes = new LinkedHashMap<>();
         entrySet.getValue().forEach(relationship -> updateKeyTypes(keyTypes, relationship));
         headerNode.add(":START_ID");
         headerNode.add(":END_ID");
         headerNode.add(":TYPE");
-        headerNode.addAll(keyTypes.entrySet().stream().map(stringClassEntry -> formatHeader(stringClassEntry)).collect(Collectors.toCollection(LinkedHashSet::new)));
+        headerNode.addAll(keyTypes.entrySet().stream().map(stringClassEntry -> formatHeader(stringClassEntry, isImportToolArrays)).collect(Collectors.toCollection(LinkedHashSet::new)));
         return headerNode;
     }
 
@@ -269,7 +271,9 @@ public class CsvFormat implements Format {
         }
     }
 
-    private List<Map.Entry<String, String>> generateHeader(Map<String, Class> propTypes, boolean useTypes, String... startersString) {
+    private List<Map.Entry<String, String>> generateHeader(Map<String, Class> propTypes, ExportConfig config, String... startersString) {
+        boolean useTypes = config.useTypes();
+        boolean isImportToolArrays = config.isImportToolArrays();
         List<Map.Entry<String, String>> result = Arrays.stream(startersString)
                 .map(item -> {
                     final String[] split = item.split(":");
@@ -279,22 +283,22 @@ public class CsvFormat implements Format {
         
         result.addAll(propTypes.entrySet().stream()
                 .map(entry -> {
-                    String type = MetaInformation.typeFor(entry.getValue(), null);
-                    return new AbstractMap.SimpleEntry<>(entry.getKey(),
-                            (type == null || type.equals("string") || !useTypes) ? "" : ":" + type);
+                    String type = useTypes ? MetaInformation.typeFor(entry.getValue(), null, isImportToolArrays) : "";
+                    return new AbstractMap.SimpleEntry<>(entry.getKey(), type == null ? "" : type);
                 })
                 .sorted(Map.Entry.comparingByKey())
                 .collect(Collectors.toList()));
         return result;
     }
 
-    private void writeNodes(SubGraph graph, CSVWriter out, Reporter reporter, List<String> header, int cols, int batchSize) {
+    private void writeNodes(SubGraph graph, CSVWriter out, Reporter reporter, List<String> header, int cols, ExportConfig config) {
+        int batchSize = config.getBatchSize();
         String[] row=new String[cols];
         int nodes = 0;
         for (Node node : graph.getNodes()) {
             row[0]=String.valueOf(node.getId());
             row[1]=getLabelsString(node);
-            collectProps(header, node, reporter, row, 2);
+            collectProps(header, node, reporter, row, 2, config);
             out.writeNext(row, applyQuotesToAll);
             nodes++;
             if (batchSize==-1 || nodes % batchSize == 0) {
@@ -307,10 +311,10 @@ public class CsvFormat implements Format {
         }
     }
 
-    private void collectProps(Collection<String> fields, Entity pc, Reporter reporter, String[] row, int offset) {
+    private void collectProps(Collection<String> fields, Entity pc, Reporter reporter, String[] row, int offset, ExportConfig config) {
         for (String field : fields) {
             if (pc.hasProperty(field)) {
-                row[offset] = FormatUtils.toString(pc.getProperty(field));
+                row[offset] = FormatUtils.toString(pc.getProperty(field), config.isImportToolArrays(), config.getArrayDelim());
                 reporter.update(0,0,1);
             }
             else {
@@ -320,14 +324,15 @@ public class CsvFormat implements Format {
         }
     }
 
-    private void writeRels(SubGraph graph, CSVWriter out, Reporter reporter, List<String> relHeader, int cols, int offset, int batchSize) {
+    private void writeRels(SubGraph graph, CSVWriter out, Reporter reporter, List<String> relHeader, int cols, int offset, ExportConfig config) {
+        int batchSize = config.getBatchSize();
         String[] row=new String[cols];
         int rels = 0;
         for (Relationship rel : graph.getRelationships()) {
             row[offset]=String.valueOf(rel.getStartNode().getId());
             row[offset+1]=String.valueOf(rel.getEndNode().getId());
             row[offset+2]=rel.getType().name();
-            collectProps(relHeader, rel, reporter, row, 3 + offset);
+            collectProps(relHeader, rel, reporter, row, 3 + offset, config);
             out.writeNext(row, applyQuotesToAll);
             rels++;
             if (batchSize==-1 || rels % batchSize == 0) {
