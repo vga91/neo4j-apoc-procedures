@@ -66,7 +66,7 @@ public class CypherProceduresClusterTest {
 
         // whencypher procedures
         try(Session session = cluster.getDriver().session()) {
-            TestContainerUtil.testCallInReadTransaction(cluster.getSession(), "return custom.answer1() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+            TestContainerUtil.testCallInReadTransaction(session, "return custom.answer1() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
         }
 
         Thread.sleep(1000);
@@ -74,7 +74,7 @@ public class CypherProceduresClusterTest {
         // then
         // we use the readTransaction in order to route the execution to the READ_REPLICA
         try(Session session = cluster.getDriver().session()) {
-            TestContainerUtil.testCallInReadTransaction(cluster.getSession(), "return custom.answer1() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+            TestContainerUtil.testCallInReadTransaction(session, "return custom.answer1() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
         }
     }
 
