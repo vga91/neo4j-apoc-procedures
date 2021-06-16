@@ -1,5 +1,6 @@
 package apoc.custom;
 
+import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestUtil;
 import apoc.util.TestcontainersCausalCluster;
@@ -11,6 +12,9 @@ import org.neo4j.internal.helpers.collection.MapUtil;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static apoc.util.TestContainerUtil.testCall;
 import static apoc.util.TestContainerUtil.testCallInReadTransaction;
@@ -58,6 +62,35 @@ public class CypherProceduresClusterTest {
         // we use the readTransaction in order to route the execution to the READ_REPLICA
         try(Session session = cluster.getDriver().session()) {
             TestContainerUtil.testCallInReadTransaction(session, "return custom.answer1() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        }
+
+        cluster.getClusterMembers().forEach(Neo4jContainerExtension::stop);
+        cluster.getClusterMembers().forEach(item -> item.withEnv("apoc.custom.procedures.check", "false"));
+        final CountDownLatch latch = new CountDownLatch(4);
+        cluster.getClusterMembers().forEach(instance -> CompletableFuture.runAsync(() -> {
+            instance.start();
+            latch.countDown();
+        }));
+
+        try {
+            latch.await(5, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        cluster.getClusterMembers().forEach(Neo4jContainerExtension::start);
+
+
+        // whencypher procedures
+        try(Session session = cluster.getDriver().session()) {
+            session.writeTransaction(tx -> tx.run("call apoc.custom.asFunction('answer2', 'RETURN 42 as answer')")); // we create a function
+        }
+        Thread.sleep(1000);
+        try(Session session = cluster.getDriver().session()) {
+            TestContainerUtil.testCallInReadTransaction(session, "return custom.answer2() as row", (row) -> fail());
+        } catch (Exception e) {
+            String expectedMessage = "Unknown function 'custom.answer2'";
+            assertEquals(expectedMessage, e.getMessage());
+            throw e;
         }
     }
 

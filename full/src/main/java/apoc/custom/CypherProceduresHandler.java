@@ -88,6 +88,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     public static final String FUNCTION = "function";
     public static final String PROCEDURE = "procedure";
     public static final String CUSTOM_PROCEDURES_REFRESH = "apoc.custom.procedures.refresh";
+    public static final String CUSTOM_PROCEDURES_CHECK = "apoc.custom.procedures.check";
     public static final List<FieldSignature> DEFAULT_INPUTS = singletonList(FieldSignature.inputField("params", NTMap, DefaultParameterValue.ntMap(Collections.emptyMap())));
     public static final List<FieldSignature> DEFAULT_MAP_OUTPUT = singletonList(FieldSignature.inputField("row", NTMap));
 
@@ -117,12 +118,15 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     @Override
     public void available() {
         restoreProceduresAndFunctions();
-        long refreshInterval = apocConfig().getInt(CUSTOM_PROCEDURES_REFRESH, 60000);
-        restoreProceduresHandle = jobScheduler.scheduleRecurring(REFRESH_GROUP, () -> {
-            if (getLastUpdate() > lastUpdate) {
-                restoreProceduresAndFunctions();
-            }
-        }, refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
+        System.out.println("CUSTOM_PROCEDURES_CHECK - " + apocConfig().getBoolean(CUSTOM_PROCEDURES_CHECK, true));
+        if (apocConfig().getBoolean(CUSTOM_PROCEDURES_CHECK, true)) {
+            long refreshInterval = apocConfig().getInt(CUSTOM_PROCEDURES_REFRESH, 60000);
+            restoreProceduresHandle = jobScheduler.scheduleRecurring(REFRESH_GROUP, () -> {
+                if (getLastUpdate() > lastUpdate) {
+                    restoreProceduresAndFunctions();
+                }
+            }, refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
+        }
     }
 
     @Override
