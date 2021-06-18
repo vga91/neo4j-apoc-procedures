@@ -571,7 +571,6 @@ public class SchemasTest {
         }
     }
 
-    // TODO
     @Test
     public void testDropCompoundIndexAndCreateCompoundIndexWhenUsingDropExisting() throws Exception {
         db.executeTransactionally("CREATE INDEX ON :Foo(bar,baa)");
