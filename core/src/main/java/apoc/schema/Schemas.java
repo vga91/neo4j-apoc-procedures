@@ -52,9 +52,6 @@ public class Schemas {
     @Context
     public KernelTransaction ktx;
 
-    @Context
-    public Pools pools;
-
     @Procedure(value = "apoc.schema.assert", mode = Mode.SCHEMA)
     @Description("apoc.schema.assert({indexLabel:[[indexKeys]], ...}, {constraintLabel:[constraintKeys], ...}, dropExisting : true) yield label, key, keys, unique, action - drops all other existing indexes and constraints when `dropExisting` is `true` (default is `true`), and asserts that at the end of the operation the given indexes and unique constraints are there, each label:key pair is considered one constraint/label. Non-constraint indexes can define compound indexes with label:[key1,key2...] pairings.")
     public Stream<AssertSchemaResult> schemaAssert(@Name("indexes") Map<String, List<Object>> indexes, @Name("constraints") Map<String, List<Object>> constraints, @Name(value = "dropExisting", defaultValue = "true") boolean dropExisting) throws ExecutionException, InterruptedException {
@@ -363,11 +360,11 @@ public class Schemas {
             Stream<IndexConstraintNodeInfo> constraintNodeInfoStream = StreamSupport.stream(constraintsIterator.spliterator(), false)
                     .filter(constraintDescriptor -> constraintDescriptor.type().equals(org.neo4j.internal.schema.ConstraintType.EXISTS))
                     .map(constraintDescriptor -> this.nodeInfoFromConstraintDescriptor(constraintDescriptor, tokenRead))
-                    .sorted(Comparator.comparing(i -> i.label.toString()));
+                    .sorted(Comparator.comparing(i -> i.label));
 
             Stream<IndexConstraintNodeInfo> indexNodeInfoStream = StreamSupport.stream(indexesIterator.spliterator(), false)
                     .map(indexDescriptor -> this.nodeInfoFromIndexDefinition(indexDescriptor, schemaRead, tokenRead))
-                    .sorted(Comparator.comparing(i -> i.label.toString()));
+                    .sorted(Comparator.comparing(i -> i.label));
 
             return Stream.of(constraintNodeInfoStream, indexNodeInfoStream).flatMap(e -> e);
         }
