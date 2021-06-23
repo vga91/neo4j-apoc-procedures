@@ -1,2 +1,6 @@
-¦type¦qualified name¦signature¦description
-¦procedure¦apoc.periodic.iterate¦apoc.periodic.iterate(cypherIterate :: STRING?, cypherAction :: STRING?, config :: MAP?) :: (batches :: INTEGER?, total :: INTEGER?, timeTaken :: INTEGER?, committedOperations :: INTEGER?, failedOperations :: INTEGER?, failedBatches :: INTEGER?, retries :: INTEGER?, errorMessages :: MAP?, batch :: MAP?, operations :: MAP?, wasTerminated :: BOOLEAN?, failedParams :: MAP?)¦apoc.periodic.iterate('statement returning items', 'statement per item', {batchSize:1000,iterateList:true,parallel:false,params:{},concurrency:50,retries:0}) YIELD batches, total - run the second statement for each item returned by the first statement. Returns number of batches and total processed rows
+¦Qualified Name¦Type¦Release
+|xref::overview/apoc.periodic.iterate/apoc.periodic.adoc[apoc.periodic.iterate.stream icon:book[]]
+
+apoc.periodic.iterate.stream('statement returning items', 'statement per item', $config) - Same as the apoc.periodic.iterate, but returns a result for each batch (with the `batchNo` field indicating the batch number instead of `batches` field)
+|label:procedure[]
+|label:apoc-core[]
