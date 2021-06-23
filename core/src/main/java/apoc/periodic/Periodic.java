@@ -239,8 +239,7 @@ public class Periodic {
             @Name("cypherIterate") String cypherIterate,
             @Name("cypherAction") String cypherAction,
             @Name("config") Map<String,Object> config) {
-        return getTotalBatchResultStream(cypherIterate, cypherAction, config, true)
-                .map(CurrentBatchResult.class::cast);
+        return iterateBase(cypherIterate, cypherAction, config, true).map(CurrentBatchResult.class::cast);
     }
             
 
@@ -255,11 +254,10 @@ public class Periodic {
             @Name("cypherIterate") String cypherIterate,
             @Name("cypherAction") String cypherAction,
             @Name("config") Map<String,Object> config) {
-        return getTotalBatchResultStream(cypherIterate, cypherAction, config, false)
-                .map(BatchAndTotalResult.class::cast);
+        return iterateBase(cypherIterate, cypherAction, config, false).map(BatchAndTotalResult.class::cast);
     }
 
-    private Stream<BatchResultBase> getTotalBatchResultStream(String cypherIterate, String cypherAction, Map<String, Object> config, boolean stream) {
+    private Stream<BatchResultBase> iterateBase(String cypherIterate, String cypherAction, Map<String, Object> config, boolean isStream) {
         validateQuery(cypherIterate);
 
         long batchSize = Util.toLong(config.getOrDefault("batchSize", 10000));
@@ -278,19 +276,19 @@ public class Periodic {
         Map<String,Object> params = (Map<String, Object>) config.getOrDefault("params", Collections.emptyMap());
 
         try (Result result = tx.execute(slottedRuntime(cypherIterate),params)) {
-            Pair<String, Boolean> prepared = PeriodicUtils.prepareInnerStatement(cypherAction, batchMode, result.columns(), "_batch");
+            Pair<String,Boolean> prepared = PeriodicUtils.prepareInnerStatement(cypherAction, batchMode, result.columns(), "_batch");
             String innerStatement = applyPlanner(prepared.first(), Planner.valueOf((String) config.getOrDefault("planner", Planner.DEFAULT.name())));
             boolean iterateList = prepared.other();
-            log.info("starting batching from `%s` operation using iteration `%s` in separate thread", cypherIterate, cypherAction);
+            log.info("starting batching from `%s` operation using iteration `%s` in separate thread", cypherIterate,cypherAction);
             return PeriodicUtils.iterateAndExecuteBatchedInSeparateThread(
                     db, terminationGuard, log, pools,
-                    (int) batchSize, parallel, iterateList, retries, result,
+                    (int)batchSize, parallel, iterateList, retries, result,
                     (tx, p) -> {
                         final Result r = tx.execute(innerStatement, merge(params, p));
                         Iterators.count(r); // XXX: consume all results
                         return r.getQueryStatistics();
                     },
-                    concurrency, failedParams, stream);
+                    concurrency, failedParams, isStream);
         }
     }
 

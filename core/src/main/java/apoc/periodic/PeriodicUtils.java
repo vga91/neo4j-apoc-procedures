@@ -59,12 +59,12 @@ public class PeriodicUtils {
             GraphDatabaseService db, TerminationGuard terminationGuard, Log log, Pools pools,
             int batchsize, boolean parallel, boolean iterateList, long retries,
             Iterator<Map<String, Object>> iterator, BiFunction<Transaction, Map<String, Object>, QueryStatistics> consumer,
-            int concurrency, int failedParams, boolean stream) {
+            int concurrency, int failedParams, boolean isStream) {
 
         ExecutorService pool = parallel ? pools.getDefaultExecutorService() : pools.getSingleExecutorService();
         List<Future<Long>> futures = new ArrayList<>(concurrency);
 
-        List<BatchAndTotalCollector> batches = stream 
+        List<BatchAndTotalCollector> batches = isStream 
                 ? new ArrayList<>() 
                 : Collections.singletonList(new BatchAndTotalCollector(terminationGuard, failedParams));
 
@@ -77,7 +77,7 @@ public class PeriodicUtils {
             if (activeFutures.get() < concurrency || !parallel) {
 
                 final BatchAndTotalCollector collector;
-                if (stream) {
+                if (isStream) {
                     collector = new BatchAndTotalCollector(terminationGuard, failedParams);
                     batches.add(collector);
                 } else {
@@ -102,7 +102,7 @@ public class PeriodicUtils {
                         retries,
                         retryCount -> collector.incrementRetried(),
                         onComplete -> {
-                            if (stream) {
+                            if (isStream) {
                                 collector.setBatchNo(currentBatch.incrementAndGet());
                             } else {
                                 collector.incrementBatches();
@@ -123,21 +123,21 @@ public class PeriodicUtils {
         long longStream = futures.stream().mapToLong(i -> {
             BatchAndTotalCollector batchAndTotalCollector = batches.get(currentBatchFuture.get());
             long result = getFutureToLongFunction(batchAndTotalCollector, terminationGuard).applyAsLong(i);
-            if (stream) {
+            if (isStream) {
                 batchAndTotalCollector.incrementSuccesses(result);
                 currentBatchFuture.getAndIncrement();
             }
             return result;
         }).sum();
 
-        if (!stream) {
+        if (!isStream) {
             batches.get(0).incrementSuccesses(longStream);
         }
 
         Util.logErrors("Error during iterate.commit:", getCollect(batches), log);
         Util.logErrors("Error during iterate.execute:", getCollect(batches), log);
         
-        return batches.stream().map(i -> i.getResult(stream));
+        return batches.stream().map(i -> i.getResult(isStream));
     }
 
     private static Map<String, Long> getCollect(List<BatchAndTotalCollector> batches) {
