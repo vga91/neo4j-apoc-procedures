@@ -10,6 +10,7 @@ import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +18,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.ToLongFunction;
 import java.util.regex.Pattern;
@@ -55,21 +55,35 @@ public class PeriodicUtils {
         return Pattern.compile(pattern,Pattern.CASE_INSENSITIVE|Pattern.MULTILINE|Pattern.DOTALL);
     }
 
-    public static Stream<BatchAndTotalResult> iterateAndExecuteBatchedInSeparateThread(
+    public static Stream<BatchResultBase> iterateAndExecuteBatchedInSeparateThread(
             GraphDatabaseService db, TerminationGuard terminationGuard, Log log, Pools pools,
             int batchsize, boolean parallel, boolean iterateList, long retries,
             Iterator<Map<String, Object>> iterator, BiFunction<Transaction, Map<String, Object>, QueryStatistics> consumer,
-            int concurrency, int failedParams) {
+            int concurrency, int failedParams, boolean stream) {
 
         ExecutorService pool = parallel ? pools.getDefaultExecutorService() : pools.getSingleExecutorService();
         List<Future<Long>> futures = new ArrayList<>(concurrency);
-        BatchAndTotalCollector collector = new BatchAndTotalCollector(terminationGuard, failedParams);
+
+        List<BatchAndTotalCollector> batches = stream 
+                ? new ArrayList<>() 
+                : Collections.singletonList(new BatchAndTotalCollector(terminationGuard, failedParams));
+
         AtomicInteger activeFutures = new AtomicInteger(0);
+        AtomicInteger currentBatch = new AtomicInteger();
 
         do {
             if (Util.transactionIsTerminated(terminationGuard)) break;
 
             if (activeFutures.get() < concurrency || !parallel) {
+
+                final BatchAndTotalCollector collector;
+                if (stream) {
+                    collector = new BatchAndTotalCollector(terminationGuard, failedParams);
+                    batches.add(collector);
+                } else {
+                    collector = batches.get(0);
+                }
+
                 // we have capacity, add a new Future to the list
                 activeFutures.incrementAndGet();
 
@@ -88,7 +102,11 @@ public class PeriodicUtils {
                         retries,
                         retryCount -> collector.incrementRetried(),
                         onComplete -> {
-                            collector.incrementBatches();
+                            if (stream) {
+                                collector.setBatchNo(currentBatch.incrementAndGet());
+                            } else {
+                                collector.incrementBatches();
+                            }
                             executeBatch.release();
                             activeFutures.decrementAndGet();
                         }));
@@ -101,15 +119,38 @@ public class PeriodicUtils {
             }
         } while (iterator.hasNext());
 
+        AtomicInteger currentBatchFuture = new AtomicInteger();
+        long longStream = futures.stream().mapToLong(i -> {
+            BatchAndTotalCollector batchAndTotalCollector = batches.get(currentBatchFuture.get());
+            long result = getFutureToLongFunction(batchAndTotalCollector, terminationGuard).applyAsLong(i);
+            if (stream) {
+                batchAndTotalCollector.incrementSuccesses(result);
+                currentBatchFuture.getAndIncrement();
+            }
+            return result;
+        }).sum();
+
+        if (!stream) {
+            batches.get(0).incrementSuccesses(longStream);
+        }
+
+        Util.logErrors("Error during iterate.commit:", getCollect(batches), log);
+        Util.logErrors("Error during iterate.execute:", getCollect(batches), log);
+        
+        return batches.stream().map(i -> i.getResult(stream));
+    }
+
+    private static Map<String, Long> getCollect(List<BatchAndTotalCollector> batches) {
+        return batches.stream().map(BatchAndTotalCollector::getBatchErrors).flatMap(i -> i.entrySet().stream())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum));
+    }
+
+
+    private static ToLongFunction<Future<Long>> getFutureToLongFunction(BatchAndTotalCollector collector, TerminationGuard terminationGuard) {
         boolean wasTerminated = Util.transactionIsTerminated(terminationGuard);
-        ToLongFunction<Future<Long>> toLongFunction = wasTerminated ?
+        return wasTerminated ?
                 f -> Util.getFutureOrCancel(f, collector.getBatchErrors(), collector.getFailedBatches(), 0L) :
                 f -> Util.getFuture(f, collector.getBatchErrors(), collector.getFailedBatches(), 0L);
-        collector.incrementSuccesses(futures.stream().mapToLong(toLongFunction).sum());
-
-        Util.logErrors("Error during iterate.commit:", collector.getBatchErrors(), log);
-        Util.logErrors("Error during iterate.execute:", collector.getOperationErrors(), log);
-        return Stream.of(collector.getResult());
     }
 }
 

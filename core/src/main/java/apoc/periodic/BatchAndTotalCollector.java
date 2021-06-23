@@ -17,6 +17,7 @@ public class BatchAndTotalCollector {
     private final int failedParams;
     private long start = System.nanoTime();
     private AtomicLong batches = new AtomicLong();
+    private long batchNo;
     private long successes = 0;
     private AtomicLong count = new AtomicLong();
     private AtomicLong failedOps = new AtomicLong();
@@ -40,7 +41,7 @@ public class BatchAndTotalCollector {
         wasTerminated = Util.transactionIsTerminated(terminationGuard);
     }
 
-    public BatchAndTotalResult getResult() {
+    public BatchResultBase getResult(boolean stream) {
         long timeTaken = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - start);
         Map<String, Long> updateStatistics = new HashMap<>();
         updateStatistics.put("nodesCreated", nodesCreated.get());
@@ -50,10 +51,16 @@ public class BatchAndTotalCollector {
         updateStatistics.put("propertiesSet", propertiesSet.get());
         updateStatistics.put("labelsAdded", labelsAdded.get());
         updateStatistics.put("labelsRemoved", labelsRemoved.get());
-
-        return new BatchAndTotalResult(batches.get(), count.get(), timeTaken, successes, failedOps.get(),
-                failedBatches.get(), retried.get(), operationErrors, batchErrors, wasTerminated,
-                failedParamsMap, updateStatistics);
+        
+        if (stream) {
+            return new CurrentBatchResult(batchNo, count.get(), timeTaken, successes, failedOps.get(),
+                    failedBatches.get(), retried.get(), operationErrors, batchErrors, wasTerminated,
+                    failedParamsMap, updateStatistics);
+        } else {
+            return new BatchAndTotalResult(batches.get(), count.get(), timeTaken, successes, failedOps.get(),
+                    failedBatches.get(), retried.get(), operationErrors, batchErrors, wasTerminated,
+                    failedParamsMap, updateStatistics);
+        }
     }
 
     public long getBatches() {
@@ -78,6 +85,10 @@ public class BatchAndTotalCollector {
 
     public void incrementCount(long currentBatchSize) {
         count.addAndGet(currentBatchSize);
+    }
+
+    public void setBatchNo(long batchNo) {
+        this.batchNo = batchNo;
     }
 
     public Map<String, Long> getBatchErrors() {
