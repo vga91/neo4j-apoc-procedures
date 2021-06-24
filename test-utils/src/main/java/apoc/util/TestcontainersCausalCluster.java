@@ -89,7 +89,13 @@ public class TestcontainersCausalCluster {
                 .collect(toList()));
 
         // Start all of them in parallel
-        final CountDownLatch latch = new CountDownLatch(numberOfCoreMembers + numberOfReadReplica);
+        startAndWait(members);
+
+        return new TestcontainersCausalCluster(members, proxy);
+    }
+
+    public static void startAndWait(List<Neo4jContainerExtension> members) {
+        final CountDownLatch latch = new CountDownLatch(members.size());
         members.forEach(instance -> CompletableFuture.runAsync(() -> {
             instance.start();
             latch.countDown();
@@ -100,8 +106,6 @@ public class TestcontainersCausalCluster {
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-
-        return new TestcontainersCausalCluster(members, proxy);
     }
 
     private static Neo4jContainerExtension createInstance(String name,

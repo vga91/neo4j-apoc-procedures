@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import static apoc.util.TestContainerUtil.testCall;
 import static apoc.util.TestContainerUtil.testCallInReadTransaction;
 import static apoc.util.TestUtil.isRunningInCI;
+import static apoc.util.TestcontainersCausalCluster.startAndWait;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
@@ -64,20 +65,12 @@ public class CypherProceduresClusterTest {
             TestContainerUtil.testCallInReadTransaction(session, "return custom.answer1() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
         }
 
-        cluster.getClusterMembers().forEach(Neo4jContainerExtension::stop);
-        cluster.getClusterMembers().forEach(item -> item.withEnv("apoc.custom.procedures.check", "false"));
-        final CountDownLatch latch = new CountDownLatch(4);
-        cluster.getClusterMembers().forEach(instance -> CompletableFuture.runAsync(() -> {
-            instance.start();
-            latch.countDown();
-        }));
-
-        try {
-            latch.await(5, TimeUnit.MINUTES);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        cluster.getClusterMembers().forEach(Neo4jContainerExtension::start);
+        List<Neo4jContainerExtension> members = cluster.getClusterMembers();
+        members.forEach(member -> {
+            member.stop();
+            member.withEnv("apoc.custom.procedures.check", "false");
+        });
+        startAndWait(members);
 
 
         // whencypher procedures
