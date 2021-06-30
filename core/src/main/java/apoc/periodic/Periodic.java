@@ -4,6 +4,7 @@ import apoc.Pools;
 import apoc.util.Util;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
@@ -170,9 +171,10 @@ public class Periodic {
     public Stream<JobInfo> repeat(@Name("name") String name, @Name("statement") String statement, @Name("rate") long rate, @Name(value = "config", defaultValue = "{}") Map<String,Object> config ) {
         validateQuery(statement);
         Map<String,Object> params = (Map)config.getOrDefault("params", Collections.emptyMap());
-        JobInfo info = schedule(name, () -> {
-            db.executeTransactionally(statement, params);
-        },0,rate);
+        long retries = Util.toLong(config.getOrDefault("retries", 0L));
+        boolean tolerateErrors = Util.toBoolean(config.getOrDefault("tolerateErrors", false));
+        JobInfo info = schedule(name, () -> Util.retryInTx(
+                        log, db, tx -> tx.execute(statement, params), 0, retries, r -> {}, tolerateErrors),0,rate);
         return Stream.of(info);
     }
 
