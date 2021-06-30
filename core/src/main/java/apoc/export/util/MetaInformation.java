@@ -11,8 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
+import static apoc.export.util.BulkImportUtil.allowedMapping;
 import static apoc.gephi.GephiFormatUtils.getCaption;
 import static java.util.Arrays.asList;
+import static org.apache.commons.lang3.ClassUtils.primitiveToWrapper;
 
 /**
  * @author mh
@@ -51,17 +53,31 @@ public class MetaInformation {
     public final static Set<String> GRAPHML_ALLOWED = new HashSet<>(asList("boolean", "int", "long", "float", "double", "string"));
 
     public static String typeFor(Class value, Set<String> allowed) {
+        return typeFor(value, allowed, true);
+    }
+
+    public static String typeFor(Class value, Set<String> allowed, boolean isImportToolArrays) {
         if (value == void.class) return null; // Is this necessary?
+        final boolean isArray = value.isArray();
+        value = isArray ? value.getComponentType() : value;
+        String defaultType = "string";
+        // csv case
+        if (allowed == null) {
+            String string = allowedMapping.getOrDefault(primitiveToWrapper(value), defaultType)
+                    + (isArray && isImportToolArrays ? "[]" : "");
+            return string.equals(defaultType) ? "" : (":" + string);
+        }
+        // graphML case
+        String name = value.getSimpleName().toLowerCase();
+        boolean isAllowed = allowed.contains(name);
         Meta.Types type = Meta.Types.of(value);
-        String name = (value.isArray() ? value.getComponentType() : value).getSimpleName().toLowerCase();
-        boolean isAllowed = allowed != null && allowed.contains(name);
         switch (type) {
             case NULL:
                 return null;
             case INTEGER: case FLOAT:
                 return "integer".equals(name) || !isAllowed ? "int" : name;
             default:
-                return isAllowed ? name : "string"; // We manage all other data types as strings
+                return isAllowed ? name : defaultType; // We manage all other data types as strings
         }
     }
 

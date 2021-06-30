@@ -1,8 +1,10 @@
 package apoc.export.util;
 
+import apoc.convert.Convert;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.commons.lang3.ArrayUtils;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -10,6 +12,7 @@ import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.spatial.Point;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -57,7 +60,8 @@ public class FormatUtils {
         }
         throw new RuntimeException("Invalid graph element "+pc);
     }
-    public static String toString(Object value) {
+
+    public static String toString(Object value, boolean importToolArrays, String arrayDelimiter) {
         if (value == null) return "";
         if (value instanceof Path) {
             return toString(StreamSupport.stream(((Path)value).spliterator(),false).map(FormatUtils::toMap).collect(Collectors.toList()));
@@ -65,7 +69,19 @@ public class FormatUtils {
         if (value instanceof Entity) {
             return Util.toJson(toMap((Entity) value)); // todo id, label, type ?
         }
-        if (value.getClass().isArray() || value instanceof Iterable || value instanceof Map) {
+        boolean isArray = value.getClass().isArray();
+        if (isArray || value instanceof Iterable) {
+            if (importToolArrays) {
+                Stream stream = isArray
+                        ? Arrays.stream(Convert.getObjects(value))
+                        : StreamSupport.stream(((Iterable) value).spliterator(), false);
+
+                return (String) stream.map(item -> toString(item, true, arrayDelimiter))
+                        .collect(Collectors.joining(arrayDelimiter));
+            }
+            return Util.toJson(value);
+        }
+        if (value instanceof Map) {
             return Util.toJson(value);
         }
         if (value instanceof Number) {
@@ -75,6 +91,10 @@ public class FormatUtils {
             return formatPoint((Point) value);
         }
         return value.toString();
+    }
+
+    public static String toString(Object value) {
+        return toString(value, false, null);
     }
 
     public static String formatPoint(Point value) {
