@@ -1,0 +1,14 @@
+
+[source,cypher]
+----
+UNWIND range(1,100) AS x CREATE (:Person{name:'Person_'+x});
+----
+
+.Results
+[options="header"]
+|===
+| batchNo	| total	| timeTaken	| committedOperations   | failedOperations  | failedBatches | retries   | errorMessages | batch                                             | operations	                                        | wasTerminated | failedParams  | updateStatistics
+| 1	        | 10	| 0	        | 10	                | 0	                | 0	            | 0	        | {}	        | {"total":1,"committed":1,"failed":0,"errors":{}}	| {"total":10,"committed":10,"failed":0,"errors":{}}	| false	        | {}	        | {"nodesDeleted":0,"labelsAdded":0,"relationshipsCreated":0,"nodesCreated":0,"propertiesSet":10,"relationshipsDeleted":0,"labelsRemoved":0}
+| 2	        | 10	| 0	        | 10	                | 0	                | 0	            | 0	        | {}	        | {"total":2,"committed":2,"failed":0,"errors":{}}	| {"total":10,"committed":10,"failed":0,"errors":{}}	| false	        | {}	        | {"nodesDeleted":0,"labelsAdded":0,"relationshipsCreated":0,"nodesCreated":0,"propertiesSet":10,"relationshipsDeleted":0,"labelsRemoved":0}
+| 3	        | 10	| 0	        | 10	                | 0	                | 0	            | 0	        | {}	        | {"total":3,"committed":3,"failed":0,"errors":{}}	| {"total":10,"committed":10,"failed":0,"errors":{}}	| false	        | {}	        | {"nodesDeleted":0,"labelsAdded":0,"relationshipsCreated":0,"nodesCreated":0,"propertiesSet":10,"relationshipsDeleted":0,"labelsRemoved":0}
+|===

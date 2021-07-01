@@ -230,6 +230,16 @@ public class Periodic {
         };
     }
 
+    @Procedure(mode = Mode.WRITE, name = "apoc.periodic.iterate.stream")
+    @Description("apoc.periodic.iterate.stream('statement returning items', 'statement per item', $config) - Same as the apoc.periodic.iterate, but returns a result for each batch (with the `batchNo` field indicating the batch number instead of `batches` field)")
+    public Stream<CurrentBatchResult> iterateStream(
+            @Name("cypherIterate") String cypherIterate,
+            @Name("cypherAction") String cypherAction,
+            @Name("config") Map<String,Object> config) {
+        return iterateBase(cypherIterate, cypherAction, config, true).map(CurrentBatchResult.class::cast);
+    }
+            
+
     /**
      * Invoke cypherAction in batched transactions being fed from cypherIteration running in main thread
      * @param cypherIterate
@@ -241,6 +251,10 @@ public class Periodic {
             @Name("cypherIterate") String cypherIterate,
             @Name("cypherAction") String cypherAction,
             @Name("config") Map<String,Object> config) {
+        return iterateBase(cypherIterate, cypherAction, config, false).map(BatchAndTotalResult.class::cast);
+    }
+
+    private Stream<BatchResultBase> iterateBase(String cypherIterate, String cypherAction, Map<String, Object> config, boolean isStream) {
         validateQuery(cypherIterate);
 
         long batchSize = Util.toLong(config.getOrDefault("batchSize", 10000));
@@ -271,7 +285,7 @@ public class Periodic {
                         Iterators.count(r); // XXX: consume all results
                         return r.getQueryStatistics();
                     },
-                    concurrency, failedParams);
+                    concurrency, failedParams, isStream);
         }
     }
 

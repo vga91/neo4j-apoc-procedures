@@ -1,0 +1,5 @@
+¦xref::overview/apoc.periodic/apoc.periodic.iterate.stream.adoc[apoc.periodic.iterate.stream icon:book[]] +
+
+ - Same as the apoc.periodic.iterate, but returns a result for each batch (with the `batchNo` field indicating the batch number instead of `batches` field)
+¦label:procedure[]
+¦label:apoc-core[]

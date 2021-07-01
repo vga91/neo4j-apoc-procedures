@@ -25,10 +25,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testCallCount;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.map;
 import static java.util.stream.Collectors.toList;
@@ -148,20 +150,37 @@ public class PeriodicTest {
         testResult(db, "CALL apoc.periodic.iterate('UNWIND range(0,99) as id RETURN id', 'CREATE null', {batchSize:10,iterateList:true})", result -> {
             Map<String, Object> row = Iterators.single(result);
             assertEquals(10L, row.get("batches"));
-            assertEquals(100L, row.get("total"));
-            assertEquals(0L, row.get("committedOperations"));
-            assertEquals(100L, row.get("failedOperations"));
-            assertEquals(10L, row.get("failedBatches"));
-            Map<String, Object> batchErrors = map("org.neo4j.graphdb.QueryExecutionException: Invalid input 'null': expected \"shortestPath\", \"allShortestPaths\" or \"(\" (line 1, column 55 (offset: 54))" + newline +
-                    "\"UNWIND $_batch AS _batch WITH _batch.id AS id  CREATE null\"" + newline +
-                    "                                                       ^", 10L);
-
-            assertEquals(batchErrors, ((Map) row.get("batch")).get("errors"));
-            Map<String, Object> operationsErrors = map("Invalid input 'null': expected \"shortestPath\", \"allShortestPaths\" or \"(\" (line 1, column 55 (offset: 54))" + newline +
-                    "\"UNWIND $_batch AS _batch WITH _batch.id AS id  CREATE null\"" + newline +
-                    "                                                       ^", 10L);
-            assertEquals(operationsErrors, ((Map) row.get("operations")).get("errors"));
+            assertionIterateWithError(newline, 10L, 100L, row);
         });
+    }
+    
+    @Test
+    public void testPeriodicIterateStreamErrors() {
+        final String newline = System.lineSeparator();
+        testResult(db, "CALL apoc.periodic.iterate.stream('UNWIND range(0,99) as id RETURN id', 'CREATE null', {batchSize:10,iterateList:true})", result -> {
+            List<Map<String, Object>> maps = Iterators.asList(result);
+            AtomicLong batchNo = new AtomicLong();
+            maps.forEach(batchItem -> {
+                assertEquals(batchNo.incrementAndGet(), batchItem.get("batchNo"));
+                assertionIterateWithError(newline, 1L, 10L, batchItem);
+            });
+        });
+    }
+
+    private void assertionIterateWithError(String newline, long failed, long total, Map<String, Object> row) {
+        assertEquals(total, row.get("total"));
+        assertEquals(0L, row.get("committedOperations"));
+        assertEquals(total, row.get("failedOperations"));
+        assertEquals(failed, row.get("failedBatches"));
+        Map<String, Object> batchErrors = map("org.neo4j.graphdb.QueryExecutionException: Invalid input 'null': expected \"shortestPath\", \"allShortestPaths\" or \"(\" (line 1, column 55 (offset: 54))" + newline +
+                "\"UNWIND $_batch AS _batch WITH _batch.id AS id  CREATE null\"" + newline +
+                "                                                       ^", failed);
+
+        assertEquals(batchErrors, ((Map) row.get("batch")).get("errors"));
+        Map<String, Object> operationsErrors = map("Invalid input 'null': expected \"shortestPath\", \"allShortestPaths\" or \"(\" (line 1, column 55 (offset: 54))" + newline +
+                "\"UNWIND $_batch AS _batch WITH _batch.id AS id  CREATE null\"" + newline +
+                "                                                       ^", failed);
+        assertEquals(operationsErrors, ((Map) row.get("operations")).get("errors"));
     }
 
     @Test
@@ -169,6 +188,9 @@ public class PeriodicTest {
         PeriodicTestUtils.testTerminatePeriodicQuery(db, "CALL apoc.periodic.iterate('UNWIND range(0,1000) as id RETURN id', 'WITH $id as id CREATE (:Foo {id: $id})', {batchSize:1,parallel:true})");
         PeriodicTestUtils.testTerminatePeriodicQuery(db, "CALL apoc.periodic.iterate('UNWIND range(0,1000) as id RETURN id', 'WITH $id as id CREATE (:Foo {id: $id})', {batchSize:10,iterateList:true})");
         PeriodicTestUtils.testTerminatePeriodicQuery(db, "CALL apoc.periodic.iterate('UNWIND range(0,1000) as id RETURN id', 'WITH $id as id CREATE (:Foo {id: $id})', {batchSize:10,iterateList:false})");
+        PeriodicTestUtils.testTerminatePeriodicQuery(db, "CALL apoc.periodic.iterate.stream('UNWIND range(0,1000) as id RETURN id', 'WITH $id as id CREATE (:Foo {id: $id})', {batchSize:1,parallel:true})");
+        PeriodicTestUtils.testTerminatePeriodicQuery(db, "CALL apoc.periodic.iterate.stream('UNWIND range(0,1000) as id RETURN id', 'WITH $id as id CREATE (:Foo {id: $id})', {batchSize:10,iterateList:true})");
+        PeriodicTestUtils.testTerminatePeriodicQuery(db, "CALL apoc.periodic.iterate.stream('UNWIND range(0,1000) as id RETURN id', 'WITH $id as id CREATE (:Foo {id: $id})', {batchSize:10,iterateList:false})");
     }
 
     /**
@@ -241,7 +263,24 @@ public class PeriodicTest {
                 row -> assertEquals(100L, row.get("count"))
         );
     }
+    
+    @Test
+    public void testIterateStreamPrefixGiven() throws Exception {
+        db.executeTransactionally("UNWIND range(1,100) AS x CREATE (:Person{name:'Person_'+x})");
 
+        testResult(db, "CALL apoc.periodic.iterate.stream('match (p:Person) return p', 'WITH $p as p SET p.lastname = p.name', {batchSize:10,parallel:true})", result -> {
+            List<Map<String, Object>> maps = Iterators.asList(result);
+            maps.forEach(batch -> {
+                long batchNo = (long) batch.get("batchNo");
+                assertTrue(batchNo > 0L && batchNo < 11L);
+                assertEquals(10L, batch.get("total"));
+            });
+        });
+
+        testCallCount(db, "MATCH (p:Person) where p.lastname is not null return p", 100);
+    }
+
+    
     @Test
     public void testIterate() throws Exception {
         db.executeTransactionally("UNWIND range(1,100) AS x CREATE (:Person{name:'Person_'+x})");
@@ -256,6 +295,23 @@ public class PeriodicTest {
                 "MATCH (p:Person) where p.lastname is not null return count(p) as count",
                 row -> assertEquals(100L, row.get("count"))
         );
+    }
+
+    @Test
+    public void testIterateWithStream() throws Exception {
+        db.executeTransactionally("UNWIND range(1,100) AS x CREATE (:Person {name:'Person_'+x})");
+        
+        testResult(db, "CALL apoc.periodic.iterate.stream('match (p:Person) return p', 'SET p.lastname = p.name', $conf)", 
+                map("conf", map("batchSize", 10, "parallel", false)),
+                result -> {
+            AtomicLong batchNo = new AtomicLong();
+            Iterators.asList(result).forEach(row -> {
+                assertEquals(batchNo.incrementAndGet(), row.get("batchNo"));
+                assertEquals(10L, row.get("total"));
+            });
+        });
+
+        testCallCount(db, "MATCH (p:Person) where p.lastname is not null return p", 100);
     }
 
     @Test
@@ -406,6 +462,16 @@ public class PeriodicTest {
         });
     }
 
+    @Test
+    public void testIterateRetriesStream() throws Exception {
+        testResult(db, "CALL apoc.periodic.iterate.stream('return 1', 'CREATE (n {prop: 1/$_retry})', {retries:5})", result -> {
+            Map<String, Object> row = Iterators.single(result);
+            assertEquals(1L, row.get("batchNo"));
+            assertEquals(1L, row.get("total"));
+            assertEquals(5L, row.get("retries"));
+        });
+    }
+    
     @Test
     public void testIterateFail() throws Exception {
         db.executeTransactionally("UNWIND range(1,100) AS x CREATE (:Person{name:'Person_'+x})");
