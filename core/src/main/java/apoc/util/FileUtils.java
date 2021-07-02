@@ -78,8 +78,7 @@ public class FileUtils {
             throw new RuntimeException(ERROR_BYTES_OR_STRING);
         }
     }
-    
-    
+
     public static CountingInputStream inputStreamFor(String fileName) throws IOException {
         apocConfig().checkReadAllowed(fileName);
         if (fileName==null) return null;

@@ -24,7 +24,7 @@ public class ImportJson {
 
     @Context
     public Pools pools;
-    
+
     @Procedure(value = "apoc.import.json", mode = Mode.WRITE)
     @Description("apoc.import.json(fileOrBinary,config) - imports the json list to the provided file")
     public Stream<ProgressInfo> all(@Name("fileOrBinary") Object fileOrBinary, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
