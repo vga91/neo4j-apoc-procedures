@@ -153,7 +153,7 @@ public class ExportCsvTest {
     @Test
     public void testExportAllCsvCompressed() {
         final CompressionAlgo compressionAlgo = DEFLATE;
-        String fileName = "all.csv" + compressionAlgo.getFileExt();
+        String fileName = "all.csv.zz";
         TestUtil.testCall(db, "CALL apoc.export.csv.all($file, $config)",
                 map("file", fileName, "config", map("compression", compressionAlgo.name())),
                 (r) -> assertResults(fileName, r, "database"));
