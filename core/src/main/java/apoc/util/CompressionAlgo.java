@@ -21,21 +21,19 @@ import java.nio.charset.Charset;
 
 public enum CompressionAlgo {
 
-    NONE(null, null, StringUtils.EMPTY),
-    GZIP(GzipCompressorOutputStream.class, GzipCompressorInputStream.class, ".gz"),
-    BZIP2(BZip2CompressorOutputStream.class, BZip2CompressorInputStream.class, ".bz2"),
-    DEFLATE(DeflateCompressorOutputStream.class, DeflateCompressorInputStream.class, ".zz"),
-    BLOCK_LZ4(BlockLZ4CompressorOutputStream.class, BlockLZ4CompressorInputStream.class, ".lz4"),
-    FRAMED_SNAPPY(FramedSnappyCompressorOutputStream.class, FramedSnappyCompressorInputStream.class, ".sz");
+    NONE(null, null),
+    GZIP(GzipCompressorOutputStream.class, GzipCompressorInputStream.class),
+    BZIP2(BZip2CompressorOutputStream.class, BZip2CompressorInputStream.class),
+    DEFLATE(DeflateCompressorOutputStream.class, DeflateCompressorInputStream.class),
+    BLOCK_LZ4(BlockLZ4CompressorOutputStream.class, BlockLZ4CompressorInputStream.class),
+    FRAMED_SNAPPY(FramedSnappyCompressorOutputStream.class, FramedSnappyCompressorInputStream.class);
 
     private final Class<?> compressor;
     private final Class<?> decompressor;
-    private final String fileExt;
 
-    CompressionAlgo(Class<?> compressor, Class<?> decompressor, String fileExt) {
+    CompressionAlgo(Class<?> compressor, Class<?> decompressor) {
         this.compressor = compressor;
         this.decompressor = decompressor;
-        this.fileExt = fileExt;
     }
 
     public byte[] compress(String string, Charset charset) throws Exception {
@@ -62,10 +60,6 @@ public enum CompressionAlgo {
         return isNone() ? stream : (InputStream) decompressor.getConstructor(InputStream.class).newInstance(stream);
     }
 
-    public String getFileExt() {
-        return fileExt;
-    }
-    
     public boolean isNone() {
         return compressor == null;
     }

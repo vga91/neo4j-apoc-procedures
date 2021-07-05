@@ -29,6 +29,7 @@ import static org.junit.Assert.assertTrue;
 
 public class ExportJsonTest {
 
+    private static final String DEFLATE_EXT = ".zz";
     private static File directory = new File("target/import");
     private static File directoryExpected = new File("../docs/asciidoc/modules/ROOT/examples/data/exportJSON");
 
@@ -101,7 +102,7 @@ public class ExportJsonTest {
     public void testExportAllJsonStreamWithCompression() {
         final CompressionAlgo algo = FRAMED_SNAPPY;
         String expectedFile = "all.json";
-        String filename = expectedFile + algo.getFileExt();
+        String filename = expectedFile + ".sz";
         TestUtil.testCall(db, "CALL apoc.export.json.all(null, $config)",
                 map("file", filename, "config", map("stream", true, "compression", algo.name())),
                 (r) -> {
@@ -167,7 +168,7 @@ public class ExportJsonTest {
         String query = "MATCH (u:User) RETURN COLLECT(u) as list";
         final CompressionAlgo algo = DEFLATE;
         String expectedFile = "listNode.json";
-        String filename = expectedFile + algo.getFileExt();
+        String filename = expectedFile + DEFLATE_EXT;
 
         TestUtil.testCall(db, "CALL apoc.export.json.query($query, $file, $config)",
                 map("file", filename, "query", query, "config", map("compression", algo.name())),
@@ -428,7 +429,8 @@ public class ExportJsonTest {
     }
 
     private void assertFileEquals(String fileName, CompressionAlgo algo) {
-        String actualText = BinaryTestUtil.readFileToString(new File(directory, fileName + algo.getFileExt()), UTF_8, algo);
+        String fileExt = algo.equals(DEFLATE) ? DEFLATE_EXT : "";
+        String actualText = BinaryTestUtil.readFileToString(new File(directory, fileName + fileExt), UTF_8, algo);
         assertStreamEquals(fileName, actualText);
     }
 

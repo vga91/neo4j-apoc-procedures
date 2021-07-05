@@ -23,11 +23,6 @@ public class FileManagerFactory {
         fileName = fileName.trim();
 
         final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(config.getCompressionAlgo());
-        final String fileExt = compressionAlgo.getFileExt();
-        // TODO - evaluate if validation is necessary
-        if (!fileName.endsWith(fileExt)) {
-            throw new RuntimeException("The file must have the extension " + fileExt);
-        }
 
         int indexOfDot = StringUtils.lastOrdinalIndexOf(fileName, ".", compressionAlgo.equals(CompressionAlgo.NONE) ? 1 : 2);
         String fileType = fileName.substring(indexOfDot + 1);

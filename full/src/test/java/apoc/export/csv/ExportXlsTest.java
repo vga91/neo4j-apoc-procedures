@@ -63,7 +63,7 @@ public class ExportXlsTest {
     @Test
     public void testExportAllXlsWithCompression() {
         final CompressionAlgo algo = CompressionAlgo.GZIP;
-        String fileName = "all.xlsx" + algo.getFileExt();
+        String fileName = "all.xlsx.gz";
         TestUtil.testCall(db, "CALL apoc.export.xls.all($file, $config)",
                 map("file", fileName, "config", map("compression", algo.name())),
                 (r) -> assertResults(fileName, r, "database"));

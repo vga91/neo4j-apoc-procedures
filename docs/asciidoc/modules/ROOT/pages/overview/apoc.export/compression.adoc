@@ -3,21 +3,8 @@ you can pass in config parameter the value compression: `COMPRESSION_TYPE`,
 where `COMPRESSION_TYPE` can be `BYTES`, `GZIP`, `BZIP2`, `DEFLATE`, `BLOCK_LZ4` or `FRAMED_SNAPPY`.
 By default is `NONE`, that is without compression.
 
-Note that to compress a file, the exported fileName must have an extension based on compression type:
-
-.Compression Type
-[opts=header]
-|===
-| type | extension
-| GZIP | .gz
-| BZIP2 | .bz2
-| DEFLATE | .zz
-| BLOCK_LZ4 | .lz4
-| FRAMED_SNAPPY | .sz
-|===
-
-
-So, if you want to export a file `test.csv` with a `GZIP` compression, you must specify a file  `test.csv.gz`.
+Note that to compress a file, you have to specify both the base file extension and the compression extension,
+for example to export a `test.csv` you can write `test.csv.gz`, or  `test.csv.bz2` or whatever.
 For example:
 
 [source,cypher]

@@ -20,7 +20,6 @@ import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
-import org.testcontainers.shaded.org.apache.commons.lang.builder.StandardToStringStyle;
 import org.xmlunit.builder.DiffBuilder;
 import org.xmlunit.diff.DefaultNodeMatcher;
 import org.xmlunit.diff.Diff;
@@ -377,7 +376,7 @@ public class ExportGraphMLTest {
     @Test
     public void testExportAllGraphMLWithCompression() {
         final CompressionAlgo algo = CompressionAlgo.DEFLATE;
-        File output = new File(directory, "all.graphml" + algo.getFileExt());
+        File output = new File(directory, "all.graphml.zz");
         TestUtil.testCall(db, "CALL apoc.export.graphml.all($file, $config)",
                 map("file", output.getAbsolutePath(), "config", map("compression", algo.name())),
                 (r) -> assertResults(output, r, "database"));

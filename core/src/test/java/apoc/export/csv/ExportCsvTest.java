@@ -107,7 +107,7 @@ public class ExportCsvTest {
         db.executeTransactionally("CREATE (f:User1:User {name:'foo',age:42,male:true,kids:['a','b','c']})-[:KNOWS]->(b:User {name:'bar',age:42}),(c:User {age:12})");
         db.executeTransactionally("CREATE (f:Address1:Address {name:'Andrea', city: 'Milano', street:'Via Garibaldi, 7'})-[:NEXT_DELIVERY]->(a:Address {name: 'Bar Sport'}), (b:Address {street: 'via Benni'})");
     }
-    
+
     private String readFile(String fileName) {
         return readFile(fileName, UTF_8, CompressionAlgo.NONE);
     }
@@ -132,7 +132,7 @@ public class ExportCsvTest {
     @Test
     public void testExportAllCsvCompressed() {
         final CompressionAlgo compressionAlgo = DEFLATE;
-        String fileName = "all.csv" + compressionAlgo.getFileExt();
+        String fileName = "all.csv.zz";
         TestUtil.testCall(db, "CALL apoc.export.csv.all($file, $config)",
                 map("file", fileName, "config", map("compression", compressionAlgo.name())),
                 (r) -> assertResults(fileName, r, "database"));

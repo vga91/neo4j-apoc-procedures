@@ -70,6 +70,8 @@ public class ExportCsvNeo4jAdminTest {
 
     private static final String EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_NEXT_DELIVERY = String
             .format("3;4;NEXT_DELIVERY%n");
+    
+    private static final String GZIP_EXT = ".foo";
 
     private static File directory = new File("target/import");
 
@@ -98,10 +100,8 @@ public class ExportCsvNeo4jAdminTest {
     
     @Test
     public void testCypherExportCsvForAdminNeo4jImportWithConfigWithCompression() {
-        final CompressionAlgo algo = GZIP;
-        
-        String fileName = "query_nodes.csv" + algo.getFileExt();
-        assertionTestExportForAdminNeo4jImport(algo, fileName);
+        String fileName = "query_nodes.csv" + GZIP_EXT;
+        assertionTestExportForAdminNeo4jImport(GZIP, fileName);
     }
 
     private void assertionTestExportForAdminNeo4jImport(CompressionAlgo algo, String fileName) {
@@ -161,8 +161,9 @@ public class ExportCsvNeo4jAdminTest {
         assertFileEquals(base, expected, file, CompressionAlgo.NONE);
     }
 
-    private void assertFileEquals(String base, String expected, String file, CompressionAlgo algo)  { 
-        assertEquals(expected, BinaryTestUtil.readFileToString(new File(base + file + algo.getFileExt()), StandardCharsets.UTF_8, algo));
+    private void assertFileEquals(String base, String expected, String file, CompressionAlgo algo) {
+        String fileExt = algo.equals(GZIP) ? GZIP_EXT : "";
+        assertEquals(expected, BinaryTestUtil.readFileToString(new File(base + file + fileExt), StandardCharsets.UTF_8, algo));
     }
 
     @Test(expected = RuntimeException.class)

@@ -43,6 +43,8 @@ public class ExportCsvTest {
             "\"5\",\":Address\",\"\",\"\",\"\",\"\",\"\",\"via Benni\",,,%n" +
             ",,,,,,,,\"0\",\"1\",\"KNOWS\"%n" +
             ",,,,,,,,\"3\",\"4\",\"NEXT_DELIVERY\"%n");
+    
+    private static final String LZ4_EXT = ".lz4";
 
     private static File directory = new File("target/import");
     static { //noinspection ResultOfMethodCallIgnored
@@ -82,13 +84,14 @@ public class ExportCsvTest {
     }
 
     private void assertHdfsFile(CompressionAlgo compression) {
-        String hdfsUrl = String.format("hdfs://localhost:12345/user/%s/all.csv" + compression.getFileExt(), System.getProperty("user.name"));
+        String fileExt = compression.equals(NONE) ? "" : LZ4_EXT;
+        String hdfsUrl = String.format("hdfs://localhost:12345/user/%s/all.csv" + fileExt, System.getProperty("user.name"));
         TestUtil.testCall(db, "CALL apoc.export.csv.all($file, $config)", 
                 map("file", hdfsUrl, "config", map("compression", compression.name())),
                 (r) -> {
                     try {
                         FileSystem fs = miniDFSCluster.getFileSystem();
-                        FSDataInputStream inputStream = fs.open(new Path(String.format("/user/%s/all.csv" + compression.getFileExt(), System.getProperty("user.name"))));
+                        FSDataInputStream inputStream = fs.open(new Path(String.format("/user/%s/all.csv" + fileExt, System.getProperty("user.name"))));
                         File output = Files.createTempFile("all", ".csv").toFile();
                         FileUtils.copyInputStreamToFile(inputStream, output);
                         assertEquals(6L, r.get("nodes"));

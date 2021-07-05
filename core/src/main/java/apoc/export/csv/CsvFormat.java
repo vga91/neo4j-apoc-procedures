@@ -63,13 +63,13 @@ public class CsvFormat implements Format {
     }
 
     @Override
-    public ProgressInfo dump(SubGraph graph, ExportFileManager fileManager, Reporter reporter, ExportConfig config) {
+    public ProgressInfo dump(SubGraph graph, ExportFileManager writer, Reporter reporter, ExportConfig config) {
         try (Transaction tx = db.beginTx()) {
             if (config.isBulkImport()) {
-                writeAllBulkImport(graph, reporter, config, fileManager);
+                writeAllBulkImport(graph, reporter, config, writer);
             } else {
-                try (PrintWriter writer = fileManager.getPrintWriter("csv")) {
-                    CSVWriter out = getCsvWriter(writer, config);
+                try (PrintWriter printWriter = writer.getPrintWriter("csv")) {
+                    CSVWriter out = getCsvWriter(printWriter, config);
                     writeAll(graph, reporter, config, out);
                 }
             }
@@ -113,7 +113,7 @@ public class CsvFormat implements Format {
     }
 
     public ProgressInfo dump(Result result, ExportFileManager writer, Reporter reporter, ExportConfig config) {
-        try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv")) {
+        try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv");) {
             CSVWriter out = getCsvWriter(printWriter, config);
             String[] header = writeResultHeader(result, out);
 
@@ -123,7 +123,7 @@ public class CsvFormat implements Format {
                     String key = header[col];
                     Object value = row.get(key);
                     data[col] = FormatUtils.toString(value);
-                    reporter.update(value instanceof Node ? 1: 0,value instanceof Relationship ? 1 : 0, value instanceof Entity ? 0 : 1);
+                    reporter.update(value instanceof Node ? 1: 0,value instanceof Relationship ? 1: 0 , value instanceof Entity ? 0 : 1);
                 }
                 out.writeNext(data, applyQuotesToAll);
                 reporter.nextRow();
