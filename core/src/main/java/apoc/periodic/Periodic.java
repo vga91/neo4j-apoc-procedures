@@ -1,7 +1,7 @@
 package apoc.periodic;
 
 import apoc.Pools;
-import apoc.trigger.TransactionData;
+import apoc.trigger.TriggerMetadata;
 import apoc.util.Util;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -232,7 +232,7 @@ public class Periodic {
 //            if (this.handleTransaction) {
 //            Map<String, Object> stringObjectMap = this.txDataMap.get(this.handleTransaction);
             if(this.handleTransaction != null) {
-                Map<String, Object> currentData = TransactionData.from(data, false, true).toMap2();
+                Map<String, Object> currentData = TriggerMetadata.from(data, false, true).toMap2();
 //            stringObjectMap = mergeTodo(stringObjectMap, currentData);
                 this.txDataMap.put(this.handleTransaction, mergeTodo(this.txDataMap.get(this.handleTransaction), currentData));
                 System.out.println("PeriodicCommitHandler.beforeCommit");

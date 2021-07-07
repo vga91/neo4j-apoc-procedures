@@ -202,7 +202,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     private void afterAsync(org.neo4j.graphdb.event.TransactionData txData) {
         if (hasPhase(Phase.afterAsync)) {
-            TransactionData triggerMetadata = TransactionData.from(txData, true);
+            TriggerMetadata triggerMetadata = TriggerMetadata.from(txData, true);
             Util.inTxFuture(pools.getDefaultExecutorService(), db, (inner) -> {
                 executeTriggers(inner, triggerMetadata.rebind(inner), Phase.afterAsync);
                 return null;
@@ -227,10 +227,10 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     }
 
     private void executeTriggers(Transaction tx, org.neo4j.graphdb.event.TransactionData txData, Phase phase) {
-        executeTriggers(tx, TransactionData.from(txData, false), phase);
+        executeTriggers(tx, TriggerMetadata.from(txData, false), phase);
     }
 
-    private void executeTriggers(Transaction tx, TransactionData triggerMetadata, Phase phase) {
+    private void executeTriggers(Transaction tx, TriggerMetadata triggerMetadata, Phase phase) {
         Map<String,String> exceptions = new LinkedHashMap<>();
         activeTriggers.forEach((name, data) -> {
             Map<String, Object> params = triggerMetadata.toMap();

@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 import static apoc.util.Util.map;
 
-public class TransactionData {
+public class TriggerMetadata {
     private final long transactionId;
     private final long commitTime;
     private final List<Node> createdNodes;
@@ -37,7 +37,7 @@ public class TransactionData {
     private final Map<String, List<PropertyEntryContainer<Relationship>>> assignedRelationshipProperties;
     private final Map<String, Object> metaData;
 
-    private TransactionData(long transactionId, long commitTime,
+    private TriggerMetadata(long transactionId, long commitTime,
                             List<Node> createdNodes, List<Relationship> createdRelationships,
                             List<Node> deletedNodes, List<Relationship> deletedRelationships,
                             Map<String, List<Node>> removedLabels,
@@ -62,11 +62,11 @@ public class TransactionData {
         this.metaData = metaData;
     }
 
-    public static TransactionData from(org.neo4j.graphdb.event.TransactionData txData, boolean rebindDeleted) {
+    public static TriggerMetadata from(org.neo4j.graphdb.event.TransactionData txData, boolean rebindDeleted) {
         return from(txData, rebindDeleted, false);
     }
 
-    public static TransactionData from(org.neo4j.graphdb.event.TransactionData txData, boolean rebindDeleted, boolean isVirtual) {
+    public static TriggerMetadata from(org.neo4j.graphdb.event.TransactionData txData, boolean rebindDeleted, boolean isVirtual) {
         long txId, commitTime;
         try {
             txId = txData.getTransactionId();
@@ -89,7 +89,7 @@ public class TransactionData {
         final Map<String, List<PropertyEntryContainer<Relationship>>> removedRelationshipProperties = aggregatePropertyKeys(txData.removedRelationshipProperties(), true, isVirtual);
         final Map<String, List<PropertyEntryContainer<Node>>> assignedNodeProperties = aggregatePropertyKeys(txData.assignedNodeProperties(), false, isVirtual);
         final Map<String, List<PropertyEntryContainer<Relationship>>> assignedRelationshipProperties = aggregatePropertyKeys(txData.assignedRelationshipProperties(), false, isVirtual);
-        return new TransactionData(txId, commitTime, createdNodes, createdRelationships, deletedNodes, deletedRelationships,
+        return new TriggerMetadata(txId, commitTime, createdNodes, createdRelationships, deletedNodes, deletedRelationships,
                 removedLabels,removedNodeProperties, removedRelationshipProperties, assignedLabels, assignedNodeProperties,
                 assignedRelationshipProperties, txData.metaData());
     }
@@ -124,7 +124,7 @@ public class TransactionData {
                 .collect(Collectors.toList());
     }
 
-    public TransactionData rebind(Transaction tx) {
+    public TriggerMetadata rebind(Transaction tx) {
         final List<Node> createdNodes = Util.rebind(this.createdNodes, tx);
         final List<Relationship> createdRelationships = Util.rebind(this.createdRelationships, tx);
 //        final List<Node> deletedNodes = Util.rebind(this.deletedNodes, tx);
@@ -135,7 +135,7 @@ public class TransactionData {
         final Map<String, List<PropertyEntryContainer<Relationship>>> removedRelationshipProperties = rebindPropertyEntryContainer(this.removedRelationshipProperties, tx);
         final Map<String, List<PropertyEntryContainer<Node>>> assignedNodeProperties = rebindPropertyEntryContainer(this.assignedNodeProperties, tx);
         final Map<String, List<PropertyEntryContainer<Relationship>>> assignedRelationshipProperties = rebindPropertyEntryContainer(this.assignedRelationshipProperties, tx);
-        return new TransactionData(transactionId, commitTime, createdNodes, createdRelationships, deletedNodes, deletedRelationships,
+        return new TriggerMetadata(transactionId, commitTime, createdNodes, createdRelationships, deletedNodes, deletedRelationships,
                 removedLabels, removedNodeProperties, removedRelationshipProperties, assignedLabels, assignedNodeProperties,
                 assignedRelationshipProperties, metaData);
     }
