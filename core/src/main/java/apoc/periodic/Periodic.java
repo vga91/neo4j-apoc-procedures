@@ -1,18 +1,23 @@
 package apoc.periodic;
 
 import apoc.Pools;
+import apoc.trigger.TransactionData;
 import apoc.util.Util;
+import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.event.TransactionEventListener;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.schema.Schema;
 import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.helpers.collection.Pair;
+import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
@@ -24,6 +29,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.Util.merge;
@@ -40,6 +46,10 @@ public class Periodic {
     @Context public Log log;
     @Context public Pools pools;
     @Context public Transaction tx;
+
+
+    @Context
+    public PeriodicCommitHandler periodicCommitHandler;
 
     @Admin
     @Procedure(mode = Mode.SCHEMA)
@@ -63,8 +73,8 @@ public class Periodic {
     }
 
     @Procedure(mode = Mode.WRITE)
-    @Description("apoc.periodic.commit(statement,params) - runs the given statement in separate transactions until it returns 0")
-    public Stream<RundownResult> commit(@Name("statement") String statement, @Name(value = "params", defaultValue = "{}") Map<String,Object> parameters) throws ExecutionException, InterruptedException {
+    @Description("apoc.periodic.commit(statement,{params},{config}) - runs the given statement in separate transactions until it returns 0")
+    public Stream<RundownResult> commit(@Name("statement") String statement, @Name(value = "params", defaultValue = "{}") Map<String,Object> parameters, @Name(value = "config", defaultValue = "{}") Map<String,Object> config) throws ExecutionException, InterruptedException {
         validateQuery(statement);
         Map<String,Object> params = parameters == null ? Collections.emptyMap() : parameters;
         long total = 0, executions = 0, updates = 0;
@@ -79,25 +89,63 @@ public class Periodic {
         Map<String,Long> commitErrors = new ConcurrentHashMap<>();
         AtomicInteger failedBatches = new AtomicInteger();
         Map<String,Long> batchErrors = new ConcurrentHashMap<>();
+        
+//        Map<String, Map<String, Object>> dataMap = new HashMap<>();
+        Map<String, Object> dataMap = new HashMap<>();
+
+        boolean extractData = Util.toBoolean(config.get("extractData"));
+        String uuid = UUID.randomUUID().toString();
+//        if (extractData) {
+//            periodicCommitHandler.runListener();
+//        }
 
         do {
             Map<String, Object> window = Util.map("_count", updates, "_total", total);
+//            if (extractData) {
+//            }
             updates = Util.getFuture(pools.getScheduledExecutorService().submit(() -> {
                 batches.incrementAndGet();
                 try {
-                    return executeNumericResultStatement(statement, merge(window, params));
+                    periodicCommitHandler.assignNumericResultStatement(statement, merge(window, params), uuid);
+                    return periodicCommitHandler.getNumResults(uuid);
                 } catch(Exception e) {
                     failedBatches.incrementAndGet();
                     recordError(batchErrors, e);
                     return 0L;
                 }
             }), commitErrors, failedCommits, 0L);
+//            if (extractData) {
+//                dataMap = mergeTodo(dataMap, periodicCommitHandler.getMetadata());//.put(Integer.toString(batches.get()), todoPoiVediamoComeChiamarla.getMetadata());
+//            }
             total += updates;
             if (updates > 0) executions++;
         } while (updates > 0 && !Util.transactionIsTerminated(terminationGuard));
         long timeTaken = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - start);
         boolean wasTerminated = Util.transactionIsTerminated(terminationGuard);
-        return Stream.of(new RundownResult(total,executions, timeTaken, batches.get(),failedBatches.get(),batchErrors, failedCommits.get(), commitErrors, wasTerminated));
+//        if (extractData) {
+//            periodicCommitHandler.stopListener();
+//        }
+        return Stream.of(new RundownResult(total,executions, timeTaken, batches.get(),failedBatches.get(),batchErrors, failedCommits.get(), commitErrors, wasTerminated, periodicCommitHandler.getTxData(uuid)));
+    }
+    
+    private synchronized static Map<String, Object> mergeTodo(Map<String, Object> mapStart, Map<String, Object> mapEnd) {
+        if (MapUtils.isEmpty(mapStart)) {
+            return mapEnd;
+        }
+//        if (MapUtils.isEmpty(mapEnd)) {
+//            return mapStart;
+//        }
+        return Stream.of(mapStart, mapEnd)
+                .flatMap(map -> map.entrySet().stream())
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
+                        (v1, v2) -> {
+                            if (v1 instanceof List) {
+                                ((List) v1).addAll((List) v2);
+                                return v1;
+                            } else {
+                                return mergeTodo(((Map<String, Object>) v1), ((Map<String, Object>) v2));
+                            }
+                        }));
     }
 
     private static void recordError(Map<String, Long> executionErrors, Exception e) {
@@ -105,6 +153,122 @@ public class Periodic {
         // String msg = ExceptionUtils.getThrowableList(e).stream().map(Throwable::getMessage).collect(Collectors.joining(","))
         executionErrors.compute(msg, (s, i) -> i == null ? 1 : i + 1);
     }
+    
+    public static class PeriodicCommitHandler extends LifecycleAdapter implements TransactionEventListener<Void> {
+
+        private final GraphDatabaseService db;
+        private final DatabaseManagementService service;
+        private boolean extractData;
+
+
+        @Override
+        public void start() {
+            System.out.println("PeriodicCommitHandler.start");
+            this.service.registerTransactionEventListener(db.databaseName(), this);
+        }
+
+        @Override
+        public void stop() {
+            System.out.println("PeriodicCommitHandler.stop");
+            this.service.unregisterTransactionEventListener(db.databaseName(), this);
+        }
+
+
+        private String handleTransaction = null;
+        
+        
+        
+        private Map<String, Long> numResults = new ConcurrentHashMap<>();
+        
+        private Map<String, Map<String, Object>> txDataMap = new ConcurrentHashMap<>();
+        
+        public PeriodicCommitHandler(GraphDatabaseService db, DatabaseManagementService service) {
+            this.db = db;
+            this.service = service;
+        }
+        
+//        private void runListener() {
+//            this.service.registerTransactionEventListener(db.databaseName(), this);
+//            this.extractData = true; 
+//        }
+        
+//        private void stopListener() {
+//            this.service.unregisterTransactionEventListener(db.databaseName(), this);
+//            this.extractData = false;
+        
+
+        private synchronized void assignNumericResultStatement(String statement, Map<String, Object> parameters, String uuid) {
+            
+            
+            
+            this.handleTransaction = uuid;
+
+
+            Long longResult = db.executeTransactionally(statement, parameters, result -> {
+                String column = Iterables.single(result.columns());
+                return result.columnAs(column).stream().mapToLong(o -> (long) o).sum();
+            });
+            this.numResults.put(uuid, longResult);
+
+
+//            this.handleTransaction = false;
+            
+            
+            
+//            this.numResults = executeNumericResultStatement(statement, parameters);
+            // todo - mettere anche service.unregisterDatabaseEventListener();
+            
+            
+            
+//            service.registerTransactionEventListener(db.databaseName(), this);
+        }
+
+//        private synchronized Long executeNumericResultStatement(String statement, Map<String, Object> parameters) {
+//
+//        }
+
+        @Override
+        public Void beforeCommit(org.neo4j.graphdb.event.TransactionData data, Transaction transaction, GraphDatabaseService databaseService) throws Exception {
+//            if (this.handleTransaction) {
+//            Map<String, Object> stringObjectMap = this.txDataMap.get(this.handleTransaction);
+            if(this.handleTransaction != null) {
+                Map<String, Object> currentData = TransactionData.from(data, false, true).toMap2();
+//            stringObjectMap = mergeTodo(stringObjectMap, currentData);
+                this.txDataMap.put(this.handleTransaction, mergeTodo(this.txDataMap.get(this.handleTransaction), currentData));
+                System.out.println("PeriodicCommitHandler.beforeCommit");
+//            }
+            }
+            return null;
+        }
+
+        @Override
+        public void afterCommit(org.neo4j.graphdb.event.TransactionData data, Void state, GraphDatabaseService databaseService) {
+//            if (this.handleTransaction) {
+//                System.out.println("RundownResult.after inner");
+//            }
+            // todo - rebind?
+//            this.metadata = TransactionData.from(data, true).toMap2();
+//            this.metadata = mergeTodo(this.metadata, TransactionData.from(data, true).toMap2());
+            System.out.println("RundownResult.afterCommit");
+        }
+
+        @Override
+        public void afterRollback(org.neo4j.graphdb.event.TransactionData data, Void state, GraphDatabaseService databaseService) {
+            System.out.println("RundownResult.afterRollback");
+        }
+
+        public long getNumResults(String uuid) {
+            return numResults.get(uuid);
+        }
+
+        public synchronized Map<String, Object> getTxData(String uuid) {
+//            Map<String, Object> txData = txDataMap.remove(uuid);
+//            txDataMap.remove(uuid);
+            this.handleTransaction = null;
+            return txDataMap.remove(uuid);
+        }
+    }
+
 
     public static class RundownResult {
         public final long updates;
@@ -116,8 +280,9 @@ public class Periodic {
         public final long failedCommits;
         public final Map<String, Long> commitErrors;
         public final boolean wasTerminated;
+        public final Map<String, Object> data;
 
-        public RundownResult(long total, long executions, long timeTaken, long batches, long failedBatches, Map<String, Long> batchErrors, long failedCommits, Map<String, Long> commitErrors, boolean wasTerminated) {
+        public RundownResult(long total, long executions, long timeTaken, long batches, long failedBatches, Map<String, Long> batchErrors, long failedCommits, Map<String, Long> commitErrors, boolean wasTerminated, Map<String, Object> data) {
             this.updates = total;
             this.executions = executions;
             this.runtime = timeTaken;
@@ -127,10 +292,12 @@ public class Periodic {
             this.failedCommits = failedCommits;
             this.commitErrors = commitErrors;
             this.wasTerminated = wasTerminated;
+            this.data = data;
         }
     }
 
     private long executeNumericResultStatement(@Name("statement") String statement, @Name("params") Map<String, Object> parameters) {
+        
         return db.executeTransactionally(statement, parameters, result -> {
             String column = Iterables.single(result.columns());
             return result.columnAs(column).stream().mapToLong( o -> (long)o).sum();

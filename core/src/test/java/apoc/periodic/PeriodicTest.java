@@ -1,5 +1,6 @@
 package apoc.periodic;
 
+import apoc.result.VirtualNode;
 import apoc.util.MapUtil;
 import apoc.util.TestUtil;
 import org.junit.Before;
@@ -13,6 +14,7 @@ import org.neo4j.graphdb.TransientTransactionFailureException;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.schema.Schema;
+import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.KernelTransactionHandle;
 import org.neo4j.kernel.impl.api.KernelTransactions;
@@ -25,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -37,10 +40,12 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.neo4j.driver.internal.util.Iterables.count;
+import static org.neo4j.graphdb.Label.label;
 
 public class PeriodicTest {
 
@@ -130,8 +135,55 @@ public class PeriodicTest {
         testCall(db, "CALL apoc.periodic.commit($query,$params)", MapUtil.map("query", query, "params", MapUtil.map("limit", BATCH_SIZE)), r -> {
             assertEquals((long) Math.ceil((double) RUNDOWN_COUNT / BATCH_SIZE), r.get("executions"));
             assertEquals(RUNDOWN_COUNT, r.get("updates"));
+            assertNull(r.get("data"));
         });
         assertEquals(RUNDOWN_COUNT, (long)db.executeTransactionally("MATCH (p:Processed) RETURN COUNT(*) AS c", Collections.emptyMap(), result -> Iterators.single(result.columnAs("c"))));
+    }
+
+    @Test
+    public void testRunDown1() {
+        long count = 5;
+        db.executeTransactionally("UNWIND range(1, 5) AS id CREATE (n:NodeCommit {id:id})", Map.of("count", count));
+        
+        String query = "MATCH (p:NodeCommit) WHERE NOT p:Processed WITH p LIMIT $limit \n" +
+                "CREATE (n:Another {alpha: 'beta'}) SET p:Processed RETURN count(*)";
+
+        testCall(db, "CALL apoc.periodic.commit($query, {limit: 2}, {extractData: true})", MapUtil.map("query", query), r -> {
+            Map<String, Object> data = (Map<String, Object>) r.get("data");
+            Map<String, Object> assignedLabels = (Map<String, Object>) data.get("assignedLabels");
+            assertEquals(2, assignedLabels.size());
+            List<VirtualNode> another = (List<VirtualNode>) assignedLabels.get("Another");
+            assertEquals(count, another.size());
+            another.forEach(node -> {
+                assertEquals(List.of(label("Another")), node.getLabels());
+                assertEquals(Map.of("alpha", "beta"), node.getAllProperties());
+            });
+            List<VirtualNode> processed = (List<VirtualNode>) assignedLabels.get("Processed");
+            assertEquals(count, processed.size());
+            processed.forEach(node -> {
+                assertEquals(Set.of(label("Processed"), label("NodeCommit")), Iterables.asSet(node.getLabels()));
+                assertTrue(node.hasProperty("id"));
+            });
+            assertEquals(Set.copyOf(another), Set.copyOf((List<VirtualNode>) data.get("createdNodes"))) ;
+        });
+    }
+
+    @Test
+    public void testRunDown12() {
+        long count = 5;
+        db.executeTransactionally("UNWIND range(1, $count) AS id CREATE (n:NodeCommitSet {id:id})", MapUtil.map("count", count));
+        String query = "MATCH (p:NodeCommitSet) WHERE p.foo IS NULL WITH p LIMIT $limit WITH p SET p.foo = 'bar' RETURN count(*)";
+
+        testCall(db, "CALL apoc.periodic.commit($query, {limit: 2}, {extractData: true})", MapUtil.map("query", query), r -> {
+            Map<String, Object> data = (Map<String, Object>) r.get("data");
+            Map<String, Object> assignedNodeProperties = (Map<String, Object>) data.get("assignedNodeProperties");
+            List<Map<String, Object>> foo = (List<Map<String, Object>>) assignedNodeProperties.get("foo");
+            assertEquals(count, foo.size());
+            foo.forEach(prop -> {
+                assertTrue(prop.get("node") instanceof VirtualNode);
+                assertEquals("bar", prop.get("new"));
+            });
+        });
     }
 
 

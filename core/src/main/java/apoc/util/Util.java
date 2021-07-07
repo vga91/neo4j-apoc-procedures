@@ -541,6 +541,7 @@ public class Util {
         return result;
     }
 
+    // todo - forse questa è utile
     public static Map<String, Object> merge(Map<String, Object> first, Map<String, Object> second) {
         if (second == null || second.isEmpty()) return first == null ? Collections.EMPTY_MAP : first;
         if (first == null || first.isEmpty()) return second == null ? Collections.EMPTY_MAP : second;
