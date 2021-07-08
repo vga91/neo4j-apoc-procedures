@@ -50,6 +50,17 @@ public class CollTest {
     }
 
     @Test
+    public void testRound()  {
+        testCall(db, "RETURN apoc.coll.round([10, 12.5, 23.2, 23.0, 23, 10.000, 0.1, 0.0]) as value",
+                (row) -> assertEquals(List.of(10L, 12.5D, 23.2D, 23L, 23L, 10L, 0.1D, 0L), row.get("value")));
+        
+        // interoperability with apoc.coll.intersection (2 == 2.0)
+        testCall(db, "WITH apoc.coll.round([2.0, 1.0, 5.2]) as first, apoc.coll.round([2, 1.0, 6, 5.2]) as second \n" + 
+                        "RETURN apoc.coll.intersection(first, second) AS value",
+                (row) -> assertEquals(List.of(1L, 2L, 5.2D), row.get("value")));
+    }
+
+    @Test
     public void testZip() throws Exception {
         testCall(db, "RETURN apoc.coll.zip([1,2,3],[4,5]) as value",
                 (row) -> {

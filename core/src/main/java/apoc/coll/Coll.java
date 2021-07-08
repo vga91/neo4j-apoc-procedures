@@ -610,6 +610,18 @@ public class Coll {
     }
 
     @UserFunction
+    @Description("apoc.coll.round(list) - Transform elements to integer if the decimal part is `.0`. For example apoc.coll.round([10, 12.5, 23.2, 23.0, 23, 10.000, 0.1, 0.0]) returns [10, 12.5, 23.2, 23, 23, 10, 0.1, 0]")
+    public List<Number> round(@Name("first") List<Number> first) {
+        if (first == null) return Collections.emptyList();
+        return first.stream().map(num -> {
+            if (num.doubleValue() == num.longValue()) {
+                return num.longValue();
+            }
+            return num;
+        }).collect(Collectors.toList());
+    }
+
+    @UserFunction
     @Description("apoc.coll.disjunction(first, second) - returns the disjunct set of the two lists")
     public List<Object> disjunction(@Name("first") List<Object> first, @Name("second") List<Object> second) {
         if (first == null) return second;
