@@ -1,0 +1,5 @@
+¦xref::overview/apoc.coll/apoc.coll.round.adoc[apoc.coll.round icon:book[]] +
+
+ - Transform elements to integer if the decimal part is .0
+¦label:function[]
+¦label:apoc-core[]
