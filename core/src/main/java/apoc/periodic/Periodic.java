@@ -10,6 +10,7 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.event.TransactionData;
 import org.neo4j.graphdb.event.TransactionEventListener;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
@@ -89,63 +90,48 @@ public class Periodic {
         Map<String,Long> commitErrors = new ConcurrentHashMap<>();
         AtomicInteger failedBatches = new AtomicInteger();
         Map<String,Long> batchErrors = new ConcurrentHashMap<>();
-        
-//        Map<String, Map<String, Object>> dataMap = new HashMap<>();
-        Map<String, Object> dataMap = new HashMap<>();
+
 
         boolean extractData = Util.toBoolean(config.get("extractData"));
-        String uuid = UUID.randomUUID().toString();
-//        if (extractData) {
-//            periodicCommitHandler.runListener();
-//        }
+        String uuid = extractData ? UUID.randomUUID().toString() : null;
 
         do {
             Map<String, Object> window = Util.map("_count", updates, "_total", total);
-//            if (extractData) {
-//            }
             updates = Util.getFuture(pools.getScheduledExecutorService().submit(() -> {
                 batches.incrementAndGet();
                 try {
-                    periodicCommitHandler.assignNumericResultStatement(statement, merge(window, params), uuid);
-                    return periodicCommitHandler.getNumResults(uuid);
+                    return periodicCommitHandler.executeNumericResultStatement(statement, merge(window, params), uuid);
                 } catch(Exception e) {
                     failedBatches.incrementAndGet();
                     recordError(batchErrors, e);
                     return 0L;
                 }
             }), commitErrors, failedCommits, 0L);
-//            if (extractData) {
-//                dataMap = mergeTodo(dataMap, periodicCommitHandler.getMetadata());//.put(Integer.toString(batches.get()), todoPoiVediamoComeChiamarla.getMetadata());
-//            }
             total += updates;
             if (updates > 0) executions++;
         } while (updates > 0 && !Util.transactionIsTerminated(terminationGuard));
         long timeTaken = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - start);
         boolean wasTerminated = Util.transactionIsTerminated(terminationGuard);
-//        if (extractData) {
-//            periodicCommitHandler.stopListener();
-//        }
         return Stream.of(new RundownResult(total,executions, timeTaken, batches.get(),failedBatches.get(),batchErrors, failedCommits.get(), commitErrors, wasTerminated, periodicCommitHandler.getTxData(uuid)));
     }
     
-    private synchronized static Map<String, Object> mergeTodo(Map<String, Object> mapStart, Map<String, Object> mapEnd) {
+    private synchronized static Map<String, Object> mergeTransactionMaps(Map<String, Object> mapStart, Map<String, Object> mapEnd) {
         if (MapUtils.isEmpty(mapStart)) {
             return mapEnd;
         }
-//        if (MapUtils.isEmpty(mapEnd)) {
-//            return mapStart;
-//        }
+        if (MapUtils.isEmpty(mapEnd)) {
+            return mapStart;
+        }
         return Stream.of(mapStart, mapEnd)
                 .flatMap(map -> map.entrySet().stream())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-                        (v1, v2) -> {
-                            if (v1 instanceof List) {
-                                ((List) v1).addAll((List) v2);
-                                return v1;
-                            } else {
-                                return mergeTodo(((Map<String, Object>) v1), ((Map<String, Object>) v2));
-                            }
-                        }));
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> { 
+                    if (v1 instanceof List) {
+                        ((List) v1).addAll((List) v2);
+                        return v1;
+                    } else {
+                        return mergeTransactionMaps(((Map<String, Object>) v1), ((Map<String, Object>) v2));
+                    }
+                }));
     }
 
     private static void recordError(Map<String, Long> executionErrors, Exception e) {
@@ -155,116 +141,63 @@ public class Periodic {
     }
     
     public static class PeriodicCommitHandler extends LifecycleAdapter implements TransactionEventListener<Void> {
-
         private final GraphDatabaseService db;
         private final DatabaseManagementService service;
-        private boolean extractData;
-
+        private final Map<String, Map<String, Object>> txDataMap = new ConcurrentHashMap<>();
+        
+        private String handleTransaction = null;
 
         @Override
         public void start() {
-            System.out.println("PeriodicCommitHandler.start");
             this.service.registerTransactionEventListener(db.databaseName(), this);
         }
 
         @Override
         public void stop() {
-            System.out.println("PeriodicCommitHandler.stop");
+            txDataMap.clear();
             this.service.unregisterTransactionEventListener(db.databaseName(), this);
         }
+        
+        @Override
+        public Void beforeCommit(TransactionData data, Transaction transaction, GraphDatabaseService databaseService) {
+            if(this.handleTransaction != null) {
+                Map<String, Object> currentData = TriggerMetadata.from(data, false, true).toMapPeriodic();
+                this.txDataMap.compute(this.handleTransaction, (k, v) -> mergeTransactionMaps(v, currentData));
+                this.handleTransaction = null;
+            }
+            return null;
+        }
 
+        @Override
+        public void afterCommit(TransactionData data, Void state, GraphDatabaseService databaseService) {}
 
-        private String handleTransaction = null;
-        
-        
-        
-        private Map<String, Long> numResults = new ConcurrentHashMap<>();
-        
-        private Map<String, Map<String, Object>> txDataMap = new ConcurrentHashMap<>();
+        @Override
+        public void afterRollback(TransactionData data, Void state, GraphDatabaseService databaseService) {}
         
         public PeriodicCommitHandler(GraphDatabaseService db, DatabaseManagementService service) {
             this.db = db;
             this.service = service;
         }
         
-//        private void runListener() {
-//            this.service.registerTransactionEventListener(db.databaseName(), this);
-//            this.extractData = true; 
-//        }
-        
-//        private void stopListener() {
-//            this.service.unregisterTransactionEventListener(db.databaseName(), this);
-//            this.extractData = false;
-        
 
-        private synchronized void assignNumericResultStatement(String statement, Map<String, Object> parameters, String uuid) {
-            
-            
-            
-            this.handleTransaction = uuid;
-
-
-            Long longResult = db.executeTransactionally(statement, parameters, result -> {
+        private synchronized long executeNumericResultStatement(String statement, Map<String, Object> parameters, String uuid) {
+            try (Transaction transaction = this.db.beginTx()) {
+                final Result result = transaction.execute(statement, parameters);
                 String column = Iterables.single(result.columns());
-                return result.columnAs(column).stream().mapToLong(o -> (long) o).sum();
-            });
-            this.numResults.put(uuid, longResult);
-
-
-//            this.handleTransaction = false;
-            
-            
-            
-//            this.numResults = executeNumericResultStatement(statement, parameters);
-            // todo - mettere anche service.unregisterDatabaseEventListener();
-            
-            
-            
-//            service.registerTransactionEventListener(db.databaseName(), this);
-        }
-
-//        private synchronized Long executeNumericResultStatement(String statement, Map<String, Object> parameters) {
-//
-//        }
-
-        @Override
-        public Void beforeCommit(org.neo4j.graphdb.event.TransactionData data, Transaction transaction, GraphDatabaseService databaseService) throws Exception {
-//            if (this.handleTransaction) {
-//            Map<String, Object> stringObjectMap = this.txDataMap.get(this.handleTransaction);
-            if(this.handleTransaction != null) {
-                Map<String, Object> currentData = TriggerMetadata.from(data, false, true).toMap2();
-//            stringObjectMap = mergeTodo(stringObjectMap, currentData);
-                this.txDataMap.put(this.handleTransaction, mergeTodo(this.txDataMap.get(this.handleTransaction), currentData));
-                System.out.println("PeriodicCommitHandler.beforeCommit");
-//            }
+                final long sum = result.columnAs(column).stream().mapToLong(o -> (long) o).sum();
+                this.handleTransaction = uuid;
+                System.out.println("prima del commit");
+                transaction.commit();
+                System.out.println("dopo del commit");
+                this.handleTransaction = null;
+                return sum;
             }
-            return null;
         }
-
-        @Override
-        public void afterCommit(org.neo4j.graphdb.event.TransactionData data, Void state, GraphDatabaseService databaseService) {
-//            if (this.handleTransaction) {
-//                System.out.println("RundownResult.after inner");
-//            }
-            // todo - rebind?
-//            this.metadata = TransactionData.from(data, true).toMap2();
-//            this.metadata = mergeTodo(this.metadata, TransactionData.from(data, true).toMap2());
-            System.out.println("RundownResult.afterCommit");
-        }
-
-        @Override
-        public void afterRollback(org.neo4j.graphdb.event.TransactionData data, Void state, GraphDatabaseService databaseService) {
-            System.out.println("RundownResult.afterRollback");
-        }
-
-        public long getNumResults(String uuid) {
-            return numResults.get(uuid);
-        }
-
+        
         public synchronized Map<String, Object> getTxData(String uuid) {
-//            Map<String, Object> txData = txDataMap.remove(uuid);
-//            txDataMap.remove(uuid);
-            this.handleTransaction = null;
+            if (uuid == null) {
+                return null;
+            }
             return txDataMap.remove(uuid);
         }
     }

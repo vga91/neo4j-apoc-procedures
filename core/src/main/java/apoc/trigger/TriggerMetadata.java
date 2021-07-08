@@ -78,13 +78,12 @@ public class TriggerMetadata {
         } catch (Exception ignored) {
             commitTime = -1L;
         }
-        List<Node> createdNodes = todoName(isVirtual, (List<Node>) Convert.convertToList(txData.createdNodes()));
-        List<Relationship> createdRelationships = todoName2(isVirtual, Convert.convertToList(txData.createdRelationships()));
-        List<Node> deletedNodes = todoName(isVirtual, rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedNodes())) : Convert.convertToList(txData.deletedNodes()));
-        List<Relationship> deletedRelationships = todoName2(isVirtual, rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedRelationships())) : Convert.convertToList(txData.deletedRelationships()));
+        List<Node> createdNodes = nodeToVirtual(isVirtual, (List<Node>) Convert.convertToList(txData.createdNodes()));
+        List<Relationship> createdRelationships = relToVirtual(isVirtual, Convert.convertToList(txData.createdRelationships()));
+        List<Node> deletedNodes = nodeToVirtual(isVirtual, rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedNodes())) : Convert.convertToList(txData.deletedNodes()));
+        List<Relationship> deletedRelationships = relToVirtual(isVirtual, rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedRelationships())) : Convert.convertToList(txData.deletedRelationships()));
         Map<String, List<Node>> removedLabels = aggregateLabels(txData.removedLabels(), isVirtual);
         Map<String, List<Node>> assignedLabels = aggregateLabels(txData.assignedLabels(), isVirtual);
-        // todo - forse a questi non serve?
         final Map<String, List<PropertyEntryContainer<Node>>> removedNodeProperties = aggregatePropertyKeys(txData.removedNodeProperties(), true, isVirtual);
         final Map<String, List<PropertyEntryContainer<Relationship>>> removedRelationshipProperties = aggregatePropertyKeys(txData.removedRelationshipProperties(), true, isVirtual);
         final Map<String, List<PropertyEntryContainer<Node>>> assignedNodeProperties = aggregatePropertyKeys(txData.assignedNodeProperties(), false, isVirtual);
@@ -94,16 +93,19 @@ public class TriggerMetadata {
                 assignedRelationshipProperties, txData.metaData());
     }
     
-    private static List<Node> todoName(boolean isVirtual, List<Node> nodes) {
+    private static List<Node> nodeToVirtual(boolean isVirtual, List<Node> nodes) {
         if (isVirtual) {
-            return nodes.stream().map(node -> new VirtualNode(node, Iterables.asList(node.getPropertyKeys()))).collect(Collectors.toList());
+            return nodes.stream()
+                    .map(node -> new VirtualNode(node, Iterables.asList(node.getPropertyKeys())))
+                    .collect(Collectors.toList());
         }
         return nodes;
     }
     
-    private static List<Relationship> todoName2(boolean isVirtual, List<Relationship> rels) {
+    private static List<Relationship> relToVirtual(boolean isVirtual, List<Relationship> rels) {
         if (isVirtual) {
-            return rels.stream().map(rel -> new VirtualRelationship(rel.getStartNode(), rel.getStartNode(), rel.getType()).withProperties(rel.getAllProperties()))
+            return rels.stream()
+                    .map(rel -> new VirtualRelationship(rel.getStartNode(), rel.getStartNode(), rel.getType()).withProperties(rel.getAllProperties()))
                     .collect(Collectors.toList());
         }
         return rels;
@@ -162,23 +164,13 @@ public class TriggerMetadata {
     }
 
     public Map<String, Object> toMap() {
-        // todo - gestire transactionId
-        return map("transactionId", transactionId,
-                "commitTime", commitTime,
-                "createdNodes", createdNodes,
-                "createdRelationships", createdRelationships,
-                "deletedNodes", deletedNodes,
-                "deletedRelationships", deletedRelationships,
-                "removedLabels", removedLabels,
-                "removedNodeProperties", convertMapOfPropertyEntryContainers(removedNodeProperties),
-                "removedRelationshipProperties", convertMapOfPropertyEntryContainers(removedRelationshipProperties),
-                "assignedLabels", assignedLabels,
-                "assignedNodeProperties", convertMapOfPropertyEntryContainers(assignedNodeProperties),
-                "assignedRelationshipProperties", convertMapOfPropertyEntryContainers(assignedRelationshipProperties),
-                "metaData", metaData);
+        final Map<String, Object> map = toMapPeriodic();
+        map.putAll(map("transactionId", transactionId,
+                "commitTime", commitTime));
+        return map;
     }
 
-    public Map<String, Object> toMap2() {
+    public Map<String, Object> toMapPeriodic() {
         return map(
                 "createdNodes", createdNodes,
                 "createdRelationships", createdRelationships,

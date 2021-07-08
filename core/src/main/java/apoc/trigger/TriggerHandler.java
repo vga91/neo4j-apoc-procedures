@@ -11,6 +11,7 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.event.TransactionData;
 import org.neo4j.graphdb.event.TransactionEventListener;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.helpers.collection.MapUtil;
@@ -181,8 +182,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     }
 
     @Override
-    public Void beforeCommit(org.neo4j.graphdb.event.TransactionData txData, Transaction transaction, GraphDatabaseService databaseService) {
-        System.out.println("TriggerHandler.beforeCommit");
+    public Void beforeCommit(TransactionData txData, Transaction transaction, GraphDatabaseService databaseService) {
         if (hasPhase(Phase.before)) {
             executeTriggers(transaction, txData, Phase.before);
         }
@@ -190,7 +190,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     }
 
     @Override
-    public void afterCommit(org.neo4j.graphdb.event.TransactionData txData, Void state, GraphDatabaseService databaseService) {
+    public void afterCommit(TransactionData txData, Void state, GraphDatabaseService databaseService) {
         if (hasPhase(Phase.after)) {
             try (Transaction tx = db.beginTx()) {
                 executeTriggers(tx, txData, Phase.after);
@@ -200,7 +200,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
         afterAsync(txData);
     }
 
-    private void afterAsync(org.neo4j.graphdb.event.TransactionData txData) {
+    private void afterAsync(TransactionData txData) {
         if (hasPhase(Phase.afterAsync)) {
             TriggerMetadata triggerMetadata = TriggerMetadata.from(txData, true);
             Util.inTxFuture(pools.getDefaultExecutorService(), db, (inner) -> {
@@ -211,7 +211,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     }
 
     @Override
-    public void afterRollback(org.neo4j.graphdb.event.TransactionData txData, Void state, GraphDatabaseService databaseService) {
+    public void afterRollback(TransactionData txData, Void state, GraphDatabaseService databaseService) {
         if (hasPhase(Phase.rollback)) {
             try (Transaction tx = db.beginTx()) {
                 executeTriggers(tx, txData, Phase.rollback);
@@ -226,7 +226,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
                 .anyMatch(selector -> when(selector, phase));
     }
 
-    private void executeTriggers(Transaction tx, org.neo4j.graphdb.event.TransactionData txData, Phase phase) {
+    private void executeTriggers(Transaction tx, TransactionData txData, Phase phase) {
         executeTriggers(tx, TriggerMetadata.from(txData, false), phase);
     }
 
