@@ -1,24 +1,18 @@
 package apoc.periodic;
 
 import apoc.Pools;
-import apoc.trigger.TriggerMetadata;
 import apoc.util.Util;
-import org.apache.commons.collections.MapUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.graphdb.event.TransactionData;
-import org.neo4j.graphdb.event.TransactionEventListener;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.schema.Schema;
 import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.helpers.collection.Pair;
-import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
@@ -30,7 +24,6 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.Util.merge;
@@ -47,10 +40,7 @@ public class Periodic {
     @Context public Log log;
     @Context public Pools pools;
     @Context public Transaction tx;
-
-
-    @Context
-    public PeriodicCommitHandler periodicCommitHandler;
+    @Context public PeriodicCommitHandler periodicCommitHandler;
 
     @Admin
     @Procedure(mode = Mode.SCHEMA)
@@ -149,7 +139,6 @@ public class Periodic {
     }
 
     private long executeNumericResultStatement(@Name("statement") String statement, @Name("params") Map<String, Object> parameters) {
-        
         return db.executeTransactionally(statement, parameters, result -> {
             String column = Iterables.single(result.columns());
             return result.columnAs(column).stream().mapToLong( o -> (long)o).sum();
