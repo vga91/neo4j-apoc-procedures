@@ -11,3 +11,18 @@ RETURN apoc.coll.intersection([1,2,3,4,5], [3,4,5]) AS output;
 | Output
 | [3, 4, 5]
 |===
+
+In case of "mixed" number, you can `use apoc.coll.round` to compare (for example `2` == `2.0` as below).
+
+[source,cypher]
+----
+WITH apoc.coll.round([2.0, 1.0, 5.2]) as first, apoc.coll.round([2, 1.0, 6, 5.2]) as second
+RETURN apoc.coll.intersection(first, second) AS value;
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| value
+| [1, 2, 5.5]
+|===
