@@ -29,22 +29,36 @@ public class CsvPropertyConverter {
 
     static Object[] getPrototypeFor(String type) {
         switch (type) {
-            case "INT":             return new Integer      [] {};
-            case "LONG":            return new Long         [] {};
-            case "FLOAT":           return new Float        [] {};
-            case "DOUBLE":          return new Double       [] {};
-            case "BOOLEAN":         return new Boolean      [] {};
-            case "BYTE":            return new Byte         [] {};
-            case "SHORT":           return new Short        [] {};
-            case "CHAR":            return new Character    [] {};
-            case "STRING":          return new String       [] {};
-            case "DATETIME":        return new ZonedDateTime[] {};
-            case "LOCALTIME":       return new LocalTime    [] {};
-            case "LOCALDATETIME":   return new LocalDateTime[] {};
-            case "POINT":           return new PointValue   [] {};
-            case "TIME":            return new OffsetTime   [] {};
-            case "DATE":            return new LocalDate    [] {};
-            case "DURATION":        return new DurationValue[] {};
+            case "INT":
+            case "LONG":
+                return new Long[] {};
+            case "FLOAT":
+            case "DOUBLE":
+                return new Double[] {};
+            case "BOOLEAN":
+                return new Boolean[] {};
+            case "BYTE":
+                return new Byte[] {};
+            case "SHORT":
+                return new Short[] {};
+            case "CHAR":
+                return new Character[] {};
+            case "STRING":
+                return new String[] {};
+            case "DATETIME":
+                return new ZonedDateTime[] {};
+            case "LOCALTIME":
+                return new LocalTime[] {};
+            case "LOCALDATETIME":
+                return new LocalDateTime[] {};
+            case "POINT":
+                return new PointValue[] {};
+            case "TIME":
+                return new OffsetTime[] {};
+            case "DATE":
+                return new LocalDate[] {};
+            case "DURATION":
+                return new DurationValue[] {};
         }
         throw new IllegalStateException("Type " + type + " not supported.");
     }
