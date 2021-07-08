@@ -105,7 +105,7 @@ public class TriggerMetadata {
     
     private static List<Relationship> relToVirtual(boolean isVirtual, List<Relationship> rels) {
         if (isVirtual) {
-            // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
+            // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualRelationship.from(rel)
             return rels.stream()
                     .map(rel -> new VirtualRelationship(rel.getStartNode(), rel.getStartNode(), rel.getType()).withProperties(rel.getAllProperties()))
                     .collect(Collectors.toList());
@@ -116,7 +116,6 @@ public class TriggerMetadata {
     private static <T extends Entity> List<T> rebindDeleted(List<T> entities) {
         return (List<T>) entities.stream()
                 .map(e -> {
-                    // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
                     if (e instanceof Node) {
                         Node node = (Node) e;
                         Label[] labels = Iterables.asArray(Label.class, node.getLabels());
@@ -237,6 +236,7 @@ public class TriggerMetadata {
             result.compute(entry.key(),
                     (k, v) -> {
                         if (v == null) v = new ArrayList<>(100);
+                        // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
                         T entity = entry.entity();
                         if (isVirtual) {
                             if (entity instanceof Node) {

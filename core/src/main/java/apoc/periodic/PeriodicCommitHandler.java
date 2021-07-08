@@ -37,8 +37,10 @@ public class PeriodicCommitHandler extends LifecycleAdapter implements Transacti
 
     @Override
     public Void beforeCommit(TransactionData data, Transaction transaction, GraphDatabaseService databaseService) {
+        // when is a transaction from a periodic.commit with {extractData: true}
         if(this.handleTransaction != null) {
             Map<String, Object> currentData = TriggerMetadata.from(data, false, true).toMapPeriodic();
+            // aggregate periodic.commit results
             this.txDataMap.compute(this.handleTransaction, (k, v) -> mergeTransactionMaps(v, currentData));
             this.handleTransaction = null;
         }
@@ -51,27 +53,26 @@ public class PeriodicCommitHandler extends LifecycleAdapter implements Transacti
     @Override
     public void afterRollback(TransactionData data, Void state, GraphDatabaseService databaseService) {}
 
+    
     public PeriodicCommitHandler(GraphDatabaseService db, DatabaseManagementService service) {
         this.db = db;
         this.service = service;
     }
-
-
+    
     public synchronized long executeNumericResultStatement(String statement, Map<String, Object> parameters, String uuid) {
         try (Transaction transaction = this.db.beginTx()) {
             final Result result = transaction.execute(statement, parameters);
             String column = Iterables.single(result.columns());
-            final long sum = result.columnAs(column).stream().mapToLong(o -> (long) o).sum();
+            final long numericResult = result.columnAs(column).stream().mapToLong(o -> (long) o).sum();
             this.handleTransaction = uuid;
-            System.out.println("prima del commit");
             transaction.commit();
-            System.out.println("dopo del commit");
             this.handleTransaction = null;
-            return sum;
+            return numericResult;
         }
     }
 
     public synchronized Map<String, Object> getTxData(String uuid) {
+        // with extractData: false
         if (uuid == null) {
             return null;
         }
