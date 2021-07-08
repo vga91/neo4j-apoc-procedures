@@ -95,6 +95,7 @@ public class TriggerMetadata {
     
     private static List<Node> nodeToVirtual(boolean isVirtual, List<Node> nodes) {
         if (isVirtual) {
+            // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
             return nodes.stream()
                     .map(node -> new VirtualNode(node, Iterables.asList(node.getPropertyKeys())))
                     .collect(Collectors.toList());
@@ -104,6 +105,7 @@ public class TriggerMetadata {
     
     private static List<Relationship> relToVirtual(boolean isVirtual, List<Relationship> rels) {
         if (isVirtual) {
+            // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
             return rels.stream()
                     .map(rel -> new VirtualRelationship(rel.getStartNode(), rel.getStartNode(), rel.getType()).withProperties(rel.getAllProperties()))
                     .collect(Collectors.toList());
@@ -114,6 +116,7 @@ public class TriggerMetadata {
     private static <T extends Entity> List<T> rebindDeleted(List<T> entities) {
         return (List<T>) entities.stream()
                 .map(e -> {
+                    // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
                     if (e instanceof Node) {
                         Node node = (Node) e;
                         Label[] labels = Iterables.asArray(Label.class, node.getLabels());
@@ -193,6 +196,7 @@ public class TriggerMetadata {
             result.compute(entry.label().name(),
                     (k, v) -> {
                         if (v == null) v = new ArrayList<>(100);
+                        // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
                         v.add(isVirtual ? new VirtualNode(entry.node(), Iterables.asList(entry.node().getPropertyKeys())) : entry.node());
                         return v;
                     });
