@@ -1,5 +1,5 @@
 ¦xref::overview/apoc.coll/apoc.coll.round.adoc[apoc.coll.round icon:book[]] +
 
- - Transform elements to integer if the decimal part is .0
+ - Transform elements to integer if the decimal part is `.0`. For example apoc.coll.round([10, 12.5, 23.2, 23.0, 23, 10.000, 0.1, 0.0]) returns [10, 12.5, 23.2, 23, 23, 10, 0.1, 0]
 ¦label:function[]
 ¦label:apoc-core[]
