@@ -159,7 +159,11 @@ public class    Meta {
             }
             typeName = typeName.toUpperCase();
             for (Types type : values()) {
-                if (type.name().startsWith(typeName)) return type;
+                final String name = type.name();
+                // check, e.g. both "LOCAL_DATE_TIME" and "LOCALDATETIME"
+                if (name.startsWith(typeName) || name.replace("_", "").startsWith(typeName)) {
+                    return type;
+                }
             }
             return STRING;
         }
