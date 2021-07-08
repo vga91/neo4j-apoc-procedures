@@ -114,92 +114,11 @@ public class Periodic {
         boolean wasTerminated = Util.transactionIsTerminated(terminationGuard);
         return Stream.of(new RundownResult(total,executions, timeTaken, batches.get(),failedBatches.get(),batchErrors, failedCommits.get(), commitErrors, wasTerminated, periodicCommitHandler.getTxData(uuid)));
     }
-    
-    private synchronized static Map<String, Object> mergeTransactionMaps(Map<String, Object> mapStart, Map<String, Object> mapEnd) {
-        if (MapUtils.isEmpty(mapStart)) {
-            return mapEnd;
-        }
-        if (MapUtils.isEmpty(mapEnd)) {
-            return mapStart;
-        }
-        return Stream.of(mapStart, mapEnd)
-                .flatMap(map -> map.entrySet().stream())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> { 
-                    if (v1 instanceof List) {
-                        ((List) v1).addAll((List) v2);
-                        return v1;
-                    } else {
-                        return mergeTransactionMaps(((Map<String, Object>) v1), ((Map<String, Object>) v2));
-                    }
-                }));
-    }
 
     private static void recordError(Map<String, Long> executionErrors, Exception e) {
         String msg = ExceptionUtils.getRootCause(e).getMessage();
         // String msg = ExceptionUtils.getThrowableList(e).stream().map(Throwable::getMessage).collect(Collectors.joining(","))
         executionErrors.compute(msg, (s, i) -> i == null ? 1 : i + 1);
-    }
-    
-    public static class PeriodicCommitHandler extends LifecycleAdapter implements TransactionEventListener<Void> {
-        private final GraphDatabaseService db;
-        private final DatabaseManagementService service;
-        private final Map<String, Map<String, Object>> txDataMap = new ConcurrentHashMap<>();
-        
-        private String handleTransaction = null;
-
-        @Override
-        public void start() {
-            this.service.registerTransactionEventListener(db.databaseName(), this);
-        }
-
-        @Override
-        public void stop() {
-            txDataMap.clear();
-            this.service.unregisterTransactionEventListener(db.databaseName(), this);
-        }
-        
-        @Override
-        public Void beforeCommit(TransactionData data, Transaction transaction, GraphDatabaseService databaseService) {
-            if(this.handleTransaction != null) {
-                Map<String, Object> currentData = TriggerMetadata.from(data, false, true).toMapPeriodic();
-                this.txDataMap.compute(this.handleTransaction, (k, v) -> mergeTransactionMaps(v, currentData));
-                this.handleTransaction = null;
-            }
-            return null;
-        }
-
-        @Override
-        public void afterCommit(TransactionData data, Void state, GraphDatabaseService databaseService) {}
-
-        @Override
-        public void afterRollback(TransactionData data, Void state, GraphDatabaseService databaseService) {}
-        
-        public PeriodicCommitHandler(GraphDatabaseService db, DatabaseManagementService service) {
-            this.db = db;
-            this.service = service;
-        }
-        
-
-        private synchronized long executeNumericResultStatement(String statement, Map<String, Object> parameters, String uuid) {
-            try (Transaction transaction = this.db.beginTx()) {
-                final Result result = transaction.execute(statement, parameters);
-                String column = Iterables.single(result.columns());
-                final long sum = result.columnAs(column).stream().mapToLong(o -> (long) o).sum();
-                this.handleTransaction = uuid;
-                System.out.println("prima del commit");
-                transaction.commit();
-                System.out.println("dopo del commit");
-                this.handleTransaction = null;
-                return sum;
-            }
-        }
-        
-        public synchronized Map<String, Object> getTxData(String uuid) {
-            if (uuid == null) {
-                return null;
-            }
-            return txDataMap.remove(uuid);
-        }
     }
 
 

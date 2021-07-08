@@ -141,7 +141,7 @@ public class PeriodicTest {
     }
 
     @Test
-    public void testRunDown1() {
+    public void testRunDownWithExtractDataAndCreation() {
         long count = 5;
         db.executeTransactionally("UNWIND range(1, 5) AS id CREATE (n:NodeCommit {id:id})", Map.of("count", count));
         
@@ -169,7 +169,7 @@ public class PeriodicTest {
     }
 
     @Test
-    public void testRunDown12() {
+    public void testRunDownWithExtractDataAndSet() {
         long count = 5;
         db.executeTransactionally("UNWIND range(1, $count) AS id CREATE (n:NodeCommitSet {id:id})", MapUtil.map("count", count));
         String query = "MATCH (p:NodeCommitSet) WHERE p.foo IS NULL WITH p LIMIT $limit WITH p SET p.foo = 'bar' RETURN count(*)";

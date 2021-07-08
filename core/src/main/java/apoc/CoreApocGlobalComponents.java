@@ -1,7 +1,7 @@
 package apoc;
 
 import apoc.cypher.CypherInitializer;
-import apoc.periodic.Periodic;
+import apoc.periodic.PeriodicCommitHandler;
 import apoc.trigger.TriggerHandler;
 import org.neo4j.annotations.service.ServiceProvider;
 import org.neo4j.kernel.availability.AvailabilityListener;
@@ -24,13 +24,13 @@ public class CoreApocGlobalComponents implements ApocGlobalComponents {
                 dependencies.log().getUserLog(TriggerHandler.class),
                 dependencies.globalProceduresRegistry(),
                 dependencies.pools()),
-                "periodicCommitHandler", new Periodic.PeriodicCommitHandler(db, dependencies.databaseManagementService())
+                "periodicCommitHandler", new PeriodicCommitHandler(db, dependencies.databaseManagementService())
         );
     }
 
     @Override
     public Collection<Class> getContextClasses() {
-        return List.of(TriggerHandler.class, Periodic.PeriodicCommitHandler.class);
+        return List.of(TriggerHandler.class, PeriodicCommitHandler.class);
     }
 
     @Override
