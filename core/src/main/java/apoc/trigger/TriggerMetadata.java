@@ -11,7 +11,6 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.LabelEntry;
 import org.neo4j.graphdb.event.PropertyEntry;
-import org.neo4j.graphdb.event.TransactionData;
 import org.neo4j.internal.helpers.collection.Iterables;
 
 import java.util.ArrayList;
@@ -63,7 +62,11 @@ public class TriggerMetadata {
         this.metaData = metaData;
     }
 
-    public static TriggerMetadata from(TransactionData txData, boolean rebindDeleted) {
+    public static TriggerMetadata from(org.neo4j.graphdb.event.TransactionData txData, boolean rebindDeleted) {
+        return from(txData, rebindDeleted, false);
+    }
+
+    public static TriggerMetadata from(org.neo4j.graphdb.event.TransactionData txData, boolean rebindDeleted, boolean isVirtual) {
         long txId, commitTime;
         try {
             txId = txData.getTransactionId();
@@ -75,19 +78,39 @@ public class TriggerMetadata {
         } catch (Exception ignored) {
             commitTime = -1L;
         }
-        List<Node> createdNodes = Convert.convertToList(txData.createdNodes());
-        List<Relationship> createdRelationships = Convert.convertToList(txData.createdRelationships());
-        List<Node> deletedNodes = rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedNodes())) : Convert.convertToList(txData.deletedNodes());
-        List<Relationship> deletedRelationships = rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedRelationships())) : Convert.convertToList(txData.deletedRelationships());
-        Map<String, List<Node>> removedLabels = aggregateLabels(txData.removedLabels());
-        Map<String, List<Node>> assignedLabels = aggregateLabels(txData.assignedLabels());
-        final Map<String, List<PropertyEntryContainer<Node>>> removedNodeProperties = aggregatePropertyKeys(txData.removedNodeProperties(), true);
-        final Map<String, List<PropertyEntryContainer<Relationship>>> removedRelationshipProperties = aggregatePropertyKeys(txData.removedRelationshipProperties(), true);
-        final Map<String, List<PropertyEntryContainer<Node>>> assignedNodeProperties = aggregatePropertyKeys(txData.assignedNodeProperties(), false);
-        final Map<String, List<PropertyEntryContainer<Relationship>>> assignedRelationshipProperties = aggregatePropertyKeys(txData.assignedRelationshipProperties(), false);
+        List<Node> createdNodes = nodeToVirtual(isVirtual, (List<Node>) Convert.convertToList(txData.createdNodes()));
+        List<Relationship> createdRelationships = relToVirtual(isVirtual, Convert.convertToList(txData.createdRelationships()));
+        List<Node> deletedNodes = nodeToVirtual(isVirtual, rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedNodes())) : Convert.convertToList(txData.deletedNodes()));
+        List<Relationship> deletedRelationships = relToVirtual(isVirtual, rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedRelationships())) : Convert.convertToList(txData.deletedRelationships()));
+        Map<String, List<Node>> removedLabels = aggregateLabels(txData.removedLabels(), isVirtual);
+        Map<String, List<Node>> assignedLabels = aggregateLabels(txData.assignedLabels(), isVirtual);
+        final Map<String, List<PropertyEntryContainer<Node>>> removedNodeProperties = aggregatePropertyKeys(txData.removedNodeProperties(), true, isVirtual);
+        final Map<String, List<PropertyEntryContainer<Relationship>>> removedRelationshipProperties = aggregatePropertyKeys(txData.removedRelationshipProperties(), true, isVirtual);
+        final Map<String, List<PropertyEntryContainer<Node>>> assignedNodeProperties = aggregatePropertyKeys(txData.assignedNodeProperties(), false, isVirtual);
+        final Map<String, List<PropertyEntryContainer<Relationship>>> assignedRelationshipProperties = aggregatePropertyKeys(txData.assignedRelationshipProperties(), false, isVirtual);
         return new TriggerMetadata(txId, commitTime, createdNodes, createdRelationships, deletedNodes, deletedRelationships,
                 removedLabels,removedNodeProperties, removedRelationshipProperties, assignedLabels, assignedNodeProperties,
                 assignedRelationshipProperties, txData.metaData());
+    }
+    
+    private static List<Node> nodeToVirtual(boolean isVirtual, List<Node> nodes) {
+        if (isVirtual) {
+            // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
+            return nodes.stream()
+                    .map(node -> new VirtualNode(node, Iterables.asList(node.getPropertyKeys())))
+                    .collect(Collectors.toList());
+        }
+        return nodes;
+    }
+    
+    private static List<Relationship> relToVirtual(boolean isVirtual, List<Relationship> rels) {
+        if (isVirtual) {
+            // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualRelationship.from(rel)
+            return rels.stream()
+                    .map(rel -> new VirtualRelationship(rel.getStartNode(), rel.getStartNode(), rel.getType()).withProperties(rel.getAllProperties()))
+                    .collect(Collectors.toList());
+        }
+        return rels;
     }
 
     private static <T extends Entity> List<T> rebindDeleted(List<T> entities) {
@@ -143,29 +166,37 @@ public class TriggerMetadata {
     }
 
     public Map<String, Object> toMap() {
-        return map("transactionId", transactionId,
-                "commitTime", commitTime,
+        final Map<String, Object> map = toMapPeriodic();
+        map.putAll(map("transactionId", transactionId,
+                "commitTime", commitTime));
+        return map;
+    }
+
+    public Map<String, Object> toMapPeriodic() {
+        return map(
                 "createdNodes", createdNodes,
                 "createdRelationships", createdRelationships,
                 "deletedNodes", deletedNodes,
                 "deletedRelationships", deletedRelationships,
                 "removedLabels", removedLabels,
+                "assignedLabels", assignedLabels,
                 "removedNodeProperties", convertMapOfPropertyEntryContainers(removedNodeProperties),
                 "removedRelationshipProperties", convertMapOfPropertyEntryContainers(removedRelationshipProperties),
-                "assignedLabels", assignedLabels,
                 "assignedNodeProperties", convertMapOfPropertyEntryContainers(assignedNodeProperties),
                 "assignedRelationshipProperties", convertMapOfPropertyEntryContainers(assignedRelationshipProperties),
-                "metaData", metaData);
+                "metaData", metaData
+        );
     }
 
-    private static Map<String, List<Node>> aggregateLabels(Iterable<LabelEntry> labelEntries) {
+    private static Map<String, List<Node>> aggregateLabels(Iterable<LabelEntry> labelEntries, boolean isVirtual) {
         if (!labelEntries.iterator().hasNext()) return Collections.emptyMap();
         Map<String, List<Node>> result = new HashMap<>();
         for (LabelEntry entry : labelEntries) {
             result.compute(entry.label().name(),
                     (k, v) -> {
                         if (v == null) v = new ArrayList<>(100);
-                        v.add(entry.node());
+                        // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
+                        v.add(isVirtual ? new VirtualNode(entry.node(), Iterables.asList(entry.node().getPropertyKeys())) : entry.node());
                         return v;
                     });
         }
@@ -198,14 +229,24 @@ public class TriggerMetadata {
         }
     }
 
-    private static <T extends Entity> Map<String, List<PropertyEntryContainer<T>>> aggregatePropertyKeys(Iterable<PropertyEntry<T>> entries, boolean removed) {
+    private static <T extends Entity> Map<String, List<PropertyEntryContainer<T>>> aggregatePropertyKeys(Iterable<PropertyEntry<T>> entries, boolean removed, boolean isVirtual) {
         if (!entries.iterator().hasNext()) return Collections.emptyMap();
         Map<String,List<PropertyEntryContainer<T>>> result = new HashMap<>();
         for (PropertyEntry<T> entry : entries) {
             result.compute(entry.key(),
                     (k, v) -> {
                         if (v == null) v = new ArrayList<>(100);
-                        v.add(new PropertyEntryContainer<>(k, entry.entity(), entry.previouslyCommittedValue(), removed ? null : entry.value()));
+                        // todo - waiting for https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/2072 (to use VirtualNode.from(node)
+                        T entity = entry.entity();
+                        if (isVirtual) {
+                            if (entity instanceof Node) {
+                                entity = (T) new VirtualNode((Node) entity, Iterables.asList(entity.getPropertyKeys()));
+                            } else {
+                                Relationship rel = (Relationship) entity;
+                                entity = (T) new VirtualRelationship(rel.getStartNode(), rel.getEndNode(), rel.getType()).withProperties(rel.getAllProperties());
+                            }
+                        }
+                        v.add(new PropertyEntryContainer<>(k, entity, entry.previouslyCommittedValue(), removed ? null : entry.value()));
                         return v;
                     });
         }

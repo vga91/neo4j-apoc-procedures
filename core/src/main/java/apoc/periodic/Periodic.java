@@ -40,6 +40,7 @@ public class Periodic {
     @Context public Log log;
     @Context public Pools pools;
     @Context public Transaction tx;
+    @Context public PeriodicCommitHandler periodicCommitHandler;
 
     @Admin
     @Procedure(mode = Mode.SCHEMA)
@@ -63,8 +64,8 @@ public class Periodic {
     }
 
     @Procedure(mode = Mode.WRITE)
-    @Description("apoc.periodic.commit(statement,params) - runs the given statement in separate transactions until it returns 0")
-    public Stream<RundownResult> commit(@Name("statement") String statement, @Name(value = "params", defaultValue = "{}") Map<String,Object> parameters) throws ExecutionException, InterruptedException {
+    @Description("apoc.periodic.commit(statement,{params},{config}) - runs the given statement in separate transactions until it returns 0")
+    public Stream<RundownResult> commit(@Name("statement") String statement, @Name(value = "params", defaultValue = "{}") Map<String,Object> parameters, @Name(value = "config", defaultValue = "{}") Map<String,Object> config) throws ExecutionException, InterruptedException {
         validateQuery(statement);
         Map<String,Object> params = parameters == null ? Collections.emptyMap() : parameters;
         long total = 0, executions = 0, updates = 0;
@@ -80,12 +81,16 @@ public class Periodic {
         AtomicInteger failedBatches = new AtomicInteger();
         Map<String,Long> batchErrors = new ConcurrentHashMap<>();
 
+
+        boolean extractData = Util.toBoolean(config.get("extractData"));
+        String uuid = extractData ? UUID.randomUUID().toString() : null;
+
         do {
             Map<String, Object> window = Util.map("_count", updates, "_total", total);
             updates = Util.getFuture(pools.getScheduledExecutorService().submit(() -> {
                 batches.incrementAndGet();
                 try {
-                    return executeNumericResultStatement(statement, merge(window, params));
+                    return periodicCommitHandler.executeNumericResultStatement(statement, merge(window, params), uuid);
                 } catch(Exception e) {
                     failedBatches.incrementAndGet();
                     recordError(batchErrors, e);
@@ -97,7 +102,7 @@ public class Periodic {
         } while (updates > 0 && !Util.transactionIsTerminated(terminationGuard));
         long timeTaken = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - start);
         boolean wasTerminated = Util.transactionIsTerminated(terminationGuard);
-        return Stream.of(new RundownResult(total,executions, timeTaken, batches.get(),failedBatches.get(),batchErrors, failedCommits.get(), commitErrors, wasTerminated));
+        return Stream.of(new RundownResult(total,executions, timeTaken, batches.get(),failedBatches.get(),batchErrors, failedCommits.get(), commitErrors, wasTerminated, periodicCommitHandler.getTxData(uuid)));
     }
 
     private static void recordError(Map<String, Long> executionErrors, Exception e) {
@@ -105,6 +110,7 @@ public class Periodic {
         // String msg = ExceptionUtils.getThrowableList(e).stream().map(Throwable::getMessage).collect(Collectors.joining(","))
         executionErrors.compute(msg, (s, i) -> i == null ? 1 : i + 1);
     }
+
 
     public static class RundownResult {
         public final long updates;
@@ -116,8 +122,9 @@ public class Periodic {
         public final long failedCommits;
         public final Map<String, Long> commitErrors;
         public final boolean wasTerminated;
+        public final Map<String, Object> data;
 
-        public RundownResult(long total, long executions, long timeTaken, long batches, long failedBatches, Map<String, Long> batchErrors, long failedCommits, Map<String, Long> commitErrors, boolean wasTerminated) {
+        public RundownResult(long total, long executions, long timeTaken, long batches, long failedBatches, Map<String, Long> batchErrors, long failedCommits, Map<String, Long> commitErrors, boolean wasTerminated, Map<String, Object> data) {
             this.updates = total;
             this.executions = executions;
             this.runtime = timeTaken;
@@ -127,6 +134,7 @@ public class Periodic {
             this.failedCommits = failedCommits;
             this.commitErrors = commitErrors;
             this.wasTerminated = wasTerminated;
+            this.data = data;
         }
     }
 
