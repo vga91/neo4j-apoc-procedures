@@ -28,8 +28,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static apoc.ApocConfig.apocConfig;
-import static apoc.util.FileUtils.getInputStreamFromBinary;
-import static apoc.util.FileUtils.checkDataTypeAndGetResult;
 
 /**
  * @author mh
@@ -81,14 +79,13 @@ public class JsonUtil {
     
     public static Stream<Object> loadJson(Object urlOrBinary, Map<String, Object> headers, String payload, String path, boolean failOnError, String compressionAlgo) {
         try { 
-            InputStream input = checkDataTypeAndGetResult(urlOrBinary, 
-                    binary -> getInputStreamFromBinary(binary, compressionAlgo), 
-                    url -> { 
+            if (urlOrBinary instanceof String) {
+                String url = (String) urlOrBinary;
                 url = Util.getLoadUrlByConfigFile("json", url, "url").orElse(url);
                 apocConfig().checkReadAllowed(url);
-                url = FileUtils.changeFileUrlIfImportDirectoryConstrained(url);
-                return Util.openInputStream(url, headers, payload);
-            });
+                urlOrBinary = FileUtils.changeFileUrlIfImportDirectoryConstrained(url);
+            }
+            InputStream input = Util.openInputStream(urlOrBinary, headers, payload, compressionAlgo);
             JsonParser parser = OBJECT_MAPPER.getFactory().createParser(input);
             MappingIterator<Object> it = OBJECT_MAPPER.readValues(parser, Object.class);
             Stream<Object> stream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false);
@@ -97,7 +94,7 @@ public class JsonUtil {
             String u = urlOrBinary instanceof String ? Util.cleanUrl((String) urlOrBinary) : null;
             if(!failOnError) {
                 return Stream.of();
-            } else { 
+            } else {
                 throw new RuntimeException("Can't read binary, url or key " + u + " as json: " + e.getMessage());
             }
         }
