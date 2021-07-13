@@ -17,6 +17,8 @@ dependencies {
 
     compile group: 'org.gradle', name: 'gradle-tooling-api', version: '6.0.1'
 
+    compile group: 'eu.michael-simons.neo4j', name: 'junit-jupiter-causal-cluster-testcontainer-extension', version: '2021.0.0'
+
     def withoutServers = {
         exclude group: 'org.eclipse.jetty'
         exclude group: 'org.eclipse.jetty.aggregate'

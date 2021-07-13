@@ -8,6 +8,10 @@ import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
+import org.neo4j.junit.jupiter.causal_cluster.Neo4jCluster;
+import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.Neo4jContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.BufferedReader;
@@ -15,7 +19,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -31,22 +34,26 @@ import static org.junit.Assert.assertTrue;
 
 public class TestContainerUtil {
 
+    public static final String PASSWORD = "apoc";
+    public static final String DOCKER_ENTERPRISE_IMAGE = "neo4j:4.2.2-enterprise";
+    public static final long TIMEOUT = 300 * 1_000;
+
     private TestContainerUtil() {}
 
     private static File baseDir = Paths.get(".").toFile();
 
-    public static TestcontainersCausalCluster createEnterpriseCluster(int numOfCoreInstances, int numberOfReadReplica, Map<String, Object> neo4jConfig, Map<String, String> envSettings) {
-        return TestcontainersCausalCluster.create(numOfCoreInstances, numberOfReadReplica, Duration.ofMinutes(4), neo4jConfig, envSettings);
+    public static Neo4jContainer initializeEnterpriseDb(Neo4jContainer container) {
+        return initializeEnterpriseDb(container, !TestUtil.isRunningInCI());
     }
 
-    public static Neo4jContainerExtension createEnterpriseDB(boolean withLogging)  {
+    public static Neo4jContainer initializeEnterpriseDb(Neo4jContainer container, boolean withLogging) {
         executeGradleTasks("shadowJar");
         // We define the container with external volumes
         File importFolder = new File("import");
         importFolder.mkdirs();
 
         // read neo4j version from build.gradle and use this as default
-        String neo4jDockerImageVersion = System.getProperty("neo4jDockerImage", "neo4j:4.2.2-enterprise");
+        String neo4jDockerImageVersion = System.getProperty("neo4jDockerImage", DOCKER_ENTERPRISE_IMAGE);
 
         // use a separate folder for mounting plugins jar - build/libs might contain other jars as well.
         File pluginsFolder = new File("build/plugins");
@@ -68,15 +75,20 @@ public class TestContainerUtil {
         }
 
         System.out.println("neo4jDockerImageVersion = " + neo4jDockerImageVersion);
-        Neo4jContainerExtension neo4jContainer = new Neo4jContainerExtension(neo4jDockerImageVersion)
+
+        boolean containerNull = container == null;
+        Neo4jContainer<?> initContainer = containerNull
+                ? new Neo4jContainerExtension(neo4jDockerImageVersion).withAdminPassword(PASSWORD)
+                : (Neo4jContainer<?>) container.withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
+                                                .withEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", "yes");
+        
+        Neo4jContainer neo4jContainer = initContainer
                 .withPlugins(MountableFile.forHostPath(pluginsFolder.toPath()))
-                .withAdminPassword("apoc")
                 .withEnv("NEO4J_dbms_memory_heap_max__size", "512M")
                 .withEnv("NEO4J_dbms_memory_pagecache_size", "256M")
                 .withEnv("apoc.export.file.enabled", "true")
                 .withNeo4jConfig("dbms.security.procedures.unrestricted", "apoc.*")
                 .withFileSystemBind(canonicalPath, "/var/lib/neo4j/import") // map the "target/import" dir as the Neo4j's import dir
-                .withEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", "yes")
 //                .withDebugger()  // uncomment this line for remote debbuging inside docker's neo4j instance
                 .withCreateContainerCmdModifier(cmd -> cmd.withMemory(1024 * 1024 * 1024l))
 
@@ -95,9 +107,14 @@ public class TestContainerUtil {
                     }
                 });
         if (withLogging) {
-            neo4jContainer.withLogging();
+            neo4jContainer.withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger(
+                    containerNull ? Neo4jContainerExtension.class : Neo4jCluster.class)));
         }
         return neo4jContainer;
+    }
+
+    public static Neo4jContainerExtension createEnterpriseDB(boolean withLogging)  {
+        return (Neo4jContainerExtension) initializeEnterpriseDb(null, withLogging);
     }
 
     public static void executeGradleTasks(String... tasks) {
