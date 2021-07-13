@@ -439,6 +439,147 @@ public class CypherProceduresTest  {
     }
 
     @Test
+    public void shouldCorrectlyOverloadFunctions() {
+        thrown.expect(QueryExecutionException.class);
+        thrown.expectMessage("Unknown function 'custom.test_ghost_my_fun'");
+        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
+
+        // given
+        db.executeTransactionally("call apoc.custom.asFunction('test_ghost_my_fun','RETURN 100 as result')");
+        db.executeTransactionally("call apoc.custom.asFunction('test_ghost_my_fun','RETURN $count as result','int',[['count','int']])");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        TestUtil.testCall(db, "return custom.test_ghost_my_fun(1) as result", (row) -> assertEquals(1L, row.get("result")));
+
+        try {
+            TestUtil.testCall(db, "return custom.test_ghost_my_fun() as result", r -> fail("Should fail due to param mismatch"));
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 1 got 0"));
+        }
+        
+        TestUtil.testCallCount(db, "call apoc.custom.list", Collections.emptyMap(), 1);
+        
+        // when
+        db.executeTransactionally("call apoc.custom.removeFunction('test_ghost_my_fun')");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        TestUtil.testCallEmpty(db, "call apoc.custom.list", Collections.emptyMap());
+
+        try {
+            TestUtil.testCall(db, "return custom.test_ghost_my_fun() as result", r -> fail("Should fail due to param mismatch"));
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 1 got 0"));
+        }
+
+        TestUtil.count(db, "return custom.test_ghost_my_fun(1)");
+    }
+
+    @Test
+    public void shouldCorrectlyOverloadFunctionsWithDeclare() {
+        thrown.expect(QueryExecutionException.class);
+        thrown.expectMessage("Unknown function 'custom.test_ghost_my_fun_declare'");
+        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
+
+        // given
+        db.executeTransactionally("call apoc.custom.declareFunction('test_ghost_my_fun_declare(par1 :: INT, par2 :: INT) :: INT','RETURN $par1 + $par2 as answer')");
+        db.executeTransactionally("call apoc.custom.declareFunction('test_ghost_my_fun_declare(par :: INT) :: INT','RETURN $par as answer')");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        TestUtil.testCall(db, "return custom.test_ghost_my_fun_declare(1) as result", (row) -> assertEquals(1L, row.get("result")));
+
+        try {
+            TestUtil.testCall(db, "return custom.test_ghost_my_fun_declare(1, 2) as result", r -> fail("Should fail due to param mismatch"));
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 1 got 2"));
+        }
+        
+        TestUtil.testCallCount(db, "call apoc.custom.list", Collections.emptyMap(), 1);
+        
+        // when
+        db.executeTransactionally("call apoc.custom.removeFunction('test_ghost_my_fun_declare')");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        TestUtil.testCallEmpty(db, "call apoc.custom.list", Collections.emptyMap());
+
+        try {
+            TestUtil.testCall(db, "return custom.test_ghost_my_fun_declare(1, 2) as result", r -> fail("Should fail due to param mismatch"));
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 1 got 2"));
+        }
+
+        TestUtil.count(db, "return custom.test_ghost_my_fun_declare(1)");
+    }
+
+    @Test
+    public void shouldCorrectlyOverloadProcedures() {
+        thrown.expect(QueryExecutionException.class);
+        thrown.expectMessage("There is no procedure with the name `custom.test_ghost` registered for this database instance. " +
+                "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.");
+        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
+
+        // given
+        db.executeTransactionally("call apoc.custom.asProcedure('test_ghost','RETURN 100 as result')");
+        db.executeTransactionally("call apoc.custom.asProcedure('test_ghost','RETURN $count as result','read',[['result','int']],[['count','int']])");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        TestUtil.testCall(db, "call custom.test_ghost(15)", (row) -> assertEquals(15L, row.get("result")));
+        
+        try {
+            TestUtil.testCall(db, "call custom.test_ghost()", (row) -> fail("Should fail due to param mismatch"));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Procedure call does not provide the required number of arguments: got 0 expected at least 1"));
+        }
+        
+        db.executeTransactionally("call apoc.custom.removeProcedure('test_ghost')");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+
+        TestUtil.testCallEmpty(db, "call apoc.custom.list", Collections.emptyMap());
+
+        try {
+            TestUtil.testCall(db, "call custom.test_ghost()", (row) -> fail("Should fail due to param mismatch"));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Procedure call does not provide the required number of arguments: got 0 expected at least 1"));
+        }
+
+        TestUtil.count(db, "call custom.test_ghost(15)");
+    }
+
+    @Test
+    public void shouldCorrectlyOverloadProceduresWithDeclare() {
+        thrown.expect(QueryExecutionException.class);
+        thrown.expectMessage("There is no procedure with the name `custom.test_ghost_declare` registered for this database instance. " +
+                "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.");
+        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
+
+        // given
+        db.executeTransactionally("CALL apoc.custom.declareProcedure('test_ghost_declare(par1 :: INT, par2 :: INT) :: (answer::INT)','RETURN $par1 + $par2 as answer')");
+        db.executeTransactionally("CALL apoc.custom.declareProcedure('test_ghost_declare(par1 :: INT) :: (answer::INT)','RETURN $par1 as answer')");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        TestUtil.testCall(db, "call custom.test_ghost_declare(15)", (row) -> assertEquals(15L, row.get("answer")));
+        
+        try {
+            TestUtil.testCall(db, "call custom.test_ghost_declare(15, 16)", (row) -> fail("Should fail due to param mismatch"));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Procedure call provides too many arguments: got 2 expected no more than 1"));
+        }
+        
+        db.executeTransactionally("call apoc.custom.removeProcedure('test_ghost_declare')");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        TestUtil.testCallEmpty(db, "call apoc.custom.list", Collections.emptyMap());
+
+        try {
+            TestUtil.testCall(db, "call custom.test_ghost_declare(15, 16)", (row) -> fail("Should fail due to param mismatch"));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Procedure call provides too many arguments: got 2 expected no more than 1"));
+        }
+
+        TestUtil.count(db, "call custom.test_ghost_declare(15)");
+    }
+
+    @Test
     public void shouldOverwriteAndRemoveCustomProcedure() throws Exception {
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42')");
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42')");

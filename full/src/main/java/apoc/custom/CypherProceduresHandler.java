@@ -317,14 +317,38 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     public ProcedureSignature procedureSignature(String name, String mode, List<List<String>> outputs, List<List<String>> inputs, String description) {
         boolean admin = false; // TODO
+        checkProcedureExistence(name);
         return new ProcedureSignature(qualifiedName(name), inputSignatures(inputs), outputSignatures(outputs),
                 Mode.valueOf(mode.toUpperCase()), admin, null, new String[0], description, null, false, false, true, false
         );
     }
 
     public UserFunctionSignature functionSignature(String name, String output, List<List<String>> inputs, String description) {
+        checkFunctionExistence(name);
         AnyType outType = typeof(output.isEmpty() ? "LIST OF MAP" : output);
         return new UserFunctionSignature(qualifiedName(name), inputSignatures(inputs), outType, null, new String[0], description, "apoc.custom",false);
+    }
+
+    public void checkProcedureExistence(String name) {
+        readSignatures().filter(item -> {
+            if (item instanceof ProcedureDescriptor) {
+                ProcedureDescriptor procedureDescriptor = (ProcedureDescriptor) item;
+                ProcedureSignature signature = procedureDescriptor.getSignature();
+                return name.equals(signature.name().toString().substring(PREFIX.length() + 1));
+            }
+            return false;
+        }).findFirst().ifPresent(item -> removeProcedure(name));
+    }
+
+    public void checkFunctionExistence(String name) {
+        readSignatures().filter(item -> {
+            if (item instanceof UserFunctionDescriptor) {
+                UserFunctionDescriptor procedureDescriptor = (UserFunctionDescriptor) item;
+                UserFunctionSignature signature = procedureDescriptor.getSignature();
+                return name.equals(signature.name().toString().substring(PREFIX.length() + 1));
+            }
+            return false;
+        }).findFirst().ifPresent(item -> removeFunction(name));
     }
 
     /**
