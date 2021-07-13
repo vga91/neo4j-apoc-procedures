@@ -11,17 +11,17 @@ import org.apache.commons.compress.compressors.lz4.BlockLZ4CompressorOutputStrea
 import org.apache.commons.compress.compressors.snappy.FramedSnappyCompressorInputStream;
 import org.apache.commons.compress.compressors.snappy.FramedSnappyCompressorOutputStream;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.reflect.Constructor;
 import java.nio.charset.Charset;
-import java.util.List;
 
 public enum CompressionAlgo {
 
+    NONE(null, null),
     GZIP(GzipCompressorOutputStream.class, GzipCompressorInputStream.class),
     BZIP2(BZip2CompressorOutputStream.class, BZip2CompressorInputStream.class),
     DEFLATE(DeflateCompressorOutputStream.class, DeflateCompressorInputStream.class),
@@ -37,20 +37,31 @@ public enum CompressionAlgo {
     }
 
     public byte[] compress(String string, Charset charset) throws Exception {
-        Constructor<?> constructor = compressor.getConstructor(OutputStream.class);
         try (ByteArrayOutputStream stream = new ByteArrayOutputStream()) {
-            try (OutputStream outputStream = (OutputStream) constructor.newInstance((OutputStream) stream)) {
+            try (OutputStream outputStream = getOutputStream(stream)) {
                 outputStream.write(string.getBytes(charset));
             }
             return stream.toByteArray();
         }
     }
 
+    public OutputStream getOutputStream(OutputStream stream) throws Exception {
+        return isNone() ? stream : (OutputStream) compressor.getConstructor(OutputStream.class).newInstance(stream);
+    }
+
     public String decompress(byte[] byteArray, Charset charset) throws Exception {
-            Constructor<?> constructor = decompressor.getConstructor(InputStream.class);
         try (ByteArrayInputStream stream = new ByteArrayInputStream(byteArray);
-                InputStream inputStream = (InputStream) constructor.newInstance((InputStream) stream)) {
+                InputStream inputStream = getInputStream(stream)) {
             return IOUtils.toString(inputStream, charset);
         }
     }
+
+    public InputStream getInputStream(InputStream stream) throws Exception {
+        return isNone() ? stream : (InputStream) decompressor.getConstructor(InputStream.class).newInstance(stream);
+    }
+
+    public boolean isNone() {
+        return compressor == null;
+    }
+
 }

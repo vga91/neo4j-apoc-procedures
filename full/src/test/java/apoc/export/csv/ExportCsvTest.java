@@ -2,6 +2,8 @@ package apoc.export.csv;
 
 import apoc.ApocSettings;
 import apoc.graph.Graphs;
+import apoc.util.BinaryTestUtil;
+import apoc.util.CompressionAlgo;
 import apoc.util.HdfsTestUtils;
 import apoc.util.TestUtil;
 import org.apache.commons.io.FileUtils;
@@ -14,20 +16,18 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
-import org.neo4j.graphdb.Result;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
 
+import static apoc.util.CompressionAlgo.BLOCK_LZ4;
+import static apoc.util.CompressionAlgo.NONE;
 import static apoc.util.MapUtil.map;
-import static apoc.util.TestUtil.testResult;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author mh
@@ -43,6 +43,8 @@ public class ExportCsvTest {
             "\"5\",\":Address\",\"\",\"\",\"\",\"\",\"\",\"via Benni\",,,%n" +
             ",,,,,,,,\"0\",\"1\",\"KNOWS\"%n" +
             ",,,,,,,,\"3\",\"4\",\"NEXT_DELIVERY\"%n");
+    
+    private static final String LZ4_EXT = ".lz4";
 
     private static File directory = new File("target/import");
     static { //noinspection ResultOfMethodCallIgnored
@@ -72,13 +74,24 @@ public class ExportCsvTest {
     }
 
     @Test
-    public void testExportAllCsvHDFS() throws Exception {
-        String hdfsUrl = String.format("hdfs://localhost:12345/user/%s/all.csv", System.getProperty("user.name"));
-        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", hdfsUrl),
+    public void testExportAllCsvHDFS() {
+        assertHdfsFile(NONE);
+    }
+    
+    @Test
+    public void testExportAllCsvHDFSCompressed() {
+        assertHdfsFile(BLOCK_LZ4);
+    }
+
+    private void assertHdfsFile(CompressionAlgo compression) {
+        String fileExt = compression.equals(NONE) ? "" : LZ4_EXT;
+        String hdfsUrl = String.format("hdfs://localhost:12345/user/%s/all.csv" + fileExt, System.getProperty("user.name"));
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file, $config)", 
+                map("file", hdfsUrl, "config", map("compression", compression.name())),
                 (r) -> {
                     try {
                         FileSystem fs = miniDFSCluster.getFileSystem();
-                        FSDataInputStream inputStream = fs.open(new Path(String.format("/user/%s/all.csv", System.getProperty("user.name"))));
+                        FSDataInputStream inputStream = fs.open(new Path(String.format("/user/%s/all.csv" + fileExt, System.getProperty("user.name"))));
                         File output = Files.createTempFile("all", ".csv").toFile();
                         FileUtils.copyInputStreamToFile(inputStream, output);
                         assertEquals(6L, r.get("nodes"));
@@ -87,9 +100,10 @@ public class ExportCsvTest {
                         assertEquals("database: nodes(6), rels(2)", r.get("source"));
                         assertEquals("csv", r.get("format"));
                         assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-                        assertEquals(EXPECTED, TestUtil.readFileToString(output));
+                        final String actual = BinaryTestUtil.readFileToString(output, StandardCharsets.UTF_8, compression);
+                        assertEquals(EXPECTED, actual);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        throw new RuntimeException(e);
                     }
                 });
     }

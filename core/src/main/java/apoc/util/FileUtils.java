@@ -3,9 +3,11 @@ package apoc.util;
 import apoc.ApocConfig;
 import apoc.export.util.CountingInputStream;
 import apoc.export.util.CountingReader;
+import apoc.export.util.ExportConfig;
 import apoc.util.hdfs.HDFSUtils;
 import apoc.util.s3.S3URLConnection;
 import apoc.util.s3.S3UploadUtils;
+import org.apache.commons.compress.compressors.gzip.GzipCompressorOutputStream;
 import org.apache.commons.io.output.WriterOutputStream;
 import org.apache.commons.lang.StringUtils;
 import org.neo4j.configuration.GraphDatabaseSettings;
@@ -147,13 +149,16 @@ public class FileUtils {
         return !NON_FILE_PROTOCOLS.stream().anyMatch(protocol -> fileNameLowerCase.startsWith(protocol));
     }
 
-    public static PrintWriter getPrintWriter(String fileName, Writer out) {
-        OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()));
+    public static PrintWriter getPrintWriter(String fileName, Writer out, ExportConfig config) {
+        OutputStream outputStream = getOutputStream(fileName, new WriterOutputStream(out, Charset.defaultCharset()), config);
         return outputStream == null ? null : new PrintWriter(outputStream);
     }
 
-    public static OutputStream getOutputStream(String fileName, OutputStream out) {
+    public static OutputStream getOutputStream(String fileName, OutputStream out, ExportConfig config) {
         if (fileName == null) return null;
+        
+        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(config.getCompressionAlgo());
+        
         OutputStream outputStream;
         if (isHdfs(fileName)) {
             try {
@@ -172,7 +177,12 @@ public class FileUtils {
             outputStream = getOrCreateOutputStream(fileName, out);
 //            outputStream = fileName.equals("-") ? out : new FileOutputStream(fileName);
         }
-        return new BufferedOutputStream(outputStream);
+        
+        try {
+            return new BufferedOutputStream(compressionAlgo.getOutputStream(outputStream));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private static OutputStream getOrCreateOutputStream(String fileName, OutputStream out) {

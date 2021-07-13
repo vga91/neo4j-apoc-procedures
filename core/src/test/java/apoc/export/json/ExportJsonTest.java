@@ -2,6 +2,8 @@ package apoc.export.json;
 
 import apoc.ApocSettings;
 import apoc.graph.Graphs;
+import apoc.util.BinaryTestUtil;
+import apoc.util.CompressionAlgo;
 import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
 import org.junit.Before;
@@ -14,11 +16,20 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.io.File;
 import java.util.Map;
 
+import static apoc.util.BinaryTestUtil.getDecompressedData;
+import static apoc.util.CompressionAlgo.DEFLATE;
+import static apoc.util.CompressionAlgo.FRAMED_SNAPPY;
+import static apoc.util.CompressionAlgo.NONE;
 import static apoc.util.MapUtil.map;
-import static org.junit.Assert.*;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class ExportJsonTest {
 
+    private static final String DEFLATE_EXT = ".zz";
     private static File directory = new File("target/import");
     private static File directoryExpected = new File("../docs/asciidoc/modules/ROOT/examples/data/exportJSON");
 
@@ -77,13 +88,26 @@ public class ExportJsonTest {
     }
 
     @Test
-    public void testExportAllJsonStream() throws Exception {
+    public void testExportAllJsonStream() {
         String filename = "all.json";
         TestUtil.testCall(db, "CALL apoc.export.json.all(null, {stream: true})",
-                map("file", filename),
                 (r) -> {
                     assertStreamResults(r, "database");
                     assertStreamEquals(filename, r.get("data").toString());
+                }
+        );
+    }
+
+    @Test
+    public void testExportAllJsonStreamWithCompression() {
+        final CompressionAlgo algo = FRAMED_SNAPPY;
+        String expectedFile = "all.json";
+        String filename = expectedFile + ".sz";
+        TestUtil.testCall(db, "CALL apoc.export.json.all(null, $config)",
+                map("file", filename, "config", map("stream", true, "compression", algo.name())),
+                (r) -> {
+                    assertStreamResults(r, "database");
+                    assertStreamEquals(expectedFile, getDecompressedData(algo, r.get("data")));
                 }
         );
     }
@@ -135,14 +159,29 @@ public class ExportJsonTest {
 
         TestUtil.testCall(db, "CALL apoc.export.json.query($query,$file)",
                 map("file", filename, "query", query),
-                (r) -> {
-                    assertTrue("Should get statement",r.get("source").toString().contains("statement: cols(1)"));
-                    assertEquals(filename, r.get("file"));
-                    assertEquals("json", r.get("format"));
-                });
+                (r) -> assertionsListNode(filename, r));
         assertFileEquals(filename);
     }
 
+    @Test
+    public void testExportListNodeWithCompression() {
+        String query = "MATCH (u:User) RETURN COLLECT(u) as list";
+        final CompressionAlgo algo = DEFLATE;
+        String expectedFile = "listNode.json";
+        String filename = expectedFile + DEFLATE_EXT;
+
+        TestUtil.testCall(db, "CALL apoc.export.json.query($query, $file, $config)",
+                map("file", filename, "query", query, "config", map("compression", algo.name())),
+                (r) -> assertionsListNode(filename, r));
+        assertFileEquals(expectedFile, algo);
+    }
+
+    private void assertionsListNode(String filename, Map<String, Object> r) {
+        assertTrue("Should get statement", r.get("source").toString().contains("statement: cols(1)"));
+        assertEquals(filename, r.get("file"));
+        assertEquals("json", r.get("format"));
+    }
+    
     @Test
     public void testExportListRel() throws Exception {
         String filename = "listRel.json";
@@ -389,9 +428,14 @@ public class ExportJsonTest {
         assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
     }
 
-    private void assertFileEquals(String fileName) {
-        String actualText = TestUtil.readFileToString(new File(directory, fileName));
+    private void assertFileEquals(String fileName, CompressionAlgo algo) {
+        String fileExt = algo.equals(DEFLATE) ? DEFLATE_EXT : "";
+        String actualText = BinaryTestUtil.readFileToString(new File(directory, fileName + fileExt), UTF_8, algo);
         assertStreamEquals(fileName, actualText);
+    }
+
+    private void assertFileEquals(String fileName) {
+        assertFileEquals(fileName, NONE);
     }
 
     private void assertStreamResults(Map<String, Object> r, final String source) {
@@ -405,7 +449,7 @@ public class ExportJsonTest {
         assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
     }
 
-    private void assertStreamEquals(String fileName, String actualText) {
+    private void assertStreamEquals(String fileName, String actualText) { 
         String expectedText = TestUtil.readFileToString(new File(directoryExpected, fileName));
         String[] actualArray = actualText.split("\n");
         String[] expectArray = expectedText.split("\n");

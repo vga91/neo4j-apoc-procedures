@@ -81,7 +81,7 @@ public class ExportXls {
         ExportConfig c = new ExportConfig(configMap);
         apocConfig.checkWriteAllowed(c);
         try (Transaction tx = db.beginTx();
-             OutputStream out = getOutputStream(fileName, null);
+             OutputStream out = getOutputStream(fileName, null, c);
              SXSSFWorkbook wb = new SXSSFWorkbook(100)) {
 
             XlsExportConfig config = new XlsExportConfig(configMap);

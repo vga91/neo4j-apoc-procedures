@@ -3,6 +3,7 @@ package apoc.export.csv;
 import apoc.ApocSettings;
 import apoc.export.xls.ExportXls;
 import apoc.graph.Graphs;
+import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -60,7 +61,18 @@ public class ExportXlsTest {
     }
 
     @Test
-    public void testExportGraphXls() throws Exception {
+    public void testExportAllXlsWithCompression() {
+        final CompressionAlgo algo = CompressionAlgo.GZIP;
+        String fileName = "all.xlsx.gz";
+        TestUtil.testCall(db, "CALL apoc.export.xls.all($file, $config)",
+                map("file", fileName, "config", map("compression", algo.name())),
+                (r) -> assertResults(fileName, r, "database"));
+
+        assertExcelFileForGraph(fileName, algo);
+    }
+
+    @Test
+    public void testExportGraphXls()  {
         String fileName = "graph.xlsx";
         TestUtil.testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
                         "CALL apoc.export.xls.graph(graph, $file,null) " +
@@ -136,7 +148,13 @@ public class ExportXlsTest {
     }
 
     private void assertExcelFileForGraph(String fileName) {
-        try (InputStream inp = new FileInputStream(new File(directory, fileName)); Transaction tx = db.beginTx()) {
+        assertExcelFileForGraph(fileName, CompressionAlgo.NONE);
+    }
+
+    private void assertExcelFileForGraph(String fileName, CompressionAlgo algo) {
+        try (InputStream fileInputStream = new FileInputStream(new File(directory, fileName));
+             InputStream inp = algo.getInputStream(fileInputStream);
+             Transaction tx = db.beginTx()) {
             Workbook wb = WorkbookFactory.create(inp);
 
             int numberOfSheets = wb.getNumberOfSheets();
@@ -148,7 +166,7 @@ public class ExportXlsTest {
                 assertEquals(numberOfNodes, sheet.getLastRowNum());
             }
             tx.commit();
-        } catch (IOException|InvalidFormatException e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

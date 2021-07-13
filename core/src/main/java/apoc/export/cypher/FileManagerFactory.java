@@ -1,6 +1,10 @@
 package apoc.export.cypher;
 
+import apoc.export.util.ExportConfig;
+import apoc.util.CompressionAlgo;
 import apoc.util.FileUtils;
+import apoc.util.Util;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -12,37 +16,42 @@ import java.util.concurrent.ConcurrentMap;
  * @since 06.12.17
  */
 public class FileManagerFactory {
-    public static ExportFileManager createFileManager(String fileName, boolean separatedFiles) {
+    public static ExportFileManager createFileManager(String fileName, boolean separatedFiles, ExportConfig config) {
         if (fileName == null) {
-            return new StringExportCypherFileManager(separatedFiles);
+            return new StringExportCypherFileManager(separatedFiles, config);
         }
+        fileName = fileName.trim();
 
-        int indexOfDot = fileName.lastIndexOf(".");
+        final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(config.getCompressionAlgo());
+
+        int indexOfDot = StringUtils.lastOrdinalIndexOf(fileName, ".", compressionAlgo.equals(CompressionAlgo.NONE) ? 1 : 2);
         String fileType = fileName.substring(indexOfDot + 1);
-        return new PhysicalExportFileManager(fileType, fileName, separatedFiles);
+        return new PhysicalExportFileManager(fileType, fileName, separatedFiles, config);
     }
 
     private static class PhysicalExportFileManager implements ExportFileManager {
 
         private final String fileName;
         private final String fileType;
-        private boolean separatedFiles;
+        private final boolean separatedFiles;
         private PrintWriter writer;
+        private ExportConfig config;
 
-        public PhysicalExportFileManager(String fileType, String fileName, boolean separatedFiles) {
+        public PhysicalExportFileManager(String fileType, String fileName, boolean separatedFiles, ExportConfig config) {
             this.fileType = fileType;
             this.fileName = fileName;
             this.separatedFiles = separatedFiles;
+            this.config = config;
         }
-
+        
         @Override
         public PrintWriter getPrintWriter(String type) {
 
             if (this.separatedFiles) {
-                return FileUtils.getPrintWriter(normalizeFileName(fileName, type), null);
+                return FileUtils.getPrintWriter(normalizeFileName(fileName, type), null, config);
             } else {
                 if (this.writer == null) {
-                    this.writer = FileUtils.getPrintWriter(normalizeFileName(fileName, null), null);
+                    this.writer = FileUtils.getPrintWriter(normalizeFileName(fileName, null), null, config);
                 }
                 return this.writer;
             }
@@ -77,14 +86,22 @@ public class FileManagerFactory {
     private static class StringExportCypherFileManager implements ExportFileManager {
 
         private boolean separatedFiles;
+        private ExportConfig config;
         private ConcurrentMap<String, StringWriter> writers = new ConcurrentHashMap<>();
 
-        public StringExportCypherFileManager(boolean separatedFiles) {
+        public StringExportCypherFileManager(boolean separatedFiles, ExportConfig config) {
             this.separatedFiles = separatedFiles;
+            this.config = config;
+        }
+
+        @Override
+        public StringWriter getStringWriter(String type) {
+            return writers.computeIfAbsent(type, (key) -> new StringWriter());
         }
 
         @Override
         public PrintWriter getPrintWriter(String type) {
+            final String compression = config.getCompressionAlgo();
             if (this.separatedFiles) {
                 return new PrintWriter(getStringWriter(type));
             } else {
@@ -101,17 +118,10 @@ public class FileManagerFactory {
         }
 
         @Override
-        public StringWriter getStringWriter(String type) {
-            return writers.computeIfAbsent(type, (key) -> new StringWriter());
-        }
-
-        @Override
-        public synchronized String drain(String type) {
+        public synchronized Object drain(String type) {
             StringWriter writer = writers.get(type);
             if (writer != null) {
-                String text = writer.toString();
-                writer.getBuffer().setLength(0);
-                return text;
+                return Util.getStringOrCompressedData(writer, config);
             }
             else return null;
         }

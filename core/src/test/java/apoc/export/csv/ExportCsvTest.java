@@ -2,6 +2,8 @@ package apoc.export.csv;
 
 import apoc.ApocSettings;
 import apoc.graph.Graphs;
+import apoc.util.BinaryTestUtil;
+import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -12,14 +14,23 @@ import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+import static apoc.util.BinaryTestUtil.getDecompressedData;
+import static apoc.util.CompressionAlgo.DEFLATE;
+import static apoc.util.CompressionAlgo.GZIP;
+import static apoc.util.CompressionAlgo.NONE;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
 
 /**
  * @author mh
@@ -98,7 +109,11 @@ public class ExportCsvTest {
     }
 
     private String readFile(String fileName) {
-        return TestUtil.readFileToString(new File(directory, fileName));
+        return readFile(fileName, UTF_8, CompressionAlgo.NONE);
+    }
+    
+    private String readFile(String fileName, Charset charset, CompressionAlgo compression) {
+        return BinaryTestUtil.readFileToString(new File(directory, fileName), charset, compression);
     }
 
     @Test
@@ -112,6 +127,16 @@ public class ExportCsvTest {
         } catch (RuntimeException e) {
             assertTrue(true);
         }
+    }
+    
+    @Test
+    public void testExportAllCsvCompressed() {
+        final CompressionAlgo compressionAlgo = DEFLATE;
+        String fileName = "all.csv.zz";
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file, $config)",
+                map("file", fileName, "config", map("compression", compressionAlgo.name())),
+                (r) -> assertResults(fileName, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName, UTF_8, compressionAlgo));
     }
 
     @Test
@@ -242,7 +267,19 @@ public class ExportCsvTest {
 
     @Test public void testExportAllCsvStreaming() throws Exception {
         String statement = "CALL apoc.export.csv.all(null,{stream:true,batchSize:2,useOptimizations:{unwindBatchSize:2}})";
+        assertExportStreaming(statement, NONE);
+    }
+    
+    @Test
+    public void testExportAllCsvStreamingCompressed() throws Exception {
+        final CompressionAlgo algo = GZIP;
+        String statement = "CALL apoc.export.csv.all(null, {compression: '" + algo.name() + "',stream:true,batchSize:2,useOptimizations:{unwindBatchSize:2}})";
+        assertExportStreaming(statement, algo);
+    }
+
+    private void assertExportStreaming(String statement, CompressionAlgo algo) {
         StringBuilder sb=new StringBuilder();
+
         testResult(db, statement, (res) -> {
             Map<String, Object> r = res.next();
             assertEquals(2L, r.get("batchSize"));
@@ -251,10 +288,10 @@ public class ExportCsvTest {
             assertEquals(2L, r.get("rows"));
             assertEquals(0L, r.get("relationships"));
             assertEquals(6L, r.get("properties"));
-            assertNull("Should get file",r.get("file"));
+            assertNull("Should get file", r.get("file"));
             assertEquals("csv", r.get("format"));
             assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
-            sb.append(r.get("data"));
+            sb.append(getDecompressedData(algo, r.get("data")));
             r = res.next();
             assertEquals(2L, r.get("batchSize"));
             assertEquals(2L, r.get("batches"));
@@ -262,8 +299,8 @@ public class ExportCsvTest {
             assertEquals(4L, r.get("rows"));
             assertEquals(0L, r.get("relationships"));
             assertEquals(10L, r.get("properties"));
-            assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-            sb.append(r.get("data"));
+            assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
+            sb.append(getDecompressedData(algo, r.get("data")));
             r = res.next();
             assertEquals(2L, r.get("batchSize"));
             assertEquals(3L, r.get("batches"));
@@ -271,8 +308,8 @@ public class ExportCsvTest {
             assertEquals(6L, r.get("rows"));
             assertEquals(0L, r.get("relationships"));
             assertEquals(12L, r.get("properties"));
-            assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-            sb.append(r.get("data"));
+            assertTrue("Should get time greater than 0", ((long) r.get("time")) >= 0);
+            sb.append(getDecompressedData(algo, r.get("data")));
             r = res.next();
             assertEquals(2L, r.get("batchSize"));
             assertEquals(4L, r.get("batches"));
@@ -280,8 +317,7 @@ public class ExportCsvTest {
             assertEquals(8L, r.get("rows"));
             assertEquals(2L, r.get("relationships"));
             assertEquals(12L, r.get("properties"));
-            assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
-            sb.append(r.get("data"));
+            sb.append(getDecompressedData(algo, r.get("data")));
         });
         assertEquals(EXPECTED, sb.toString());
     }

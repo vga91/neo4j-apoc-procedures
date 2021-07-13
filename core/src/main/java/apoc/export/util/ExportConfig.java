@@ -1,6 +1,8 @@
 package apoc.export.util;
 
 import apoc.export.cypher.formatter.CypherFormat;
+import apoc.util.CompressionAlgo;
+import apoc.util.CompressionConfig;
 import apoc.util.Util;
 
 import java.util.*;
@@ -12,7 +14,7 @@ import static java.util.Arrays.asList;
  * @author mh
  * @since 19.01.14
  */
-public class ExportConfig {
+public class ExportConfig extends CompressionConfig {
     public static final char QUOTECHAR = '"';
     public static final String NONE_QUOTES = "none";
     public static final String ALWAYS_QUOTES = "always";
@@ -81,6 +83,7 @@ public class ExportConfig {
     public CypherFormat getCypherFormat() { return cypherFormat; }
 
     public ExportConfig(Map<String,Object> config) {
+        super(config, CompressionAlgo.NONE.name());
         config = config != null ? config : Collections.emptyMap();
         this.silent = toBoolean(config.getOrDefault("silent",false));
         this.delim = delim(config.getOrDefault("delim", DEFAULT_DELIM).toString());
@@ -194,5 +197,4 @@ public class ExportConfig {
     public long getAwaitForIndexes() {
         return awaitForIndexes;
     }
-
 }
