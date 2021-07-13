@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -58,7 +59,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
-import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -317,38 +317,41 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     public ProcedureSignature procedureSignature(String name, String mode, List<List<String>> outputs, List<List<String>> inputs, String description) {
         boolean admin = false; // TODO
-        checkProcedureExistence(name);
         return new ProcedureSignature(qualifiedName(name), inputSignatures(inputs), outputSignatures(outputs),
                 Mode.valueOf(mode.toUpperCase()), admin, null, new String[0], description, null, false, false, true, false
         );
     }
 
     public UserFunctionSignature functionSignature(String name, String output, List<List<String>> inputs, String description) {
-        checkFunctionExistence(name);
         AnyType outType = typeof(output.isEmpty() ? "LIST OF MAP" : output);
         return new UserFunctionSignature(qualifiedName(name), inputSignatures(inputs), outType, null, new String[0], description, "apoc.custom",false);
     }
 
-    public void checkProcedureExistence(String name) {
-        readSignatures().filter(item -> {
-            if (item instanceof ProcedureDescriptor) {
-                ProcedureDescriptor procedureDescriptor = (ProcedureDescriptor) item;
-                ProcedureSignature signature = procedureDescriptor.getSignature();
-                return name.equals(signature.name().toString().substring(PREFIX.length() + 1));
-            }
-            return false;
-        }).findFirst().ifPresent(item -> removeProcedure(name));
+    public void preventOverloadProcedure(String name) {
+        readSignatures().map(item -> {
+                if (item instanceof ProcedureDescriptor) {
+                    ProcedureDescriptor procedureDescriptor = (ProcedureDescriptor) item;
+                    return procedureDescriptor.getSignature();
+                }
+                return null;
+            })
+            .filter(Objects::nonNull)
+            .filter(item -> name.equals(item.name().toString().substring(PREFIX.length() + 1)))
+            .findFirst()
+            .ifPresent(item -> registerProcedure(item, null));
     }
 
-    public void checkFunctionExistence(String name) {
-        readSignatures().filter(item -> {
-            if (item instanceof UserFunctionDescriptor) {
-                UserFunctionDescriptor procedureDescriptor = (UserFunctionDescriptor) item;
-                UserFunctionSignature signature = procedureDescriptor.getSignature();
-                return name.equals(signature.name().toString().substring(PREFIX.length() + 1));
-            }
-            return false;
-        }).findFirst().ifPresent(item -> removeFunction(name));
+    public void preventOverloadFunction(String name) {
+        readSignatures().map(item -> {
+                if (item instanceof UserFunctionDescriptor) {
+                    UserFunctionDescriptor procedureDescriptor = (UserFunctionDescriptor) item;
+                    return procedureDescriptor.getSignature();
+                }
+                return null;
+            }).filter(Objects::nonNull)
+            .filter(item -> name.equals(item.name().toString().substring(PREFIX.length() + 1)))
+            .findFirst()
+            .ifPresent(item -> registerFunction(item, null, false));
     }
 
     /**
@@ -360,6 +363,11 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     public boolean registerProcedure(ProcedureSignature signature, String statement) {
         try {
             final boolean isStatementNull = statement == null;
+            if (!isStatementNull) {
+                // Neo4j doesn't allow overloading procedures. So if a user define a new custom procedure 
+                // with the same name of an already registered one, we remove the old one
+                preventOverloadProcedure(signature.name().toString().substring(PREFIX.length() + 1));
+            }
             globalProceduresRegistry.register(new CallableProcedure.BasicProcedure(signature) {
                 @Override
                 public RawIterator<AnyValue[], ProcedureException> apply(org.neo4j.kernel.api.procedure.Context ctx, AnyValue[] input, ResourceTracker resourceTracker) throws ProcedureException {
@@ -397,6 +405,11 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     public boolean registerFunction(UserFunctionSignature signature, String statement, boolean forceSingle) {
         try {
             final boolean isStatementNull = statement == null;
+            if (!isStatementNull) {
+                // Neo4j doesn't allow overloading functions. So if a user define a new custom function 
+                // with the same name of an already registered one, we remove the old one
+                preventOverloadFunction(signature.name().toString().substring(PREFIX.length() + 1));
+            }
             globalProceduresRegistry.register(new CallableUserFunction.BasicUserFunction(signature) {
                 @Override
                 public AnyValue apply(org.neo4j.kernel.api.procedure.Context ctx, AnyValue[] input) throws ProcedureException {

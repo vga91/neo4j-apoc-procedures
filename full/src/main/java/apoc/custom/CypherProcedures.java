@@ -69,7 +69,6 @@ public class CypherProcedures {
                                  @Name(value = "description", defaultValue = "") String description
     ) {
         ProcedureSignature procedureSignature = new Signatures(PREFIX).asProcedureSignature(signature, description, cypherProceduresHandler.mode(mode));
-        cypherProceduresHandler.checkProcedureExistence(procedureSignature.name().toString().substring(PREFIX.length() + 1));
         if (!cypherProceduresHandler.registerProcedure(procedureSignature, statement)) {
             throw new IllegalStateException("Error registering procedure " + procedureSignature.name() + ", see log.");
         }
@@ -95,7 +94,6 @@ public class CypherProcedures {
                            @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
                            @Name(value = "description", defaultValue = "") String description) throws ProcedureException {
         UserFunctionSignature userFunctionSignature = new Signatures(PREFIX).asFunctionSignature(signature, description);
-        cypherProceduresHandler.checkFunctionExistence(userFunctionSignature.name().toString().substring(PREFIX.length() + 1));
         if (!cypherProceduresHandler.registerFunction(userFunctionSignature, statement, forceSingle)) {
             throw new IllegalStateException("Error registering function " + signature + ", see log.");
         }
