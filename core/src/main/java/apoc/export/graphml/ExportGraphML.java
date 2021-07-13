@@ -46,21 +46,26 @@ public class ExportGraphML {
     public TerminationGuard terminationGuard;
 
     @Procedure(name = "apoc.import.graphml",mode = Mode.WRITE)
-    @Description("apoc.import.graphml(file,config) - imports graphml file")
-    public Stream<ProgressInfo> file(@Name("file") String fileName, @Name("config") Map<String, Object> config) throws Exception {
+    @Description("apoc.import.graphml(fileOrBinary,config) - imports graphml file")
+    public Stream<ProgressInfo> file(@Name("fileOrBinary") Object fileOrBinary, @Name("config") Map<String, Object> config) throws Exception {
         ProgressInfo result =
         Util.inThread(pools, () -> {
             ExportConfig exportConfig = new ExportConfig(config);
-            ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, "file", "graphml"));
+            String file =  null;
+            String source = "binary";
+            if (fileOrBinary instanceof String) {
+                file = (String) fileOrBinary;
+                source = "file";
+            }
+            ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "graphml"));
             XmlGraphMLReader graphMLReader = new XmlGraphMLReader(db, tx).reporter(reporter)
                     .batchSize(exportConfig.getBatchSize())
                     .relType(exportConfig.defaultRelationshipType())
                     .nodeLabels(exportConfig.readLabels());
 
             if (exportConfig.storeNodeIds()) graphMLReader.storeNodeIds();
-
-
-            graphMLReader.parseXML(FileUtils.readerFor(fileName));
+            
+            graphMLReader.parseXML(FileUtils.readerFor(fileOrBinary, exportConfig.getCompressionAlgo()));
             return reporter.getTotal();
         });
         return Stream.of(result);

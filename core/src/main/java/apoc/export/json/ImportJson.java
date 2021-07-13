@@ -26,14 +26,20 @@ public class ImportJson {
     public Pools pools;
 
     @Procedure(value = "apoc.import.json", mode = Mode.WRITE)
-    @Description("apoc.import.json(file,config) - imports the json list to the provided file")
-    public Stream<ProgressInfo> all(@Name("file") String fileName, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+    @Description("apoc.import.json(fileOrBinary,config) - imports the json list to the provided file")
+    public Stream<ProgressInfo> all(@Name("fileOrBinary") Object fileOrBinary, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         ProgressInfo result =
                 Util.inThread(pools, () -> {
                     ImportJsonConfig importJsonConfig = new ImportJsonConfig(config);
-                    ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, "file", "json"));
+                    String file = null;
+                    String source = "binary";
+                    if (fileOrBinary instanceof String) {
+                        file =  (String) fileOrBinary;
+                        source = "file";
+                    }
+                    ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "json"));
 
-                    try (final CountingReader reader = FileUtils.readerFor(fileName);
+                    try (final CountingReader reader = FileUtils.readerFor(fileOrBinary, importJsonConfig.getCompressionAlgo());
                          final Scanner scanner = new Scanner(reader).useDelimiter("\n|\r");
                          JsonImporter jsonImporter = new JsonImporter(importJsonConfig, db, reporter)) {
                         while (scanner.hasNext()) {
