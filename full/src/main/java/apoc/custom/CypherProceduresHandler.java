@@ -337,8 +337,8 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             })
             .filter(Objects::nonNull)
             .filter(item -> name.equals(item.name().toString().substring(PREFIX.length() + 1)))
-            .findFirst()
-            .ifPresent(item -> registerProcedure(item, null));
+            // we do that in order to remove old procedures from already existing databases
+            .forEach(item -> registerProcedure(item, null));
     }
 
     public void preventOverloadFunction(String name) {
@@ -350,8 +350,8 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                 return null;
             }).filter(Objects::nonNull)
             .filter(item -> name.equals(item.name().toString().substring(PREFIX.length() + 1)))
-            .findFirst()
-            .ifPresent(item -> registerFunction(item, null, false));
+            // we do that in order to remove old functions from already existing databases
+            .forEach(item -> registerFunction(item, null, false));
     }
 
     /**
