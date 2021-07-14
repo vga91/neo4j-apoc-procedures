@@ -48,9 +48,10 @@ public class CypherProceduresClusterTest {
         // when
         cluster.getSession().writeTransaction(tx -> tx.run("call apoc.custom.asFunction('answerOverload', 'RETURN $count as result','int',[['count','int']])"));
         cluster.getSession().writeTransaction(tx -> tx.run("call db.clearQueryCaches()"));
-        TestContainerUtil.testCall(cluster.getSession(), "return custom.answerOverload(0) as row", (row) -> assertEquals(0L, row.get("row")));
         
         Thread.sleep(1000);
+        
+        TestContainerUtil.testCall(cluster.getSession(), "return custom.answerOverload(0) as row", (row) -> assertEquals(0L, row.get("row")));
         
         try {
             TestContainerUtil.testCall(cluster.getSession(), "return custom.answerOverload() as row", (row) -> fail("Should fail due to param mismatch"));
