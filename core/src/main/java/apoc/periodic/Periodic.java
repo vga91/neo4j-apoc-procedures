@@ -27,6 +27,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static apoc.util.Util.merge;
+import static org.neo4j.graphdb.QueryExecutionType.QueryType.READ_ONLY;
+import static org.neo4j.graphdb.QueryExecutionType.QueryType.READ_WRITE;
+import static org.neo4j.graphdb.QueryExecutionType.QueryType.WRITE;
 
 public class Periodic {
 
@@ -177,7 +180,7 @@ public class Periodic {
     }
 
     private void validateQuery(String statement) {
-        Util.validateQuery(db, statement);
+        Util.validateQuery(db, statement, READ_WRITE, WRITE, READ_ONLY);
     }
 
     @Procedure(mode = Mode.WRITE)

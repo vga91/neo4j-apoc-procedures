@@ -551,6 +551,23 @@ public class PeriodicTest {
         assertCountEntitiesAndIndexes(0, 0, 0,0);
     }
 
+    @Test
+    public void testPeriodicWithSchemaOperation() {
+        String expectedMsg = "Supported query types for the operation are";
+        try { 
+            db.executeTransactionally("call apoc.periodic.submit('job123','CREATE CONSTRAINT ON (book:Book) ASSERT book.isbn IS UNIQUE', {});");
+            fail();
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains(expectedMsg));
+        }
+        try {
+            db.executeTransactionally("CALL apoc.periodic.iterate('CREATE CONSTRAINT ON (book:Book) ASSERT book.isbn IS UNIQUE', 'CREATE (n:AAAA)', {batchSize:10,iterateList:true})");
+            fail();
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains(expectedMsg));
+        }
+    }
+
     private void createDatasetForTruncate() {
         int iterations = 999;
         Map<String, Object> parameters = new HashMap<>(1);
