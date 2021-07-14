@@ -210,7 +210,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         Set<UserFunctionSignature> currentUserFunctionsToRemove = new HashSet<>(registeredUserFunctionSignatures);
 
         readSignatures().forEach(descriptor -> {
-            descriptor.register();
             if (descriptor instanceof ProcedureDescriptor) {
                 ProcedureSignature signature = ((ProcedureDescriptor) descriptor).getSignature();
                 currentProceduresToRemove.remove(signature);
@@ -223,6 +222,8 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         // de-register removed procs/functions
         currentProceduresToRemove.forEach(signature -> registerProcedure(signature, null));
         currentUserFunctionsToRemove.forEach(signature -> registerFunction(signature, null, false));
+
+        readSignatures().forEach(ProcedureOrFunctionDescriptor::register);
 
         api.executeTransactionally("call db.clearQueryCaches()");
     }
