@@ -4,7 +4,9 @@ import apoc.export.util.Reporter;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.values.storable.CoordinateReferenceSystem;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.PointValue;
@@ -21,11 +23,14 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public class JsonImporter implements Closeable {
     private static final String CREATE_NODE = "UNWIND $rows AS row " +
@@ -34,13 +39,17 @@ public class JsonImporter implements Closeable {
             "MATCH (s%s {%s: row.start.id}) " +
             "MATCH (e%s {%2$s: row.end.id}) " +
             "CREATE (s)-[r:%s]->(e) SET r += row.properties";
+    public static final String MISSING_CONSTRAINT_ERROR_MSG = "Missing constraint required for import. Execute these queries: \n\n";
+    public static final String CREATE_CONSTRAINT_TEMPLATE = "CREATE CONSTRAINT ON (n:%s) assert n.%s IS UNIQUE;";
 
+    private final Set<String> constraints = new HashSet<>();
     private final List<Map<String, Object>> paramList;
     private final int unwindBatchSize;
     private final int txBatchSize;
     private final GraphDatabaseService db;
     private final Reporter reporter;
 
+    private boolean firstRel = true;
     private String lastType;
     private List<String> lastLabels;
     private Map<String, Object> lastRelTypes;
@@ -111,6 +120,27 @@ public class JsonImporter implements Closeable {
     }
 
     private void manageRelationship(Map<String, Object> param) {
+        
+        if (firstRel) {
+            try (Transaction transaction = db.beginTx()) {
+                Set<String> collect = StreamSupport.stream(transaction.schema().getConstraints().spliterator(), false)
+                        .map(ConstraintDefinition::getLabel)
+                        .map(Label::name).map(Util::quote)
+                        .collect(Collectors.toSet());
+                constraints.removeAll(collect);
+            }
+            if (constraints.isEmpty()) {
+                // we check only 1st time
+                firstRel = false;
+            } else {
+                String importIdName = importJsonConfig.getImportIdName();
+                String queries = constraints.stream()
+                        .map(label -> String.format(CREATE_CONSTRAINT_TEMPLATE, label, importIdName))
+                        .collect(Collectors.joining("\n"));
+                throw new RuntimeException(MISSING_CONSTRAINT_ERROR_MSG + queries);
+            }
+        }
+        
         Map<String, Object> relType = Util.map(
                 "start", getLabels((Map<String, Object>) param.get("start")),
                 "end", getLabels((Map<String, Object>) param.get("end")),
@@ -126,6 +156,7 @@ public class JsonImporter implements Closeable {
 
     private void manageNode(Map<String, Object> param) {
         List<String> labels = getLabels(param);
+        constraints.addAll(labels);
         if (lastLabels == null) {
             lastLabels = labels;
         }
