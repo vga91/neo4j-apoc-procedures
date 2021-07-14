@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -58,7 +59,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
-import static java.util.Collections.emptySet;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -210,7 +210,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         Set<UserFunctionSignature> currentUserFunctionsToRemove = new HashSet<>(registeredUserFunctionSignatures);
 
         readSignatures().forEach(descriptor -> {
-            descriptor.register();
             if (descriptor instanceof ProcedureDescriptor) {
                 ProcedureSignature signature = ((ProcedureDescriptor) descriptor).getSignature();
                 currentProceduresToRemove.remove(signature);
@@ -223,6 +222,8 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         // de-register removed procs/functions
         currentProceduresToRemove.forEach(signature -> registerProcedure(signature, null));
         currentUserFunctionsToRemove.forEach(signature -> registerFunction(signature, null, false));
+
+        readSignatures().forEach(ProcedureOrFunctionDescriptor::register);
 
         api.executeTransactionally("call db.clearQueryCaches()");
     }
@@ -327,6 +328,42 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         return new UserFunctionSignature(qualifiedName(name), inputSignatures(inputs), outType, null, new String[0], description, "apoc.custom",false);
     }
 
+    public void preventOverloadProcedure(ProcedureSignature signature) {
+        readSignatures().map(item -> {
+                if (item instanceof ProcedureDescriptor) {
+                    ProcedureDescriptor procedureDescriptor = (ProcedureDescriptor) item;
+                    return procedureDescriptor.getSignature();
+                }
+                return null;
+            })
+            .filter(Objects::nonNull)
+            .filter(item -> !signature.equals(item) && hasSameName(signature.name(), item.name()))
+            // we do that in order to remove old procedures from already existing databases
+            .forEach(item -> registerProcedure(item, null));
+    }
+
+    public void preventOverloadFunction(UserFunctionSignature signature) {
+        readSignatures().map(item -> {
+                if (item instanceof UserFunctionDescriptor) {
+                    UserFunctionDescriptor procedureDescriptor = (UserFunctionDescriptor) item;
+                    return procedureDescriptor.getSignature();
+                }
+                return null;
+            })
+            .filter(Objects::nonNull)
+            .filter(item -> !signature.equals(item) && hasSameName(signature.name(), item.name()))
+            // we do that in order to remove old functions from already existing databases
+            .forEach(item -> registerFunction(item, null, false));
+    }
+
+    private boolean hasSameName(QualifiedName first, QualifiedName second) {
+        return getNormalizedName(first).equals(getNormalizedName(second));
+    }
+
+    public static String getNormalizedName(QualifiedName name) {
+        return name.toString().substring(PREFIX.length() + 1);
+    }
+
     /**
      *
      * @param signature
@@ -336,6 +373,11 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     public boolean registerProcedure(ProcedureSignature signature, String statement) {
         try {
             final boolean isStatementNull = statement == null;
+            if (!isStatementNull) {
+                // Neo4j doesn't allow overloading procedures. So if a user define a new custom procedure 
+                // with the same name of an already registered one, we remove the old one
+                preventOverloadProcedure(signature);
+            }
             globalProceduresRegistry.register(new CallableProcedure.BasicProcedure(signature) {
                 @Override
                 public RawIterator<AnyValue[], ProcedureException> apply(org.neo4j.kernel.api.procedure.Context ctx, AnyValue[] input, ResourceTracker resourceTracker) throws ProcedureException {
@@ -373,6 +415,11 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     public boolean registerFunction(UserFunctionSignature signature, String statement, boolean forceSingle) {
         try {
             final boolean isStatementNull = statement == null;
+            if (!isStatementNull) {
+                // Neo4j doesn't allow overloading functions. So if a user define a new custom function 
+                // with the same name of an already registered one, we remove the old one
+                preventOverloadFunction(signature);
+            }
             globalProceduresRegistry.register(new CallableUserFunction.BasicUserFunction(signature) {
                 @Override
                 public AnyValue apply(org.neo4j.kernel.api.procedure.Context ctx, AnyValue[] input) throws ProcedureException {

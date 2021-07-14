@@ -110,7 +110,7 @@ public class CypherProcedures {
                 ProcedureSignature signature = procedureDescriptor.getSignature();
                 return new CustomProcedureInfo(
                         PROCEDURE,
-                        signature.name().toString().substring(PREFIX.length() + 1),
+                        getNormalizedName(signature.name()),
                         signature.description().orElse(null),
                         signature.mode().toString().toLowerCase(),
                         procedureDescriptor.getStatement(),
@@ -122,7 +122,7 @@ public class CypherProcedures {
                 UserFunctionSignature signature = userFunctionDescriptor.getSignature();
                 return new CustomProcedureInfo(
                         FUNCTION,
-                        signature.name().toString().substring(PREFIX.length() + 1),
+                        getNormalizedName(signature.name()),
                         signature.description().orElse(null),
                         null,
                         userFunctionDescriptor.getStatement(),
