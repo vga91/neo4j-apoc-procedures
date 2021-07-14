@@ -357,7 +357,11 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     private boolean hasSameName(QualifiedName first, QualifiedName second) {
-        return first.toString().substring(PREFIX.length() + 1).equals(second.toString().substring(PREFIX.length() + 1));
+        return getNormalizedName(first).equals(getNormalizedName(second));
+    }
+
+    public static String getNormalizedName(QualifiedName name) {
+        return name.toString().substring(PREFIX.length() + 1);
     }
 
     /**

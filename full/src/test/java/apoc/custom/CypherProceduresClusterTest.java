@@ -16,6 +16,7 @@ import static apoc.util.TestContainerUtil.testCall;
 import static apoc.util.TestContainerUtil.testCallInReadTransaction;
 import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 
@@ -38,6 +39,36 @@ public class CypherProceduresClusterTest {
             cluster.close();
         }
     }
+
+    @Test
+    public void shouldRecreateAndOverloadCustomFunctionsOnOtherClusterMembers() throws InterruptedException {
+        // given
+        cluster.getSession().writeTransaction(tx -> tx.run("call apoc.custom.asFunction('answerOverload', 'RETURN 42 as answer')"));
+
+        // when
+        cluster.getSession().writeTransaction(tx -> tx.run("call apoc.custom.asFunction('answerOverload', 'RETURN $count as result','int',[['count','int']])"));
+        cluster.getSession().writeTransaction(tx -> tx.run("call db.clearQueryCaches()"));
+        TestContainerUtil.testCall(cluster.getSession(), "return custom.answerOverload(0) as row", (row) -> assertEquals(0L, row.get("row")));
+        
+        Thread.sleep(1000);
+        
+        try {
+            TestContainerUtil.testCall(cluster.getSession(), "return custom.answerOverload() as row", (row) -> fail("Should fail due to param mismatch"));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 1 got 0"));
+        }
+
+        try {
+            TestContainerUtil.testCallInReadTransaction(cluster.getSession(), "return custom.answerOverload() as row",  (row) -> fail("Should fail due to param mismatch"));
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 1 got 0"));
+        }
+
+        // then
+        // we use the readTransaction in order to route the execution to the READ_REPLICA
+        TestContainerUtil.testCallInReadTransaction(cluster.getSession(), "return custom.answerOverload(0) as row", (row) -> assertEquals(0L, row.get("row")));
+    }
+
 
     @Test
     public void shouldRecreateCustomFunctionsOnOtherClusterMembers() throws InterruptedException {
