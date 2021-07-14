@@ -327,7 +327,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         return new UserFunctionSignature(qualifiedName(name), inputSignatures(inputs), outType, null, new String[0], description, "apoc.custom",false);
     }
 
-    public void preventOverloadProcedure(String name) {
+    public void preventOverloadProcedure(ProcedureSignature signature) {
         readSignatures().map(item -> {
                 if (item instanceof ProcedureDescriptor) {
                     ProcedureDescriptor procedureDescriptor = (ProcedureDescriptor) item;
@@ -336,22 +336,27 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                 return null;
             })
             .filter(Objects::nonNull)
-            .filter(item -> name.equals(item.name().toString().substring(PREFIX.length() + 1)))
+            .filter(item -> !signature.equals(item) && hasSameName(signature.name(), item.name()))
             // we do that in order to remove old procedures from already existing databases
             .forEach(item -> registerProcedure(item, null));
     }
 
-    public void preventOverloadFunction(String name) {
+    public void preventOverloadFunction(UserFunctionSignature signature) {
         readSignatures().map(item -> {
                 if (item instanceof UserFunctionDescriptor) {
                     UserFunctionDescriptor procedureDescriptor = (UserFunctionDescriptor) item;
                     return procedureDescriptor.getSignature();
                 }
                 return null;
-            }).filter(Objects::nonNull)
-            .filter(item -> name.equals(item.name().toString().substring(PREFIX.length() + 1)))
+            })
+            .filter(Objects::nonNull)
+            .filter(item -> !signature.equals(item) && hasSameName(signature.name(), item.name()))
             // we do that in order to remove old functions from already existing databases
             .forEach(item -> registerFunction(item, null, false));
+    }
+
+    private boolean hasSameName(QualifiedName first, QualifiedName second) {
+        return first.toString().substring(PREFIX.length() + 1).equals(second.toString().substring(PREFIX.length() + 1));
     }
 
     /**
@@ -366,7 +371,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             if (!isStatementNull) {
                 // Neo4j doesn't allow overloading procedures. So if a user define a new custom procedure 
                 // with the same name of an already registered one, we remove the old one
-                preventOverloadProcedure(signature.name().toString().substring(PREFIX.length() + 1));
+                preventOverloadProcedure(signature);
             }
             globalProceduresRegistry.register(new CallableProcedure.BasicProcedure(signature) {
                 @Override
@@ -408,7 +413,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             if (!isStatementNull) {
                 // Neo4j doesn't allow overloading functions. So if a user define a new custom function 
                 // with the same name of an already registered one, we remove the old one
-                preventOverloadFunction(signature.name().toString().substring(PREFIX.length() + 1));
+                preventOverloadFunction(signature);
             }
             globalProceduresRegistry.register(new CallableUserFunction.BasicUserFunction(signature) {
                 @Override
