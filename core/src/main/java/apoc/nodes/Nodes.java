@@ -6,15 +6,23 @@ import apoc.refactor.util.PropertiesManager;
 import apoc.refactor.util.RefactorConfig;
 import apoc.result.LongResult;
 import apoc.result.NodeResult;
+import apoc.result.PathResult;
 import apoc.result.RelationshipResult;
 import apoc.result.VirtualNode;
 import apoc.result.VirtualPathResult;
 import apoc.util.Util;
+import org.apache.commons.lang3.StringUtils;
+import org.neo4j.graphalgo.BasicEvaluationContext;
+import org.neo4j.graphalgo.GraphAlgoFactory;
+import org.neo4j.graphalgo.PathFinder;
+import org.neo4j.graphalgo.impl.util.PathImpl;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Path;
+import org.neo4j.graphdb.PathExpanderBuilder;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
@@ -43,6 +51,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -67,6 +76,53 @@ public class Nodes {
 
     @Context
     public Pools pools;
+    
+    @Procedure
+    @Description("CALL apoc.nodes.cycles([nodes], 'type', $config) - Detect all path cycles from node list with the relationship type specified by 'type' (or with all types if the parameter is empty/null)")
+    public Stream<PathResult> cycles(@Name("nodes") List<Node> nodes, @Name(value = "type", defaultValue = "") String type, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        NodesConfig conf = new NodesConfig(config);
+        Stream<Path> paths = nodes.stream().flatMap(start -> {
+            final Iterable<Relationship> relationships;
+            final RelationshipType relType;
+            boolean allRels = StringUtils.isEmpty(type);
+            if (allRels) {
+                relType = null;
+                relationships = start.getRelationships(Direction.OUTGOING);
+            } else {
+                relType = RelationshipType.withName(type);
+                relationships = start.getRelationships(Direction.OUTGOING, relType);
+            }
+            return Iterables.stream(relationships)
+                // to prevent duplicated (start and end nodes with double-rels)
+                .collect(Collectors.toMap(Relationship::getEndNode, i -> i, (o1, o2) -> o2))
+                .entrySet()
+                .stream().map(entry -> {
+                    Node end = entry.getKey();
+                    Relationship rel = entry.getValue();
+                    PathExpanderBuilder baseExpander = allRels 
+                            ? PathExpanderBuilder.allTypes(Direction.OUTGOING) 
+                            : PathExpanderBuilder.empty().add(relType, Direction.OUTGOING);
+                    
+                    PathFinder<Path> finder = GraphAlgoFactory.shortestPath(
+                            new BasicEvaluationContext(tx, db),
+                            baseExpander.build(), 
+                            conf.getMaxDepth());
+
+                    Path path = finder.findSinglePath(end, start);
+                    // Not matching path will be removed below from Objects::nonNull
+                    if (path == null) {
+                        return null;
+                    }
+                    PathImpl.Builder builder = new PathImpl.Builder(start).push(rel);
+                    for (Relationship relPath : path.relationships()) {
+                        builder = builder.push(relPath);
+                    }
+                    return builder.build();
+                }).filter(Objects::nonNull);
+        });
+        
+        return paths.map(PathResult::new);
+    }
 
     @Procedure(mode = Mode.WRITE)
     @Description("apoc.nodes.link([nodes],'REL_TYPE', conf) - creates a linked list of nodes from first to last")
