@@ -828,6 +828,9 @@ public class Util {
         if ("TAB".equals(separator)) {
             return '\t';
         }
+        if ("NONE".equals(separator)) {
+            return '\0';
+        }
         return separator.charAt(0);
     }
 
