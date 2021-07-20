@@ -11,6 +11,7 @@ import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.env.ClusterEnvironment;
 import com.couchbase.client.java.query.QueryResult;
 import com.couchbase.client.java.query.QueryScanConsistency;
+import org.testcontainers.containers.Container;
 import org.testcontainers.couchbase.BucketDefinition;
 import org.testcontainers.couchbase.CouchbaseContainer;
 
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static apoc.util.TestUtil.isRunningInCI;
 import static com.couchbase.client.java.ClusterOptions.clusterOptions;
@@ -41,6 +43,7 @@ public class CouchbaseTestUtils {
     protected static final String COUCHBASE_CONFIG_KEY = "demo";
     protected static final String BASE_APOC_CONFIG = "apoc." + CouchbaseManager.COUCHBASE_CONFIG_KEY;
     protected static final String BASE_CONFIG_KEY = BASE_APOC_CONFIG + COUCHBASE_CONFIG_KEY + ".";
+    protected static String COUCHBASE_HOST;
 
     protected static CouchbaseContainer couchbase;
     protected static Collection collection;
@@ -123,7 +126,8 @@ public class CouchbaseTestUtils {
 
         ClusterEnvironment environment = ClusterEnvironment.create();
 
-        Set<SeedNode> seedNodes = Set.of(SeedNode.create(couchbase.getHost(),
+        COUCHBASE_HOST = couchbase.getHost();
+        Set<SeedNode> seedNodes = Set.of(SeedNode.create(COUCHBASE_HOST,
                 Optional.of(couchbase.getBootstrapCarrierDirectPort()),
                 Optional.of(couchbase.getBootstrapHttpDirectPort())));
 
@@ -134,6 +138,20 @@ public class CouchbaseTestUtils {
         HOST = getUrl(couchbase);
         Bucket bucket = cluster.bucket(BUCKET_NAME);
         collection = bucket.defaultCollection();
+    }
+
+    protected static int getNumConnections() {
+        try {
+            final Container.ExecResult execResult = couchbase.execInContainer("cbstats", COUCHBASE_HOST + ":11210", "-p", PASSWORD, "-u", USERNAME, "-a", "all");
+            final String s = Stream.of(execResult.getStdout().split(System.lineSeparator()))
+                    .filter(line -> line.contains("curr_connections"))
+                    .findFirst().get()
+                    .split(":")[1];
+            
+            return Integer.parseInt(s.trim());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

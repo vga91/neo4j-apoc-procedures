@@ -4,7 +4,9 @@ import apoc.util.TestUtil;
 import com.couchbase.client.java.codec.RawBinaryTranscoder;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.kv.InsertOptions;
+import org.junit.After;
 import org.junit.AfterClass;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -25,6 +27,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
 public class CouchbaseIT {
+
+    private static int numberConnections = 0;
 
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
@@ -48,6 +52,18 @@ public class CouchbaseIT {
         if (couchbase != null) {
             couchbase.stop();
         }
+    }
+    
+    @Before
+    public void before() {
+        numberConnections = getNumConnections();
+    }
+
+    @After
+    public void after() {
+        // the connections active before must be equal to the connections active after
+        long numConnectionsAfter = getNumConnections();
+        assertEquals(numberConnections, numConnectionsAfter);
     }
 
     @Test
