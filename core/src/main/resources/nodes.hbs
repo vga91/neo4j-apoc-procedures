@@ -1,0 +1,13 @@
+{{~#each nodes~}}
+    {{#if @first~}}{{~begin~}}{{~/if~}}
+    {{#and (gt @key 0) (modIsZero @key exportConfig.batchSize)}}{{~commit~}}{{~begin~}}{{~/and~}}
+    {{~{statementNode this @root uniqueConstraints indexedProperties indexNames}~}}
+    {{#if @last~}}{{~commit~}}{{~/if~}}
+{{~/each~}}
+{{~#each groupedNodes as |value key|~}}
+    {{~initGroupedNodes @root value~}}
+    {{~#each value as |valueNode keyNode|~}}
+        {{~{getGroupedNodes @root valueNode @root.uniqueConstraints key @last}~}}
+    {{~/each~}}
+    {{~#and @last (not nodeBatchMatch)~}}{{commit~}}{{~/and~}}
+{{~/each~}}

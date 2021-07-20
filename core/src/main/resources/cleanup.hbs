@@ -1,0 +1,10 @@
+{{~#gt artificialUniques (toLong 0)~}}
+    {{~#forLoop artificialUniques (toLong exportConfig.batchSize)~}}
+        {{~begin~}}
+        {{~{statementForCleanup @root.exportConfig.cypherFormat.formatter exportConfig.batchSize}~}}
+        {{commit~}}
+    {{~/forLoop~}}
+    {{~begin~}}
+    {{~{statementConstraintUnique @root.exportConfig.cypherFormat.formatter true}~}}
+    {{commit~}}
+{{/gt}}

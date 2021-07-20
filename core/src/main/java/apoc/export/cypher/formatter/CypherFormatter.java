@@ -1,10 +1,11 @@
 package apoc.export.cypher.formatter;
 
+import apoc.export.cypher.TemplateCypher;
 import apoc.export.util.ExportConfig;
-import apoc.export.util.Reporter;
 import org.neo4j.graphdb.*;
 
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,8 +30,12 @@ public interface CypherFormatter {
 
 	String statementForCleanUp(int batchSize);
 
-	void statementForNodes(Iterable<Node> node, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, Reporter reporter, GraphDatabaseService db);
+	void groupRelationships(Iterable<Relationship> relationships, Map<String, Set<String>> uniqueConstraints, GraphDatabaseService db, TemplateCypher templateCypher);
+	
+	void groupNodes(Iterable<Node> nodes, Map<String, Set<String>> uniqueConstraints, GraphDatabaseService db, TemplateCypher templateCypher);
+	
+	void closeUnwindNodes(Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, Writer out, Map.Entry<Set<String>, Set<String>> key, Node node) throws IOException;
 
-	void statementForRelationships(Iterable<Relationship> relationship, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, Reporter reporter, GraphDatabaseService db);
+	void closeUnwindRelationships(Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, Writer out, String start, String end, Map<String, Object> path, Relationship rel) throws IOException;
 
 }

@@ -1,24 +1,24 @@
 package apoc.export.cypher;
 
-import apoc.export.cypher.formatter.CypherFormatter;
 import apoc.export.cypher.formatter.CypherFormatterUtils;
+import apoc.export.cypher.formatter.TemplateCypherHelpers;
 import apoc.export.util.ExportConfig;
-import apoc.export.util.ExportFormat;
 import apoc.export.util.Reporter;
-import apoc.util.Util;
-import org.apache.commons.lang3.StringUtils;
+import com.github.jknack.handlebars.Handlebars;
+import com.github.jknack.handlebars.Template;
+import com.github.jknack.handlebars.helper.ConditionalHelpers;
+import com.github.jknack.handlebars.helper.StringHelpers;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.*;
 import org.neo4j.graphdb.schema.IndexDefinition;
-import org.neo4j.internal.helpers.collection.Iterables;
 
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_LABEL;
-import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_PROP;
+
 
 /*
  * Idea is to lookup nodes for relationships via a unique index
@@ -28,6 +28,10 @@ import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_PROP;
  * Outputs indexes and constraints at the beginning as their own transactions
  */
 public class MultiStatementCypherSubGraphExporter {
+    private static final String SCHEMA_FILE = "schema";
+    private static final String CLEANUP_FILE = "cleanup";
+    private static final String REL_FILE = "relationships";
+    private static final String NODES_FILE = "nodes";
 
     /*private enum IndexType {
         NODE_LABEL_PROPERTY("node_label_property"),
@@ -56,23 +60,20 @@ public class MultiStatementCypherSubGraphExporter {
     }*/
 
     private final SubGraph graph;
-    private final Map<String, Set<String>> uniqueConstraints = new HashMap<>();
+    private static final Map<String, Set<String>> uniqueConstraints = new HashMap<>();
     private Set<String> indexNames        = new LinkedHashSet<>();
     private Set<String> indexedProperties = new LinkedHashSet<>();
-    private Long artificialUniques = 0L;
 
-    private ExportFormat exportFormat;
-    private CypherFormatter cypherFormat;
     private ExportConfig exportConfig;
     private GraphDatabaseService db;
+    private TemplateCypher templateCypher;
 
     public MultiStatementCypherSubGraphExporter(SubGraph graph, ExportConfig config, GraphDatabaseService db) {
         this.graph = graph;
-        this.exportFormat = config.getFormat();
-        this.exportConfig = config;
-        this.cypherFormat = config.getCypherFormat().getFormatter();
-        this.db = db;
         gatherUniqueConstraints();
+        this.templateCypher = new TemplateCypher(config, uniqueConstraints, indexNames, indexedProperties);
+        this.exportConfig = config;
+        this.db = db;
     }
 
     /**
@@ -91,148 +92,115 @@ public class MultiStatementCypherSubGraphExporter {
      * @param cypherFileManager
      */
     public void export(ExportConfig config, Reporter reporter, ExportFileManager cypherFileManager) {
+        try {
+            Handlebars handlebars = getHandlebars();
+            Template templateHandlebarsNodes = handlebars.compile(NODES_FILE);
+            Template templateHandlebarsRels = handlebars.compile(REL_FILE);
+            Template templateHandlebarsCleanup = handlebars.compile(CLEANUP_FILE);
+            Template templateHandlebarsSchema = handlebars.compile(SCHEMA_FILE);
 
-        int batchSize = config.getBatchSize();
-        ExportConfig.OptimizationType useOptimizations = config.getOptimizationType();
+            templateCypher.setReporter(reporter);
 
-        PrintWriter schemaWriter = cypherFileManager.getPrintWriter("schema");
-        PrintWriter nodesWriter = cypherFileManager.getPrintWriter("nodes");
-        PrintWriter relationshipsWriter = cypherFileManager.getPrintWriter("relationships");
-        PrintWriter cleanupWriter = cypherFileManager.getPrintWriter("cleanup");
+            ExportConfig.OptimizationType useOptimizations = config.getOptimizationType();
 
-        switch (useOptimizations) {
-            case NONE:
-                exportNodes(nodesWriter, reporter, batchSize);
-                exportSchema(schemaWriter, config);
-                exportRelationships(relationshipsWriter, reporter, batchSize);
-                break;
-            default:
-                artificialUniques += countArtificialUniques(graph.getNodes());
-                exportSchema(schemaWriter, config);
-                exportNodesUnwindBatch(nodesWriter, reporter);
-                exportRelationshipsUnwindBatch(relationshipsWriter, reporter);
-                break;
+            PrintWriter schemaWriter = cypherFileManager.getPrintWriter(SCHEMA_FILE);
+            PrintWriter nodesWriter = cypherFileManager.getPrintWriter(NODES_FILE);
+            PrintWriter relationshipsWriter = cypherFileManager.getPrintWriter(REL_FILE);
+            PrintWriter cleanupWriter = cypherFileManager.getPrintWriter(CLEANUP_FILE);
+
+            switch (useOptimizations) {
+                case NONE:
+                    templateCypher.setNodes(graph.getNodes());
+                    exportSchema();
+                    templateCypher.setRelationships(graph.getRelationships());
+
+                    templateHandlebarsNodes.apply(templateCypher, nodesWriter);
+                    templateHandlebarsSchema.apply(templateCypher, schemaWriter);
+                    templateHandlebarsRels.apply(templateCypher, relationshipsWriter);
+                    break;
+                default:
+                    templateCypher.incrementArtificialUniques(countArtificialUniques(graph.getNodes()));
+
+                    exportSchema();
+                    exportNodesUnwindBatch();
+                    exportRelationshipsUnwindBatch();
+                    
+                    templateHandlebarsSchema.apply(templateCypher, schemaWriter);
+                    templateHandlebarsNodes.apply(templateCypher, nodesWriter);
+                    templateHandlebarsRels.apply(templateCypher, relationshipsWriter);
+                    
+                    reporter.update(templateCypher.getNodeCount().get(), templateCypher.getRelCount().get(), templateCypher.getPropertyCount().get());
+                    break;
+            }
+            
+            if (cypherFileManager.separatedFiles()) {
+                nodesWriter.close();
+                schemaWriter.close();
+                relationshipsWriter.close();
+            }
+
+            templateHandlebarsCleanup.apply(templateCypher, cleanupWriter);
+            cleanupWriter.close();
+            reporter.done();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        if (cypherFileManager.separatedFiles()) {
-            nodesWriter.close();
-            schemaWriter.close();
-            relationshipsWriter.close();
-        }
-        exportCleanUp(cleanupWriter, batchSize);
-        cleanupWriter.close();
-        reporter.done();
     }
 
-    public void exportOnlySchema(ExportFileManager cypherFileManager, ExportConfig config) {
-        PrintWriter schemaWriter = cypherFileManager.getPrintWriter("schema");
-        exportSchema(schemaWriter, config);
-        schemaWriter.close();
+    public void exportOnlySchema(ExportFileManager cypherFileManager) {
+        try {
+            Handlebars handlebars = new Handlebars()
+                    .prettyPrint(true)
+                    .registerHelpers(ConditionalHelpers.class)
+                    .registerHelpers(StringHelpers.class)
+                    .registerHelpers(TemplateCypherHelpers.class);
+            Template templateHandlebars = handlebars.compile(SCHEMA_FILE);
+
+            PrintWriter schemaWriter = cypherFileManager.getPrintWriter(SCHEMA_FILE);
+            exportSchema();
+            templateHandlebars.apply(templateCypher, schemaWriter);
+            schemaWriter.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Handlebars getHandlebars() {
+        return new Handlebars()
+                .prettyPrint(false)
+                .registerHelpers(StringHelpers.class)
+                .registerHelpers(ConditionalHelpers.class)
+                .registerHelpers(TemplateCypherHelpers.class);
     }
 
     // ---- Nodes ----
 
-    private void exportNodes(PrintWriter out, Reporter reporter, int batchSize) {
+    private void exportNodesUnwindBatch() {
         if (graph.getNodes().iterator().hasNext()) {
-            begin(out);
-            appendNodes(out, batchSize, reporter);
-            commit(out);
-            out.flush();
-        }
-    }
-
-    private void exportNodesUnwindBatch(PrintWriter out, Reporter reporter) {
-        if (graph.getNodes().iterator().hasNext()) {
-            this.cypherFormat.statementForNodes(graph.getNodes(), uniqueConstraints, exportConfig, out, reporter, db);
-            out.flush();
-        }
-    }
-
-    private long appendNodes(PrintWriter out, int batchSize, Reporter reporter) {
-        long count = 0;
-        for (Node node : graph.getNodes()) {
-            if (count > 0 && count % batchSize == 0) restart(out);
-            count++;
-            appendNode(out, node, reporter);
-        }
-        return count;
-    }
-
-    private void appendNode(PrintWriter out, Node node, Reporter reporter) {
-        artificialUniques += countArtificialUniques(node);
-        String cypher = this.cypherFormat.statementForNode(node, uniqueConstraints, indexedProperties, indexNames);
-        if (Util.isNotNullOrEmpty(cypher)) {
-            out.println(cypher);
-            reporter.update(1, 0, Iterables.count(node.getPropertyKeys()));
+            exportConfig.getCypherFormat().getFormatter().groupNodes(graph.getNodes(), uniqueConstraints, db, templateCypher);
         }
     }
 
     // ---- Relationships ----
 
-    private void exportRelationships(PrintWriter out, Reporter reporter, int batchSize) {
+    private void exportRelationshipsUnwindBatch() {
         if (graph.getRelationships().iterator().hasNext()) {
-            begin(out);
-            appendRelationships(out, batchSize, reporter);
-            commit(out);
-            out.flush();
-        }
-    }
-
-    private void exportRelationshipsUnwindBatch(PrintWriter out, Reporter reporter) {
-        if (graph.getRelationships().iterator().hasNext()) {
-            this.cypherFormat.statementForRelationships(graph.getRelationships(), uniqueConstraints, exportConfig, out, reporter, db);
-            out.flush();
-        }
-    }
-
-    private long appendRelationships(PrintWriter out, int batchSize, Reporter reporter) {
-        long count = 0;
-        for (Relationship rel : graph.getRelationships()) {
-            if (count > 0 && count % batchSize == 0) restart(out);
-            count++;
-            appendRelationship(out, rel, reporter);
-        }
-        return count;
-    }
-
-    private void appendRelationship(PrintWriter out, Relationship rel, Reporter reporter) {
-        String cypher = this.cypherFormat.statementForRelationship(rel, uniqueConstraints, indexedProperties);
-        if (cypher != null && !"".equals(cypher)) {
-            out.println(cypher);
-            reporter.update(0, 1, Iterables.count(rel.getPropertyKeys()));
+            exportConfig.getCypherFormat().getFormatter().groupRelationships(graph.getRelationships(), uniqueConstraints, db, templateCypher);
         }
     }
 
     // ---- Schema ----
 
-    private void exportSchema(PrintWriter out, ExportConfig config) {
-        List<String> indexesAndConstraints = new ArrayList<>();
-        indexesAndConstraints.addAll(exportIndexes());
-        indexesAndConstraints.addAll(exportConstraints());
-        if (indexesAndConstraints.isEmpty() && artificialUniques == 0) return;
-        begin(out);
-        for (String index : indexesAndConstraints) {
-            out.println(index);
-        }
-        if (artificialUniques > 0) {
-            String cypher = this.cypherFormat.statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), config.ifNotExists());
-            if (cypher != null && !"".equals(cypher)) {
-                out.println(cypher);
-            }
-        }
-        commit(out);
-        if (graph.getIndexes().iterator().hasNext()) {
-            out.print(this.exportFormat.indexAwait(this.exportConfig.getAwaitForIndexes()));
-        }
-        schemaAwait(out);
-        out.flush();
+    private void exportSchema() {
+        final TemplateSchema templateSchema = templateCypher.getTemplateSchema();
+        templateSchema.setIndexes(exportIndexes());
+        templateSchema.setConstraints(exportConstraints());
     }
 
-    private List<String> exportIndexes() {
+    private List<Map<String, Object>> exportIndexes() {
         return db.executeTransactionally("CALL db.indexes()", Collections.emptyMap(), result -> result.stream()
                 .map(map -> {
-                    List<String> props = (List<String>) map.get("properties");
                     List<String> tokenNames = (List<String>) map.get("labelsOrTypes");
-                    String name = (String) map.get("name");
                     boolean inGraph = tokensInGraph(tokenNames);
                     if (!inGraph) {
                         return null;
@@ -242,21 +210,9 @@ public class MultiStatementCypherSubGraphExporter {
                         return null;  // delegate to the constraint creation
                     }
 
-                    if ("FULLTEXT".equals(map.get("type"))) {
-                        if ("NODE".equals(map.get("entityType"))) {
-                            List<Label> labels = toLabels(tokenNames);
-                            return this.cypherFormat.statementForNodeFullTextIndex(name, labels, props);
-                        } else {
-                            List<RelationshipType> types = toRelationshipTypes(tokenNames);
-                            return this.cypherFormat.statementForRelationshipFullTextIndex(name, types, props);
-                        }
-                    }
-                    // "normal" schema index
-                    String tokenName = tokenNames.get(0);
-                    return this.cypherFormat.statementForIndex(tokenName, props, exportConfig.ifNotExists());
-
+                    return map;
                 })
-                .filter(StringUtils::isNotBlank)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList()));
     }
 
@@ -277,19 +233,13 @@ public class MultiStatementCypherSubGraphExporter {
                 });
     }
 
-    private List<Label> toLabels(List<String> tokenNames) {
+    public static List<Label> toLabels(List<String> tokenNames) {
         return tokenNames.stream()
                 .map(Label::label)
                 .collect(Collectors.toList());
     }
 
-    private List<RelationshipType> toRelationshipTypes(List<String> tokenNames) {
-        return tokenNames.stream()
-                .map(RelationshipType::withName)
-                .collect(Collectors.toList());
-    }
-
-    private List<String> exportConstraints() {
+    private List<IndexDefinition> exportConstraints() {
         return StreamSupport.stream(graph.getIndexes().spliterator(), false)
                 .filter(index -> index.isConstraintIndex())
                 .map(index -> {
@@ -297,52 +247,11 @@ public class MultiStatementCypherSubGraphExporter {
                     Iterable<String> props = index.getPropertyKeys();
                     return this.cypherFormat.statementForConstraint(label, props, exportConfig.ifNotExists());
                 })
-                .filter(StringUtils::isNotBlank)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
-    // ---- CleanUp ----
-
-    private void exportCleanUp(PrintWriter out, int batchSize) {
-        if (artificialUniques > 0) {
-            while (artificialUniques > 0) {
-                String cypher = this.cypherFormat.statementForCleanUp(batchSize);
-                begin(out);
-                if (cypher != null && !"".equals(cypher)) {
-                    out.println(cypher);
-                }
-                commit(out);
-                artificialUniques -= batchSize;
-            }
-            begin(out);
-            String cypher = this.cypherFormat.statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), false)
-                    .replaceAll("^CREATE", "DROP");
-            if (cypher != null && !"".equals(cypher)) {
-                out.println(cypher);
-            }
-            commit(out);
-        }
-        out.flush();
-    }
-
     // ---- Common ----
-
-    public void begin(PrintWriter out) {
-        out.print(exportFormat.begin());
-    }
-
-    private void schemaAwait(PrintWriter out){
-        out.print(exportFormat.schemaAwait());
-    }
-
-    private void restart(PrintWriter out) {
-        commit(out);
-        begin(out);
-    }
-
-    public void commit(PrintWriter out){
-        out.print(exportFormat.commit());
-    }
 
     private void gatherUniqueConstraints() {
         for (IndexDefinition indexDefinition : graph.getIndexes()) {
@@ -360,13 +269,13 @@ public class MultiStatementCypherSubGraphExporter {
         }
     }
 
-    private long countArtificialUniques(Node node) {
+    public static long countArtificialUniques(Node node) {
         long artificialUniques = 0;
         artificialUniques = getArtificialUniques(node, artificialUniques);
         return artificialUniques;
     }
 
-    private long countArtificialUniques(Iterable<Node> n) {
+    private static long countArtificialUniques(Iterable<Node> n) {
         long artificialUniques = 0;
         for (Node node : n) {
             artificialUniques = getArtificialUniques(node, artificialUniques);
@@ -374,7 +283,7 @@ public class MultiStatementCypherSubGraphExporter {
         return artificialUniques;
     }
 
-    private long getArtificialUniques(Node node, long artificialUniques) {
+    private static long getArtificialUniques(Node node, long artificialUniques) {
         Iterator<Label> labels = node.getLabels().iterator();
         boolean uniqueFound = false;
         while (labels.hasNext()) {

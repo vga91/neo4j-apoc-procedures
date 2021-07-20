@@ -45,6 +45,7 @@ dependencies {
     compile group: 'com.jayway.jsonpath', name: 'json-path', version: '2.4.0'
     compile group: 'net.minidev', name: 'json-smart', version: '2.4.2'
     compile group: 'org.hdrhistogram', name: 'HdrHistogram', version: '2.1.9'
+    compile group: 'com.github.jknack', name: 'handlebars', version: '4.2.0'
 
     antlr "org.antlr:antlr4:4.7.2", {
         exclude group: 'org.glassfish'

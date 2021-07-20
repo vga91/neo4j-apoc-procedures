@@ -1,12 +1,12 @@
 package apoc.export.cypher.formatter;
 
 import apoc.export.util.ExportConfig;
-import apoc.export.util.Reporter;
-import org.neo4j.graphdb.GraphDatabaseService;
+import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.util.Map;
 import java.util.Set;
 
@@ -31,7 +31,7 @@ public class CreateCypherFormatter extends AbstractCypherFormatter implements Cy
             result.append(CypherFormatterUtils.formatNodeProperties("", node, uniqueConstraints, indexNames, true));
             result.append("}");
         }
-        result.append(");");
+        result.append(");" + StringUtils.LF);
         return result.toString();
     }
 
@@ -48,18 +48,18 @@ public class CreateCypherFormatter extends AbstractCypherFormatter implements Cy
             result.append(CypherFormatterUtils.formatRelationshipProperties("", relationship, true));
             result.append("}");
         }
-        result.append("]->(n2);");
+        result.append("]->(n2);" + StringUtils.LF);
         return result.toString();
     }
 
     @Override
-    public void statementForNodes(Iterable<Node> node, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, Reporter reporter, GraphDatabaseService db) {
-        buildStatementForNodes("CREATE ", "SET ", node, uniqueConstraints, exportConfig, out, reporter, db);
+    public void closeUnwindNodes(Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, Writer out, Map.Entry<Set<String>, Set<String>> key, Node node) throws IOException {
+        closeUnwindNodes("CREATE ", "SET ", uniqueConstraints, exportConfig, out, key, node);
     }
 
     @Override
-    public void statementForRelationships(Iterable<Relationship> relationship, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, Reporter reporter, GraphDatabaseService db) {
-        buildStatementForRelationships("CREATE ", "SET ", relationship, uniqueConstraints, exportConfig, out, reporter, db);
+    public void closeUnwindRelationships(Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, Writer out, String start, String end, Map<String, Object> path, Relationship relationship) throws IOException {
+        closeUnwindRelationships("CREATE ", "SET ", uniqueConstraints, exportConfig, out, start, end, path, relationship);
     }
 
 }

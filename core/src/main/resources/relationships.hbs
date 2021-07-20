@@ -1,0 +1,13 @@
+{{~#each relationships~}}
+    {{~#if @first~}}{{~begin~}}{{~/if~}}
+    {{~#and (gt @key 0) (modIsZero @key exportConfig.batchSize)}}{{~commit~}}{{~begin~}}{{~/and~}}
+    {{~{statementRel this @root uniqueConstraints indexedProperties}~}}
+    {{~#if @first~}}{{~commit~}}{{~/if}}
+{{~/each~}}
+{{~#each groupedRelationships as |value key|~}}
+    {{initGroupedRels @root value~}}
+    {{#each value as |valueRel keyRel|}}
+        {{~{getGroupedRels @root valueRel @root.uniqueConstraints key @last}~}}
+    {{~/each}}
+{{~#and @last (not relBatchMatch)~}}{{commit~}}{{~/and~}}
+{{~/each~}}

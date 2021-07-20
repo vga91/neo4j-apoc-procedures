@@ -1,0 +1,21 @@
+{{#unless indexesAndUniqueEmpty~}}
+    {{~begin~}}
+    {{~#each templateSchema.indexes~}}
+        {{#eq type "FULLTEXT"~}}
+        {{~{statementForNodeFullTextIndex @root.exportConfig.cypherFormat.formatter name labelsOrTypes properties}~}}
+        {{else}}
+        {{~{statementForIndex @root.exportConfig.cypherFormat.formatter labelsOrTypes properties}~}}
+        {{/eq~}}
+    {{~/each~}}
+    {{#each templateSchema.constraints~}}
+        {{~{formatConstraint this @root.exportConfig.cypherFormat.formatter}~}}
+    {{/each~}}
+    {{#gt artificialUniques (toLong 0)~}}
+        {{{statementConstraintUnique @root.exportConfig.cypherFormat.formatter}~}}
+    {{/gt~}}
+    {{commit~}}
+    {{#if templateSchema.withIndexes}}
+        {{~templateSchema.indexAwait~}}
+    {{/if}}
+    {{~templateSchema.schemaAwait~}}
+{{/unless~}}

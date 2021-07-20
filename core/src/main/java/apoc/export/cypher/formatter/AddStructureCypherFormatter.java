@@ -1,12 +1,13 @@
 package apoc.export.cypher.formatter;
 
+import apoc.export.cypher.TemplateCypher;
 import apoc.export.util.ExportConfig;
-import apoc.export.util.Reporter;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.util.Map;
 import java.util.Set;
 
@@ -43,12 +44,22 @@ public class AddStructureCypherFormatter extends AbstractCypherFormatter impleme
 	}
 
 	@Override
-	public void statementForNodes(Iterable<Node> node, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, Reporter reporter, GraphDatabaseService db) {
-		buildStatementForNodes("MERGE ", "ON CREATE SET ", node, uniqueConstraints, exportConfig, out, reporter, db);
+	public void groupNodes(Iterable<Node> nodes, Map<String, Set<String>> uniqueConstraints, GraphDatabaseService db, TemplateCypher templateCypher) {
+		super.groupNodes(nodes, uniqueConstraints, db, templateCypher);
 	}
 
 	@Override
-	public void statementForRelationships(Iterable<Relationship> relationship, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, Reporter reporter, GraphDatabaseService db) {
-		buildStatementForRelationships("CREATE ", " SET ", relationship, uniqueConstraints, exportConfig, out, reporter, db);
+	public void groupRelationships(Iterable<Relationship> relationships, Map<String, Set<String>> uniqueConstraints, GraphDatabaseService db, TemplateCypher templateCypher) {
+		super.groupRelationships(relationships, uniqueConstraints, db, templateCypher);
+	}
+
+	@Override
+	public void closeUnwindNodes(Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, Writer out, Map.Entry<Set<String>, Set<String>> key, Node node) throws IOException {
+		closeUnwindNodes("MERGE ", "ON CREATE SET ", uniqueConstraints, exportConfig, out, key, node);
+	}
+
+	@Override
+	public void closeUnwindRelationships(Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, Writer out, String start, String end, Map<String, Object> path, Relationship relationship) throws IOException {
+		closeUnwindRelationships("CREATE ", " SET ", uniqueConstraints, exportConfig, out, start, end, path, relationship);
 	}
 }

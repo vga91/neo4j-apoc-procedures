@@ -1,19 +1,31 @@
 package apoc.export.cypher.formatter;
 
+import apoc.export.cypher.TemplateCypher;
+import apoc.export.util.ExportConfig;
+import apoc.export.util.ExportFormat;
 import apoc.export.util.FormatUtils;
 import apoc.util.Util;
+import org.apache.commons.lang3.StringUtils;
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.Value;
 import org.neo4j.values.storable.Values;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.lang.reflect.Array;
 import java.time.temporal.Temporal;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static apoc.export.util.FormatUtils.getLabelsSorted;
 
@@ -30,6 +42,188 @@ public class CypherFormatterUtils {
 
     public final static String FUNCTION_TEMPLATE = "%s('%s')";
 
+    private static boolean isBatchMatch(ExportConfig exportConfig, AtomicInteger batchCount) {
+        return batchCount.get() % exportConfig.getBatchSize() == 0;
+    }
+
+    private static void writeBatchBegin(ExportConfig exportConfig, Writer out, AtomicInteger batchCount) throws IOException {
+        if (isBatchMatch(exportConfig, batchCount)) {
+            out.append(exportConfig.getFormat().begin());
+        }
+    }
+    
+	private static void writeUnwindStart(ExportConfig exportConfig, Writer out, AtomicInteger batchCount) throws IOException {
+		if (isUnwindBatchMatch(exportConfig, batchCount)) {
+			String start = (exportConfig.getFormat() == ExportFormat.CYPHER_SHELL
+					&& exportConfig.getOptimizationType() == ExportConfig.OptimizationType.UNWIND_BATCH_PARAMS) ?
+					":param rows => [" : "UNWIND [";
+			out.append(start);
+		}
+	}
+
+    private static boolean isUnwindBatchMatch(ExportConfig exportConfig, AtomicInteger batchCount) {
+        return batchCount.get() % exportConfig.getUnwindBatchSize() == 0;
+    }
+
+    public static void getGroupedRels(/*String relationshipClause, String setClause, */Writer out, TemplateCypher templateCypher, Relationship rel, Map<String, Set<String>> uniqueConstraints, Map<String, Object> path, boolean isLast) throws IOException {
+        ExportConfig exportConfig = templateCypher.getExportConfig();
+        AtomicInteger unwindCount = templateCypher.getUnwindCount();
+        AtomicInteger batchCount = templateCypher.getRelBatchCount();
+        final AtomicInteger propertiesCount = templateCypher.getPropertyCount();
+
+        String start = "start";
+        String end = "end";
+
+        writeBatchBegin(exportConfig, out, batchCount);
+        writeUnwindStart(exportConfig, out, unwindCount);
+        batchCount.incrementAndGet();
+        unwindCount.incrementAndGet();
+        Map<String, Object> props = rel.getAllProperties();
+        // start element
+        out.append("{");
+
+        // start node
+        Node startNode = rel.getStartNode();
+        writeRelationshipNodeIds(uniqueConstraints, out, start, startNode);
+
+        out.append(", ");
+
+        // end node
+        Node endNode = rel.getEndNode();
+        writeRelationshipNodeIds(uniqueConstraints, out, end, endNode);
+
+        // properties
+        out.append(", ");
+        out.append("properties:");
+        writeProperties(out, props);
+        propertiesCount.addAndGet(props.size());
+
+        // end element
+        out.append("}");
+
+        if (isLast || isBatchMatch(exportConfig, batchCount) || isUnwindBatchMatch(exportConfig, unwindCount)) {
+            exportConfig.getCypherFormat().getFormatter().closeUnwindRelationships(uniqueConstraints, exportConfig, out, start, end, path, rel);
+            writeBatchEnd(exportConfig, out, batchCount);
+            unwindCount.set(0);
+        } else {
+            out.append(", ");
+        }
+    }
+    
+
+    private static void writeRelationshipNodeIds(Map<String, Set<String>> uniqueConstraints, Writer out, String key, Node node) throws IOException {
+        String uniqueConstrainedLabel = getUniqueConstrainedLabel(node, uniqueConstraints);
+        Set<String> props = getUniqueConstrainedProperties(uniqueConstraints, uniqueConstrainedLabel);
+        Map<String, Object> properties;
+        if (!props.contains(UNIQUE_ID_PROP)) {
+            String[] propsArray = props.toArray(new String[props.size()]);
+            properties = node.getProperties(propsArray);
+        } else {
+            // UNIQUE_ID_PROP is always the only member of the Set
+            properties = Util.map(UNIQUE_ID_PROP, node.getId());
+        }
+
+        out.append(key + ": ");
+        out.append("{");
+        writeNodeIds(out, properties);
+        out.append("}");
+    }
+
+    public static void getGroupedNodes(Writer out, TemplateCypher templateCypher, Node node, Map<String, Set<String>> uniqueConstraints, Map.Entry<Set<String>, Set<String>> key, boolean isLast) throws IOException {
+        ExportConfig exportConfig = templateCypher.getExportConfig();
+        AtomicInteger unwindCount = templateCypher.getUnwindCount();
+        AtomicInteger batchCount = templateCypher.getNodeBatchCount();
+        final AtomicInteger propertiesCount = templateCypher.getPropertyCount();
+        
+        writeBatchBegin(exportConfig, out, batchCount);
+        writeUnwindStart(exportConfig, out, unwindCount);
+        batchCount.incrementAndGet();
+        unwindCount.incrementAndGet();
+        Map<String, Object> props = node.getAllProperties();
+        // start element
+        out.append("{");
+
+        // id
+        Map<String, Object> idMap = CypherFormatterUtils.getNodeIdProperties(node, uniqueConstraints);
+        writeNodeIds(out, idMap);
+
+        // properties
+        out.append(", ");
+        out.append("properties:");
+
+        propertiesCount.addAndGet(props.size());
+        props.keySet().removeAll(idMap.keySet());
+        writeProperties(out, props);
+
+        // end element
+        out.append("}");
+        if (isLast || isBatchMatch(exportConfig, batchCount) || isUnwindBatchMatch(exportConfig, unwindCount)) {
+            exportConfig.getCypherFormat().getFormatter().closeUnwindNodes(/*nodeClause, setClause, */uniqueConstraints, exportConfig, out, key, node);
+            writeBatchEnd(exportConfig, out, batchCount);
+            unwindCount.set(0);
+        } else {
+            out.append(", ");
+        }
+    }
+    private static void writeBatchEnd(ExportConfig exportConfig, Writer out, AtomicInteger batchCount) throws IOException {
+        if (isBatchMatch(exportConfig, batchCount)) {
+            out.append(exportConfig.getFormat().commit());
+        }
+    }
+    
+    public static void writeProperties(Writer out, Map<String, Object> props) throws IOException {
+        out.append("{");
+        if (!props.isEmpty()) {
+            int size = props.size();
+            for (Map.Entry<String, Object> es : props.entrySet()) {
+                --size;
+                out.append(Util.quote(es.getKey()));
+                out.append(":");
+                out.append(CypherFormatterUtils.toString(es.getValue()));
+                if (size > 0) {
+                    out.append(", ");
+                }
+            }
+        }
+        out.append("}");
+    }
+    
+    public static String getUniqueConstrainedLabel(Node node, Map<String, Set<String>> uniqueConstraints) {
+        return uniqueConstraints.entrySet().stream()
+                .filter(e -> node.hasLabel(Label.label(e.getKey())) && e.getValue().stream().anyMatch(k -> node.hasProperty(k)))
+                .map(e -> e.getKey())
+                .findFirst()
+                .orElse(UNIQUE_ID_LABEL);
+    }
+
+    public static Set<String> getUniqueConstrainedProperties(Map<String, Set<String>> uniqueConstraints, String uniqueConstrainedLabel) {
+        Set<String> props = uniqueConstraints.get(uniqueConstrainedLabel);
+        if (props == null || props.isEmpty()) {
+            props = Collections.singleton(UNIQUE_ID_PROP);
+        }
+        return props;
+    }
+
+    private static String formatNodeId(String key) {
+        if (CypherFormatterUtils.UNIQUE_ID_PROP.equals(key)) {
+            key = "_id";
+        }
+        return Util.quote(key);
+    }
+
+    private static void writeNodeIds(Writer out, Map<String, Object> properties) throws IOException {
+        int size = properties.size();
+        for (Map.Entry<String, Object> es : properties.entrySet()) {
+            --size;
+            out.append(formatNodeId(es.getKey()));
+            out.append(":");
+            out.append(CypherFormatterUtils.toString(es.getValue()));
+            if (size > 0) {
+                out.append(", ");
+            }
+        }
+    }
+    
     // ---- node id ----
 
     public static  String formatNodeLookup(String id, Node node, Map<String, Set<String>> uniqueConstraints, Set<String> indexNames) {
