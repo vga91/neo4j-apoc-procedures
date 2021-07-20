@@ -32,7 +32,7 @@ apoc.initializer.neo4j.2=create (:Person{name:'bar'})
 
 [NOTE]
 ====
-You can use also `apoc.strict.initializer.<database_name>.<identifier>` that works as `apoc.initializer` but shuts down the db in case of errors.
+You can also use `apoc.strict.initializer.<database_name>.<identifier>` that works as `apoc.initializer` but shuts down the db in case of errors.
 For example: apoc.initializer.neo4j.0=return incorrectQuery
 ====
 
