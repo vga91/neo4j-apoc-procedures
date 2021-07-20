@@ -171,7 +171,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 				result.append(notUniqueLabels);
 			}
 		}
-		result.append(";\n");
+		result.append(";" + StringUtils.LF);
 		return result.toString();
 	}
 
@@ -186,7 +186,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 			result.append(cypherFormat.equals(CypherFormat.UPDATE_STRUCTURE) ? " ON CREATE SET " : " SET ");
 			result.append(CypherFormatterUtils.formatRelationshipProperties("r", relationship, false));
 		}
-		result.append(";\n");
+		result.append(";" + StringUtils.LF);
 		return result.toString();
 	}
 
@@ -250,7 +250,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 	}
 
 	private String formatNodeId(String key) {
-		if (UNIQUE_ID_PROP.equals(key)) {
+		if (CypherFormatterUtils.UNIQUE_ID_PROP.equals(key)) {
 			key = "_id";
 		}
 		return Util.quote(key);

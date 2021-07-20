@@ -1,5 +1,6 @@
 package apoc.export.cypher;
 
+import apoc.export.cypher.formatter.CypherFormatter;
 import apoc.export.cypher.formatter.CypherFormatterUtils;
 import apoc.export.cypher.formatter.TemplateCypherHelpers;
 import apoc.export.util.ExportConfig;
@@ -64,7 +65,7 @@ public class MultiStatementCypherSubGraphExporter {
     private Set<String> indexNames        = new LinkedHashSet<>();
     private Set<String> indexedProperties = new LinkedHashSet<>();
 
-    private ExportConfig exportConfig;
+    private CypherFormatter cypherFormat;
     private GraphDatabaseService db;
     private TemplateCypher templateCypher;
 
@@ -72,7 +73,7 @@ public class MultiStatementCypherSubGraphExporter {
         this.graph = graph;
         gatherUniqueConstraints();
         this.templateCypher = new TemplateCypher(config, uniqueConstraints, indexNames, indexedProperties);
-        this.exportConfig = config;
+        this.cypherFormat = config.getCypherFormat().getFormatter();
         this.db = db;
     }
 
@@ -177,7 +178,7 @@ public class MultiStatementCypherSubGraphExporter {
 
     private void exportNodesUnwindBatch() {
         if (graph.getNodes().iterator().hasNext()) {
-            exportConfig.getCypherFormat().getFormatter().groupNodes(graph.getNodes(), uniqueConstraints, db, templateCypher);
+            cypherFormat.groupNodes(graph.getNodes(), uniqueConstraints, db, templateCypher);
         }
     }
 
@@ -185,7 +186,7 @@ public class MultiStatementCypherSubGraphExporter {
 
     private void exportRelationshipsUnwindBatch() {
         if (graph.getRelationships().iterator().hasNext()) {
-            exportConfig.getCypherFormat().getFormatter().groupRelationships(graph.getRelationships(), uniqueConstraints, db, templateCypher);
+            cypherFormat.groupRelationships(graph.getRelationships(), uniqueConstraints, db, templateCypher);
         }
     }
 
