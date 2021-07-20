@@ -24,7 +24,10 @@ import java.util.Collections;
 
 import static apoc.ApocConfig.APOC_CONFIG_INITIALIZER;
 import static apoc.ApocConfig.APOC_CONFIG_INITIALIZER_CYPHER;
+import static apoc.ApocConfig.APOC_CONFIG_STRICT_INITIALIZER;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
@@ -116,12 +119,42 @@ public class CypherInitializerTest {
     public void multipleInitializersWorks2() {
         expectNodeCount(1);
     }
+    
+    @Test
+    @Env({  // initializer with a wrong statement
+            @EnvSetting(key= APOC_CONFIG_INITIALIZER_CYPHER + ".0", value="match (n) create ()"),
+            @EnvSetting(key= APOC_CONFIG_INITIALIZER_CYPHER + ".1", value="create()"),
+            @EnvSetting(key= APOC_CONFIG_INITIALIZER_CYPHER + ".2", value="RETURN invalid")
+    })
+    public void initializersWithErrors() {
+        assertTrue(dbmsRule.isAvailable(1000));
+        expectNodeCount(1);
+    }
+    
+    @Test
+    @Env({  // as above but the db will be shutdown
+            @EnvSetting(key= APOC_CONFIG_STRICT_INITIALIZER + "." + DEFAULT_DATABASE_NAME + ".0", value="match (n) create ()"),
+            @EnvSetting(key= APOC_CONFIG_STRICT_INITIALIZER + "." + DEFAULT_DATABASE_NAME + ".1", value="RETURN invalid")
+    })
+    public void strictInitializersWithErrors() {
+        assertFalse(dbmsRule.isAvailable(1000));
+    }
 
     @Test
     @Env({  // this only creates 2 nodes if the statements run in same order
             @EnvSetting(key= APOC_CONFIG_INITIALIZER + "." + SYSTEM_DATABASE_NAME, value="create user dummy set password 'abc'")
     })
     public void databaseSpecificInitializersForSystem() {
+        GraphDatabaseService systemDb = dbmsRule.getManagementService().database(SYSTEM_DATABASE_NAME);
+        long numberOfUsers = systemDb.executeTransactionally("show users", Collections.emptyMap(), Iterators::count);
+        assertEquals(2l, numberOfUsers);
+    }
+    
+    @Test
+    @Env({  // as above with 'strict' mode
+            @EnvSetting(key= APOC_CONFIG_STRICT_INITIALIZER + "." + SYSTEM_DATABASE_NAME, value="create user dummy set password 'abc'")
+    })
+    public void databaseSpecificInitializersForSystemWithStrict() {
         GraphDatabaseService systemDb = dbmsRule.getManagementService().database(SYSTEM_DATABASE_NAME);
         long numberOfUsers = systemDb.executeTransactionally("show users", Collections.emptyMap(), Iterators::count);
         assertEquals(2l, numberOfUsers);

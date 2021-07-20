@@ -30,6 +30,12 @@ apoc.initializer.neo4j.1=create (:Person{name:'foo'})
 apoc.initializer.neo4j.2=create (:Person{name:'bar'})
 ----
 
+[NOTE]
+====
+You can use also `apoc.strict.initializer.<database_name>.<identifier>` that works as `apoc.initializer` but shuts down the db in case of errors.
+For example: apoc.initializer.neo4j.0=return incorrectQuery
+====
+
 WARNING: There's deprecated syntax originating back from the 3.x days - see below. This old style syntax will be removed in future. Note that the initializers in old syntax are applied to *all* databases (except `system`)
 
 [source,config]

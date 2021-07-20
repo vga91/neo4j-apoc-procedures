@@ -5,22 +5,25 @@ import apoc.util.Util;
 import org.apache.commons.configuration2.Configuration;
 import org.neo4j.common.DependencyResolver;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.procedure.GlobalProcedures;
 import org.neo4j.kernel.availability.AvailabilityListener;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 
-import java.util.Collection;
-import java.util.Collections;
-
 import java.util.ConcurrentModificationException;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeMap;
+
+import static apoc.ApocConfig.APOC_CONFIG_STRICT_INITIALIZER;
+import static org.apache.commons.collections.IteratorUtils.chainedIterator;
 
 public class CypherInitializer implements AvailabilityListener {
 
     private final GraphDatabaseAPI db;
+    private final DatabaseManagementService dbms;
     private final Log userLog;
     private final GlobalProcedures procs;
     private final DependencyResolver dependencyResolver;
@@ -30,8 +33,9 @@ public class CypherInitializer implements AvailabilityListener {
      */
     private boolean finished = false;
 
-    public CypherInitializer(GraphDatabaseAPI db, Log userLog) {
+    public CypherInitializer(GraphDatabaseAPI db, DatabaseManagementService dbms, Log userLog) {
         this.db = db;
+        this.dbms = dbms;
         this.userLog = userLog;
         this.dependencyResolver = db.getDependencyResolver();
         this.procs = dependencyResolver.resolveDependency(GlobalProcedures.class);
@@ -59,7 +63,9 @@ public class CypherInitializer implements AvailabilityListener {
                 }
                 Configuration config = dependencyResolver.resolveDependency(ApocConfig.class).getConfig();
 
-                for (String query : collectInitializers(isSystemDatabase, config)) {
+                for (Map.Entry<String, String> entry : collectInitializers(isSystemDatabase, config).entrySet()) {
+                    final String key = entry.getKey();
+                    final String query = entry.getValue();
                     try {
                         // we need to apply a retry strategy here since in systemdb we potentially conflict with
                         // creating constraints which could cause our query to fail with a transient error.
@@ -67,6 +73,10 @@ public class CypherInitializer implements AvailabilityListener {
                         userLog.info("successfully initialized: " + query);
                     } catch (Exception e) {
                         userLog.error("error upon initialization, running: " + query, e);
+                        
+                        if (key.startsWith(APOC_CONFIG_STRICT_INITIALIZER)) {
+                            dbms.shutdown();
+                        }
                     }
                 }
             } finally {
@@ -75,19 +85,23 @@ public class CypherInitializer implements AvailabilityListener {
         }).start();
     }
 
-    private Collection<String> collectInitializers(boolean isSystemDatabase, Configuration config) {
+    private Map<String, String> collectInitializers(boolean isSystemDatabase, Configuration config) {
         Map<String, String> initializers = new TreeMap<>();
 
-        config.getKeys(ApocConfig.APOC_CONFIG_INITIALIZER + "." + db.databaseName())
-                .forEachRemaining(key -> putIfNotBlank(initializers, key, config.getString(key)));
 
+        final String suffix = "." + db.databaseName();
+        final Iterator<String> iterator = chainedIterator(config.getKeys(ApocConfig.APOC_CONFIG_INITIALIZER + suffix),
+                config.getKeys(APOC_CONFIG_STRICT_INITIALIZER + suffix));
+        
+        iterator.forEachRemaining(key -> putIfNotBlank(initializers, key, config.getString(key)));
+        
         // add legacy style initializers
         if (!isSystemDatabase) {
             config.getKeys(ApocConfig.APOC_CONFIG_INITIALIZER_CYPHER)
                     .forEachRemaining(key -> initializers.put(key, config.getString(key)));
         }
 
-        return initializers.values();
+        return initializers;
     }
 
     private void putIfNotBlank(Map<String,String> map, String key, String value) {
