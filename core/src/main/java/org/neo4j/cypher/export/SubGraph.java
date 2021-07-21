@@ -35,7 +35,7 @@ public interface SubGraph
 
     Iterable<IndexDefinition> getIndexes(Label label);
 
-    Iterable<IndexDefinition> getIndexes(RelationshipType label);
+    Iterable<IndexDefinition> getIndexes(RelationshipType type);
 
     Iterable<RelationshipType> getAllRelationshipTypesInUse();
 

@@ -149,61 +149,53 @@ public class Schemas {
     }
 
     public List<AssertSchemaResult> assertIndexes(Map<String, List<Object>> indexes0, boolean dropExisting) throws ExecutionException, InterruptedException, IllegalArgumentException {
-        // to prevent transaction locks (e.g. with lookup index and assert with creation schema)
-        try (Transaction transaction = db.beginTx()) {
-            Schema schema = transaction.schema();
-            Map<String, List<Object>> indexes = copyMapOfObjects(indexes0);
-            List<AssertSchemaResult> result = new ArrayList<>(indexes.size());
+        Schema schema = tx.schema();
+        Map<String, List<Object>> indexes = copyMapOfObjects(indexes0);
+        List<AssertSchemaResult> result = new ArrayList<>(indexes.size());
 
-            for (IndexDefinition definition : schema.getIndexes()) {
-                if (definition.isConstraintIndex())
-                    continue;
+        for (IndexDefinition definition : schema.getIndexes()) {
+            if (!definition.isNodeIndex())
+                continue;
+            if (definition.getIndexType() == IndexType.LOOKUP)
+                continue;
+            if (definition.isConstraintIndex())
+                continue;
 
-                boolean isNode = definition.isNodeIndex();
-                String label;
-                boolean isLookupIdx = definition.getIndexType() == IndexType.LOOKUP;
-                if (isNode) {
-                    label = isLookupIdx ? TOKEN_LABEL : Iterables.single(definition.getLabels()).name();
-                } else {
-                    label = isLookupIdx ? TOKEN_REL_TYPE : Iterables.single(definition.getRelationshipTypes()).name();
-                }
+            String label = Iterables.single(definition.getLabels()).name();
+            List<String> keys = new ArrayList<>();
+            definition.getPropertyKeys().forEach(keys::add);
 
-                List<String> keys = new ArrayList<>();
-                definition.getPropertyKeys().forEach(keys::add);
-
-                AssertSchemaResult info = new AssertSchemaResult(label, keys);
-                if (indexes.containsKey(label)) {
-                    if (keys.size() > 1) {
-                        indexes.get(label).remove(keys);
-                    } else if (keys.size() == 1) {
-                        indexes.get(label).remove(keys.get(0));
-                    } else
-                        throw new IllegalArgumentException(String.format("%s given with no keys.", isNode ? "Label" : "Type"));
-                }
-
-                if (dropExisting) {
-                    definition.drop();
-                    info.dropped();
-                }
-
-                result.add(info);
+            AssertSchemaResult info = new AssertSchemaResult(label, keys);
+            if(indexes.containsKey(label)) {
+                if (keys.size() > 1) {
+                    indexes.get(label).remove(keys);
+                } else if (keys.size() == 1) {
+                    indexes.get(label).remove(keys.get(0));
+                } else
+                    throw new IllegalArgumentException("Label given with no keys.");
             }
 
-            if (dropExisting)
-                indexes = copyMapOfObjects(indexes0);
-
-            for (Map.Entry<String, List<Object>> index : indexes.entrySet()) {
-                for (Object key : index.getValue()) {
-                    if (key instanceof String) {
-                        result.add(createSinglePropertyIndex(schema, index.getKey(), (String) key));
-                    } else if (key instanceof List) {
-                        result.add(createCompoundIndex(index.getKey(), (List<String>) key, transaction));
-                    }
-                }
+            if (dropExisting) {
+                definition.drop();
+                info.dropped();
             }
-            transaction.commit();
-            return result;
+
+            result.add(info);
         }
+
+        if (dropExisting)
+            indexes = copyMapOfObjects(indexes0);
+
+        for (Map.Entry<String, List<Object>> index : indexes.entrySet()) {
+            for (Object key : index.getValue()) {
+                if (key instanceof String) {
+                    result.add(createSinglePropertyIndex(schema, index.getKey(), (String) key));
+                } else if (key instanceof List) {
+                    result.add(createCompoundIndex(index.getKey(), (List<String>) key));
+                }
+            }
+        }
+        return result;
     }
 
     private AssertSchemaResult createSinglePropertyIndex(Schema schema, String lbl, String key) {
@@ -211,11 +203,11 @@ public class Schemas {
         return new AssertSchemaResult(lbl, key).created();
     }
 
-    private AssertSchemaResult createCompoundIndex(String label, List<String> keys, Transaction transaction) {
+    private AssertSchemaResult createCompoundIndex(String label, List<String> keys) {
         List<String> backTickedKeys = new ArrayList<>();
         keys.forEach(key->backTickedKeys.add(String.format("`%s`", key)));
 
-        transaction.execute(String.format("CREATE INDEX ON :`%s` (%s)", label, String.join(",", backTickedKeys))).close();
+        tx.execute(String.format("CREATE INDEX ON :`%s` (%s)", label, String.join(",", backTickedKeys))).close();
         return new AssertSchemaResult(label, keys).created();
     }
 

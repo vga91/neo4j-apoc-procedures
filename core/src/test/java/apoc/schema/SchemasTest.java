@@ -127,56 +127,6 @@ public class SchemasTest {
     }
 
     @Test
-    public void testDropIndexWhenUsingDropExisting() throws Exception {
-        db.executeTransactionally("CREATE INDEX ON :Foo(bar)");
-        db.executeTransactionally("CREATE INDEX FOR ()-[r:KNOWS]-() ON (r.id, r.since)");
-        db.executeTransactionally("CREATE LOOKUP INDEX node_label_lookup_index FOR (n) ON EACH labels(n)");
-        db.executeTransactionally("CREATE LOOKUP INDEX rel_type_lookup_index FOR ()-[r]-() ON EACH type(r)");
-
-        testResult(db, "CALL apoc.schema.assert(null,null) YIELD label, key, unique, action RETURN * ORDER BY label", (res) -> {
-            Map<String, Object> lookupNode = res.next();
-            assertEquals(TOKEN_LABEL, lookupNode.get("label"));
-            assertNull(lookupNode.get("key"));
-            assertEquals(false, lookupNode.get("unique"));
-            assertEquals("DROPPED", lookupNode.get("action"));
-            Map<String, Object> lookupRel = res.next();
-            assertEquals(TOKEN_REL_TYPE, lookupRel.get("label"));
-            assertNull(lookupRel.get("key"));
-            assertEquals(false, lookupRel.get("unique"));
-            assertEquals("DROPPED", lookupRel.get("action"));
-            Map<String, Object> idxNode = res.next();
-            assertEquals("Foo", idxNode.get("label"));
-            assertEquals("bar", idxNode.get("key"));
-            assertEquals(false, idxNode.get("unique"));
-            assertEquals("DROPPED", idxNode.get("action"));
-            Map<String, Object> idxRel = res.next();
-            assertEquals("KNOWS", idxRel.get("label"));
-            assertNull(idxRel.get("key"));
-            assertEquals(false, idxRel.get("unique"));
-            assertEquals("DROPPED", idxRel.get("action"));
-            assertFalse(res.hasNext());
-        });
-        try (Transaction tx = db.beginTx()) {
-            List<IndexDefinition> indexes = Iterables.asList(tx.schema().getIndexes());
-            assertEquals(0, indexes.size());
-        }
-    }
-
-    @Test
-    public void testDropIndexesRelsAndNodes() {
-        db.executeTransactionally("CREATE INDEX FOR ()-[r:KNOWS]-() ON (r.id, r.since)");
-        testCall(db, "CALL apoc.schema.assert(null,null)", (r) -> {
-            assertEquals("KNOWS", r.get("label"));
-            assertNull(r.get("key"));
-            assertEquals(asList("id", "since"), r.get("keys"));
-        });
-        try (Transaction tx = db.beginTx()) {
-            List<IndexDefinition> indexes = Iterables.asList(tx.schema().getIndexes());
-            assertEquals(0, indexes.size());
-        }
-    }
-
-    @Test
     public void testDropIndexAndCreateIndexWhenUsingDropExisting() throws Exception {
         db.executeTransactionally("CREATE INDEX ON :Foo(bar)");
         testResult(db, "CALL apoc.schema.assert({Bar:['foo']},null)", (result) -> {
@@ -264,47 +214,6 @@ public class SchemasTest {
     }
 
     @Test
-    public void testCreateAssertSchemaWithLookupIndexes() {
-        db.executeTransactionally("CREATE LOOKUP INDEX node_label_lookup_index FOR (n) ON EACH labels(n)");
-        db.executeTransactionally("CREATE LOOKUP INDEX rel_type_lookup_index FOR ()-[r]-() ON EACH type(r)");
-        testResult(db, "CALL apoc.schema.assert({One: ['two']}, {Alpha: ['beta']}) " +
-                        "YIELD label, key, keys, unique, action RETURN * ORDER BY label", (result) -> {
-            Map<String, Object> r = result.next();
-            assertEquals(TOKEN_LABEL, r.get("label"));
-            assertNull(r.get("key"));
-            assertEquals(false, r.get("unique"));
-            assertEquals("DROPPED", r.get("action"));
-
-            r = result.next();
-            assertEquals(TOKEN_REL_TYPE, r.get("label"));
-            assertNull(r.get("key"));
-            assertEquals(false, r.get("unique"));
-            assertEquals("DROPPED", r.get("action"));
-
-            r = result.next();
-            assertEquals("Alpha", r.get("label"));
-            assertEquals("beta", r.get("key"));
-            assertEquals(true, r.get("unique"));
-            assertEquals("CREATED", r.get("action"));
-
-            r = result.next();
-            assertEquals("One", r.get("label"));
-            assertEquals("two", r.get("key"));
-            assertEquals(false, r.get("unique"));
-            assertEquals("CREATED", r.get("action"));
-
-            assertFalse(result.hasNext());
-        });
-        try (Transaction tx = db.beginTx()) {
-            List<ConstraintDefinition> constraints = Iterables.asList(tx.schema().getConstraints());
-            assertEquals(1, constraints.size());
-            List<IndexDefinition> indexes = Iterables.asList(tx.schema().getIndexes());
-            assertEquals(2, indexes.size());
-        }
-
-    }
-
-    @Test
     public void testRetainSchemaWhenNotUsingDropExisting() throws Exception {
         db.executeTransactionally("CREATE CONSTRAINT ON (f:Foo) ASSERT f.bar IS UNIQUE");
         testResult(db, "CALL apoc.schema.assert(null, {Bar:['foo', 'bar']}, false)", (result) -> {
@@ -335,7 +244,7 @@ public class SchemasTest {
     @Test
     public void testKeepIndex() throws Exception {
         db.executeTransactionally("CREATE INDEX ON :Foo(bar)");
-        testResult(db, "CALL apoc.schema.assert({Foo:['bar', 'foo']},null,false)", (result) -> {
+        testResult(db, "CALL apoc.schema.assert({Foo:['bar', 'foo']},null,false)", (result) -> { 
             Map<String, Object> r = result.next();
             assertEquals("Foo", r.get("label"));
             assertEquals("bar", r.get("key"));

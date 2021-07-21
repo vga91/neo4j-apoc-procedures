@@ -614,14 +614,14 @@ public class Meta {
         for (RelationshipType type : graph.getAllRelationshipTypesInUse()) {
             metaData.put(type.name(), new LinkedHashMap<>(10));
             relConstraints.put(type.name(),graph.getConstraints(type));
-            relIndexes.put(type.name(), getSetIndexed(graph.getIndexes(type)));
+            relIndexes.put(type.name(), getIndexedProperties(graph.getIndexes(type)));
         }
         for (Label label : graph.getAllLabelsInUse()) {
             Map<String,MetaResult> nodeMeta = new LinkedHashMap<>(50);
             String labelName = label.name();
             metaData.put(labelName, nodeMeta);
             Iterable<ConstraintDefinition> constraints = graph.getConstraints(label);
-            Set<String> indexed = getSetIndexed(graph.getIndexes(label));
+            Set<String> indexed = getIndexedProperties(graph.getIndexes(label));
             long labelCount = graph.countsForNode(label);
             long sample = getSampleForLabelCount(labelCount, config.getSample());
             Iterator<Node> nodes = graph.findNodes(label);
@@ -637,14 +637,11 @@ public class Meta {
         return metaData;
     }
 
-    private Set<String> getSetIndexed(Iterable<IndexDefinition> indexes) {
-        Set<String> indexed = new LinkedHashSet<>();
-        for (IndexDefinition index : indexes) {
-            for (String prop : index.getPropertyKeys()) {
-                indexed.add(prop);
-            }
-        }
-        return indexed;
+    private Set<String> getIndexedProperties(Iterable<IndexDefinition> indexes) {
+        return Iterables.stream(indexes)
+                .map(IndexDefinition::getPropertyKeys)
+                .flatMap(Iterables::stream)
+                .collect(Collectors.toSet());
     }
 
     private Map<String, Long> getLabelCountStore() {
