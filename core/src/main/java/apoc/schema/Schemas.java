@@ -1,10 +1,8 @@
 package apoc.schema;
 
-import apoc.Pools;
 import apoc.result.AssertSchemaResult;
 import apoc.result.IndexConstraintRelationshipInfo;
 import apoc.result.IndexConstraintNodeInfo;
-import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.common.EntityType;
 import org.neo4j.common.TokenNameLookup;
@@ -25,7 +23,6 @@ import org.neo4j.internal.kernel.api.exceptions.LabelNotFoundKernelException;
 import org.neo4j.internal.kernel.api.exceptions.schema.IndexNotFoundKernelException;
 import org.neo4j.internal.schema.ConstraintDescriptor;
 import org.neo4j.internal.schema.IndexDescriptor;
-import org.neo4j.internal.schema.SchemaUserDescription;
 import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.kernel.api.Statement;
 import org.neo4j.procedure.*;
@@ -34,7 +31,6 @@ import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
