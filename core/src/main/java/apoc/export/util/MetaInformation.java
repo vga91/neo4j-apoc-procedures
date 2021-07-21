@@ -2,6 +2,7 @@ package apoc.export.util;
 
 import apoc.meta.Meta;
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.ClassUtils;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
@@ -18,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static apoc.gephi.GephiFormatUtils.getCaption;
@@ -87,9 +89,50 @@ public class MetaInformation {
                 keyTypes.put(prop,value.getClass());
                 continue;
             }
+            // todo - come fa a essere void? forse con null?
             if (storedClass == void.class || storedClass.equals(value.getClass())) continue;
             keyTypes.put(prop, void.class);
         }
+    }
+
+    public static void updateKeyTypesForGraphMl(Map<String, Map<Class, String>> keyTypes, Entity pc, boolean useTypes) {
+        for (String prop : pc.getPropertyKeys()) {
+            Object value = pc.getProperty(prop);
+//            keyTypes.get(prop).containsKey(value.getClass());
+            
+            // provare a fare col compiute come DirHandler
+            final Map<Class, String> classStringMap = keyTypes.get(prop);
+            if (classStringMap == null) {
+                getPut(keyTypes, prop, value.getClass()/*, useTypes*/);
+                continue;
+//                classStringMap.putIfAbsent(value.getClass(), useTypes ? "_" + UUID.randomUUID().toString() : StringUtils.EMPTY);
+            }
+            getKeyType(useTypes, value.getClass(), classStringMap);
+            
+            // todo... cose finali
+//            if (!keyTypes.get(prop).containsKey(value.getClass())) {
+//                keyTypes.put(prop,value.getClass());
+//                continue;
+//            }
+//            if (storedClass == void.class || storedClass.equals(value.getClass())) continue;
+//            keyTypes.put(prop, void.class);
+        }
+    }
+
+    public static void getPut(Map<String, Map<Class, String>> keyTypes, String prop, Class value) {
+        keyTypes.put(prop, new HashMap<>(Map.of(value, StringUtils.EMPTY/*getValue(useTypes)*/)));
+    }
+
+//    public static Map<Class, String> getPut(Map<String, Map<Class, String>> keyTypes, String prop, Class value) {
+//        return getPut(keyTypes, prop, value, false);
+//    }
+
+    public static void getKeyType(boolean useTypes, Class value, Map<Class, String> classStringMap) {
+        classStringMap.putIfAbsent(value, getValue(useTypes));
+    }
+
+    private static String getValue(boolean useTypes) {
+        return useTypes ? "_" + UUID.randomUUID().toString() : StringUtils.EMPTY;
     }
 
     public final static Set<String> GRAPHML_ALLOWED = new HashSet<>(asList("boolean", "int", "long", "float", "double", "string"));

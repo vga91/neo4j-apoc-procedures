@@ -16,11 +16,16 @@ import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
+import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 import org.xmlunit.builder.DiffBuilder;
+import org.xmlunit.diff.Comparison;
+import org.xmlunit.diff.ComparisonResult;
 import org.xmlunit.diff.DefaultNodeMatcher;
 import org.xmlunit.diff.Diff;
+import org.xmlunit.diff.DifferenceEvaluator;
 import org.xmlunit.diff.ElementSelector;
 import org.xmlunit.util.Nodes;
 
@@ -28,6 +33,7 @@ import javax.xml.namespace.QName;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +44,7 @@ import static apoc.ApocConfig.apocConfig;
 import static apoc.util.BinaryTestUtil.fileToBinary;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.isRunningInCI;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -95,6 +102,19 @@ public class ExportGraphMLTest {
             "<key id=\"TYPE\" for=\"edge\" attr.name=\"TYPE\" attr.type=\"string\"/>%n";
     public static final String KEY_TYPES_NO_DATA_KEY = "<key id=\"Node.Path\" for=\"node\" attr.name=\"Path\" attr.type=\"string\"/>\n" +
             "<key id=\"Edge.Path\" for=\"edge\" attr.name=\"Path\" attr.type=\"string\"/>";
+    private static final String KEY_MIXED_TYPES = "<key id=\"otherProp\" for=\"node\" attr.name=\"otherProp\" attr.type=\"long\"/>\n" +
+            "<key id=\"born\" for=\"node\" attr.name=\"born\" attr.type=\"string\"/>\n" +
+            "<key id=\"values\" for=\"node\" attr.name=\"values\" attr.type=\"string\" attr.list=\"long\"/>\n" +
+            "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"string\" attr.list=\"long\"/>\n" +
+            "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"long\"/>\n" +
+            "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"string\" attr.list=\"string\"/>\n" +
+            "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"string\"/>\n" +
+            "<key id=\"name\" for=\"node\" attr.name=\"name\" attr.type=\"string\"/>\n" +
+            "<key id=\"place\" for=\"node\" attr.name=\"place\" attr.type=\"string\"/>\n" +
+            "<key id=\"age\" for=\"node\" attr.name=\"age\" attr.type=\"long\"/>\n" +
+            "<key id=\"labels\" for=\"node\" attr.name=\"labels\" attr.type=\"string\"/>\n" +
+            "<key id=\"label\" for=\"edge\" attr.name=\"label\" attr.type=\"string\"/>";
+
     public static final String DATA = "<node id=\"n0\" labels=\":Foo:Foo0:Foo2\"><data key=\"labels\">:Foo:Foo0:Foo2</data><data key=\"place\">{\"crs\":\"wgs-84-3d\",\"latitude\":12.78,\"longitude\":56.7,\"height\":100.0}</data><data key=\"name\">foo</data><data key=\"born\">2018-10-10</data></node>%n" +
             "<node id=\"n1\" labels=\":Bar\"><data key=\"labels\">:Bar</data><data key=\"age\">42</data><data key=\"name\">bar</data><data key=\"place\">{\"crs\":\"wgs-84\",\"latitude\":12.78,\"longitude\":56.7,\"height\":null}</data></node>%n" +
             "<node id=\"n2\" labels=\":Bar\"><data key=\"labels\">:Bar</data><data key=\"age\">12</data><data key=\"values\">[1,2,3]</data></node>%n" +
@@ -137,11 +157,21 @@ public class ExportGraphMLTest {
 
     public static final String DATA_DATA = "<node id=\"n3\" labels=\":Person\"><data key=\"labels\">:Person</data><data key=\"name\">Foo</data></node>\n" +
             "<node id=\"n5\" labels=\":Person\"><data key=\"labels\">:Person</data><data key=\"name\">Foo0</data></node>\n";
+    
+    private static final String DATA_MIXED = "<node id=\"n0\" labels=\":Foo:Foo0:Foo2\"><data key=\"labels\">:Foo:Foo0:Foo2</data><data key=\"place\">{\"crs\":\"wgs-84-3d\",\"latitude\":12.78,\"longitude\":56.7,\"height\":100.0}</data><data key=\"born\">2018-10-10</data><data key=\"name\">foo</data></node>\n" +
+            "<node id=\"n1\" labels=\":Bar\"><data key=\"labels\">:Bar</data><data key=\"age\">42</data><data key=\"name\">bar</data><data key=\"place\">{\"crs\":\"wgs-84\",\"latitude\":12.78,\"longitude\":56.7,\"height\":null}</data></node>\n" +
+            "<node id=\"n2\" labels=\":Bar\"><data key=\"labels\">:Bar</data><data key=\"age\">12</data><data key=\"values\">[1,2,3]</data></node>\n" +
+            "<node id=\"n3\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">1</data><data key=\"alpha\">fooBar</data></node>\n" +
+            "<node id=\"n4\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">2</data><data key=\"alpha\">11</data></node>\n" +
+            "<node id=\"n5\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">3</data><data key=\"alpha\">[11,22]</data></node>\n" +
+            "<node id=\"n6\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">4</data><data key=\"alpha\">[\"al\",\"john\",\"jack\"]</data></node>\n" +
+            "<edge id=\"e0\" source=\"n0\" target=\"n1\" label=\"KNOWS\"><data key=\"label\">KNOWS</data></edge>";
 
     private static final String EXPECTED_TYPES_PATH = String.format(HEADER + KEY_TYPES_PATH + GRAPH + DATA_PATH + FOOTER);
     private static final String EXPECTED_TYPES_PATH_CAPTION = String.format(HEADER + KEY_TYPES_PATH + GRAPH + DATA_PATH_CAPTION + FOOTER);
     private static final String EXPECTED_TYPES_PATH_WRONG_CAPTION = String.format(HEADER + KEY_TYPES_PATH + GRAPH + DATA_PATH_CAPTION_DEFAULT + FOOTER);
     private static final String EXPECTED_TYPES = String.format(HEADER + KEY_TYPES + GRAPH + DATA + FOOTER);
+    private static final String EXPECTED_MIXED_TYPES = String.format(HEADER + KEY_MIXED_TYPES + GRAPH + DATA_MIXED + FOOTER);
     private static final String EXPECTED_TYPES_WITHOUT_CHAR_DATA_KEYS = String.format(HEADER + KEY_TYPES  + GRAPH + DATA_WITHOUT_CHAR_DATA_KEYS + FOOTER);
     private static final String EXPECTED_FALSE = String.format(HEADER + KEY_TYPES_FALSE + GRAPH + DATA + FOOTER);
     private static final String EXPECTED_DATA = String.format(HEADER + KEY_TYPES_DATA + GRAPH + DATA_DATA + FOOTER);
@@ -392,6 +422,39 @@ public class ExportGraphMLTest {
         assertXMLEquals(output, EXPECTED_FALSE);
     }
 
+    static class IgnoreAttributeDifferenceEvaluator implements DifferenceEvaluator {
+
+        private String attributeName;
+
+        public IgnoreAttributeDifferenceEvaluator(String attributeName) {
+            this.attributeName = attributeName;
+        }
+
+        @Override
+        public ComparisonResult evaluate(Comparison comparison, ComparisonResult outcome) {
+            if (outcome == ComparisonResult.EQUAL || outcome == ComparisonResult.SIMILAR) return outcome; // only evaluate differences.
+//            if (controlNode instanceof Attr) {
+//                Attr attr = (Attr) controlNode;
+//                if (attr.getName().equals(attributeName)) {
+//                    return ComparisonResult.SIMILAR; // will evaluate this difference as similar
+//                }
+//            }
+
+            final org.w3c.dom.Node target = comparison.getControlDetails().getTarget();
+            final org.w3c.dom.Node target1 = comparison.getTestDetails().getTarget();
+            if (target == null || target1 == null 
+                    || target.getNodeValue() == null || target1.getNodeValue() == null) {
+                return outcome;
+            }
+            final String nodeValue = target.getNodeValue();
+            final String nodeValue1 = target1.getNodeValue();
+            if (nodeValue1.contains(nodeValue) && (nodeValue.length() + 37 == nodeValue1.length())) {
+                return ComparisonResult.SIMILAR; 
+            }
+            return outcome;
+        }
+    }
+
     private void assertXMLEquals(Object output, String xmlString) {
         Diff myDiff = DiffBuilder.compare(xmlString)
                 .withTest(output)
@@ -411,12 +474,15 @@ public class ExportGraphMLTest {
                     }
                     for (Map.Entry<QName, String> e: cAttrs.entrySet()) {
                         if ((!ATTRIBUTES_CONTAINING_NODE_IDS.contains(e.getKey().getLocalPart()))
-                            && (!e.getValue().equals(tAttrs.get(e.getKey())))) {
+                            && (!e.getValue().equals(tAttrs.get(e.getKey())) 
+                                &&
+                                !(tAttrs.get(e.getKey()).contains(e.getValue()) && e.getValue().length() + 37 == tAttrs.get(e.getKey()).length()  ) )) {
                             return false;
                         }
                     }
                     return true;
                 }))
+                .withDifferenceEvaluator(new IgnoreAttributeDifferenceEvaluator("attr"))
                 .build();
 
         assertFalse(myDiff.toString(), myDiff.hasDifferences());
@@ -431,6 +497,44 @@ public class ExportGraphMLTest {
                         "RETURN *", map("file", output.getAbsolutePath()),
                 (r) -> assertResults(output, r, "graph"));
         assertXMLEquals(output, EXPECTED_TYPES);
+    }
+    
+    @Test
+    public void testRoundtripWithMixedTypes() throws IOException {
+        // todo - fare 2 relazioni...
+
+        db.executeTransactionally("CREATE (:MultiType {alpha: 'fooBar', otherProp: 1}), " +
+                "(:MultiType {alpha: 11, otherProp: 2}), " +
+                "(:MultiType {alpha: [11, 22], otherProp: 2, otherProp: 3}), " +
+                "(:MultiType {alpha: ['al', 'john', 'jack'], otherProp: 4})");
+        File output = new File(directory, "graphMultiType.graphml");
+        TestUtil.testCall(db, "CALL apoc.export.graphml.all($file,$config)",
+                map("file", output.getAbsolutePath(), "config", 
+                        map("useTypes", true, "readLabels", true)),
+                (r) -> {
+//                    assertResultEmpty(output, r)
+                });
+        System.out.println(FileUtils.readFileToString(output));
+        assertXMLEquals(output, EXPECTED_MIXED_TYPES);
+        
+        db.executeTransactionally("MATCH (n:MultiType) DETACH DELETE n");
+
+        TestUtil.testCall(db, "CALL apoc.import.graphml($file, $config)", 
+                map("file", output.getAbsolutePath(), "config", map("readLabels", true)),
+                (r) -> {
+//                    assertResultEmpty(output, r)
+                });
+
+        TestUtil.testResult(db, "MATCH (n:MultiType) RETURN n.alpha as alpha ORDER BY n.otherProp", (r) -> {
+            final ResourceIterator<Object> propIterator = r.columnAs("alpha");
+            assertEquals("fooBar", propIterator.next());
+            assertEquals(11L, propIterator.next());
+            assertArrayEquals(new long[] { 11L, 22L }, (long[]) propIterator.next());
+            assertArrayEquals(new String[] { "al", "john", "jack" }, (String[]) propIterator.next());
+            assertFalse(propIterator.hasNext());
+        });
+
+        db.executeTransactionally("MATCH (n:MultiType) DETACH DELETE n");
     }
 
     @Test(expected = QueryExecutionException.class)
