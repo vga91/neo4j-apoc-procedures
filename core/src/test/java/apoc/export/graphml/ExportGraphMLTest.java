@@ -2,6 +2,7 @@ package apoc.export.graphml;
 
 import apoc.ApocSettings;
 import apoc.graph.Graphs;
+import apoc.meta.Meta;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import junit.framework.TestCase;
@@ -17,15 +18,15 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.ResourceIterator;
+import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 import org.xmlunit.builder.DiffBuilder;
-import org.xmlunit.diff.Comparison;
 import org.xmlunit.diff.ComparisonResult;
 import org.xmlunit.diff.DefaultNodeMatcher;
 import org.xmlunit.diff.Diff;
-import org.xmlunit.diff.DifferenceEvaluator;
+import org.xmlunit.diff.DifferenceEvaluators;
 import org.xmlunit.diff.ElementSelector;
 import org.xmlunit.util.Nodes;
 
@@ -103,16 +104,24 @@ public class ExportGraphMLTest {
     public static final String KEY_TYPES_NO_DATA_KEY = "<key id=\"Node.Path\" for=\"node\" attr.name=\"Path\" attr.type=\"string\"/>\n" +
             "<key id=\"Edge.Path\" for=\"edge\" attr.name=\"Path\" attr.type=\"string\"/>";
     private static final String KEY_MIXED_TYPES = "<key id=\"otherProp\" for=\"node\" attr.name=\"otherProp\" attr.type=\"long\"/>\n" +
-            "<key id=\"born\" for=\"node\" attr.name=\"born\" attr.type=\"string\"/>\n" +
-            "<key id=\"values\" for=\"node\" attr.name=\"values\" attr.type=\"string\" attr.list=\"long\"/>\n" +
-            "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"string\" attr.list=\"long\"/>\n" +
             "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"long\"/>\n" +
             "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"string\" attr.list=\"string\"/>\n" +
+            "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"int\"/>\n" +
             "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"string\"/>\n" +
+            "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"string\" attr.list=\"long\"/>\n" +
+            "<key id=\"alpha\" for=\"node\" attr.name=\"alpha\" attr.type=\"string\"/>\n" +
+            "<key id=\"values\" for=\"node\" attr.name=\"values\" attr.type=\"string\" attr.list=\"long\"/>\n" +
+            "<key id=\"born\" for=\"node\" attr.name=\"born\" attr.type=\"string\"/>\n" +
             "<key id=\"name\" for=\"node\" attr.name=\"name\" attr.type=\"string\"/>\n" +
             "<key id=\"place\" for=\"node\" attr.name=\"place\" attr.type=\"string\"/>\n" +
             "<key id=\"age\" for=\"node\" attr.name=\"age\" attr.type=\"long\"/>\n" +
             "<key id=\"labels\" for=\"node\" attr.name=\"labels\" attr.type=\"string\"/>\n" +
+            "<key id=\"otherPropRel\" for=\"edge\" attr.name=\"otherPropRel\" attr.type=\"long\"/>\n" +
+            "<key id=\"beta\" for=\"edge\" attr.name=\"beta\" attr.type=\"long\"/>\n" +
+            "<key id=\"beta\" for=\"edge\" attr.name=\"beta\" attr.type=\"string\" attr.list=\"string\"/>\n" +
+            "<key id=\"beta\" for=\"edge\" attr.name=\"beta\" attr.type=\"string\"/>\n" +
+            "<key id=\"beta\" for=\"edge\" attr.name=\"beta\" attr.type=\"string\" attr.list=\"long\"/>\n" +
+            "<key id=\"beta\" for=\"edge\" attr.name=\"beta\" attr.type=\"boolean\"/>\n" +
             "<key id=\"label\" for=\"edge\" attr.name=\"label\" attr.type=\"string\"/>";
 
     public static final String DATA = "<node id=\"n0\" labels=\":Foo:Foo0:Foo2\"><data key=\"labels\">:Foo:Foo0:Foo2</data><data key=\"place\">{\"crs\":\"wgs-84-3d\",\"latitude\":12.78,\"longitude\":56.7,\"height\":100.0}</data><data key=\"name\">foo</data><data key=\"born\">2018-10-10</data></node>%n" +
@@ -162,10 +171,24 @@ public class ExportGraphMLTest {
             "<node id=\"n1\" labels=\":Bar\"><data key=\"labels\">:Bar</data><data key=\"age\">42</data><data key=\"name\">bar</data><data key=\"place\">{\"crs\":\"wgs-84\",\"latitude\":12.78,\"longitude\":56.7,\"height\":null}</data></node>\n" +
             "<node id=\"n2\" labels=\":Bar\"><data key=\"labels\">:Bar</data><data key=\"age\">12</data><data key=\"values\">[1,2,3]</data></node>\n" +
             "<node id=\"n3\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">1</data><data key=\"alpha\">fooBar</data></node>\n" +
-            "<node id=\"n4\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">2</data><data key=\"alpha\">11</data></node>\n" +
-            "<node id=\"n5\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">3</data><data key=\"alpha\">[11,22]</data></node>\n" +
-            "<node id=\"n6\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">4</data><data key=\"alpha\">[\"al\",\"john\",\"jack\"]</data></node>\n" +
-            "<edge id=\"e0\" source=\"n0\" target=\"n1\" label=\"KNOWS\"><data key=\"label\">KNOWS</data></edge>";
+            "<node id=\"n4\" labels=\":Another\"><data key=\"labels\">:Another</data></node>\n" +
+            "<node id=\"n5\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">2</data><data key=\"alpha\">11</data></node>\n" +
+            "<node id=\"n6\" labels=\":Another\"><data key=\"labels\">:Another</data></node>\n" +
+            "<node id=\"n7\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">3</data><data key=\"alpha\">[11,22]</data></node>\n" +
+            "<node id=\"n8\" labels=\":Another\"><data key=\"labels\">:Another</data></node>\n" +
+            "<node id=\"n9\" labels=\":MultiType\"><data key=\"labels\">:MultiType</data><data key=\"otherProp\">4</data><data key=\"alpha\">[\"al\",\"john\",\"jack\"]</data></node>\n" +
+            "<node id=\"n10\" labels=\":Another\"><data key=\"labels\">:Another</data></node>\n" +
+            "<node id=\"n11\" labels=\":MultiTypeOne\"><data key=\"labels\">:MultiTypeOne</data><data key=\"otherProp\">5</data><data key=\"alpha\">1</data></node>\n" +
+            "<node id=\"n12\" labels=\":AnotherOne\"><data key=\"labels\">:AnotherOne</data></node>\n" +
+            "<node id=\"n13\" labels=\":MultiTypeOne\"><data key=\"labels\">:MultiTypeOne</data><data key=\"otherProp\">6</data><data key=\"alpha\">2020-01-01</data></node>\n" +
+            "<node id=\"n14\" labels=\":AnotherOne\"><data key=\"labels\">:AnotherOne</data></node>\n" +
+            "<edge id=\"e0\" source=\"n0\" target=\"n1\" label=\"KNOWS\"><data key=\"label\">KNOWS</data></edge>\n" +
+            "<edge id=\"e1\" source=\"n3\" target=\"n4\" label=\"MY_REL\"><data key=\"label\">MY_REL</data><data key=\"beta\">baz</data><data key=\"otherPropRel\">1</data></edge>\n" +
+            "<edge id=\"e2\" source=\"n5\" target=\"n6\" label=\"MY_REL\"><data key=\"label\">MY_REL</data><data key=\"beta\">123</data><data key=\"otherPropRel\">2</data></edge>\n" +
+            "<edge id=\"e3\" source=\"n7\" target=\"n8\" label=\"MY_REL\"><data key=\"label\">MY_REL</data><data key=\"beta\">[123,456]</data><data key=\"otherPropRel\">3</data></edge>\n" +
+            "<edge id=\"e4\" source=\"n9\" target=\"n10\" label=\"MY_REL\"><data key=\"label\">MY_REL</data><data key=\"beta\">[\"one\",\"two\"]</data><data key=\"otherPropRel\">4</data></edge>\n" +
+            "<edge id=\"e5\" source=\"n11\" target=\"n12\" label=\"MY_REL\"><data key=\"label\">MY_REL</data><data key=\"beta\">false</data><data key=\"otherPropRel\">5</data></edge>\n" +
+            "<edge id=\"e6\" source=\"n13\" target=\"n14\" label=\"MY_REL\"><data key=\"label\">MY_REL</data><data key=\"otherPropRel\">6</data></edge>\n";
 
     private static final String EXPECTED_TYPES_PATH = String.format(HEADER + KEY_TYPES_PATH + GRAPH + DATA_PATH + FOOTER);
     private static final String EXPECTED_TYPES_PATH_CAPTION = String.format(HEADER + KEY_TYPES_PATH + GRAPH + DATA_PATH_CAPTION + FOOTER);
@@ -203,7 +226,7 @@ public class ExportGraphMLTest {
 
     @Before
     public void setUp() throws Exception {
-        TestUtil.registerProcedure(db, ExportGraphML.class, Graphs.class);
+        TestUtil.registerProcedure(db, ExportGraphML.class, Graphs.class, Meta.class);
 
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, Boolean.toString(!testName.getMethodName().endsWith(TEST_WITH_NO_EXPORT)));
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, Boolean.toString(!testName.getMethodName().endsWith(TEST_WITH_NO_IMPORT)));
@@ -422,39 +445,6 @@ public class ExportGraphMLTest {
         assertXMLEquals(output, EXPECTED_FALSE);
     }
 
-    static class IgnoreAttributeDifferenceEvaluator implements DifferenceEvaluator {
-
-        private String attributeName;
-
-        public IgnoreAttributeDifferenceEvaluator(String attributeName) {
-            this.attributeName = attributeName;
-        }
-
-        @Override
-        public ComparisonResult evaluate(Comparison comparison, ComparisonResult outcome) {
-            if (outcome == ComparisonResult.EQUAL || outcome == ComparisonResult.SIMILAR) return outcome; // only evaluate differences.
-//            if (controlNode instanceof Attr) {
-//                Attr attr = (Attr) controlNode;
-//                if (attr.getName().equals(attributeName)) {
-//                    return ComparisonResult.SIMILAR; // will evaluate this difference as similar
-//                }
-//            }
-
-            final org.w3c.dom.Node target = comparison.getControlDetails().getTarget();
-            final org.w3c.dom.Node target1 = comparison.getTestDetails().getTarget();
-            if (target == null || target1 == null 
-                    || target.getNodeValue() == null || target1.getNodeValue() == null) {
-                return outcome;
-            }
-            final String nodeValue = target.getNodeValue();
-            final String nodeValue1 = target1.getNodeValue();
-            if (nodeValue1.contains(nodeValue) && (nodeValue.length() + 37 == nodeValue1.length())) {
-                return ComparisonResult.SIMILAR; 
-            }
-            return outcome;
-        }
-    }
-
     private void assertXMLEquals(Object output, String xmlString) {
         Diff myDiff = DiffBuilder.compare(xmlString)
                 .withTest(output)
@@ -473,19 +463,45 @@ public class ExportGraphMLTest {
                         return false;
                     }
                     for (Map.Entry<QName, String> e: cAttrs.entrySet()) {
+                        final String testAttrValue = tAttrs.get(e.getKey());
+                        final String controlAttrValue = e.getValue();
                         if ((!ATTRIBUTES_CONTAINING_NODE_IDS.contains(e.getKey().getLocalPart()))
-                            && (!e.getValue().equals(tAttrs.get(e.getKey())) 
-                                &&
-                                !(tAttrs.get(e.getKey()).contains(e.getValue()) && e.getValue().length() + 37 == tAttrs.get(e.getKey()).length()  ) )) {
+                            && (!controlAttrValue.equals(testAttrValue)
+                                // match test attributes that contains control attrs and with length equal to control attribute + 37 [uuid + "-" length] 
+                                && !compareAttrValues(testAttrValue, controlAttrValue) 
+                        )) {
                             return false;
                         }
                     }
                     return true;
                 }))
-                .withDifferenceEvaluator(new IgnoreAttributeDifferenceEvaluator("attr"))
+                // add to Default evaluator this custom evaluator
+                .withDifferenceEvaluator(DifferenceEvaluators.chain(DifferenceEvaluators.Default, (comparison, outcome) -> {
+                    if (outcome == ComparisonResult.EQUAL || outcome == ComparisonResult.SIMILAR) {
+                        return outcome;
+                    }
+                    final org.w3c.dom.Node expectedTarget = comparison.getControlDetails().getTarget();
+                    final org.w3c.dom.Node actualTarget = comparison.getTestDetails().getTarget();
+                    // null safety
+                    if (expectedTarget == null || actualTarget == null
+                            || expectedTarget.getNodeValue() == null || actualTarget.getNodeValue() == null) {
+                        return outcome;
+                    }
+                    final String expectedNode = expectedTarget.getNodeValue();
+                    final String actualNode = actualTarget.getNodeValue();
+                    // check that actual attribute contains expected attr and actual attr length is equal to expected + 37 [uuid + "-" length]
+                    if (compareAttrValues(actualNode, expectedNode)) {
+                        return ComparisonResult.SIMILAR;
+                    }
+                    return outcome;
+                }))
                 .build();
 
         assertFalse(myDiff.toString(), myDiff.hasDifferences());
+    }
+
+    private boolean compareAttrValues(String testAttribute, String controlAttribute) {
+        return testAttribute.contains(controlAttribute) && controlAttribute.length() + 37 == testAttribute.length();
     }
 
     @Test
@@ -498,32 +514,46 @@ public class ExportGraphMLTest {
                 (r) -> assertResults(output, r, "graph"));
         assertXMLEquals(output, EXPECTED_TYPES);
     }
+
+    @Test
+    public void testRoundtripWithMixedTypesAndSampling() throws IOException {
+        testRoundtripWithSampling(true);
+    }
     
     @Test
     public void testRoundtripWithMixedTypes() throws IOException {
-        // todo - fare 2 relazioni...
+        testRoundtripWithSampling(false);
+    }
 
-        db.executeTransactionally("CREATE (:MultiType {alpha: 'fooBar', otherProp: 1}), " +
-                "(:MultiType {alpha: 11, otherProp: 2}), " +
-                "(:MultiType {alpha: [11, 22], otherProp: 2, otherProp: 3}), " +
-                "(:MultiType {alpha: ['al', 'john', 'jack'], otherProp: 4})");
+    private void testRoundtripWithSampling(boolean sampling) throws IOException {
+        db.executeTransactionally("CREATE (:MultiType {alpha: 'fooBar', otherProp: 1})-[:MY_REL {beta: 'baz', otherPropRel: 1}]->(:Another), " +
+                "(:MultiType {alpha: 11, otherProp: 2})-[:MY_REL {beta: 123, otherPropRel: 2}]->(:Another), " +
+                "(:MultiType {alpha: [11, 22], otherProp: 3})-[:MY_REL {beta: [123, 456], otherPropRel: 3}]->(:Another), " +
+                "(:MultiType {alpha: ['al', 'john', 'jack'], otherProp: 4})-[:MY_REL {beta: ['one', 'two'], otherPropRel: 4}]->(:Another), " +
+                "(:MultiTypeOne {otherProp: 5})-[:MY_REL {beta: false, otherPropRel: 5}]->(:AnotherOne), " +
+                "(:MultiTypeOne {alpha:  date('2020'), otherProp: 6})-[:MY_REL {beta: null, otherPropRel: 6}]->(:AnotherOne)");
+
+        db.executeTransactionally("MATCH (n:MultiTypeOne {otherProp: 5}) RETURN n", Map.of(), r -> {
+            final Node n = Iterators.single(r.columnAs("n"));
+            // force to be an Integer
+            n.setProperty("alpha", 1);
+            return null;
+        });
+
         File output = new File(directory, "graphMultiType.graphml");
         TestUtil.testCall(db, "CALL apoc.export.graphml.all($file,$config)",
-                map("file", output.getAbsolutePath(), "config", 
-                        map("useTypes", true, "readLabels", true)),
-                (r) -> {
-//                    assertResultEmpty(output, r)
-                });
+                map("file", output.getAbsolutePath(),
+                        "config", map("useTypes", true, "readLabels", true, "sampling", sampling)),
+                this::assertMultiTypeCommon);
         System.out.println(FileUtils.readFileToString(output));
         assertXMLEquals(output, EXPECTED_MIXED_TYPES);
-        
-        db.executeTransactionally("MATCH (n:MultiType) DETACH DELETE n");
 
-        TestUtil.testCall(db, "CALL apoc.import.graphml($file, $config)", 
+        final String deleteRoundripNodes = "MATCH (n:MultiType), (m:Another), (l:MultiTypeOne) DETACH DELETE n, m, l";
+        db.executeTransactionally(deleteRoundripNodes);
+
+        TestUtil.testCall(db, "CALL apoc.import.graphml($file, $config)",
                 map("file", output.getAbsolutePath(), "config", map("readLabels", true)),
-                (r) -> {
-//                    assertResultEmpty(output, r)
-                });
+                this::assertMultiTypeCommon);
 
         TestUtil.testResult(db, "MATCH (n:MultiType) RETURN n.alpha as alpha ORDER BY n.otherProp", (r) -> {
             final ResourceIterator<Object> propIterator = r.columnAs("alpha");
@@ -534,7 +564,31 @@ public class ExportGraphMLTest {
             assertFalse(propIterator.hasNext());
         });
 
-        db.executeTransactionally("MATCH (n:MultiType) DETACH DELETE n");
+        TestUtil.testResult(db, "MATCH (n:MultiTypeOne) RETURN n.alpha as alpha ORDER BY n.otherProp", (r) -> {
+            final ResourceIterator<Object> propIterator = r.columnAs("alpha");
+            assertEquals(1, propIterator.next());
+            assertEquals("2020-01-01", propIterator.next());
+            assertFalse(propIterator.hasNext());
+        });
+
+        TestUtil.testResult(db, "MATCH ()-[r:MY_REL]->() RETURN r.beta as beta ORDER BY r.otherPropRel", (r) -> {
+            final ResourceIterator<Object> propIterator = r.columnAs("beta");
+            assertEquals("baz", propIterator.next());
+            assertEquals(123L, propIterator.next());
+            assertArrayEquals(new long[] { 123L, 456L }, (long[]) propIterator.next());
+            assertArrayEquals(new String[] { "one", "two" }, (String[]) propIterator.next());
+            assertEquals(false, propIterator.next());
+            assertNull(propIterator.next());
+            assertFalse(propIterator.hasNext());
+        });
+
+        db.executeTransactionally(deleteRoundripNodes);
+    }
+
+    private void assertMultiTypeCommon(Map<String, Object> r) {
+        assertEquals(15L, r.get("nodes"));
+        assertEquals(7L, r.get("relationships"));
+        assertEquals(31L, r.get("properties"));
     }
 
     @Test(expected = QueryExecutionException.class)

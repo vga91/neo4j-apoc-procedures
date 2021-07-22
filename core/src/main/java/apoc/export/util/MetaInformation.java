@@ -23,6 +23,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static apoc.gephi.GephiFormatUtils.getCaption;
+import static apoc.meta.Meta.Types.primitivesMapping;
 import static apoc.meta.tablesforlabels.PropertyTracker.typeMappings;
 import static java.util.Arrays.asList;
 import static org.neo4j.internal.helpers.collection.Iterables.stream;
@@ -43,11 +44,15 @@ public class MetaInformation {
             }
             return propTypes;
         }
-        final Map<String, Object> conf = config.getSamplingConfig();
-        conf.putIfAbsent("includeLabels", stream(graph.getAllLabelsInUse()).map(Label::name).collect(Collectors.toList()));
         
         return db.executeTransactionally("CALL apoc.meta.nodeTypeProperties($conf)", 
-                Map.of("conf", conf), getMapResultTransformer()); 
+                Map.of("conf", getConfWithIncludeLabels(graph, config)), getMapResultTransformer()); 
+    }
+
+    public static Map<String, Object> getConfWithIncludeLabels(SubGraph graph, ExportConfig config) {
+        final Map<String, Object> conf = config.getSamplingConfig();
+        conf.putIfAbsent("includeLabels", stream(graph.getAllLabelsInUse()).map(Label::name).collect(Collectors.toList()));
+        return conf;
     }
 
     public static Map<String, Class> collectPropTypesForRelationships(SubGraph graph, GraphDatabaseService db, ExportConfig config) {
@@ -58,11 +63,15 @@ public class MetaInformation {
             }
             return propTypes;
         }
+        
+        return db.executeTransactionally("CALL apoc.meta.relTypeProperties($conf)", 
+                Map.of("conf", getConfWithIncludeRels(graph, config)), getMapResultTransformer());
+    }
+
+    public static Map<String, Object> getConfWithIncludeRels(SubGraph graph, ExportConfig config) {
         final Map<String, Object> conf = config.getSamplingConfig();
         conf.putIfAbsent("includeRels", stream(graph.getAllRelationshipTypesInUse()).map(RelationshipType::name).collect(Collectors.toList()));
-
-        return db.executeTransactionally("CALL apoc.meta.relTypeProperties($conf)", 
-                Map.of("conf", conf), getMapResultTransformer());
+        return conf;
     }
 
     private static ResultTransformer<Map<String, Class>> getMapResultTransformer() {
@@ -71,14 +80,13 @@ public class MetaInformation {
                 .collect(Collectors.toMap(map -> (String) map.get("propertyName"),
                         map -> {
                             final String propertyTypes = ((List<String>) map.get("propertyTypes")).get(0);
-                            // take the className from the result, inversely to the meta.relTypeProperties/nodeTypeProperties procedures
-                            String className = REVERSED_TYPE_MAP.get(propertyTypes);
-                            try {
-                                return ClassUtils.getClass(className);
-                            } catch (ClassNotFoundException e) {
-                                throw new RuntimeException(e);
-                            }
+                            return getClassFromMetaType(propertyTypes);
                         }, (e1, e2) -> e2));
+    }
+    
+    public static Class getClassAndConvertFromMeta(String propertyTypes) {
+        final Class classFromMeta = getClassFromMetaType(propertyTypes);
+        return convertPossiblyToPrimitive(classFromMeta);
     }
 
     public static void updateKeyTypes(Map<String, Class> keyTypes, Entity pc) {
@@ -89,7 +97,6 @@ public class MetaInformation {
                 keyTypes.put(prop,value.getClass());
                 continue;
             }
-            // todo - come fa a essere void? forse con null?
             if (storedClass == void.class || storedClass.equals(value.getClass())) continue;
             keyTypes.put(prop, void.class);
         }
@@ -98,45 +105,27 @@ public class MetaInformation {
     public static void updateKeyTypesForGraphMl(Map<String, Map<Class, String>> keyTypes, Entity pc, boolean useTypes) {
         for (String prop : pc.getPropertyKeys()) {
             Object value = pc.getProperty(prop);
-//            keyTypes.get(prop).containsKey(value.getClass());
             
-            // provare a fare col compiute come DirHandler
-            final Map<Class, String> classStringMap = keyTypes.get(prop);
-            if (classStringMap == null) {
-                getPut(keyTypes, prop, value.getClass()/*, useTypes*/);
+            final Map<Class, String> propSubMap = keyTypes.get(prop);
+            final Class classConverted = convertPossiblyToPrimitive(value.getClass());
+            if (propSubMap == null) {
+                putSubMap(keyTypes, prop, classConverted);
                 continue;
-//                classStringMap.putIfAbsent(value.getClass(), useTypes ? "_" + UUID.randomUUID().toString() : StringUtils.EMPTY);
             }
-            getKeyType(useTypes, value.getClass(), classStringMap);
-            
-            // todo... cose finali
-//            if (!keyTypes.get(prop).containsKey(value.getClass())) {
-//                keyTypes.put(prop,value.getClass());
-//                continue;
-//            }
-//            if (storedClass == void.class || storedClass.equals(value.getClass())) continue;
-//            keyTypes.put(prop, void.class);
+            propSubMap.putIfAbsent(classConverted, getPropSuffix(useTypes));
         }
     }
 
-    public static void getPut(Map<String, Map<Class, String>> keyTypes, String prop, Class value) {
-        keyTypes.put(prop, new HashMap<>(Map.of(value, StringUtils.EMPTY/*getValue(useTypes)*/)));
+    public static void putSubMap(Map<String, Map<Class, String>> keyTypes, String prop, Class value) {
+        keyTypes.put(prop, new HashMap<>(Map.of(value, StringUtils.EMPTY)));
     }
 
-//    public static Map<Class, String> getPut(Map<String, Map<Class, String>> keyTypes, String prop, Class value) {
-//        return getPut(keyTypes, prop, value, false);
-//    }
-
-    public static void getKeyType(boolean useTypes, Class value, Map<Class, String> classStringMap) {
-        classStringMap.putIfAbsent(value, getValue(useTypes));
-    }
-
-    private static String getValue(boolean useTypes) {
+    public static String getPropSuffix(boolean useTypes) {
         return useTypes ? "_" + UUID.randomUUID().toString() : StringUtils.EMPTY;
     }
 
     public final static Set<String> GRAPHML_ALLOWED = new HashSet<>(asList("boolean", "int", "long", "float", "double", "string"));
-    
+
     public static String typeFor(Class value, Set<String> allowed) {
         if (value == void.class) return null; // Is this necessary?
         Meta.Types type = Meta.Types.of(value);
@@ -160,5 +149,21 @@ public class MetaInformation {
 
     public static String getLabelsStringGephi(ExportConfig config, Node node) {
         return getCaption(node, config.getCaption());
+    }
+
+    public static Class convertPossiblyToPrimitive(Class clazz) {
+        if (clazz.isArray()) {
+            return convertPossiblyToPrimitive(clazz.getComponentType()).arrayType();
+        }
+        return primitivesMapping.getOrDefault(clazz, clazz);
+    }
+
+    private static Class getClassFromMetaType(String propertyTypes) {
+        String className = REVERSED_TYPE_MAP.get(propertyTypes);
+        try {
+            return ClassUtils.getClass(className);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

@@ -102,7 +102,7 @@ public class    Meta {
 
         private String typeOfList = "ANY";
 
-        private static Map<Class<?>, Class<?>> primitivesMapping = new HashMap(){{
+        public static Map<Class<?>, Class<?>> primitivesMapping = new HashMap(){{
             put(double.class, Double.class);
             put(float.class, Float.class);
             put(int.class, Integer.class);
