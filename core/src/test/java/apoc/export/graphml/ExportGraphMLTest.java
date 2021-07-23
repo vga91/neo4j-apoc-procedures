@@ -21,7 +21,6 @@ import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
-import org.testcontainers.shaded.org.apache.commons.io.FileUtils;
 import org.xmlunit.builder.DiffBuilder;
 import org.xmlunit.diff.ComparisonResult;
 import org.xmlunit.diff.DefaultNodeMatcher;
@@ -34,11 +33,9 @@ import javax.xml.namespace.QName;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
@@ -553,16 +550,16 @@ public class ExportGraphMLTest {
     }
 
     @Test
-    public void testRoundtripWithMixedTypesAndSampling() throws IOException {
+    public void testRoundtripWithMixedTypesAndSampling() {
         testRoundtripWithSampling(true);
     }
 
     @Test
-    public void testRoundtripWithMixedTypes() throws IOException {
+    public void testRoundtripWithMixedTypes() {
         testRoundtripWithSampling(false);
     }
 
-    private void testRoundtripWithSampling(boolean sampling) throws IOException {
+    private void testRoundtripWithSampling(boolean sampling) {
         datasetMixedType();
 
         File output = new File(directory, "graphMultiType.graphml");

@@ -19,7 +19,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static apoc.export.util.MetaInformation.*;
-import static org.neo4j.internal.helpers.collection.Iterables.stream;
 
 /**
  * @author mh
@@ -94,22 +93,6 @@ public class XmlGraphMLWriter {
         totalKeyTypes.putAll(nodeKeyTypes);
     }
 
-    private Map<String, Map<Class, String>> getPropKeyTypes(boolean useTypes, Result result) {
-        return result.stream()
-                .filter(map -> map.get("propertyName") != null)
-                .collect(Collectors.toMap(map -> (String) map.get("propertyName"), 
-                        map -> {
-                    final List<String> propertyTypes = ((List<String>) map.get("propertyTypes"));
-                    return propertyTypes.stream()
-                            .collect(Collectors.toMap(MetaInformation::getClassAndConvertFromMeta, 
-                                    propMap -> getPropSuffix(useTypes))); 
-                    }, (e1, e2) -> { 
-                        e1.putAll(e2);
-                        return e1; 
-                    }));
-    }
-
-
     private void writeKey(XMLStreamWriter writer, Map<String, Map<Class, String>> keyTypes, String forType, boolean useTypes) throws XMLStreamException {
         for (Map.Entry<String, Map<Class, String>> entry : keyTypes.entrySet()) {
             for (Map.Entry<Class, String> subEntry :entry.getValue().entrySet()) {
@@ -132,6 +115,21 @@ public class XmlGraphMLWriter {
                newLine(writer);
            }
        }
+    }
+
+    private Map<String, Map<Class, String>> getPropKeyTypes(boolean useTypes, Result result) {
+        return result.stream()
+                .filter(map -> map.get("propertyName") != null)
+                .collect(Collectors.toMap(map -> (String) map.get("propertyName"),
+                        map -> {
+                            final List<String> propertyTypes = ((List<String>) map.get("propertyTypes"));
+                            return propertyTypes.stream()
+                                    .collect(Collectors.toMap(MetaInformation::getClassAndConvertFromMeta,
+                                            propMap -> getPropSuffix(useTypes)));
+                        }, (e1, e2) -> {
+                            e1.putAll(e2);
+                            return e1;
+                        }));
     }
 
     private int writeNode(XMLStreamWriter writer, Node node, ExportConfig config) throws XMLStreamException {
