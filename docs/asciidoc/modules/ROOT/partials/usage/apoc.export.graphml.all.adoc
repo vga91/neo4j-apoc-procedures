@@ -153,3 +153,94 @@ RETURN file, nodes, relationships, properties, data;
   "
 ----
 |===
+
+In case of properties with the same name but multiple data types, will be create a `key` tag for each data type with a different id (by appending an unique id suffix).
+So you can execute with the following data set (where `alpha` and `beta` have mixed types):
+
+[source,cypher]
+----
+CREATE (:MultiType {alpha: 'fooBar', otherProp: 1})-[:MY_REL {beta: 'baz', otherPropRel: 1}]->(:Another),
+(:MultiType {alpha: 11, otherProp: 2})-[:MY_REL {beta: 123, otherPropRel: 2}]->(:Another),
+(:MultiType {alpha: [11, 22], otherProp: 3})-[:MY_REL {beta: [123, 456], otherPropRel: 3}]->(:Another)
+----
+Combined with the following query:
+[source,cypher]
+----
+CALL apoc.export.graphml.all(".graphMultiType.graphml", {useTypes: true, readLabels: true})
+----
+
+Execution of the above query would output content similar to that below:
+
+.graphMultiType.graphml
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<key id="otherProp" for="node" attr.name="otherProp" attr.type="long"/>
+<key id="alpha_b37380f4-9d20-4262-9258-31b8b2dca5a5" for="node" attr.name="alpha" attr.type="long"/>
+<key id="alpha" for="node" attr.name="alpha" attr.type="string"/>
+<key id="alpha_ca020ded-2f9b-47e9-bcaa-a3371d004881" for="node" attr.name="alpha" attr.type="string" attr.list="long"/>
+<key id="labels" for="node" attr.name="labels" attr.type="string"/>
+<key id="otherPropRel" for="edge" attr.name="otherPropRel" attr.type="long"/>
+<key id="label" for="edge" attr.name="label" attr.type="string"/>
+<key id="beta_1e6f5521-a571-4c37-9fd0-f27429c8eaf0" for="edge" attr.name="beta" attr.type="long"/>
+<key id="beta" for="edge" attr.name="beta" attr.type="string"/>
+<key id="beta_1730c767-218e-4950-a63a-3c160a325fe4" for="edge" attr.name="beta" attr.type="string" attr.list="long"/>
+<graph id="G" edgedefault="directed">
+<node id="n3" labels=":MultiType"><data key="labels">:MultiType</data><data key="otherProp">1</data><data key="alpha">fooBar</data></node>
+<node id="n4" labels=":Another"><data key="labels">:Another</data></node>
+<node id="n5" labels=":MultiType"><data key="labels">:MultiType</data><data key="otherProp">2</data><data key="alpha_b37380f4-9d20-4262-9258-31b8b2dca5a5">11</data></node>
+<node id="n6" labels=":Another"><data key="labels">:Another</data></node>
+<node id="n7" labels=":MultiType"><data key="labels">:MultiType</data><data key="otherProp">3</data><data key="alpha_ca020ded-2f9b-47e9-bcaa-a3371d004881">[11,22]</data></node>
+<node id="n8" labels=":Another"><data key="labels">:Another</data></node>
+<edge id="e1" source="n3" target="n4" label="MY_REL"><data key="label">MY_REL</data><data key="beta">baz</data><data key="otherPropRel">1</data></edge>
+<edge id="e2" source="n5" target="n6" label="MY_REL"><data key="label">MY_REL</data><data key="beta_1e6f5521-a571-4c37-9fd0-f27429c8eaf0">123</data><data key="otherPropRel">2</data></edge>
+<edge id="e3" source="n7" target="n8" label="MY_REL"><data key="label">MY_REL</data><data key="beta_1730c767-218e-4950-a63a-3c160a325fe4">[123,456]</data><data key="otherPropRel">3</data></edge>
+</graph>
+</graphml>
+----
+
+You can also use the configuration `sampling` (default: `false`).
+With this config, the `apoc.export.graphml.all` procedure uses
+the `apoc.meta.nodeTypeProperties` and the `apoc.meta.relTypeProperties` procedures under the hood to get the property types.
+You can customize the configuration of these 2 `apoc.meta.*` procedure, using the `samplingConfig: MAP` configuration,
+to limit the number of nodes/rels to analyze.
+So you can execute with the following data set:
+[source,cypher]
+----
+CREATE (:MultiType {alpha: 'fooBar', otherProp: 1})-[:MY_REL {beta: 'baz', otherPropRel: 1}]->(:Another),
+(:MultiType {alpha: 11, otherProp: 2})-[:MY_REL {beta: 123, otherPropRel: 2}]->(:Another),
+(:MultiType {alpha: [11, 22], otherProp: 3})-[:MY_REL {beta: [123, 456], otherPropRel: 3}]->(:Another)
+----
+Combined with the following query:
+[source,cypher]
+----
+CALL apoc.export.graphml.all(".graphMultiType.graphml", {useTypes: true, readLabels: true, sampling: true, samplingConfig: {sample: 1}})
+----
+
+Execution of the above query would output content similar to that below (result could change depending on the `sample`):
+
+.graphMultiType.graphml
+[source,xml]
+----
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<key id="otherProp_e308b97f-54f0-42b3-910f-1423c1d55904" for="node" attr.name="otherProp" attr.type="long"/>
+<key id="alpha_b5237e56-8720-49dd-8ef3-398b5573a970" for="node" attr.name="alpha" attr.type="string" attr.list="long"/>
+<key id="labels" for="node" attr.name="labels" attr.type="string"/>
+<key id="otherPropRel_22bc5e05-d21b-43c4-8caa-c0f609e3bed2" for="edge" attr.name="otherPropRel" attr.type="long"/>
+<key id="label" for="edge" attr.name="label" attr.type="string"/>
+<key id="beta_f009e8fd-0efa-4094-a004-4f8726c7b463" for="edge" attr.name="beta" attr.type="string" attr.list="long"/>
+<graph id="G" edgedefault="directed">
+<node id="n3" labels=":MultiType"><data key="labels">:MultiType</data><data key="otherProp_e308b97f-54f0-42b3-910f-1423c1d55904">1</data><data key="alpha">fooBar</data></node>
+<node id="n4" labels=":Another"><data key="labels">:Another</data></node>
+<node id="n5" labels=":MultiType"><data key="labels">:MultiType</data><data key="otherProp_e308b97f-54f0-42b3-910f-1423c1d55904">2</data><data key="alpha">11</data></node>
+<node id="n6" labels=":Another"><data key="labels">:Another</data></node>
+<node id="n7" labels=":MultiType"><data key="labels">:MultiType</data><data key="otherProp_e308b97f-54f0-42b3-910f-1423c1d55904">3</data><data key="alpha_b5237e56-8720-49dd-8ef3-398b5573a970">[11,22]</data></node>
+<node id="n8" labels=":Another"><data key="labels">:Another</data></node>
+<edge id="e1" source="n3" target="n4" label="MY_REL"><data key="label">MY_REL</data><data key="beta">baz</data><data key="otherPropRel_22bc5e05-d21b-43c4-8caa-c0f609e3bed2">1</data></edge>
+<edge id="e2" source="n5" target="n6" label="MY_REL"><data key="label">MY_REL</data><data key="beta">123</data><data key="otherPropRel_22bc5e05-d21b-43c4-8caa-c0f609e3bed2">2</data></edge>
+<edge id="e3" source="n7" target="n8" label="MY_REL"><data key="label">MY_REL</data><data key="beta_f009e8fd-0efa-4094-a004-4f8726c7b463">[123,456]</data><data key="otherPropRel_22bc5e05-d21b-43c4-8caa-c0f609e3bed2">3</data></edge>
+</graph>
+</graphml>
+----

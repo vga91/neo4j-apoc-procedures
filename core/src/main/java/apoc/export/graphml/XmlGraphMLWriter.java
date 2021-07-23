@@ -106,7 +106,7 @@ public class XmlGraphMLWriter {
                     }, (e1, e2) -> { 
                         e1.putAll(e2);
                         return e1; 
-                }));
+                    }));
     }
 
 
@@ -194,7 +194,7 @@ public class XmlGraphMLWriter {
         for (String prop : node.getPropertyKeys()) {
             Object value = node.getProperty(prop);
             // join prop with uuid suffix if present
-            prop = prop + totalKeyTypes.get(prop).get(convertPossiblyToPrimitive(value.getClass()));
+            prop = prop + totalKeyTypes.get(prop).getOrDefault(convertPossiblyToPrimitive(value.getClass()), StringUtils.EMPTY);
             writeData(writer, prop, value);
             count++;
         }

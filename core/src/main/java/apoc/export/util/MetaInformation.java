@@ -152,6 +152,7 @@ public class MetaInformation {
     }
 
     public static Class convertPossiblyToPrimitive(Class clazz) {
+        // to avoid data type difference with apoc.meta.* and entity.getProperty(..).getClass() (e.g. Long[] and long[])
         if (clazz.isArray()) {
             return convertPossiblyToPrimitive(clazz.getComponentType()).arrayType();
         }
