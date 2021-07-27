@@ -26,6 +26,7 @@ import org.neo4j.internal.schema.IndexDescriptor;
 import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.kernel.api.Statement;
 import org.neo4j.procedure.*;
+import org.neo4j.token.api.TokenConstants;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -383,7 +384,7 @@ public class Schemas {
 
             if(!includeRelationships.isEmpty()) {
                 constraintsIterator = includeRelationships.stream()
-                        .filter(type -> !excludeRelationships.contains(type) && tokenRead.relationshipType(type) != -1)
+                        .filter(type -> !excludeRelationships.contains(type) && tokenRead.relationshipType(type) != TokenConstants.NO_TOKEN)
                         .flatMap(type -> {
                             Iterable<ConstraintDefinition> constraintsForType = schema.getConstraints(RelationshipType.withName(type));
                             return StreamSupport.stream(constraintsForType.spliterator(), false);
@@ -391,7 +392,7 @@ public class Schemas {
                         .collect(Collectors.toList());
 
                 indexesIterator = includeRelationships.stream()
-                        .filter(type -> !excludeRelationships.contains(type) && tokenRead.relationshipType(type) != -1)
+                        .filter(type -> !excludeRelationships.contains(type) && tokenRead.relationshipType(type) != TokenConstants.NO_TOKEN)
                         .flatMap(type -> {
                             Iterable<IndexDescriptor> indexesForRelType = () -> schemaRead.indexesGetForRelationshipType(tokenRead.relationshipType(type));
                             return StreamSupport.stream(indexesForRelType.spliterator(), false);
