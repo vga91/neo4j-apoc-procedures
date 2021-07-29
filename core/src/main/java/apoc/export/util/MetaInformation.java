@@ -13,6 +13,7 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.ResultTransformer;
 
+import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -154,7 +155,8 @@ public class MetaInformation {
     public static Class convertPossiblyToPrimitive(Class clazz) {
         // to avoid data type difference with apoc.meta.* and entity.getProperty(..).getClass() (e.g. Long[] and long[])
         if (clazz.isArray()) {
-            return convertPossiblyToPrimitive(clazz.getComponentType()).arrayType();
+            // transform e.g. Long[] to long[] and long[] to long[]
+            return Array.newInstance(convertPossiblyToPrimitive(clazz.getComponentType()), 0).getClass();
         }
         return primitivesMapping.getOrDefault(clazz, clazz);
     }
