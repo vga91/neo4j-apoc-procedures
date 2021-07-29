@@ -24,6 +24,8 @@ Many periodic procedures rely on a scheduled executor that has a pool of threads
 
 `apoc.jobs.scheduled.num_threads=10`
 
+Note that this config, as a Docker environment variable, have to be used as is, as Docker environment variables, so without `NEO4J_` as a prefix.
+
 Repeats a statement until the termination is reached. The statement must return a numeric value and it should decrement (like a monotonically decreasing function). When the return value reaches 0 than the iteration stops.
 For example, define a counter with a numeric property:
 

@@ -39,3 +39,6 @@ apoc.initializer.cypher=CALL apoc.cypher.runSchemaFile("file:///indexes.cypher")
 
 For running multiple statements you can also add suffixes to the config options, like `cypher.1`, `cypher.2`.
 The statements will then be executed in sort-order.
+
+
+This config, as a Docker environment variable, have to be used as is, as Docker environment variables, so without `NEO4J_` as a prefix.

@@ -39,6 +39,8 @@ To simplify the JDBC URL syntax and protect credentials, you can configure alias
 apoc.jdbc.myDB.url=jdbc:derby:derbyDB
 ----
 
+Note that this config, as a Docker environment variable, have to be used as is, as Docker environment variables, so without `NEO4J_` as a prefix.
+
 [source,cypher]
 ----
 CALL apoc.load.jdbc('jdbc:derby:derbyDB','PERSON')

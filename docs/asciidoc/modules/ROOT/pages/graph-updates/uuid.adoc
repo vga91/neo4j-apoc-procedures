@@ -58,6 +58,9 @@ Please check the following documentation to an in-depth description.
 
 Enable `apoc.uuid.enabled=true` or `apoc.uuid.enabled.[DATABASE_NAME]=true` in `$NEO4J_HOME/config/apoc.conf` first.
 
+Note that this config have to be set necessarily in `apoc.conf` and not as environment variable.
+So, you can set a `volumes` docker variable `./conf/path/to/apocConf:/conf` and place here the `apoc.conf`.
+
 [separator=¦,opts=header,cols="5,1m,1m"]
 |===
 ¦Qualified Name¦Type¦Release

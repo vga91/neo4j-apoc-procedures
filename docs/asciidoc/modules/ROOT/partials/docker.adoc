@@ -58,4 +58,16 @@ docker run \
     neo4j
 ----
 
+[NOTE]
+====
+All apoc configs can be used as is, as Docker environment variables (except for some that can be set only via `apoc.conf` file),
+so without following the https://neo4j.com/docs/operations-manual/current/docker/configuration/#docker-environment-variables[docker environment naming convention].
+For example, using a xref::operational/init-script[Cypher init scripts]
+`apoc.initializer.system.0` remains the same and not `NEO4J_apoc_initializer_system_0`.
+However, for backwards compatibility,
+some of these can be use either using the Neo4j Docker convention,
+for example `apoc.export.file.enabled` can be write as `NEO4J_apoc_export_file_enabled`.
+See xref::config/index.adoc[Config reference] for a detailed list.
+====
+
 // end::docker[]

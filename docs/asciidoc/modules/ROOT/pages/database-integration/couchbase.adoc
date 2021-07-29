@@ -47,6 +47,8 @@ apoc.couchbase.mykey.uri=host1,host2,host3 // here you can define more than one 
 apoc.couchbase.mykey.port=8091 // the bootstrapHttpDirectPort (optional)
 ----
 
+Note that this config, as a Docker environment variable, have to be used as is, as Docker environment variables, so without `NEO4J_` as a prefix.
+
 [source,cypher]
 ----
 CALL apoc.couchbase.get('mykey', 'default', 'artist:vincent_van_gogh')

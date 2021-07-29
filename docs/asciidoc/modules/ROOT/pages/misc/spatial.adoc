@@ -107,7 +107,7 @@ apoc.spatial.geocode.opencage.reverse.url=http://api.opencagedata.com/geocode/v1
 * Restart the Neo4j server and then test the geocode procedures to see that they work
 * If you are unsure if the provider is correctly configured try verify with:
 
-
+Note that this config, as a Docker environment variable, have to be used as is, as Docker environment variables, so without `NEO4J_` as a prefix.
 
 [source,cypher]
 ----
