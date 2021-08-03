@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import static apoc.util.DateParseUtil.dateParse;
 import static apoc.util.Util.dateFormat;
@@ -33,30 +32,35 @@ public abstract class AbstractMapping {
     final String name;
     final Collection<String> nullValues;
     final Meta.Types type;
-    final boolean ignore;
-
     final String dateFormat;
     final String[] dateParse;
+    final boolean ignore;
 
     Function<Object, Object> listSupplier = null;
     ZoneId zoneId;
     final Map<String, Object> optionalData;
-    
+
     public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, ZoneId zoneId) {
+        this(name, mapping, ignore, defaultNullValues, zoneId, false);
+    }
+    
+    public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, ZoneId zoneId, boolean isTypeNull) {
         if (mapping == null) {
             mapping = Collections.emptyMap();
         }
         this.name = mapping.getOrDefault("name", name).toString();
         this.ignore = (boolean) mapping.getOrDefault("ignore", ignore);
         this.nullValues = (Collection<String>) mapping.getOrDefault("nullValues", defaultNullValues);
-        this.type = Meta.Types.from(mapping.getOrDefault("type", Meta.Types.STRING.name()).toString());
+        this.type = isTypeNull && !mapping.containsKey("type") 
+                ? null 
+                : Meta.Types.from(mapping.getOrDefault("type", Meta.Types.STRING.name()).toString());
         this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
         this.dateParse = convertFormat(mapping.getOrDefault("dateParse", null));
-        this.optionalData = (Map<String, Object>) mapping.getOrDefault("optionalData", Collections.emptyMap()); // todo - e se mettessi pure questo?
+        this.optionalData = (Map<String, Object>) mapping.getOrDefault("optionalData", Collections.emptyMap());
         this.zoneId = zoneId;
     }
     
-    abstract Object convert(Object value);
+    protected abstract Object convert(Object value);
 
     public String getName() {
         return name;
@@ -87,42 +91,41 @@ public abstract class AbstractMapping {
         return strings.toArray(new String[strings.size()]);
     }
 
-    // todo - timezone?
     public Object commonConvertType(Object value) {
         if (nullValues.contains(name) || value == null) return null;
         
+        if (type == null) {
+            return value;
+        }
         final boolean isParseNull = dateParse == null;
         switch (type) {
-            // todo -> point... posso metterlo in un common util... -> se instance of Map allora ok altrimenti Util.fromJson(...)
             case POINT:
-                // todo - a differenza del csv non serve fromJson bla bla...
+                // in case of csv we retrieve a String to parse, in case of json directly a Map
                 return value instanceof String
                         ? Util.toPoint(Util.fromJson((String) value, Map.class), optionalData)
                         : Util.toPoint((Map<String, Object>) value, optionalData);
             case STRING:
-                // todo - questo forse va bene rimanerlo
-                // todo - string supplier
                 if (value instanceof TemporalAccessor && !dateFormat.isEmpty()) {
                     return dateFormat((TemporalAccessor) value, dateFormat);
-                } 
+                }
                 if(value instanceof BigDecimal) {
                     return ((BigDecimal) value).toPlainString();
                 }
                 return value.toString();
             case INTEGER:
+                // to handle BigInteger and BigDecimal (jdbc)
                 return MappingUtil.toLongOrString(value);
             case FLOAT:
+                // to handle BigInteger and BigDecimal (jdbc)
                 return MappingUtil.toDoubleOrString(value);
             case BOOLEAN:
                 return Util.toBoolean(value);
-            // todo - fare un test anche con questo
             case NULL:
                 return null;
             case LIST:
-                // todo - list supplier
                 return listSupplier == null ? null : listSupplier.apply(value);
             case DATE:
-                // todo - valutare asObjectCopy() se serve effettivamente... credo di si per l'import
+                // in case of parse null, we leverage Neo4j parsing, to handle e.g. '2018-05-10T10:30[Europe/Berlin]', otherwise we use dateParse
                 return isParseNull
                         ? DateValue.parse((String) value).asObjectCopy()
                         : dateParse(value.toString(), LocalDate.class, dateParse);
@@ -143,9 +146,7 @@ public abstract class AbstractMapping {
                         ? TimeValue.parse((String) value, () -> zoneId).asObjectCopy()
                         : dateParse(value.toString(), OffsetTime.class, zoneId, dateParse);
             case DURATION:
-                // TODO con import csv funziona solo questo... --> vedere con gli altri a sto punto
                 return DurationValue.parse((String) value).asObjectCopy();
-//                return durationParse(value.toString());
             default:
                 return value;
         }

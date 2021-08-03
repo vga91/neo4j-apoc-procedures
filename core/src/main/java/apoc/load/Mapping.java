@@ -37,19 +37,8 @@ public class Mapping extends AbstractMapping {
     public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), LoadCsvConfig.DEFAULT_ARRAY_SEP, false, null);
     final boolean array;
     
-    // todo - arraySep e arrayPattern metterli solo dove serve
     final char arraySep;
     private final Pattern arrayPattern;
-    
-    // todo - optionalData è una roba di qua, ma forse vale la pena metterlo nell'Abstract..
-//    private final Map<String, Object> optionalData;
-    
-
-//    private final String[] dateParse;
-
-    
-    // todo - provare a mettere i Function<> da qualche altra parte
-//    final BiFunction<Pattern, Object, Object> listFunction = (arrayPattern, value) -> Arrays.stream(arrayPattern.split((String) value)).map(this::convertType).collect(Collectors.toList());
     
     public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, ZoneId zoneId) {
         super(name, mapping, ignore, emptyList(), zoneId);

@@ -11,12 +11,10 @@ import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
-import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.CompressionConfig.COMPRESSION;
@@ -99,29 +97,15 @@ public class LoadJson {
                             final Map<String, Map<String, Object>> mapping = config.getMapping();
                             final String key = entry.getKey();
                             final Object value = entry.getValue();
-                            mapAccumulator.put(key,
-                                    mapping.containsKey(key) 
-                                            ? new JsonMapping(key, mapping.get(key), config.getIgnore().contains(key), config.getNullValues(), config.getZoneId()).convert(value) 
-                                            : (value instanceof Map ? convertTypeMap((Map) value, config) : value)
-                            );
+                            final JsonMapping jsonMapping = new JsonMapping(key, mapping.get(key), config.getIgnore().contains(key), config.getNullValues(), config.getZoneId());
+                            if (!jsonMapping.isIgnore()) { 
+                                mapAccumulator.put(key, 
+                                        value instanceof Map && !mapping.containsKey(key) ? convertTypeMap((Map) value, config) 
+                                            : jsonMapping.convert(value)
+                                );
+                            }
                         },
                         HashMap::putAll);
-    }
-
-    // todo - forse è meglio come sottoclasse? o come classe a parte
-    public static class JsonMapping extends AbstractMapping {
-
-        public JsonMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, ZoneId timezone) {
-            super(name, mapping, ignore, nullValues, timezone);
-        }
-
-        public Object convert(Object value) {
-            return value instanceof List ? convertList((List) value) : commonConvertType(value);
-        }
-
-        private Object convertList(List<Object> value) {
-            return value.stream().map(super::commonConvertType).collect(Collectors.toList());
-        }
     }
     
 }

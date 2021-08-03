@@ -1,6 +1,8 @@
 {
   "foo": {
     "baz": 1,
-    "pointKey": [{"crs":"wgs-84","latitude":33.46789,"longitude":13.1,"height":null}]
+    "pointKey": [{"crs":"wgs-84","latitude":33.46789,"longitude":13.1,"height":null}],
+    "unused": "something",
+    "asNull": "somethingElse"
   }
 }

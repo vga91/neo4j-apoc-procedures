@@ -159,6 +159,17 @@ public class Jdbc {
         }
     }
 
+    private static class JdbcMapping extends AbstractMapping {
+
+        public JdbcMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, ZoneId timezone) {
+            super(name, mapping, ignore, nullValues, timezone);
+        }
+
+        protected Object convert(Object value) {
+            return super.commonConvertType(value);
+        }
+    }
+
     private static class ResultSetIterator implements Iterator<Map<String, Object>> {
         private final Log log;
         private final ResultSet rs;
@@ -206,7 +217,7 @@ public class Jdbc {
                 Map<String, Object> row = new LinkedHashMap<>(columns.length);
                 for (int col = 1; col < columns.length; col++) {
                     final String columnName = columns[col];
-                    final Mapping colMapping = new Mapping(columnName, config.getMapping().getOrDefault(columnName, Collections.emptyMap()), config.getIgnore().contains(columnName), config.getNullValues(), config.getZoneId());
+                    final JdbcMapping colMapping = new JdbcMapping(columnName, config.getMapping().getOrDefault(columnName, Collections.emptyMap()), config.getIgnore().contains(columnName), config.getNullValues(), config.getZoneId());
                     // todo - metterlo qua
                     if (!colMapping.isIgnore()) {
                         row.put(columnName, convert(rs.getObject(col), rs.getMetaData().getColumnType(col), colMapping));
@@ -221,7 +232,7 @@ public class Jdbc {
         }
 
         // todo - forse qua!
-        private Object convert(Object value, int sqlType, Mapping colMapping) {
+        private Object convert(Object value, int sqlType, JdbcMapping colMapping) {
             if (value == null) return null;
             if (Types.TIME == sqlType) {
                 return ((java.sql.Time)value).toLocalTime();
@@ -254,17 +265,6 @@ public class Jdbc {
                 return value.toString();
             }
             return colMapping.convert(value);
-        }
-
-        public static class Mapping extends AbstractMapping {
-
-            public Mapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, ZoneId timezone) {
-                super(name, mapping, ignore, nullValues, timezone);
-            }
-
-            Object convert(Object value) {
-                return super.commonConvertType(value);
-            }
         }
 
         private boolean handleEndOfResults() throws SQLException {

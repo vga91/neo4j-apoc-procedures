@@ -364,14 +364,7 @@ public class Xml {
                 elementMap.put("ignore", true);
             } else {
                 text = xmlMapping.convert(text);
-//                text = mapping.containsKey(type)
-//                        ? xmlMapping.convert(text)
-//                        : text;// (entry.getValue() instanceof Map ? convertTypeMap((Map) entry.getValue(), config) : entry.getValue() )
-
-
-                // todo - forse conviene metterlo qua...
-//        text = mapping.containsKey()
-
+                
                 // We check if we have already collected some text previously
                 Object previousText = elementMap.get("_text");
                 if (previousText != null) {
@@ -631,17 +624,8 @@ public class Xml {
                 case XMLStreamConstants.START_ELEMENT:
                     final QName qName = xml.getName();
                     final String name = qName.getLocalPart();
-                    if (name.equals("measure")) {
-                        System.out.println("Xml.importToGraph");
-                    }
-                    if (name.equals("extent")) {
-                        System.out.println("Xml.importToGraph");
-                    }
                     currentXmlMapping = new XmlMapping(name, importConfig.getMapping().get(name), importConfig.getIgnore().contains(name), importConfig.getNullValues(), importConfig.getZoneId());
                     if (!currentXmlMapping.isIgnore()) {
-//                        state.setIgnore(true);
-//                    } else {
-//                        state.setIgnore(false);
                         final org.neo4j.graphdb.Node tag = tx.createNode(Label.label("XmlTag"));
                         tag.setProperty("_name", name);
                         for (int i = 0; i < xml.getAttributeCount(); i++) {
@@ -664,8 +648,6 @@ public class Xml {
                                     state, 
                                     importConfig);
                         }
-                    } else {
-                        System.out.println("Xml.importToGraph");
                     }
                     break;
 
@@ -674,22 +656,17 @@ public class Xml {
                         System.out.println("Xml.importToGraph");
                     }
                     final String localPart = xml.getName().getLocalPart();
-                    // currentXmlMapping.getName().equals(localPart) to handle .... TODO
-                    if (currentXmlMapping == null || !(currentXmlMapping.isIgnore() && currentXmlMapping.getName().equals(localPart))) {
+                    if (currentXmlMapping == null || !currentXmlMapping.isIgnore() || !currentXmlMapping.getName().equals(localPart)) {
                         String charactersForTag = importConfig.getCharactersForTag().get(localPart);
                         if (charactersForTag != null) {
-//                        final XmlMapping xmlMapping = new XmlMapping(xml.getName().getLocalPart(), mapping.get(type), config.getIgnore().contains(type), config.getNullValues(), config.getZoneId());
                             createCharactersNode(currentXmlMapping == null ? charactersForTag : currentXmlMapping.convert(charactersForTag), 
-                                    state, 
+                                    state,
                                     importConfig);
                         }
                         ParentAndChildPair parent = state.pop();
                         if (parent.getPreviousChild() != null) {
                             parent.getPreviousChild().createRelationshipTo(parent.getParent(), RelationshipType.withName("LAST_CHILD_OF"));
                         }
-                    } else {
-                        
-                        System.out.println("Xml.importToGraph");
                     }
                     break;
 
@@ -716,9 +693,7 @@ public class Xml {
         org.neo4j.graphdb.Node word = tx.createNode(importConfig.getLabel());
         word.setProperty("text", currentWord);
         word.setProperty("startIndex", state.getCurrentCharacterIndex());
-        // todo - cosa serve sto currentCharacther?
         state.addCurrentCharacterIndex(currentWord.toString().length());
-//        state.addCurrentCharacterIndex(currentWord.length());
         word.setProperty("endIndex", state.getCurrentCharacterIndex() - 1);
 
         state.updateLast(word);

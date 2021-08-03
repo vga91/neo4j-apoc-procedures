@@ -71,17 +71,18 @@ public class LoadJsonTest {
         TestUtil.registerProcedure(db, LoadJson.class);
     }
 
-    // todo - fare questo test con ignore e timezone
     @Test 
     public void testLoadJsonWithPoint() throws Exception {
         URL url = ClassLoader.getSystemResource("point.json");
         testCall(db, "CALL apoc.load.json($url, '', $config)",
                 map("url",url.toString(),
-                        "config", map("mapping", map("pointKey", map("type", "point")))),
-                (row) -> {
-                    assertEquals(map("foo",map("baz", 1L, "pointKey", List.of(Values.pointValue(CoordinateReferenceSystem.WGS84, 13.1, 33.46789)))), 
-                            row.get("value"));
-                });
+                        "config", map( "ignore", List.of("unused"),
+                                "nullValues", List.of("asNull"),
+                                "mapping", map("pointKey", map("type", "point")))),
+                (row) -> assertEquals(map("foo", map("baz", 1L, 
+                            "asNull", null,
+                            "pointKey", List.of(Values.pointValue(CoordinateReferenceSystem.WGS84, 13.1, 33.46789)))), 
+                        row.get("value")));
     }
     
     // todo - fare questo con mapping
