@@ -4,6 +4,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.time.DateTimeException;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -27,13 +28,13 @@ public class DateParseUtil {
     private static String METHOD_NAME = "parse";
 
     public static TemporalAccessor dateParse(String value, Class<? extends TemporalAccessor> date, String...formats) {
-        return dateParse(value, null, date, formats);
+        return dateParse(value, date, null, formats);
     }
 
     // todo!!! --> posso fare che DateTimeFormatter.ofPattern("[yyyyMMdd][yyyy-MM-dd][yyyy-DDD]['T'[HHmmss][HHmm][HH:mm:ss][HH:mm][.SSSSSSSSS][.SSSSSS][.SSS][.SS][.S]][OOOO][O][z][XXXXX][XXXX]['['VV']']"
     //        )
     // --> se formats è null nel caso 
-    public static TemporalAccessor dateParse(String value, String zoneId, Class<? extends TemporalAccessor> date, String...formats) {
+    public static TemporalAccessor dateParse(String value, Class<? extends TemporalAccessor> date, ZoneId zoneId, String...formats) {
         try {
             if (formats != null && formats.length > 0) {
                 for (String form : formats) {
@@ -59,7 +60,7 @@ public class DateParseUtil {
         throw new RuntimeException("Can't format the date with the pattern");
     }
 
-    private static TemporalAccessor getParse(Class<? extends TemporalAccessor> date, DateTimeFormatter format, String value, String zoneId) throws Throwable {
+    private static TemporalAccessor getParse(Class<? extends TemporalAccessor> date, DateTimeFormatter format, String value, ZoneId zoneId) throws Throwable {
 
         MethodHandle methodHandle = parseDateMap.computeIfAbsent(date, method -> {
             MethodHandles.Lookup lookup = MethodHandles.publicLookup();
@@ -75,20 +76,20 @@ public class DateParseUtil {
         } catch (DateTimeException e) {
             if (zoneId != null) {
                 if (date.equals(ZonedDateTime.class)) {
-                    // todo atZone parametrizato
-                    return LocalDateTime.parse(value, format).atZone(zoneId == null ? ZoneId.systemDefault() : ZoneId.of(zoneId));
+                    return LocalDateTime.parse(value, format).atZone(zoneId);
                 }
                 if (date.equals(OffsetTime.class)) {
-                    return LocalTime.parse(value, format).atOffset(zoneId == null ? OffsetDateTime.now().getOffset() : ZoneOffset.of(zoneId));
-//                return null;
+                    // todo - check this
+                    return LocalTime.parse(value, format).atOffset(zoneId.getRules().getOffset(Instant.now()));
                 }
             }
-            throw new RuntimeException(e);
+            throw e;
+//            throw new RuntimeException(e);
         }
         // todo - qui vedere un po' se serve...
     }
 
-    private static TemporalAccessor getParse(Class<? extends TemporalAccessor> date, String value, String zoneId) throws Throwable {
+    private static TemporalAccessor getParse(Class<? extends TemporalAccessor> date, String value, ZoneId zoneId) throws Throwable {
         MethodHandle methodHandleSimple = simpleParseDateMap.computeIfAbsent(date, method -> {
             MethodHandles.Lookup lookup = MethodHandles.publicLookup();
             try {
@@ -99,19 +100,19 @@ public class DateParseUtil {
         });
         
         
-//        try {
+        try {
             return (TemporalAccessor) methodHandleSimple.invokeWithArguments(value);
-//        } catch (DateTimeException e) {
-//        if (zoneId != null) {
-//            if (date.equals(ZonedDateTime.class)) {
-//                return LocalDateTime.parse(value).atZone(zoneId == null ? ZoneId.systemDefault() : ZoneId.of(zoneId));
-////                return (TemporalAccessor) methodHandle.invokeWithArguments(value, format.withZone());
-//            }
-//            if (date.equals(OffsetTime.class)) {
-//                return LocalTime.parse(value).atOffset(zoneId == null ? OffsetDateTime.now().getOffset() : ZoneOffset.of(zoneId));
-//            }
-//            throw e;
-//        }
+        } catch (DateTimeException e) {
+            if (zoneId != null) {
+                if (date.equals(ZonedDateTime.class)) {
+                    return LocalDateTime.parse(value).atZone(zoneId);
+                }
+                if (date.equals(OffsetTime.class)) {
+                    return LocalTime.parse(value).atOffset(zoneId.getRules().getOffset(Instant.now()));
+                }
+            }
+            throw e;
+        }
 //        }
     }
 

@@ -263,7 +263,7 @@ public class Jdbc {
             }
 
             Object convert(Object value) {
-                return super.switchConvertType(value);
+                return super.commonConvertType(value);
             }
         }
 

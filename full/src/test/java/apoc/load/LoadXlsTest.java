@@ -17,6 +17,7 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.net.URL;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -351,24 +352,7 @@ RETURN m.col_1,m.col_2,m.col_3
                 });
     }
 
-    @Test
-    public void testLoadXlsDateWithMappingArrayTypeZoneDateTime() throws Exception {
 
-        ZonedDateTime zonedDateTime = ZonedDateTime.of(LocalDateTime.of(2011,1,1,12,0,0, 53810000), ZoneOffset.of("+05:00"));
-
-        List pattern = asList("wrongPath", "dd-MM-yyyy", "dd/MM/yyyy", "yyyy/MM/dd'T'HH:mm:ss", "yyyy/dd/MM", "iso_zoned_date_time");
-
-        testResult(db, "CALL apoc.load.xls($url,'zonedDateTime',{mapping:{Date:{type: 'DATE_TIME', dateParse: $pattern}}})", map("url",testDate, "pattern", pattern),
-                (r) -> {
-                    Map<String, Object> row = r.next();
-                    assertEquals(0L, row.get("lineNo"));
-                    assertEquals(asList(zonedDateTime), row.get("list"));
-                    assertEquals(Util.map("Date", zonedDateTime), row.get("map"));
-                    assertFalse("Should not have another row", r.hasNext());
-                });
-    }
-    
-    // todo - test mapping ignore e timezone
 
     @Test(expected = RuntimeException.class)
     public void testLoadXlsDateWithMappingArrayTypeZoneDateTimeWithError() throws Exception {
@@ -383,6 +367,42 @@ RETURN m.col_1,m.col_2,m.col_3
             assertEquals("Can't format the date with the pattern", except.getMessage());
             throw e;
         }
+    }
+
+    @Test
+    public void testLoadXlsDateWithMappingArrayTypeZoneDateTimeWithDefaultTimezone() throws Exception {
+        final String timezone = "Asia/Tokyo";
+        final ZonedDateTime expectedDateTime = ZonedDateTime.of(LocalDateTime.of(2018, 5, 10, 12, 10, 10), ZoneId.of(timezone));
+        final ZonedDateTime expectedSecondDateTime = ZonedDateTime.of(2018,10,10, 0,0,0, 0, ZoneId.of(timezone));
+        List pattern = asList("wrongPath", "yyyy/MM/dd'T'HH:mm:ss");
+
+        testResult(db, "CALL apoc.load.xls($url, 'dateTime', $config)", 
+                map("url",testDate, "config", map(
+                        "timezone", timezone,
+                        "mapping", map("Date", map("type", "DATE_TIME", "dateParse", pattern)) )),
+                (r) -> {
+                    Map<String, Object> first = r.next();
+                    assertEquals(expectedDateTime, ((List) first.get("list")).get(0));
+                    final Map<String, Object> second = r.next();
+                    assertEquals(expectedSecondDateTime, ((List) second.get("list")).get(0));
+                    assertFalse(r.hasNext());
+                });
+    }
+
+    @Test
+    public void testLoadXlsDateWithMappingArrayTypeZoneDateTime() throws Exception {
+        ZonedDateTime zonedDateTime = ZonedDateTime.of(LocalDateTime.of(2011,1,1,12,0,0, 53810000), ZoneOffset.of("+05:00"));
+        
+        List pattern = asList("wrongPath", "dd-MM-yyyy", "dd/MM/yyyy", "yyyy/MM/dd'T'HH:mm:ss", "yyyy/dd/MM", "iso_zoned_date_time");
+
+        testResult(db, "CALL apoc.load.xls($url,'zonedDateTime',{mapping:{Date:{type: 'DATE_TIME', dateParse: $pattern}}})", map("url",testDate, "pattern", pattern),
+                (r) -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals(0L, row.get("lineNo"));
+                    assertEquals(asList(zonedDateTime), row.get("list"));
+                    assertEquals(Util.map("Date", zonedDateTime), row.get("map"));
+                    assertFalse("Should not have another row", r.hasNext());
+                });
     }
 
     @Test

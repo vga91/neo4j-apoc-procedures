@@ -16,19 +16,27 @@ public class CommonLoadImportConfig {
     private ZoneId zoneId = null;
 
     public CommonLoadImportConfig(Map<String, Object> config) {
+        this(config, null);
+    }
+    
+    public CommonLoadImportConfig(Map<String, Object> config, ZoneId zoneId) {
         if (config == null) {
             config = Collections.emptyMap();
         }
-        try {
-            // todo ... -> qui c'è questo.............
-            this.zoneId = config.containsKey("timezone") ?
-                    ZoneId.of(config.get("timezone").toString()) : null;
-        } catch (DateTimeException e) {
-            throw new IllegalArgumentException(String.format("The timezone field contains an error: %s", e.getMessage()));
-        }
+        this.zoneId = getTimezoneIfValid(config, zoneId);
+        
         ignore = (List<String>) config.getOrDefault("ignore", emptyList());
         nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
         mapping =  (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
+    }
+
+    public static ZoneId getTimezoneIfValid(Map<String, Object> config, ZoneId defaultZone) {
+        try {
+            return config.containsKey("timezone") ?
+                    ZoneId.of(config.get("timezone").toString()) : defaultZone;
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException(String.format("The timezone field contains an error: %s", e.getMessage()));
+        }
     }
 
     public ZoneId getZoneId(){

@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.apocConfig;
+import static apoc.load.CommonLoadImportConfig.getTimezoneIfValid;
 import static apoc.util.Util.parseCharFromConfig;
 import static java.util.Collections.emptyList;
 import static org.neo4j.configuration.GraphDatabaseSettings.db_temporal_timezone;
@@ -33,7 +34,7 @@ import static org.neo4j.configuration.GraphDatabaseSettings.db_temporal_timezone
 
 // todo - fare un AbstractMapping.class che poi viene esteso con super(..) --> tutto tranne robe di array
 public class Mapping extends AbstractMapping {
-    public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), LoadCsvConfig.DEFAULT_ARRAY_SEP, false/*, false*/);
+    public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), LoadCsvConfig.DEFAULT_ARRAY_SEP, false, null);
     final boolean array;
     
     // todo - arraySep e arrayPattern metterli solo dove serve
@@ -50,18 +51,19 @@ public class Mapping extends AbstractMapping {
     // todo - provare a mettere i Function<> da qualche altra parte
 //    final BiFunction<Pattern, Object, Object> listFunction = (arrayPattern, value) -> Arrays.stream(arrayPattern.split((String) value)).map(this::convertType).collect(Collectors.toList());
     
-    public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore) {
-        super(name, mapping, ignore, emptyList(), ZoneId.systemDefault()/*, nullValues*/); // todo - implementare nullValues, o forse no
-        
-//        this.name = mapping.getOrDefault("name", name).toString();
+    public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, ZoneId zoneId) {
+        super(name, mapping, ignore, emptyList(), zoneId);
         this.array = (Boolean) mapping.getOrDefault("array", false);
         this.arraySep = parseCharFromConfig(mapping, "arraySep", arraySep);
-//        this.type = Meta.Types.from(mapping.getOrDefault("type", "STRING").toString());
         this.arrayPattern = Pattern.compile(String.valueOf(this.arraySep), Pattern.LITERAL);
         
         // todo - necessario il cast a string?
         this.listSupplier = value -> Arrays.stream(arrayPattern.split((String) value)).map(this::convertType).collect(Collectors.toList());
-
+        
+        if (this.zoneId == null) {
+            // to preserve ImportCsv behavior
+            this.zoneId = getTimezoneIfValid(optionalData, ZoneId.systemDefault());
+        }
 //        this.dateParse = convertFormat(mapping.getOrDefault("dateParse", DEFAULT_DATE_PATTERN));
 
 //        this.listFunction = (arrayPattern, value) -> Arrays.stream(arrayPattern.split((String) value)).map(this::convertType).collect(Collectors.toList());
@@ -101,7 +103,7 @@ public class Mapping extends AbstractMapping {
 //        final Supplier<Object> listSupplier = () -> Arrays.stream(arrayPattern.split((String) value)).map(this::convertType).collect(Collectors.toList());
         // todo - forse ha senso passare timezone, per sql tipo
         final Supplier<ZoneId> timezone = () -> ZoneId.of((String) optionalData.getOrDefault("timezone", ZoneId.systemDefault().getId()));
-        return this.switchConvertType(value/*, timezone*/);
+        return this.commonConvertType(value/*, timezone*/);
 //        return MappingUtils.convertType(value, this, listSupplier, timezone, optionalData);
         
 //        final Supplier<ZoneId> timezone = () -> ZoneId.of((String) optionalData.getOrDefault("timezone", ZoneId.systemDefault().getId()));
@@ -217,31 +219,31 @@ public class Mapping extends AbstractMapping {
 //            default: return value;
         
 
-        final Supplier<ZoneId> timezone = () -> ZoneId.of((String) optionalData.getOrDefault("timezone", apocConfig().getString(db_temporal_timezone.name())));
-        switch (type) {
-            case POINT:
-                return Util.toPoint(Util.fromJson(value, Map.class), optionalData);
-            case LOCAL_DATE_TIME:
-                // asObjectCopy() returns LocalDateTime, 
-                // because in case of array entity.setProperty() fails with LocalDateTimeValue[]
-                return LocalDateTimeValue.parse(value).asObjectCopy();
-            case LOCAL_TIME:
-                return LocalTimeValue.parse(value).asObjectCopy();
-            case DATE_TIME:
-                return DateTimeValue.parse(value, timezone).asObjectCopy();
-            case TIME:
-                return TimeValue.parse(value, timezone).asObjectCopy();
-            case DATE:
-                return DateValue.parse(value).asObjectCopy();
-            case DURATION:
-                return DurationValue.parse(value);
-            case INTEGER: return Util.toLong(value);
-            case FLOAT: return Util.toDouble(value);
-            case BOOLEAN: return Util.toBoolean(value);
-            case NULL: return null;
-            case LIST: return Arrays.stream(arrayPattern.split(value)).map(this::convertType).collect(Collectors.toList());
-            default: return value;
-        }
+//        final Supplier<ZoneId> timezone = () -> ZoneId.of((String) optionalData.getOrDefault("timezone", apocConfig().getString(db_temporal_timezone.name())));
+//        switch (type) {
+//            case POINT:
+//                return Util.toPoint(Util.fromJson(value, Map.class), optionalData);
+//            case LOCAL_DATE_TIME:
+//                // asObjectCopy() returns LocalDateTime, 
+//                // because in case of array entity.setProperty() fails with LocalDateTimeValue[]
+//                return LocalDateTimeValue.parse(value).asObjectCopy();
+//            case LOCAL_TIME:
+//                return LocalTimeValue.parse(value).asObjectCopy();
+//            case DATE_TIME:
+//                return DateTimeValue.parse(value, timezone).asObjectCopy();
+//            case TIME:
+//                return TimeValue.parse(value, timezone).asObjectCopy();
+//            case DATE:
+//                return DateValue.parse(value).asObjectCopy();
+//            case DURATION:
+//                return DurationValue.parse(value);
+//            case INTEGER: return Util.toLong(value);
+//            case FLOAT: return Util.toDouble(value);
+//            case BOOLEAN: return Util.toBoolean(value);
+//            case NULL: return null;
+//            case LIST: return Arrays.stream(arrayPattern.split(value)).map(this::convertType).collect(Collectors.toList());
+//            default: return value;
+//        }
     }
     
 //    public static Object conversion(Object value) {

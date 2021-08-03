@@ -1,5 +1,6 @@
 package apoc.load.util;
 
+import apoc.load.CommonLoadImportConfig;
 import apoc.load.Mapping;
 import apoc.util.CompressionConfig;
 import apoc.util.Util;
@@ -10,7 +11,7 @@ import static apoc.util.Util.parseCharFromConfig;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 
-public class LoadCsvConfig extends CompressionConfig {
+public class LoadCsvConfig extends CommonLoadImportConfig {
 
     public static final char DEFAULT_ARRAY_SEP = ';';
     public static final char DEFAULT_SEP = ',';
@@ -64,15 +65,15 @@ public class LoadCsvConfig extends CompressionConfig {
         ignore = (List<String>) config.getOrDefault("ignore", emptyList());
         nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
         mapping = (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
-        mappings = createMapping(mapping, arraySep, ignore, nullValues);
+        mappings = createMapping(mapping, arraySep, ignore);
     }
 
-    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore, List<String> nullValues) {
+    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore) {
         if (mapping.isEmpty()) return Collections.emptyMap();
         HashMap<String, Mapping> result = new HashMap<>(mapping.size());
         for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
             String name = entry.getKey();
-            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name)/*, nullValues.contains(name)*/));
+            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name), super.getZoneId()));
         }
         return result;
     }

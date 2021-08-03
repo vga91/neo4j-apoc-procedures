@@ -51,13 +51,7 @@ import java.io.StringReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.OffsetTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import java.util.function.Supplier;
 import java.util.ArrayDeque;
@@ -81,8 +75,6 @@ import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
 import static apoc.util.Util.ERROR_BYTES_OR_STRING;
 import static apoc.util.Util.cleanUrl;
-import static apoc.util.Util.dateFormat;
-import static apoc.util.Util.durationParse;
 import static javax.xml.stream.XMLStreamConstants.*;
 import static javax.xml.stream.XMLStreamConstants.CHARACTERS;
 import static javax.xml.stream.XMLStreamConstants.END_DOCUMENT;
@@ -348,12 +340,6 @@ public class Xml {
      * @param elementMap
      */
     private void handleTextNode(Node node, Map<String, Object> elementMap,  LoadXmlConfig config) {
-        // todo - le stringhe "mapping", "ignore", "nullValues" etc.. metterle in delle costanti
-
-//        Map<String, Map<String, Object>> mapping = (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
-//        List<String> ignore = (List<String>) config.getOrDefault("ignore", emptyList());
-//        List<String> nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
-
         Object text = "";
         int nodeType = node.getNodeType();
         switch (nodeType) {
@@ -550,7 +536,6 @@ public class Xml {
         private org.neo4j.graphdb.Node last;
         private org.neo4j.graphdb.Node lastWord;
         private int currentCharacterIndex = 0;
-        private boolean ignore;
 
         public ImportState(org.neo4j.graphdb.Node initialNode) {
             this.last = initialNode;
@@ -599,10 +584,6 @@ public class Xml {
 
         public void addCurrentCharacterIndex(int length) {
             currentCharacterIndex += length;
-        }
-
-        public void setIgnore(boolean ignore) {
-            this.ignore = ignore;
         }
     }
 
@@ -678,7 +659,6 @@ public class Xml {
                 case XMLStreamConstants.CHARACTERS:
                     if (currentXmlMapping == null || !currentXmlMapping.isIgnore()) {
                         List<String> words = parseTextIntoPartsAndDelimiters(xml.getText(), importConfig.getDelimiter());
-                        System.out.println("type: " + (currentXmlMapping == null ? "" : currentXmlMapping.getType()));
                         for (String currentWord : words) {
                             createCharactersNode(currentXmlMapping == null ? currentWord : currentXmlMapping.convert(currentWord), 
                                     state, 
@@ -695,7 +675,7 @@ public class Xml {
                     }
                     final String localPart = xml.getName().getLocalPart();
                     // currentXmlMapping.getName().equals(localPart) to handle .... TODO
-                    if (currentXmlMapping == null || !currentXmlMapping.isIgnore() && currentXmlMapping.getName().equals(localPart)) {
+                    if (currentXmlMapping == null || !(currentXmlMapping.isIgnore() && currentXmlMapping.getName().equals(localPart))) {
                         String charactersForTag = importConfig.getCharactersForTag().get(localPart);
                         if (charactersForTag != null) {
 //                        final XmlMapping xmlMapping = new XmlMapping(xml.getName().getLocalPart(), mapping.get(type), config.getIgnore().contains(type), config.getNullValues(), config.getZoneId());

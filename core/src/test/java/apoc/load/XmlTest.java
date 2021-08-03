@@ -66,9 +66,6 @@ public class XmlTest {
                 });
     }
 
-    // todo - test con children
-    // public void testMixedContentWithMapping() {}
-
     @Test
     public void testMixedContent() {
         testCall(db, "CALL apoc.load.xml('" + TestUtil.getUrlFileName("xml/mixedcontent.xml") + "')", //  YIELD value RETURN value
@@ -96,7 +93,7 @@ public class XmlTest {
                                 "_text", "text as cdata")
                 )), row.get("value"));
     }
-    
+
     @Test
     public void testBookIds() {
         testResult(db, "call apoc.load.xml('" + TestUtil.getUrlFileName("xml/books.xml") + "') yield value as catalog\n" +

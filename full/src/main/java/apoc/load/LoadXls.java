@@ -4,7 +4,6 @@ import apoc.Extended;
 import apoc.export.util.CountingInputStream;
 import apoc.meta.Meta;
 import apoc.util.FileUtils;
-import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -16,13 +15,11 @@ import org.neo4j.values.storable.LocalDateTimeValue;
 
 import java.io.IOException;
 import java.time.*;
-import java.time.temporal.TemporalAccessor;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -114,8 +111,9 @@ public class LoadXls {
 
             List<String> ignore = value(config, "ignore", emptyList());
             List<Object> nullValues = value(config, "nullValues", emptyList());
+            ZoneId zoneId = config.containsKey("timezone") ? ZoneId.of(config.get("timezone").toString()) : null;
             Map<String, Map<String, Object>> mapping = value(config, "mapping", Collections.emptyMap());
-            Map<String, Mapping> mappings = createMapping(mapping, arraySep, ignore);
+            Map<String, Mapping> mappings = createMapping(mapping, arraySep, ignore, zoneId);
 
             Workbook workbook = WorkbookFactory.create(stream);
             Sheet sheet = workbook.getSheet(selection.sheet);
@@ -135,18 +133,18 @@ public class LoadXls {
         }
     }
 
-    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore) {
+    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore, ZoneId zoneId) {
         if (mapping.isEmpty()) return Collections.emptyMap();
         HashMap<String, Mapping> result = new HashMap<>(mapping.size());
         for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
             String name = entry.getKey();
-            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name)));
+            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name), zoneId));
         }
         return result;
     }
 
-    static class Mapping {
-        public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), DEFAULT_ARRAY_SEP, false);
+    static class Mapping extends AbstractMapping {
+        public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), DEFAULT_ARRAY_SEP, false, null);
         final String name;
         final Collection<Object> nullValues;
         final Meta.Types type;
@@ -157,7 +155,8 @@ public class LoadXls {
         private final String[] dateParse;
         private final Pattern arrayPattern;
 
-        public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore) {
+        public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, ZoneId zoneId) {
+            super(name, mapping, ignore, emptyList(), zoneId);
             this.name = mapping.getOrDefault("name", name).toString();
             this.array = (Boolean) mapping.getOrDefault("array", false);
             this.ignore = (Boolean) mapping.getOrDefault("ignore", ignore);
@@ -173,7 +172,7 @@ public class LoadXls {
         }
 
         public Object convert(Object value) {
-            return array ? convertArray(value) : convertType(value);
+            return array ? convertArray(value) : commonConvertType(value);
         }
 
         private Object convertArray(Object value) {
@@ -181,45 +180,9 @@ public class LoadXls {
             String[] values = arrayPattern.split(value.toString());
             List<Object> result = new ArrayList<>(values.length);
             for (String v : values) {
-                result.add(convertType(v));
+                result.add(commonConvertType(v));
             }
             return result;
-        }
-
-        private Object convertType(Object value) {
-            if (nullValues.contains(value) || value == null) return null;
-            switch (type) { // Destination Type
-                case STRING:
-                    if (value instanceof TemporalAccessor && !dateFormat.isEmpty()) {
-                        return dateFormat((TemporalAccessor) value, dateFormat);
-                    } else {
-                        return value.toString();
-                    }
-                case INTEGER:
-                    return Util.toLong(value);
-                case FLOAT:
-                    return Util.toDouble(value);
-                case BOOLEAN:
-                    return Util.toBoolean(value);
-                case NULL:
-                    return null;
-                case LIST:
-                    return Arrays.stream(arrayPattern.split(value.toString())).map(this::convertType).collect(Collectors.toList());
-                case DATE:
-                    return dateParse(value.toString(), LocalDate.class, dateParse);
-                case DATE_TIME:
-                    return dateParse(value.toString(), ZonedDateTime.class, dateParse);
-                case LOCAL_DATE_TIME:
-                    return dateParse(value.toString(), LocalDateTime.class, dateParse);
-                case LOCAL_TIME:
-                    return dateParse(value.toString(), LocalTime.class, dateParse);
-                case TIME:
-                    return dateParse(value.toString(), OffsetTime.class, dateParse);
-                case DURATION:
-                    return durationParse(value.toString());
-                default:
-                    return value;
-            }
         }
     }
 

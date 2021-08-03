@@ -116,11 +116,11 @@ public class LoadJson {
         }
 
         public Object convert(Object value) {
-            return value instanceof List ? convertList((List) value) : switchConvertType(value);
+            return value instanceof List ? convertList((List) value) : commonConvertType(value);
         }
 
         private Object convertList(List<Object> value) {
-            return value.stream().map(super::switchConvertType).collect(Collectors.toList());
+            return value.stream().map(super::commonConvertType).collect(Collectors.toList());
         }
     }
     

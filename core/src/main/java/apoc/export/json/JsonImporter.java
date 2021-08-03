@@ -203,17 +203,6 @@ public class JsonImporter implements Closeable {
                 })
                 .collect(Collectors.toList());
     }
-    
-//    public static List<Object> convertList(Collection<Object> coll, String classType, boolean ) {
-//        return coll.stream()
-//                .map(c -> {
-//                    if (c instanceof Collection) {
-//                        return convertList((Collection<Object>) c, classType);
-//                    }
-//                    return convertMappedValue(c, classType);
-//                })
-//                .collect(Collectors.toList());
-//    }
 
     private Map<String, Object> convertProperties(String type, Map<String, Object> properties, String keyPrefix) {
         return properties.entrySet().stream()

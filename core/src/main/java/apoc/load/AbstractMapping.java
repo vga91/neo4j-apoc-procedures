@@ -30,7 +30,6 @@ import static apoc.util.DateParseUtil.dateParse;
 import static apoc.util.Util.dateFormat;
 
 public abstract class AbstractMapping {
-    // todo - vale la pena farli privati ma con get-set?
     final String name;
     final Collection<String> nullValues;
     final Meta.Types type;
@@ -39,16 +38,11 @@ public abstract class AbstractMapping {
     final String dateFormat;
     final String[] dateParse;
 
-
-
-    // todo - provare a fare enum eventualmente
     Function<Object, Object> listSupplier = null;
-    final Map<String, Object> optionalData;// = Collections.emptyMap();
-    final Supplier<ZoneId> timezone;
+    ZoneId zoneId;
+    final Map<String, Object> optionalData;
     
-    // TODO ---> ci passo un construttore con defaultMapping, che nei csv sara emptyList, nei Json sara quello che ci passo..
-
-    public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, ZoneId timezone) {
+    public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, ZoneId zoneId) {
         if (mapping == null) {
             mapping = Collections.emptyMap();
         }
@@ -59,21 +53,10 @@ public abstract class AbstractMapping {
         this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
         this.dateParse = convertFormat(mapping.getOrDefault("dateParse", null));
         this.optionalData = (Map<String, Object>) mapping.getOrDefault("optionalData", Collections.emptyMap()); // todo - e se mettessi pure questo?
-        // in case I put config {timezone: [ZONEID]}, i pick this one, otherwise from optionalData (importCsv)
-        this.timezone = () -> timezone != null ? timezone : ZoneId.of((String) optionalData.getOrDefault("timezone", ZoneId.systemDefault().getId()));
-        
-        // todo - valutare optional data in LoadJson.java e negli altri.
-        //  forse boh...
-
-        
-        // todo - questa mi sembra una cosa specifica di csv... (provare a togliere dopo)
-//        if (this.type == null) {
-//            // Call this out to the user explicitly because deep inside of LoadCSV and others you will get
-//            // NPEs that are hard to spot if this is allowed to go through.
-//            throw new RuntimeException("In specified mapping, there is no type by the name " +
-//                    mapping.getOrDefault("type", "STRING").toString());
-//        }
+        this.zoneId = zoneId;
     }
+    
+    abstract Object convert(Object value);
 
     public String getName() {
         return name;
@@ -95,8 +78,6 @@ public abstract class AbstractMapping {
         return dateParse;
     }
 
-    // todo - necessario metterlo come Object?
-    abstract Object convert(Object value);
 
 
     private static String[] convertFormat(Object value) {
@@ -107,16 +88,9 @@ public abstract class AbstractMapping {
     }
 
     // todo - timezone?
-    public Object switchConvertType(Object value/*, Supplier<ZoneId> timezone*/) {
-        // todo - valutare sta cosa
+    public Object commonConvertType(Object value) {
         if (nullValues.contains(name) || value == null) return null;
-//        if (nullValues.contains(value.toString()) || value == null) return null;
         
-        // in case of chars like '\n', with xml import for example
-        if (value instanceof String && StringUtils.isBlank((String) value)) {
-            return value;
-        }
-
         final boolean isParseNull = dateParse == null;
         switch (type) {
             // todo -> point... posso metterlo in un common util... -> se instance of Map allora ok altrimenti Util.fromJson(...)
@@ -154,8 +128,8 @@ public abstract class AbstractMapping {
                         : dateParse(value.toString(), LocalDate.class, dateParse);
             case DATE_TIME:
                 return isParseNull
-                        ? DateTimeValue.parse((String) value, timezone).asObjectCopy()
-                        : dateParse(value.toString(), ZonedDateTime.class, dateParse);
+                        ? DateTimeValue.parse((String) value, () -> zoneId).asObjectCopy()
+                        : dateParse(value.toString(), ZonedDateTime.class, zoneId, dateParse);
             case LOCAL_DATE_TIME:
                 return isParseNull
                         ? LocalDateTimeValue.parse((String) value).asObjectCopy()
@@ -166,8 +140,8 @@ public abstract class AbstractMapping {
                         : dateParse(value.toString(), LocalTime.class, dateParse);
             case TIME:
                 return isParseNull
-                        ? TimeValue.parse((String) value, timezone).asObjectCopy()
-                        : dateParse(value.toString(), OffsetTime.class, dateParse);
+                        ? TimeValue.parse((String) value, () -> zoneId).asObjectCopy()
+                        : dateParse(value.toString(), OffsetTime.class, zoneId, dateParse);
             case DURATION:
                 // TODO con import csv funziona solo questo... --> vedere con gli altri a sto punto
                 return DurationValue.parse((String) value).asObjectCopy();

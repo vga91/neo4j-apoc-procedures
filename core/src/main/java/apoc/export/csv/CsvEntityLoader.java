@@ -234,8 +234,7 @@ public class CsvEntityLoader {
                                             new AbstractMap.SimpleEntry<>("optionalData", f.getOptionalData())
                                     ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
 
-                            // todo - perché qua ignore false? - ah ok, è per l'import. Scriverlo forse
-                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false/*, false*/);
+                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false, null);
                         }
                 )
         );
