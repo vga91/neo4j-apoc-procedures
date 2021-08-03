@@ -20,6 +20,11 @@ import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 import org.neo4j.procedure.UserFunction;
+import org.neo4j.values.storable.DateTimeValue;
+import org.neo4j.values.storable.DateValue;
+import org.neo4j.values.storable.LocalDateTimeValue;
+import org.neo4j.values.storable.LocalTimeValue;
+import org.neo4j.values.storable.TimeValue;
 import org.w3c.dom.CharacterData;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
@@ -46,6 +51,15 @@ import java.io.StringReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.TemporalAccessor;
+import java.util.*;
+import java.util.function.Supplier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,11 +73,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static apoc.util.DateParseUtil.dateParse;
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
 import static apoc.util.Util.ERROR_BYTES_OR_STRING;
+import static apoc.util.Util.cleanUrl;
+import static apoc.util.Util.dateFormat;
+import static apoc.util.Util.durationParse;
+import static javax.xml.stream.XMLStreamConstants.*;
+import static javax.xml.stream.XMLStreamConstants.CHARACTERS;
+import static javax.xml.stream.XMLStreamConstants.END_DOCUMENT;
+import static javax.xml.stream.XMLStreamConstants.END_ELEMENT;
+import static javax.xml.stream.XMLStreamConstants.START_DOCUMENT;
+import static javax.xml.stream.XMLStreamConstants.START_ELEMENT;
 
 public class Xml {
 
@@ -90,9 +115,8 @@ public class Xml {
     @UserFunction("apoc.xml.parse")
     @Description("RETURN apoc.xml.parse(<xml string>, <xPath string>, config, false) AS value")
     public Map<String, Object> parse(@Name("data") String data, @Name(value = "path", defaultValue = "/") String path, @Name(value = "config",defaultValue = "{}") Map<String, Object> config, @Name(value = "simple", defaultValue = "false") boolean simpleMode) throws Exception {
-        if (config == null) config = Collections.emptyMap();
-        boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
-        return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, failOnError)
+        LoadXmlConfig xmlConfig = new LoadXmlConfig(config);
+        return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, xmlConfig)
                 .map(mr -> mr.value).findFirst().orElse(null);
     }
 
@@ -111,7 +135,8 @@ public class Xml {
         }
     }
 
-    private Stream<MapResult> parse(InputStream data, boolean simpleMode, String path, boolean failOnError) throws Exception {
+    private Stream<MapResult> parse(InputStream data, boolean simpleMode, String path, LoadXmlConfig config) throws Exception {
+        boolean failOnError = config.isFailOnError();
         List<MapResult> result = new ArrayList<>();
         try {
             DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
@@ -133,7 +158,7 @@ public class Xml {
             for (int i = 0; i < nodeList.getLength(); i++) {
                 final Deque<Map<String, Object>> stack = new LinkedList<>();
 
-                handleNode(stack, nodeList.item(i), simpleMode);
+                handleNode(stack, nodeList.item(i), simpleMode, config);
                 for (int index = 0; index < stack.size(); index++) {
                     result.add(new MapResult(stack.pollFirst()));
                 }
@@ -185,6 +210,55 @@ public class Xml {
         }
     }
 
+    private void handleXmlEvent(Deque<Map<String, Object>> stack, XMLStreamReader reader, boolean simpleMode) throws XMLStreamException {
+
+        Map<String, Object> elementMap;
+        switch (reader.getEventType()) {
+            case START_DOCUMENT:
+            case END_DOCUMENT:
+                // intentionally empty
+                break;
+            case START_ELEMENT:
+                int attributes = reader.getAttributeCount();
+                elementMap = new LinkedHashMap<>(attributes + 3);
+                elementMap.put("_type", reader.getLocalName());
+                for (int a = 0; a < attributes; a++) {
+                    elementMap.put(reader.getAttributeLocalName(a), reader.getAttributeValue(a));
+                }
+                if (!stack.isEmpty()) {
+                    final Map<String, Object> last = stack.getLast();
+                    String key = simpleMode ? "_" + reader.getLocalName() : "_children";
+                    amendToList(last, key, elementMap);
+                }
+                stack.addLast(elementMap);
+                break;
+
+            case END_ELEMENT:
+                elementMap = stack.size() > 1 ? stack.removeLast() : stack.getLast();
+
+                // maintain compatibility with previous implementation:
+                // if we only have text childs, return them in "_text" and not in "_children"
+                Object children = elementMap.get("_children");
+                if (children != null) {
+                    if ((children instanceof String) || collectionIsAllStrings(children)) {
+                        elementMap.put("_text", children);
+                        elementMap.remove("_children");
+                    }
+                }
+                break;
+
+            case CHARACTERS:
+                final String text = reader.getText().trim();
+                if (!text.isEmpty()) {
+                    Map<String, Object> map = stack.getLast();
+                    amendToList(map, "_children", text);
+                }
+                break;
+            default:
+                throw new RuntimeException("dunno know how to handle xml event type " + reader.getEventType());
+        }
+    }
+
     private void handleNode(Deque<Map<String, Object>> stack, Node node, boolean simpleMode) {
 
         // Handle document node
@@ -192,7 +266,7 @@ public class Xml {
             NodeList children = node.getChildNodes();
             for (int i = 0; i < children.getLength(); i++) {
                 if (children.item(i).getLocalName() != null) {
-                    handleNode(stack, children.item(i), simpleMode);
+                    handleNode(stack, children.item(i), simpleMode, config);
                     return;
                 }
             }
@@ -209,11 +283,11 @@ public class Xml {
 
             // This is to deal with text between xml tags for example new line characters
             if (child.getNodeType() != Node.TEXT_NODE && child.getNodeType() != Node.CDATA_SECTION_NODE) {
-                handleNode(stack, child, simpleMode);
+                handleNode(stack, child, simpleMode, config);
                 count++;
             } else {
                 // Deal with text nodes
-                handleTextNode(child, elementMap);
+                handleTextNode(child, elementMap, config);
             }
         }
 
@@ -240,7 +314,7 @@ public class Xml {
             }
         }
 
-        if (!elementMap.isEmpty()) {
+        if (!elementMap.isEmpty() && !elementMap.containsKey("ignore")) {
             stack.addLast(elementMap);
         }
     }
@@ -273,7 +347,13 @@ public class Xml {
      * @param node
      * @param elementMap
      */
-    private void handleTextNode(Node node, Map<String, Object> elementMap) {
+    private void handleTextNode(Node node, Map<String, Object> elementMap,  LoadXmlConfig config) {
+        // todo - le stringhe "mapping", "ignore", "nullValues" etc.. metterle in delle costanti
+
+//        Map<String, Map<String, Object>> mapping = (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
+//        List<String> ignore = (List<String>) config.getOrDefault("ignore", emptyList());
+//        List<String> nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
+
         Object text = "";
         int nodeType = node.getNodeType();
         switch (nodeType) {
@@ -289,13 +369,31 @@ public class Xml {
 
         // If the text is valid ...
         if (!StringUtils.isEmpty(text.toString())) {
-            // We check if we have already collected some text previously
-            Object previousText = elementMap.get("_text");
-            if (previousText != null) {
-                // If we just have a "_text" key than we need to collect to a List
-                text = Arrays.asList(previousText.toString(), text);
+            final String type = (String) elementMap.get("_type");
+            // todo - forse una common funcion avrebbe senso (vedere LoadJson.java)
+            // todo - forse no perché i mapping so diversi..
+            final Map<String, Map<String, Object>> mapping = config.getMapping();
+            final XmlMapping xmlMapping = new XmlMapping(type, mapping.get(type), config.getIgnore().contains(type), config.getNullValues(), config.getZoneId());
+            if (xmlMapping.isIgnore()) {
+                elementMap.put("ignore", true);
+            } else {
+                text = xmlMapping.convert(text);
+//                text = mapping.containsKey(type)
+//                        ? xmlMapping.convert(text)
+//                        : text;// (entry.getValue() instanceof Map ? convertTypeMap((Map) entry.getValue(), config) : entry.getValue() )
+
+
+                // todo - forse conviene metterlo qua...
+//        text = mapping.containsKey()
+
+                // We check if we have already collected some text previously
+                Object previousText = elementMap.get("_text");
+                if (previousText != null) {
+                    // If we just have a "_text" key than we need to collect to a List
+                    text = Arrays.asList(previousText.toString(), text);
+                }
+                elementMap.put("_text", text);
             }
-            elementMap.put("_text", text);
         }
     }
 
@@ -376,7 +474,7 @@ public class Xml {
         }
     }
 
-    private static class XmlImportConfig extends CompressionConfig {
+    private static class XmlImportConfig extends CommonLoadImportConfig{
 
         private boolean connectCharacters;
         private Pattern delimiter;
@@ -452,6 +550,7 @@ public class Xml {
         private org.neo4j.graphdb.Node last;
         private org.neo4j.graphdb.Node lastWord;
         private int currentCharacterIndex = 0;
+        private boolean ignore;
 
         public ImportState(org.neo4j.graphdb.Node initialNode) {
             this.last = initialNode;
@@ -501,6 +600,10 @@ public class Xml {
         public void addCurrentCharacterIndex(int length) {
             currentCharacterIndex += length;
         }
+
+        public void setIgnore(boolean ignore) {
+            this.ignore = ignore;
+        }
     }
 
     @Procedure(mode = Mode.WRITE, value = "apoc.xml.import")
@@ -528,6 +631,7 @@ public class Xml {
         ImportState state = new ImportState(root);
         state.push(new ParentAndChildPair(root));
 
+        XmlMapping currentXmlMapping = null;
         while (xml.hasNext()) {
             xml.next();
 
@@ -545,32 +649,67 @@ public class Xml {
 
                 case XMLStreamConstants.START_ELEMENT:
                     final QName qName = xml.getName();
-                    final org.neo4j.graphdb.Node tag = tx.createNode(Label.label("XmlTag"));
-                    tag.setProperty("_name", qName.getLocalPart());
-                    for (int i=0; i<xml.getAttributeCount(); i++) {
-                        tag.setProperty(xml.getAttributeLocalName(i), xml.getAttributeValue(i));
+                    final String name = qName.getLocalPart();
+                    if (name.equals("measure")) {
+                        System.out.println("Xml.importToGraph");
                     }
+                    if (name.equals("extent")) {
+                        System.out.println("Xml.importToGraph");
+                    }
+                    currentXmlMapping = new XmlMapping(name, importConfig.getMapping().get(name), importConfig.getIgnore().contains(name), importConfig.getNullValues(), importConfig.getZoneId());
+                    if (!currentXmlMapping.isIgnore()) {
+//                        state.setIgnore(true);
+//                    } else {
+//                        state.setIgnore(false);
+                        final org.neo4j.graphdb.Node tag = tx.createNode(Label.label("XmlTag"));
+                        tag.setProperty("_name", name);
+                        for (int i = 0; i < xml.getAttributeCount(); i++) {
+                            tag.setProperty(xml.getAttributeLocalName(i), xml.getAttributeValue(i));
+                        }
 
-                    state.updateLast(tag);
-                    state.push(new ParentAndChildPair(tag));
+                        if (name.equals("measure")) {
+                            System.out.println("Xml.importToGraph");
+                        }
+                        state.updateLast(tag);
+                        state.push(new ParentAndChildPair(tag));
+                    }
                     break;
 
                 case XMLStreamConstants.CHARACTERS:
-                    List<String> words = parseTextIntoPartsAndDelimiters(xml.getText(), importConfig.getDelimiter());
-                    for (String currentWord : words) {
-                        createCharactersNode(currentWord, state, importConfig);
+                    if (currentXmlMapping == null || !currentXmlMapping.isIgnore()) {
+                        List<String> words = parseTextIntoPartsAndDelimiters(xml.getText(), importConfig.getDelimiter());
+                        System.out.println("type: " + (currentXmlMapping == null ? "" : currentXmlMapping.getType()));
+                        for (String currentWord : words) {
+                            createCharactersNode(currentXmlMapping == null ? currentWord : currentXmlMapping.convert(currentWord), 
+                                    state, 
+                                    importConfig);
+                        }
+                    } else {
+                        System.out.println("Xml.importToGraph");
                     }
                     break;
 
                 case XMLStreamConstants.END_ELEMENT:
-
-                    String charactersForTag = importConfig.getCharactersForTag().get(xml.getName().getLocalPart());
-                    if (charactersForTag!=null) {
-                        createCharactersNode(charactersForTag, state, importConfig);
+                    if (xml.getName().getLocalPart().equals("measure")) {
+                        System.out.println("Xml.importToGraph");
                     }
-                    ParentAndChildPair parent = state.pop();
-                    if (parent.getPreviousChild()!=null) {
-                        parent.getPreviousChild().createRelationshipTo(parent.getParent(), RelationshipType.withName("LAST_CHILD_OF"));
+                    final String localPart = xml.getName().getLocalPart();
+                    // currentXmlMapping.getName().equals(localPart) to handle .... TODO
+                    if (currentXmlMapping == null || !currentXmlMapping.isIgnore() && currentXmlMapping.getName().equals(localPart)) {
+                        String charactersForTag = importConfig.getCharactersForTag().get(localPart);
+                        if (charactersForTag != null) {
+//                        final XmlMapping xmlMapping = new XmlMapping(xml.getName().getLocalPart(), mapping.get(type), config.getIgnore().contains(type), config.getNullValues(), config.getZoneId());
+                            createCharactersNode(currentXmlMapping == null ? charactersForTag : currentXmlMapping.convert(charactersForTag), 
+                                    state, 
+                                    importConfig);
+                        }
+                        ParentAndChildPair parent = state.pop();
+                        if (parent.getPreviousChild() != null) {
+                            parent.getPreviousChild().createRelationshipTo(parent.getParent(), RelationshipType.withName("LAST_CHILD_OF"));
+                        }
+                    } else {
+                        
+                        System.out.println("Xml.importToGraph");
                     }
                     break;
 
@@ -593,11 +732,13 @@ public class Xml {
         return Stream.of(new NodeResult(root));
     }
 
-    private void createCharactersNode(String currentWord, ImportState state, XmlImportConfig importConfig) {
+    private void createCharactersNode(Object currentWord, ImportState state, XmlImportConfig importConfig) {
         org.neo4j.graphdb.Node word = tx.createNode(importConfig.getLabel());
         word.setProperty("text", currentWord);
         word.setProperty("startIndex", state.getCurrentCharacterIndex());
-        state.addCurrentCharacterIndex(currentWord.length());
+        // todo - cosa serve sto currentCharacther?
+        state.addCurrentCharacterIndex(currentWord.toString().length());
+//        state.addCurrentCharacterIndex(currentWord.length());
         word.setProperty("endIndex", state.getCurrentCharacterIndex() - 1);
 
         state.updateLast(word);

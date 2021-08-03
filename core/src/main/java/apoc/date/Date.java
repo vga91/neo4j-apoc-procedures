@@ -213,6 +213,7 @@ public class Date {
 		return getFormat(pattern, timezone).format(new java.util.Date(millis));
 	}
 
+	// todo - e se usassi questo?
 	public static DateFormat getFormat(final String pattern, final String timezone) {
 		String actualPattern = getPattern(pattern);
 		SimpleDateFormat format = null;

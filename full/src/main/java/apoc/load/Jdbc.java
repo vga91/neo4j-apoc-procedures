@@ -12,11 +12,10 @@ import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.sql.*;
 import java.time.OffsetDateTime;
 import java.time.OffsetTime;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -178,6 +177,7 @@ public class Jdbc {
             this.map = get();
         }
 
+        // todo - forse qua?
         private String[] getMetaData(ResultSet rs) throws SQLException {
             ResultSetMetaData meta = rs.getMetaData();
             int cols = meta.getColumnCount();
@@ -205,7 +205,12 @@ public class Jdbc {
                 if (handleEndOfResults()) return null;
                 Map<String, Object> row = new LinkedHashMap<>(columns.length);
                 for (int col = 1; col < columns.length; col++) {
-                    row.put(columns[col], convert(rs.getObject(col), rs.getMetaData().getColumnType(col)));
+                    final String columnName = columns[col];
+                    final Mapping colMapping = new Mapping(columnName, config.getMapping().getOrDefault(columnName, Collections.emptyMap()), config.getIgnore().contains(columnName), config.getNullValues(), config.getZoneId());
+                    // todo - metterlo qua
+                    if (!colMapping.isIgnore()) {
+                        row.put(columnName, convert(rs.getObject(col), rs.getMetaData().getColumnType(col), colMapping));
+                    }
                 }
                 return row;
             } catch (Exception e) {
@@ -215,11 +220,9 @@ public class Jdbc {
             }
         }
 
-        private Object convert(Object value, int sqlType) {
+        // todo - forse qua!
+        private Object convert(Object value, int sqlType, Mapping colMapping) {
             if (value == null) return null;
-            if (value instanceof UUID || value instanceof BigInteger || value instanceof BigDecimal) {
-                return value.toString();
-            }
             if (Types.TIME == sqlType) {
                 return ((java.sql.Time)value).toLocalTime();
             }
@@ -247,7 +250,21 @@ public class Jdbc {
             if (Types.DATE == sqlType) {
                 return ((java.sql.Date)value).toLocalDate();
             }
-            return value;
+            if (value instanceof UUID) {
+                return value.toString();
+            }
+            return colMapping.convert(value);
+        }
+
+        public static class Mapping extends AbstractMapping {
+
+            public Mapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, ZoneId timezone) {
+                super(name, mapping, ignore, nullValues, timezone);
+            }
+
+            Object convert(Object value) {
+                return super.switchConvertType(value);
+            }
         }
 
         private boolean handleEndOfResults() throws SQLException {

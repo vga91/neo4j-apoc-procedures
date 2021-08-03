@@ -367,6 +367,8 @@ RETURN m.col_1,m.col_2,m.col_3
                     assertFalse("Should not have another row", r.hasNext());
                 });
     }
+    
+    // todo - test mapping ignore e timezone
 
     @Test(expected = RuntimeException.class)
     public void testLoadXlsDateWithMappingArrayTypeZoneDateTimeWithError() throws Exception {

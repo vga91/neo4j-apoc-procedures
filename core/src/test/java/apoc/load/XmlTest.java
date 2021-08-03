@@ -19,6 +19,8 @@ import org.xml.sax.SAXParseException;
 
 import java.io.File;
 import java.nio.charset.Charset;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +59,17 @@ public class XmlTest {
     }
 
     @Test
+    public void testLoadXmlSimple() {
+        testCall(db, "CALL apoc.load.xmlSimple('file:databases.xml')", //  YIELD value RETURN value
+                (row) -> {
+                    assertEquals(XmlTestUtils.XML_AS_NESTED_SIMPLE_MAP, row.get("value"));
+                });
+    }
+
+    // todo - test con children
+    // public void testMixedContentWithMapping() {}
+
+    @Test
     public void testMixedContent() {
         testCall(db, "CALL apoc.load.xml('" + TestUtil.getUrlFileName("xml/mixedcontent.xml") + "')", //  YIELD value RETURN value
                 this::commonAssertionsMixedContent);
@@ -83,7 +96,7 @@ public class XmlTest {
                                 "_text", "text as cdata")
                 )), row.get("value"));
     }
-
+    
     @Test
     public void testBookIds() {
         testResult(db, "call apoc.load.xml('" + TestUtil.getUrlFileName("xml/books.xml") + "') yield value as catalog\n" +
@@ -92,6 +105,49 @@ public class XmlTest {
             List<Object> ids = Iterators.asList(result.columnAs("id"));
             assertTrue(IntStream.rangeClosed(1,12).allMatch(value -> ids.contains(String.format("bk1%02d",value))));
         });
+    }
+    
+    @Test
+    public void testWithMapping() {
+        testResult(db, "call apoc.load.xml('file:src/test/resources/xml/multiType.xml', '/catalog/book/*', $config)",
+                map("config", map("mapping", map(
+                        "price", map("type", "float"),
+                        "ignored", map("ignore", true),
+                        "publish_date_time", map("type", "localdatetime", "dateParse", List.of("yyyy-MM-dd HH:mm"))),
+                        "nullValues", List.of("nada", "nothing")
+                        )
+                ),
+                result -> {
+                    final List<Map<String, Object>> maps = Iterators.asList(result.columnAs("value"));
+                    maps.forEach(tag -> {
+                        final Object text = tag.get("_text");
+                        switch ((String) tag.get("_type")) {
+                            case "price":
+                                assertEquals(44.95D, text);
+                                break;
+                            case "priceString":
+                                assertEquals("6789", text);
+                                break;
+                            case "publish_date_time":
+                                assertEquals(LocalDateTime.of(2000, 12, 16, 10, 10), text);
+                                break;
+                            case "nada":
+                            case "nothing":
+                                assertNull(text);
+                                break;
+                            default:
+                                fail("Should not match other tags");
+                        }
+                    });
+                });
+    }
+
+    @Test
+    public void testLoadXmlXpathWithMapping() {
+        testResult(db, "CALL apoc.load.xml('file:src/test/resources/xml/books.xml', '/catalog/book[genre=\"Computer\"]') yield value as result",
+                (r) -> {
+
+                });
     }
 
     @Test
@@ -238,6 +294,18 @@ public class XmlTest {
 
         db.executeTransactionally("call apoc.xml.import('file:" + FILE_SHORTENED + "', " +
                 "{createNextWordRelationships: true, filterLeadingWhitespace: true}) yield node");
+    }
+
+    @Test
+    public void testLoadXmlWithNextWordRelsWithNewConfigOptions1() {
+        testCall(db, "call apoc.xml.import('file:src/test/resources/xml/humboldt_soemmering01_1791.TEI-P5-shortened.xml', " +
+                        "{label: 'XmlWord', ignore: ['measure'], mapping: {date: {type: 'datetime'}}}) yield node",
+//                map("config", map("label", "XmlWord", )
+                row -> assertNotNull(row.get("node")));
+
+        testCallCount(db, "Match (n:XmlWord {text: datetime('2016-09-27T17:00:45Z')}) return n", 2);
+
+        testCallCount(db, "Match (n:XmlTag {_name: 'measure'}) return n", 0);
     }
 
     @Test

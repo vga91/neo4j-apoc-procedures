@@ -57,6 +57,15 @@ public class PostgresJdbcTest extends AbstractJdbcTest {
     }
 
     @Test
+    public void testLoadJdbcWithMapping() throws Exception {
+        testCall(db, "CALL apoc.load.jdbc($url,'PERSON',[], $config)", Util.map("url", postgress.getJdbcUrl(),
+                "config", Util.map("schema", "test",
+                        "credentials", Util.map("user", postgress.getUsername(), "password", postgress.getPassword()),
+                        "mapping", Util.map("SMALL_NUM", Util.map("type", "int"), "BIG_NUM", Util.map("type", "int")))),
+                (row) -> assertResult(row, true, false));
+    }
+
+    @Test
     public void testLoadJdbSelect() throws Exception {
         testCall(db, "CALL apoc.load.jdbc($url,'SELECT * FROM PERSON',[], $config)", Util.map("url", postgress.getJdbcUrl(),
                 "config", Util.map("schema", "test",

@@ -13,6 +13,7 @@ import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.lang.reflect.InvocationTargetException;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -83,6 +84,18 @@ public class JdbcTest extends AbstractJdbcTest {
     }
 
     @Test
+    public void testLoadJdbcWithMapping() throws Exception {
+        testCall(db, "CALL apoc.load.jdbc('jdbc:derby:derbyDB','PERSON', [], {mapping: {SMALL_NUM: {type: 'int'}, BIG_NUM: {type: 'int'} }})",
+                (row) -> assertResult(row, true, false));
+    }
+
+    @Test
+    public void testLoadJdbcWithMappingAndIgnore() throws Exception {
+        testCall(db, "CALL apoc.load.jdbc('jdbc:derby:derbyDB','PERSON', [], {mapping: {NAME: {ignore: true}, SMALL_NUM: {type: 'int'}, BIG_NUM: {type: 'int'} }})",
+                (row) -> assertResult(row, true, true));
+    }
+
+    @Test
     public void testLoadJdbcWithFetchSize() throws Exception {
         testCall(db, "CALL apoc.load.jdbc('jdbc:derby:derbyDB','PERSON', null, {fetchSize: 100})",
                 (row) -> assertResult(row));
@@ -119,6 +132,8 @@ public class JdbcTest extends AbstractJdbcTest {
                             "HIRE_DATE", AbstractJdbcTest.hireDate.toLocalDate(),
                             "EFFECTIVE_FROM_DATE", AbstractJdbcTest.effectiveFromDate.toInstant().atZone(asiaTokio).toOffsetDateTime().toZonedDateTime(), // todo investigate why by only changing the procedure mode returned class type changes
                             "TEST_TIME", AbstractJdbcTest.time.toLocalTime(),
+                            "SMALL_NUM", "12345", 
+                            "BIG_NUM", "10223372036854776000.0",
                             "NULL_DATE", null);
                     Map<String, Object> rowColumn = (Map<String, Object>) row.get("row");
 
@@ -283,21 +298,27 @@ public class JdbcTest extends AbstractJdbcTest {
             conn = DriverManager.getConnection("jdbc:derby:derbyDB;create=true");
         }
         try { conn.createStatement().execute("DROP TABLE PERSON"); } catch (SQLException se) {/*ignore*/}
-        conn.createStatement().execute("CREATE TABLE PERSON (NAME varchar(50), SURNAME varchar(50), HIRE_DATE DATE, EFFECTIVE_FROM_DATE TIMESTAMP, TEST_TIME TIME, NULL_DATE DATE)");
-        PreparedStatement ps = conn.prepareStatement("INSERT INTO PERSON values(?,null,?,?,?,?)");
+        conn.createStatement().execute("CREATE TABLE PERSON (NAME varchar(50), SURNAME varchar(50), HIRE_DATE DATE, EFFECTIVE_FROM_DATE TIMESTAMP, TEST_TIME TIME, NULL_DATE DATE, SMALL_NUM DECIMAL, BIG_NUM DECIMAL(21, 1))");
+        PreparedStatement ps = conn.prepareStatement("INSERT INTO PERSON values(?,null,?,?,?,?,?,?)");
         ps.setString(1, "John");
         ps.setDate(2, AbstractJdbcTest.hireDate);
         ps.setTimestamp(3, AbstractJdbcTest.effectiveFromDate);
         ps.setTime(4, AbstractJdbcTest.time);
         ps.setNull(5, Types.DATE);
+        ps.setBigDecimal(6, BigDecimal.valueOf(12345));
+        ps.setBigDecimal(7, BigDecimal.valueOf(10223372036854775807.3));
+        // todo - testare anche decimal
+//        ps.setBigDecimal(6, BigDecimal.valueOf(1.2));
         int rows = ps.executeUpdate();
         assertEquals(1, rows);
-        ResultSet rs = conn.createStatement().executeQuery("SELECT NAME, HIRE_DATE, EFFECTIVE_FROM_DATE, TEST_TIME FROM PERSON");
+        ResultSet rs = conn.createStatement().executeQuery("SELECT NAME, HIRE_DATE, EFFECTIVE_FROM_DATE, TEST_TIME, SMALL_NUM FROM PERSON");
         assertEquals(true, rs.next());
         assertEquals("John", rs.getString("NAME"));
         Assert.assertEquals(AbstractJdbcTest.hireDate.toLocalDate(), rs.getDate("HIRE_DATE").toLocalDate());
         Assert.assertEquals(AbstractJdbcTest.effectiveFromDate, rs.getTimestamp("EFFECTIVE_FROM_DATE"));
         Assert.assertEquals(AbstractJdbcTest.time, rs.getTime("TEST_TIME"));
+        // todo - metterlo nell'AbstractJdbcTest SMALL_NUM e BIG_NUM
+//        Assert.assertEquals(BigDecimal.valueOf(1.2), rs.getBigDecimal("NUMBER"));
         assertEquals(false, rs.next());
         rs.close();
     }

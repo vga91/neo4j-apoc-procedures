@@ -37,6 +37,7 @@ public class LoadCsvConfig extends CompressionConfig {
     private Map<String, Map<String, Object>> mapping;
     private Map<String, Mapping> mappings;
 
+    // todo - mettere grosso modo le stesse cose in LoadJson
     public LoadCsvConfig(Map<String, Object> config) {
         super(config);
         if (config == null) {
@@ -63,15 +64,15 @@ public class LoadCsvConfig extends CompressionConfig {
         ignore = (List<String>) config.getOrDefault("ignore", emptyList());
         nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
         mapping = (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
-        mappings = createMapping(mapping, arraySep, ignore);
+        mappings = createMapping(mapping, arraySep, ignore, nullValues);
     }
 
-    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore) {
+    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore, List<String> nullValues) {
         if (mapping.isEmpty()) return Collections.emptyMap();
         HashMap<String, Mapping> result = new HashMap<>(mapping.size());
         for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
             String name = entry.getKey();
-            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name)));
+            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name)/*, nullValues.contains(name)*/));
         }
         return result;
     }

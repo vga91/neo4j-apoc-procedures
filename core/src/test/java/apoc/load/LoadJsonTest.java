@@ -14,6 +14,9 @@ import org.neo4j.graphdb.Result;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
+import org.neo4j.values.storable.CoordinateReferenceSystem;
+import org.neo4j.values.storable.PointValue;
+import org.neo4j.values.storable.Values;
 
 import java.io.File;
 import java.io.IOException;
@@ -68,11 +71,53 @@ public class LoadJsonTest {
         TestUtil.registerProcedure(db, LoadJson.class);
     }
 
+    // todo - fare questo test con ignore e timezone
+    @Test 
+    public void testLoadJsonWithPoint() throws Exception {
+        URL url = ClassLoader.getSystemResource("point.json");
+        testCall(db, "CALL apoc.load.json($url, '', $config)",
+                map("url",url.toString(),
+                        "config", map("mapping", map("pointKey", map("type", "point")))),
+                (row) -> {
+                    assertEquals(map("foo",map("baz", 1L, "pointKey", List.of(Values.pointValue(CoordinateReferenceSystem.WGS84, 13.1, 33.46789)))), 
+                            row.get("value"));
+                });
+    }
+    
+    // todo - fare questo con mapping
     @Test public void testLoadJson() throws Exception {
 		URL url = ClassLoader.getSystemResource("map.json");
-		testCall(db, "CALL apoc.load.json($url)",map("url",url.toString()), // 'file:map.json' YIELD value RETURN value
+		testCall(db, "CALL apoc.load.json($url)",
+                map("url",url.toString()), // 'file:map.json' YIELD value RETURN value
                 (row) -> {
                     assertEquals(map("foo",asList(1L,2L,3L)), row.get("value"));
+                });
+    }
+    
+    @Test public void testLoadJsonWithMapping() throws Exception {
+		URL url = ClassLoader.getSystemResource("map.json");
+		testCall(db, "CALL apoc.load.json($url, '', $config)",
+                map("url",url.toString(), "config", map("mapping", map("foo", map("type", "float")))),
+                (row) -> {
+                    assertEquals(map("foo",asList(1D,2D,3D)), row.get("value"));
+                });
+    }
+    
+    // fare test con json-path, tipo '$.foo'
+    @Test public void testLoadJsonWithMappingAndPath() throws Exception {
+		URL url = ClassLoader.getSystemResource("map.json");
+		testCall(db, "CALL apoc.load.json($url, '$.foo', $config)",
+                map("url",url.toString(), "config", map("mapping", map("result", map("type", "string")))),
+                (row) -> assertEquals(map("result",asList("1", "2", "3")), row.get("value")));
+    }
+    
+    // todo - scrivere in adoc --> in caso di singolo risultato, per esempio questo che ritorna result: [123], allora mappare result
+    @Test public void testLoadJsonWithMapping2() throws Exception {
+		URL url = ClassLoader.getSystemResource("map.json");
+		testCall(db, "CALL apoc.load.json($url, '', $config)",
+                map("url",url.toString(), "config", map("mapping", map("foo", map("type", "string")))),
+                (row) -> {
+                    assertEquals(map("foo", asList("1","2","3")), row.get("value"));
                 });
     }
 
