@@ -85,7 +85,6 @@ public class LoadJsonTest {
                         row.get("value")));
     }
     
-    // todo - fare questo con mapping
     @Test public void testLoadJson() throws Exception {
 		URL url = ClassLoader.getSystemResource("map.json");
 		testCall(db, "CALL apoc.load.json($url)",
@@ -95,7 +94,8 @@ public class LoadJsonTest {
                 });
     }
     
-    @Test public void testLoadJsonWithMapping() throws Exception {
+    @Test 
+    public void testLoadJsonWithMapping() throws Exception {
 		URL url = ClassLoader.getSystemResource("map.json");
 		testCall(db, "CALL apoc.load.json($url, '', $config)",
                 map("url",url.toString(), "config", map("mapping", map("foo", map("type", "float")))),
@@ -104,16 +104,16 @@ public class LoadJsonTest {
                 });
     }
     
-    // fare test con json-path, tipo '$.foo'
-    @Test public void testLoadJsonWithMappingAndPath() throws Exception {
+    @Test 
+    public void testLoadJsonWithMappingAndPath() {
 		URL url = ClassLoader.getSystemResource("map.json");
 		testCall(db, "CALL apoc.load.json($url, '$.foo', $config)",
                 map("url",url.toString(), "config", map("mapping", map("result", map("type", "string")))),
                 (row) -> assertEquals(map("result",asList("1", "2", "3")), row.get("value")));
     }
     
-    // todo - scrivere in adoc --> in caso di singolo risultato, per esempio questo che ritorna result: [123], allora mappare result
-    @Test public void testLoadJsonWithMapping2() throws Exception {
+    @Test 
+    public void testLoadJsonWithMapping2() {
 		URL url = ClassLoader.getSystemResource("map.json");
 		testCall(db, "CALL apoc.load.json($url, '', $config)",
                 map("url",url.toString(), "config", map("mapping", map("foo", map("type", "string")))),

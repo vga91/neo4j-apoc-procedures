@@ -6,7 +6,6 @@ import java.math.BigInteger;
 public class MappingUtil {
     
     public static Object toLongOrString(Object value) {
-        // todo - evaluate here
         if (value instanceof BigInteger) {
             BigInteger bigInteger = (BigInteger) value;
             try {

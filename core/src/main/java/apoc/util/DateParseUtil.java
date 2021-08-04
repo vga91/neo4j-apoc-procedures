@@ -31,9 +31,6 @@ public class DateParseUtil {
         return dateParse(value, date, null, formats);
     }
 
-    // todo!!! --> posso fare che DateTimeFormatter.ofPattern("[yyyyMMdd][yyyy-MM-dd][yyyy-DDD]['T'[HHmmss][HHmm][HH:mm:ss][HH:mm][.SSSSSSSSS][.SSSSSS][.SSS][.SS][.S]][OOOO][O][z][XXXXX][XXXX]['['VV']']"
-    //        )
-    // --> se formats è null nel caso 
     public static TemporalAccessor dateParse(String value, Class<? extends TemporalAccessor> date, ZoneId zoneId, String...formats) {
         try {
             if (formats != null && formats.length > 0) {
@@ -84,9 +81,7 @@ public class DateParseUtil {
                 }
             }
             throw e;
-//            throw new RuntimeException(e);
         }
-        // todo - qui vedere un po' se serve...
     }
 
     private static TemporalAccessor getParse(Class<? extends TemporalAccessor> date, String value, ZoneId zoneId) throws Throwable {
@@ -98,7 +93,6 @@ public class DateParseUtil {
                 throw new RuntimeException(e);
             }
         });
-        
         
         try {
             return (TemporalAccessor) methodHandleSimple.invokeWithArguments(value);
@@ -113,7 +107,6 @@ public class DateParseUtil {
             }
             throw e;
         }
-//        }
     }
 
 }

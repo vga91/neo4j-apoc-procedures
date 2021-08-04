@@ -307,8 +307,6 @@ public class JdbcTest extends AbstractJdbcTest {
         ps.setNull(5, Types.DATE);
         ps.setBigDecimal(6, BigDecimal.valueOf(12345));
         ps.setBigDecimal(7, BigDecimal.valueOf(10223372036854775807.3));
-        // todo - testare anche decimal
-//        ps.setBigDecimal(6, BigDecimal.valueOf(1.2));
         int rows = ps.executeUpdate();
         assertEquals(1, rows);
         ResultSet rs = conn.createStatement().executeQuery("SELECT NAME, HIRE_DATE, EFFECTIVE_FROM_DATE, TEST_TIME, SMALL_NUM FROM PERSON");
@@ -317,8 +315,6 @@ public class JdbcTest extends AbstractJdbcTest {
         Assert.assertEquals(AbstractJdbcTest.hireDate.toLocalDate(), rs.getDate("HIRE_DATE").toLocalDate());
         Assert.assertEquals(AbstractJdbcTest.effectiveFromDate, rs.getTimestamp("EFFECTIVE_FROM_DATE"));
         Assert.assertEquals(AbstractJdbcTest.time, rs.getTime("TEST_TIME"));
-        // todo - metterlo nell'AbstractJdbcTest SMALL_NUM e BIG_NUM
-//        Assert.assertEquals(BigDecimal.valueOf(1.2), rs.getBigDecimal("NUMBER"));
         assertEquals(false, rs.next());
         rs.close();
     }

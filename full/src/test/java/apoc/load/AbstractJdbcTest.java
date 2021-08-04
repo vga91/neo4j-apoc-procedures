@@ -28,6 +28,4 @@ public abstract class AbstractJdbcTest {
         }
         assertEquals(expected, row.get("row"));
     }
-    
-    // todo - mettere una stringa tipo "12:34" e parsarla a localtime con timezone
 }

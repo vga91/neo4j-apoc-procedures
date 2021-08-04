@@ -30,8 +30,6 @@ import static java.util.Collections.emptyList;
 
 @Extended
 public class LoadXls {
-    
-    // todo - anche qui a sto punto
 
     public static final char DEFAULT_ARRAY_SEP = ';';
     @Context
@@ -165,10 +163,7 @@ public class LoadXls {
             this.type = Meta.Types.from(mapping.getOrDefault("type", "STRING").toString());
             this.arrayPattern = Pattern.compile(String.valueOf(this.arraySep), Pattern.LITERAL);
             this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
-            //// todo!!! --> posso fare che DateTimeFormatter.ofPattern("[yyyyMMdd][yyyy-MM-dd][yyyy-DDD]['T'[HHmmss][HHmm][HH:mm:ss][HH:mm][.SSSSSSSSS][.SSSSSS][.SSS][.SS][.S]][OOOO][O][z][XXXXX][XXXX]['['VV']']"
-            // se metto sto pattern che succede?
             this.dateParse = convertFormat(mapping.getOrDefault("dateParse", null));
-//            this.dateParse = convertFormat(mapping.getOrDefault("dateParse", DEFAULT_DATE_PATTERN));
         }
 
         public Object convert(Object value) {
@@ -186,7 +181,6 @@ public class LoadXls {
         }
     }
 
-    // todo - fare metodo comune...
     private static String[] convertFormat(Object value) {
         if (value == null) return null;
         if (!(value instanceof List)) throw new RuntimeException("Only array of Strings are allowed!");

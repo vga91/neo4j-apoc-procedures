@@ -9,7 +9,6 @@ public class LoadJsonConfig extends CommonLoadImportConfig {
     
     public LoadJsonConfig(Map<String, Object> config) {
         super(config);
-        // todo - config null needed?
         if (config == null) {
             config = Collections.emptyMap();
         }

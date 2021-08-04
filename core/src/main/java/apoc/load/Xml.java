@@ -356,8 +356,6 @@ public class Xml {
         // If the text is valid ...
         if (!StringUtils.isEmpty(text.toString())) {
             final String type = (String) elementMap.get("_type");
-            // todo - forse una common funcion avrebbe senso (vedere LoadJson.java)
-            // todo - forse no perché i mapping so diversi..
             final Map<String, Map<String, Object>> mapping = config.getMapping();
             final XmlMapping xmlMapping = new XmlMapping(type, mapping.get(type), config.getIgnore().contains(type), config.getNullValues(), config.getZoneId());
             if (xmlMapping.isIgnore()) {

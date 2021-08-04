@@ -10,7 +10,6 @@ public class LoadXmlConfig extends CommonLoadImportConfig {
     
     public LoadXmlConfig(Map<String, Object> config) {
         super(config);
-        // todo - config null necessario? credo di sì
         if (config == null) {
             config = Collections.emptyMap();
         }

@@ -188,7 +188,6 @@ public class Jdbc {
             this.map = get();
         }
 
-        // todo - forse qua?
         private String[] getMetaData(ResultSet rs) throws SQLException {
             ResultSetMetaData meta = rs.getMetaData();
             int cols = meta.getColumnCount();
@@ -218,7 +217,6 @@ public class Jdbc {
                 for (int col = 1; col < columns.length; col++) {
                     final String columnName = columns[col];
                     final JdbcMapping colMapping = new JdbcMapping(columnName, config.getMapping().getOrDefault(columnName, Collections.emptyMap()), config.getIgnore().contains(columnName), config.getNullValues(), config.getZoneId());
-                    // todo - metterlo qua
                     if (!colMapping.isIgnore()) {
                         row.put(columnName, convert(rs.getObject(col), rs.getMetaData().getColumnType(col), colMapping));
                     }
@@ -231,7 +229,6 @@ public class Jdbc {
             }
         }
 
-        // todo - forse qua!
         private Object convert(Object value, int sqlType, JdbcMapping colMapping) {
             if (value == null) return null;
             if (Types.TIME == sqlType) {
