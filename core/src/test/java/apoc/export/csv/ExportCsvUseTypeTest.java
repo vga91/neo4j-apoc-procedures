@@ -24,6 +24,10 @@ import static org.junit.Assert.assertEquals;
 // Created to not affect ExportCsvTest results
 public class ExportCsvUseTypeTest {
 
+    private static final long EXPECTED_NODES = 2L;
+    private static final long EXPECTED_RELS = 1L;
+    private static final long EXPECTED_PROPS = 17L;
+
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, ExportCsvTest.directory.toPath().toAbsolutePath())
@@ -57,7 +61,7 @@ public class ExportCsvUseTypeTest {
     public void testExportCsvAll() {
         String fileName = "manyTypes.csv";
         testCall(db, "CALL apoc.export.csv.all($file, {useTypes: true, quotes: 'none', importToolArrays: true})", map("file", fileName),
-                (r) -> assertResults(fileName, r, "database", 2L, 1L, 17L));
+                (r) -> assertResults(fileName, r, "database", EXPECTED_NODES, EXPECTED_RELS, EXPECTED_PROPS));
         final String expected = Util.readResourceFile(fileName);
         assertEquals(expected, readFile(fileName));
 
@@ -73,7 +77,7 @@ public class ExportCsvUseTypeTest {
                         "CALL apoc.export.csv.graph(graph, $file,{useTypes: true, quotes: 'none', importToolArrays: true}) " +
                         "YIELD nodes, relationships, properties, file, source,format, time " +
                         "RETURN *", map("file", fileName),
-                (r) -> assertResults(fileName, r, "graph", 2L, 1L, 17L));
+                (r) -> assertResults(fileName, r, "graph", EXPECTED_NODES, EXPECTED_RELS, EXPECTED_PROPS));
         final String expected = Util.readResourceFile(fileName);
         assertEquals(expected, readFile(fileName));
     }
@@ -82,7 +86,7 @@ public class ExportCsvUseTypeTest {
     public void testExportCsvGraphWithoutImportToolArrays() {
         String fileName = "manyTypesWithArrayLegacy.csv";
         testCall(db, "CALL apoc.export.csv.all($file, {useTypes: true, quotes: 'none'})", map("file", fileName),
-                (r) -> assertResults(fileName, r, "database", 2L, 1L, 17L));
+                (r) -> assertResults(fileName, r, "database", EXPECTED_NODES, EXPECTED_RELS, EXPECTED_PROPS));
         final String expected = Util.readResourceFile(fileName);
         assertEquals(expected, readFile(fileName));
 

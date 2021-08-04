@@ -281,7 +281,12 @@ public class ExportCsvTest {
         assertResults(fileName, r, source, 6L, 2L, 12L, true);
     }
 
-    private void assertResults(String fileName, Map<String, Object> r, final String source, 
+    public static void assertResults(String fileName, Map<String, Object> r, final String source,
+                                     Long expectedNodes, Long expectedRelationships, Long expectedProperties) {
+        assertResults(fileName, r, source, expectedNodes, expectedRelationships, expectedProperties, true);
+    }
+
+    public static void assertResults(String fileName, Map<String, Object> r, final String source, 
                                Long expectedNodes, Long expectedRelationships, Long expectedProperties, boolean assertPropEquality) {
         assertEquals(expectedNodes, r.get("nodes"));
         assertEquals(expectedRelationships, r.get("relationships"));
@@ -295,7 +300,7 @@ public class ExportCsvTest {
         assertCsvCommon(fileName, r);
     }
 
-    private void assertCsvCommon(String fileName, Map<String, Object> r) {
+    private static void assertCsvCommon(String fileName, Map<String, Object> r) {
         assertEquals(fileName, r.get("file"));
         assertEquals("csv", r.get("format"));
         assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
