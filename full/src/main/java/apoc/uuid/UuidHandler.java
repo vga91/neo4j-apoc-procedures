@@ -160,10 +160,14 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
         configuredLabelAndPropertyNames.put(label, config);
 
         try (Transaction sysTx = apocConfig.getSystemDb().beginTx()) {
+            // remove duplicated nodes in case of restart error
+            sysTx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName(), SystemPropertyKeys.label.name(), label)
+                    .forEachRemaining(Node::delete);
             Node node = Util.mergeNode(sysTx, SystemLabels.ApocUuid, null,
                     Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
                     Pair.of(SystemPropertyKeys.label.name(), label),
-                    Pair.of(SystemPropertyKeys.propertyName.name(), propertyName)
+                    Pair.of(SystemPropertyKeys.propertyName.name(), propertyName),
+                    Pair.of(SystemPropertyKeys.addToSetLabel.name(), config.isAddToSetLabels())
                     );
             node.setProperty(SystemPropertyKeys.addToSetLabel.name(), config.isAddToSetLabels());
             sysTx.commit();
@@ -182,6 +186,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
                     .forEachRemaining(node -> {
                         final UuidConfig config =  new UuidConfig(Map.of(
                                 "uuidProperty", node.getProperty(SystemPropertyKeys.propertyName.name()),
+                                // default value to fix previous nodes
                                 "addToSetLabels", node.getProperty(SystemPropertyKeys.addToSetLabel.name(), false)));
                         configuredLabelAndPropertyNames.put((String)node.getProperty(SystemPropertyKeys.label.name()), config);
                     });
