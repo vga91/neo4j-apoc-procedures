@@ -297,7 +297,6 @@ public class XmlTest {
     public void testLoadXmlWithNextWordRelsWithNewConfigOptions1() {
         testCall(db, "call apoc.xml.import('file:src/test/resources/xml/humboldt_soemmering01_1791.TEI-P5-shortened.xml', " +
                         "{label: 'XmlWord', ignore: ['measure'], mapping: {date: {type: 'datetime'}}}) yield node",
-//                map("config", map("label", "XmlWord", )
                 row -> assertNotNull(row.get("node")));
 
         testCallCount(db, "Match (n:XmlWord {text: datetime('2016-09-27T17:00:45Z')}) return n", 2);

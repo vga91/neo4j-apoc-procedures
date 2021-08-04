@@ -20,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -144,26 +145,19 @@ public class LoadXls {
     static class Mapping extends AbstractMapping {
         public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), DEFAULT_ARRAY_SEP, false, null);
         final String name;
-        final Collection<Object> nullValues;
-        final Meta.Types type;
         final boolean array;
-        final boolean ignore;
         final char arraySep;
         final String dateFormat;
-        private final String[] dateParse;
         private final Pattern arrayPattern;
 
         public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, ZoneId zoneId) {
             super(name, mapping, ignore, emptyList(), zoneId);
             this.name = mapping.getOrDefault("name", name).toString();
             this.array = (Boolean) mapping.getOrDefault("array", false);
-            this.ignore = (Boolean) mapping.getOrDefault("ignore", ignore);
-            this.nullValues = (Collection<Object>) mapping.getOrDefault("nullValues", emptyList());
             this.arraySep = separator(mapping.getOrDefault("arraySep", arraySep).toString(),DEFAULT_ARRAY_SEP);
-            this.type = Meta.Types.from(mapping.getOrDefault("type", "STRING").toString());
             this.arrayPattern = Pattern.compile(String.valueOf(this.arraySep), Pattern.LITERAL);
             this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
-            this.dateParse = convertFormat(mapping.getOrDefault("dateParse", null));
+            this.listSupplier = value -> Arrays.stream(arrayPattern.split((String) value)).map(this::commonConvertType).collect(Collectors.toList());
         }
 
         public Object convert(Object value) {
@@ -179,13 +173,6 @@ public class LoadXls {
             }
             return result;
         }
-    }
-
-    private static String[] convertFormat(Object value) {
-        if (value == null) return null;
-        if (!(value instanceof List)) throw new RuntimeException("Only array of Strings are allowed!");
-        List<String> strings = (List<String>) value;
-        return strings.toArray(new String[strings.size()]);
     }
 
     private String[] getHeader(boolean hasHeader, Row header, Selection selection, List<String> ignore, Map<String, Mapping> mapping) throws IOException {

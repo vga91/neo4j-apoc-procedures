@@ -26,6 +26,9 @@ apoc.load.json(urlOrKeyOrBinary :: ANY?, path =  :: STRING?, config = {} :: MAP?
 |config|MAP?|{}
 |===
 
+== Config parameters
+include::partial$usage/config/apoc.load.json.adoc[]
+
 == Output parameters
 [.procedures, opts=header]
 |===

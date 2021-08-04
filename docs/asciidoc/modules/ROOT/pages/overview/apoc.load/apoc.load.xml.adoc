@@ -27,6 +27,10 @@ apoc.load.xml(urlOrBinary :: ANY?, path = / :: STRING?, config = {} :: MAP?, sim
 |simple|BOOLEAN?|false
 |===
 
+
+== Config parameters
+include::partial$usage/config/apoc.load.xml.adoc[]
+
 == Output parameters
 [.procedures, opts=header]
 |===

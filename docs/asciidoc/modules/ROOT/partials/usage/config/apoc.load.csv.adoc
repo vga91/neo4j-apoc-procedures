@@ -16,4 +16,13 @@ The procedure support the following config parameters:
 | mapping | Map | {} | per field mapping, entry key is field name, .e.g `{years:{....}` see below
 | compression | `Enum[NONE, BYTES, GZIP, BZIP2, DEFLATE, BLOCK_LZ4, FRAMED_SNAPPY]` | `null` | Allow taking binary data, either not compressed (value: `NONE`) or compressed (other values)
 See the xref::overview/apoc.load/apoc.load.csv.adoc#_binary_file[Binary file example]
+| timezone | String | null | default timezone in case of localtime and localdatetime without this one
 |===
+
+`mapping` supports the following values:
+
+* `name: <nameField>` - field name
+* `<type>` - type of the conversion requested (`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NULL`, `LIST`, `DATE`, `DATE_TIME`, `LOCAL_DATE`, `LOCAL_DATE_TIME`, `LOCAL_TIME`, `TIME`, `POINT`)
+* `dateFormat: <format>` - convert the Date into String
+* `dateParse: [<formats>]` - convert the String into Date
+* `ignore: <boolean>` - column to ignore  (if true)

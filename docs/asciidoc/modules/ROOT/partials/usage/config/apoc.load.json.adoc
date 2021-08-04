@@ -1,0 +1,18 @@
+The procedure support the following config parameters:
+
+.Config parameters
+[opts=header]
+|===
+| ignore | List<String> | [] | which field to ignore
+| nullValues | List<String> | [] | which values to treat as null, e.g. `['na',false]`
+| mapping | Map | {} | per field mapping, entry key is field name, .e.g `{years:{....}` see below
+| timezone | String | null | default timezone in case of localtime and localdatetime without this one
+|===
+
+`mapping` supports the following values:
+
+* `name: <nameField>` - field name
+* `<type>` - type of the conversion requested (`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NULL`, `DATE`, `DATE_TIME`, `LOCAL_DATE`, `LOCAL_DATE_TIME`, `LOCAL_TIME`, `TIME`, `POINT`)
+* `dateFormat: <format>` - convert the Date into String
+* `dateParse: [<formats>]` - convert the String into Date
+* `ignore: <boolean>` - column to ignore  (if true)

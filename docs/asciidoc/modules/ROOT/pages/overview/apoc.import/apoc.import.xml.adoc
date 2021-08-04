@@ -25,6 +25,9 @@ apoc.import.xml(urlOrBinary :: ANY?, config = {} :: MAP?) :: (node :: NODE?)
 |config|MAP?|{}
 |===
 
+== Config parameters
+include::partial$usage/config/apoc.import.xml.adoc[]
+
 == Output parameters
 [.procedures, opts=header]
 |===

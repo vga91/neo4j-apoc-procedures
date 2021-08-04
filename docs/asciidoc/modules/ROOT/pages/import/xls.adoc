@@ -36,7 +36,7 @@ The `{config}` parameter is a map
 | name | description
 | mapping | {mapping:{'<sheet>':{type:'<type>', dateFormat: '<format>', dateParse: [<formats>]}}}
 | <sheet> | name of the sheet
-| <type> | Default `String`, The type of the conversion requested (`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NULL`, `LIST`, `DATE`, `DATE_TIME`, `LOCAL_DATE`, `LOCAL_DATE_TIME`, `LOCAL_TIME`, `TIME`)
+| <type> | Default `String`, The type of the conversion requested (`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NULL`, `LIST`, `DATE`, `DATE_TIME`, `LOCAL_DATE`, `LOCAL_DATE_TIME`, `LOCAL_TIME`, `TIME`, `POINT`)
 | dateFormat: <format> | Convert the Date into String (only String is allowed)
 | dateParse: [<formats>] | Convert the String into Date (Array of strings are allowed)
 |===
