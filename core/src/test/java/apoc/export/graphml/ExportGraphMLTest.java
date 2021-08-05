@@ -58,6 +58,17 @@ public class ExportGraphMLTest {
     public static final String KEY_TYPES_EMPTY = "<key id=\"name\" for=\"node\" attr.name=\"name\" attr.type=\"string\"/>%n" +
             "<key id=\"limit\" for=\"node\" attr.name=\"limit\" attr.type=\"long\"/>%n" +
             "<key id=\"labels\" for=\"node\" attr.name=\"labels\" attr.type=\"string\"/>%n";
+    
+    public static final String KEY_TYPES_WITH_DEFAULT = 
+            "<key id=\"name\" for=\"node\" attr.name=\"name\" attr.type=\"string\"><default xml:space=\"default\">ajeje</default></key>%n" +
+            "<key id=\"limit\" for=\"node\" attr.name=\"limit\" attr.type=\"long\"/>%n" +
+            "<key id=\"labels\" for=\"node\" attr.name=\"labels\" attr.type=\"string\"/>%n";
+    
+    public static final String KEY_TYPES_WITH_EMPTY_DEFAULT = 
+            "<key id=\"name\" for=\"node\" attr.name=\"name\" attr.type=\"string\"><default xml:space=\"preserve\"/></key>%n" +
+            "<key id=\"limit\" for=\"node\" attr.name=\"limit\" attr.type=\"long\"/>%n" +
+            "<key id=\"labels\" for=\"node\" attr.name=\"labels\" attr.type=\"string\"/>%n";
+    
     public static final String GRAPH = "<graph id=\"G\" edgedefault=\"directed\">%n";
     public static final String HEADER = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>%n" +
             "<graphml xmlns=\"http://graphml.graphdrawing.org/xmlns\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd\">%n";
@@ -148,6 +159,8 @@ public class ExportGraphMLTest {
     private static final String EXPECTED_TYPES_PATH_CAMEL_CASE = String.format(HEADER + KEY_TYPES_CAMEL_CASE + GRAPH + DATA_CAMEL_CASE + FOOTER);
     private static final String DATA_EMPTY = "<node id=\"n0\" labels=\":Test\"><data key=\"labels\">:Test</data><data key=\"name\"></data><data key=\"limit\">3</data></node>%n";
     private static final String EXPECTED_TYPES_EMPTY = String.format(HEADER + KEY_TYPES_EMPTY + GRAPH + DATA_EMPTY + FOOTER);
+    private static final String EXPECTED_TYPES_WITH_DEFAULT = String.format(HEADER + KEY_TYPES_WITH_DEFAULT + GRAPH + DATA_EMPTY + FOOTER);
+    private static final String EXPECTED_TYPES_WITH_EMPTY_DEFAULT = String.format(HEADER + KEY_TYPES_WITH_EMPTY_DEFAULT + GRAPH + DATA_EMPTY + FOOTER);
     private static final String EXPECTED_TYPES_NO_DATA_KEY = String.format(HEADER + KEY_TYPES_NO_DATA_KEY + GRAPH + DATA_NO_DATA_KEY + FOOTER);
 
     @Rule
@@ -195,6 +208,7 @@ public class ExportGraphMLTest {
         TestUtil.testCall(db, "MATCH  (c:Bar {age: 12, values: [1,2,3]}) RETURN COUNT(c) AS c", null, (r) -> assertEquals(1L, r.get("c")));
     }
 
+
     @Test
     public void testImportGraphMLLargeFile() {
         assumeFalse(isRunningInCI());
@@ -210,6 +224,42 @@ public class ExportGraphMLTest {
                     assertEquals("graphml", r.get("format"));
                     assertEquals(true, r.get("done"));
                 });
+    }
+
+    @Test
+    public void testImportGraphMLWithDefaultTag() throws Exception {
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+
+        File output = new File(directory, "import.graphml");
+        try(FileWriter fw = new FileWriter(output)) {
+            fw.write(EXPECTED_TYPES_WITH_DEFAULT);
+        }
+
+            TestUtil.testCall(db, "CALL apoc.import.graphml($file,{readLabels:true})", map("file", output.getAbsolutePath()),
+                    (r) -> assertResults(output, r, "statement", 1L, 0L, 2L));
+
+            TestUtil.testCall(db, "MATCH  (n) RETURN n", null, (r) -> {
+                final Node node = (Node) r.get("n");
+                assertEquals("ajeje", node.getProperty("name"));
+            });
+    }
+
+    @Test
+    public void testImportGraphMLWithEmptyDefaultTag() throws Exception {
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+
+        File output = new File(directory, "import.graphml");
+        try(FileWriter fw = new FileWriter(output)) {
+            fw.write(EXPECTED_TYPES_WITH_EMPTY_DEFAULT);
+        }
+
+        TestUtil.testCall(db, "CALL apoc.import.graphml($file,{readLabels:true})", map("file", output.getAbsolutePath()),
+                (r) -> assertResults(output, r, "statement", 1L, 0L, 2L));
+
+        TestUtil.testCall(db, "MATCH  (n) RETURN n", null, (r) -> {
+            final Node node = (Node) r.get("n");
+            assertEquals(StringUtils.EMPTY, node.getProperty("name"));
+        });
     }
 
     @Test
@@ -567,7 +617,11 @@ public class ExportGraphMLTest {
     }
 
     private void assertResults(File output, Map<String, Object> r, final String source) {
-        assertCommons(r);
+        assertResults(output, r, source, 3L, 1L, 8L);
+    }
+
+    private void assertResults(File output, Map<String, Object> r, final String source, long expectedNodes, long expectedRels, long expectedProps) {
+        assertCommons(r, expectedNodes, expectedRels, expectedProps);
         assertEquals(output.getAbsolutePath(), r.get("file"));
         if (r.get("source").toString().contains(":"))
             assertEquals(source + ": nodes(3), rels(1)", r.get("source"));
@@ -576,16 +630,16 @@ public class ExportGraphMLTest {
         assertNull("data should be null", r.get("data"));
     }
 
-    private void assertCommons(Map<String, Object> r) {
-        assertEquals(3L, r.get("nodes"));
-        assertEquals(1L, r.get("relationships"));
-        assertEquals(8L, r.get("properties"));
+    private void assertCommons(Map<String, Object> r, long expectedNodes, long expectedRels, long expectedProps) {
+        assertEquals(expectedNodes, r.get("nodes"));
+        assertEquals(expectedRels, r.get("relationships"));
+        assertEquals(expectedProps, r.get("properties"));
         assertEquals("graphml", r.get("format"));
         assertTrue("Should get time greater than 0",((long) r.get("time")) > 0);
     }
 
     private void assertStreamResults(Map<String, Object> r, final String source) {
-        assertCommons(r);
+        assertCommons(r, 3L, 1L, 8L);
         assertEquals(source + ": nodes(3), rels(1)", r.get("source"));
         assertNull("file should be null", r.get("file"));
         assertNotNull("data should be not null", r.get("data"));

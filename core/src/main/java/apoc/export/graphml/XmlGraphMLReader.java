@@ -207,7 +207,10 @@ public class XmlGraphMLReader {
                         XMLEvent next = peek(reader);
                         if (next.isStartElement() && next.asStartElement().getName().getLocalPart().equals("default")) {
                             reader.nextEvent().asStartElement();
-                            key.setDefault(reader.nextEvent().asCharacters().getData());
+                            final XMLEvent xmlEvent = reader.nextEvent();
+                            if (xmlEvent.isCharacters()) {
+                                key.setDefault(xmlEvent.asCharacters().getData());
+                            }
                         }
                         if (key.forNode) nodeKeys.put(id, key);
                         else relKeys.put(id, key);
