@@ -1,6 +1,7 @@
 package apoc.export.cypher;
 
 import apoc.graph.Graphs;
+import apoc.util.MapUtil;
 import apoc.util.TestUtil;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.Before;
@@ -126,6 +127,30 @@ public class ExportCypherTest {
                 map("file", fileName, "config", map("useOptimizations", map("type", "none"), "format", "cypher-shell")),
                 (r) -> assertResults(fileName, r, "database"));
         assertEquals(EXPECTED_CYPHER_SHELL, readFile(fileName));
+    }
+
+    @Test
+    public void testExportAllCypherForCypherShellWithFileProtocols() throws Exception {
+        final Map<String, Object> config = map("useOptimizations", map("type", "none"), "format", "cypher-shell");
+        String baseName = "all.cypher";
+        
+        String fileTripleSlash = "file:///" + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,$config)", 
+                map("file", fileTripleSlash, "config", config),
+                (r) -> assertResults(fileTripleSlash, r, "database"));
+        assertEquals(EXPECTED_CYPHER_SHELL, readFile(baseName));
+
+        String fileDoubleSlash = "file://" + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,$config)", 
+                map("file", fileDoubleSlash, "config", config),
+                (r) -> assertResults(fileDoubleSlash, r, "database"));
+        assertEquals(EXPECTED_CYPHER_SHELL, readFile(baseName));
+
+        String fileSingleSlash = "file:/" + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,$config)",
+                map("file", fileSingleSlash, "config", config),
+                (r) -> assertResults(fileSingleSlash, r, "database"));
+        assertEquals(EXPECTED_CYPHER_SHELL, readFile(baseName));
     }
 
     @Test

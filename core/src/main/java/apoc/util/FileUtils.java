@@ -181,18 +181,27 @@ public class FileUtils {
             if (fileName.equals("-")) {
                 outputStream = out;
             } else {
+                // e.g. file://path with spaces
+                fileName = encodePath(fileName);
+                
                 boolean enabled = isImportUsingNeo4jConfig();
+
+                URI uri = URI.create(fileName);
+                String path = uri.getPath();
+                if (uri.getHost() != null) {
+                    path = File.separator + uri.getHost() + path;
+                }
+                
                 if (enabled) {
                     String importDir = apocConfig().getString("dbms.directories.import", "import");
-                    File file = new File(importDir, fileName);
+                    File file = new File(importDir, path);
                     outputStream = new FileOutputStream(file);
                 } else {
-                    URI uri = URI.create(fileName);
-                    outputStream = new FileOutputStream(uri.isAbsolute() ? uri.toURL().getFile() : fileName);
+                    outputStream = new FileOutputStream(path);
                 }
             }
             return outputStream;
-        } catch (FileNotFoundException|MalformedURLException e) {
+        } catch (FileNotFoundException e) {
             throw new RuntimeException(e);
         }
     }

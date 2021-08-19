@@ -181,6 +181,28 @@ public class ExportGraphMLTest {
     }
 
     @Test
+    public void testExportAllGraphmlWithFileProtocol() {
+        File output = new File(directory, "allProtocols.graphml");
+        final String absolutePath = output.getAbsolutePath();
+
+        // another "/" come from output.getAbsolutePath(), e.g. "/User/Path/To/File"
+        String fileTripleSlash = "file://" + absolutePath;
+        TestUtil.testCall(db, "CALL apoc.export.graphml.all($file,null)", map("file", fileTripleSlash),
+                (r) -> assertResults(fileTripleSlash, r, "database"));
+        assertXMLEquals(output, EXPECTED_FALSE);
+
+        String fileDoubleSlash = "file:/" + absolutePath;
+        TestUtil.testCall(db, "CALL apoc.export.graphml.all($file,null)", map("file", fileDoubleSlash),
+                (r) -> assertResults(fileDoubleSlash, r, "database"));
+        assertXMLEquals(output, EXPECTED_FALSE);
+
+        String fileSingleSlash = "file:" + absolutePath;
+        TestUtil.testCall(db, "CALL apoc.export.graphml.all($file,null)", map("file", fileSingleSlash),
+                (r) -> assertResults(fileSingleSlash, r, "database"));
+        assertXMLEquals(output, EXPECTED_FALSE);
+    }
+
+    @Test
     public void testImportGraphML() throws Exception {
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
 
@@ -566,9 +588,18 @@ public class ExportGraphMLTest {
         assertXMLEquals(output, EXPECTED_TYPES_PATH_CAMEL_CASE);
     }
 
+    private void assertResults(String output, Map<String, Object> r, final String source) {
+        assertEquals(output, r.get("file"));
+        assertResults(r, source);
+    }
+
     private void assertResults(File output, Map<String, Object> r, final String source) {
-        assertCommons(r);
         assertEquals(output.getAbsolutePath(), r.get("file"));
+        assertResults(r, source);
+    }
+
+    private void assertResults(Map<String, Object> r, final String source) {
+        assertCommons(r);
         if (r.get("source").toString().contains(":"))
             assertEquals(source + ": nodes(3), rels(1)", r.get("source"));
         else

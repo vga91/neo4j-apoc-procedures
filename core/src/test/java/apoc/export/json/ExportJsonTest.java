@@ -15,12 +15,14 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.io.File;
 import java.util.Map;
 
+import static apoc.ApocConfig.APOC_IMPORT_FILE_USE_NEO4J_CONFIG;
+import static apoc.ApocConfig.apocConfig;
 import static apoc.util.MapUtil.map;
 import static org.junit.Assert.*;
 
 public class ExportJsonTest {
 
-    private static File directory = new File("target/import");
+    private static File directory = new File("target/import directory");
     private static File directoryExpected = new File("../docs/asciidoc/modules/ROOT/examples/data/exportJSON");
 
     static { //noinspection ResultOfMethodCallIgnored
@@ -37,6 +39,57 @@ public class ExportJsonTest {
         TestUtil.registerProcedure(db, ExportJson.class, Graphs.class);
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12})");
     }
+
+    @Test
+    public void testExportAllJsonWithUseNeo4jConfigFalse() {
+        apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, false);
+        String baseName = "all.json";
+        
+        // another "/" come from directory.getAbsolutePath(), e.g. "/User/Path/To/File"
+        String fileTripleSlash = "file://" + directory.getAbsolutePath() + File.separator + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.json.all($file,null)", map("file", fileTripleSlash),
+                (r) -> assertResults(fileTripleSlash, r, "database"));
+        assertFileEquals(baseName);
+
+        String fileDoubleSlash = "file:/" + directory.getAbsolutePath() + File.separator + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.json.all($file,null)", map("file", fileDoubleSlash),
+                (r) -> assertResults(fileDoubleSlash, r, "database"));
+        assertFileEquals(baseName);
+
+        String fileSingleSlash = "file:" + directory.getAbsolutePath() + File.separator + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.json.all($file,null)", map("file", fileSingleSlash),
+                (r) -> assertResults(fileSingleSlash, r, "database"));
+        assertFileEquals(baseName);
+        
+        String fileWithoutProtocol = directory.getAbsolutePath() + File.separator + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.json.all($file,null)", map("file", fileWithoutProtocol),
+                (r) -> assertResults(fileWithoutProtocol, r, "database"));
+        assertFileEquals(baseName);
+
+        // reset default value
+        apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, true);
+    }
+
+    @Test
+    public void testExportAllCsvWithFileProtocols() {
+        String baseName = "all.json";
+
+        String fileTripleSlash = "file:///" + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.json.all($file,null)", map("file", fileTripleSlash),
+                (r) -> assertResults(fileTripleSlash, r, "database"));
+        assertFileEquals(baseName);
+
+        String fileDoubleSlash = "file://" + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.json.all($file,null)", map("file", fileDoubleSlash),
+                (r) -> assertResults(fileDoubleSlash, r, "database"));
+        assertFileEquals(baseName);
+
+        String fileSingleSlash = "file:/" + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.json.all($file,null)", map("file", fileSingleSlash),
+                (r) -> assertResults(fileSingleSlash, r, "database"));
+        assertFileEquals(baseName);
+    }
+    
 
     @Test
     public void testExportAllJson() throws Exception {

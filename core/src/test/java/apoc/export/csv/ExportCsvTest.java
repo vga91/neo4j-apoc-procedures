@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.Arrays;
 import java.util.function.Consumer;
 
+import static apoc.ApocConfig.APOC_IMPORT_FILE_USE_NEO4J_CONFIG;
+import static apoc.ApocConfig.apocConfig;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
 import static junit.framework.TestCase.assertTrue;
@@ -100,7 +102,7 @@ public class ExportCsvTest {
             ",,,,,,,,0,1,KNOWS%n" +
             ",,,,,,,,3,4,NEXT_DELIVERY%n");
 
-    private static File directory = new File("target/import");
+    private static File directory = new File("target/import with spaces");
     static { //noinspection ResultOfMethodCallIgnored
         directory.mkdirs();
     }
@@ -133,6 +135,56 @@ public class ExportCsvTest {
             final String expectedMessage = "Failed to invoke procedure `apoc.export.csv.all`: Caused by: java.lang.RuntimeException: The string value of the field quote is not valid";
             assertEquals(expectedMessage, e.getMessage());
         }
+    }
+
+    @Test
+    public void testExportAllCsvWithUseNeo4jConfigFalse() {
+        apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, false);
+        String baseName = "protocols.csv";
+
+        // another "/" come from directory.getAbsolutePath(), e.g. "/User/Path/To/File"
+        String fileTripleSlash = "file://" + directory.getAbsolutePath() + File.separator + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileTripleSlash),
+                (r) -> assertResults(fileTripleSlash, r, "database"));
+        assertEquals(EXPECTED, readFile(baseName));
+
+        String fileDoubleSlash = "file:/" + directory.getAbsolutePath() + File.separator + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileDoubleSlash),
+                (r) -> assertResults(fileDoubleSlash, r, "database"));
+        assertEquals(EXPECTED, readFile(baseName));
+
+        String fileSingleSlash = "file:" + directory.getAbsolutePath() + File.separator + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileSingleSlash),
+                (r) -> assertResults(fileSingleSlash, r, "database"));
+        assertEquals(EXPECTED, readFile(baseName));
+
+        String fileWithoutProtocol = directory.getAbsolutePath() + File.separator + baseName;
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileWithoutProtocol),
+                (r) -> assertResults(fileWithoutProtocol, r, "database"));
+        assertEquals(EXPECTED, readFile(baseName));
+
+        // reset default value
+        apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, true);
+    }
+    
+    @Test
+    public void testExportAllCsvWithFileProtocols() {
+        String fileName = "all.csv";
+
+        String fileTripleSlash = "file:///" + fileName;
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileTripleSlash),
+                (r) -> assertResults(fileTripleSlash, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName));
+
+        String fileDoubleSlash = "file://" + fileName;
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileDoubleSlash),
+                (r) -> assertResults(fileDoubleSlash, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName));
+
+        String fileSingleSlash = "file:/" + fileName;
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileSingleSlash),
+                (r) -> assertResults(fileSingleSlash, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName));
     }
 
     @Test
