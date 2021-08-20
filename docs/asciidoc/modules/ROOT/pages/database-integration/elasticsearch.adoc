@@ -22,6 +22,18 @@ include::example$generated-documentation/apoc.es.put.adoc[]
 |===
 // end::elasticsearch[]
 
+== Configuration parameters
+The procedures support the following config parameters:
+
+.Config parameters
+[opts=header,cols="1,1,1m,5"]
+|===
+| name | type | default | description
+| header | Map | {} | The additional HTTP headers that can be included in procedures.
+    Note that it's not necessary to pass `method` (in put/post procedures) and `content-type`. 
+    For example with the `apoc.es.put` procedure in the header will automatically added the `method: 'PUT'` and `content-type: 'application/json'`. 
+|===
+
 
 == Example
 
