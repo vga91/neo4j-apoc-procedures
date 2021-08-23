@@ -12,11 +12,13 @@ import com.couchbase.client.java.json.JsonArray;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.kv.GetResult;
 import com.couchbase.client.java.kv.MutationResult;
+import com.couchbase.client.java.kv.PrependOptions;
 import com.couchbase.client.java.query.*;
 import com.couchbase.client.core.error.DocumentNotFoundException;
 import org.apache.commons.configuration2.Configuration;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -59,7 +61,7 @@ public class CouchbaseConnection implements AutoCloseable {
      * @param bucketName
      * @param env
      */
-    protected CouchbaseConnection(String hostOrKey, PasswordAuthenticator authenticator, String bucketName, ClusterEnvironment env) {
+    protected CouchbaseConnection(String hostOrKey, PasswordAuthenticator authenticator, String bucketName, ClusterEnvironment env, CouchbaseConfig config) {
 
         // get Set<SeedNode> by hostOrKey
         Set<SeedNode> seedNodes;
@@ -93,9 +95,11 @@ public class CouchbaseConnection implements AutoCloseable {
 
         this.env = env;
         this.cluster = Cluster.connect(seedNodes, clusterOptions(authenticator).environment(env));
-
         this.bucket = this.cluster.bucket(bucketName);
-        this.collection = this.bucket.defaultCollection();
+        if (config.getWaitUntilReady() != null) {
+            this.bucket.waitUntilReady(Duration.ofMillis(config.getWaitUntilReady()));
+        }
+        this.collection = this.bucket.scope(config.getScope()).collection(config.getCollection());
         this.binaryCollection = this.collection.binary();
     }
 

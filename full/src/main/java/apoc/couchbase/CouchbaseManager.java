@@ -1,7 +1,10 @@
 package apoc.couchbase;
 
+import com.couchbase.client.core.env.CompressionConfig;
+import com.couchbase.client.core.env.IoConfig;
 import com.couchbase.client.core.env.IoEnvironment;
 import com.couchbase.client.core.env.PasswordAuthenticator;
+import com.couchbase.client.core.env.SecurityConfig;
 import com.couchbase.client.core.env.TimeoutConfig;
 import com.couchbase.client.java.env.ClusterEnvironment;
 import org.apache.commons.configuration2.Configuration;
@@ -10,6 +13,7 @@ import org.parboiled.common.StringUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +22,7 @@ import java.util.List;
 import java.util.Arrays;
 
 import static apoc.ApocConfig.apocConfig;
+import static java.time.Duration.ofMillis;
 
 /**
  * Creates a {@link CouchbaseConnection} though that all of the operations
@@ -145,26 +150,63 @@ public class CouchbaseManager {
      * @param bucketName
      * @return the {@link CouchbaseConnection}
      */
-    public static CouchbaseConnection getConnection(String hostOrKey, String bucketName) {
+    public static CouchbaseConnection getConnection(String hostOrKey, String bucketName, CouchbaseConfig config) {
         PasswordAuthenticator passwordAuthenticator = getPasswordAuthenticator(hostOrKey);
 
         // hostOrKey no longer necessary because bootstrapHttpDirectPort is configured via SeedNode in CouchbaseConnection
-        ClusterEnvironment env = getEnv();
+        ClusterEnvironment env = getEnv(config);
 
         // The minimum cluster version supported by SDK 3 is Server 5.0, so bucket-level passwords are not supported anymore
-        return new CouchbaseConnection(hostOrKey, passwordAuthenticator, bucketName, env);
+        return new CouchbaseConnection(hostOrKey, passwordAuthenticator, bucketName, env, config);
     }
 
-    private static ClusterEnvironment getEnv() {
+    private static ClusterEnvironment getEnv(CouchbaseConfig config) {
 
-        ClusterEnvironment.Builder builder = ClusterEnvironment.builder();
+        ClusterEnvironment.Builder builder = ClusterEnvironment.builder()
+                .retryStrategy(config.getRetryStrategy());
 
-        builder.timeoutConfig(TimeoutConfig.kvTimeout(
-                Duration.ofMillis(Integer.parseInt(getConfig("kvTimeout")))));
+        if (config.getTrustCertificate() != null) {
+        builder.securityConfig(SecurityConfig.builder()
+                .enableTls(true)
+                .trustCertificate(Path.of(config.getTrustCertificate())));
+        }
 
-        builder.timeoutConfig(TimeoutConfig.connectTimeout(
-                Duration.ofMillis(Long.parseLong(getConfig("connectTimeout")))));
-
+        if (config.isCompressionEnabled()) {
+            final CompressionConfig.Builder compressionConfig = CompressionConfig.enable(true);
+            compressionConfig.minSize(config.getCompressionMinSize());
+            compressionConfig.minRatio(config.getCompressionMinRatio());
+            builder.compressionConfig(compressionConfig);
+        }
+        
+        // if null we take the default transcoder
+        if (config.getTranscoder() != null) {
+            builder.transcoder(config.getTranscoder());
+        }
+        
+        builder.ioConfig(IoConfig.enableMutationTokens(config.isMutationTokensEnabled())
+                .configPollInterval(ofMillis(config.getConfigPollInterval()))
+                .idleHttpConnectionTimeout(ofMillis(config.getIdleHttpConnectionTimeout()))
+                .enableTcpKeepAlives(config.isEnableTcpKeepAlives())
+                .tcpKeepAliveTime(ofMillis(config.getTcpKeepAliveTime()))
+                .enableDnsSrv(config.isEnableDnsSrv())
+                .networkResolution(config.getNetworkResolution()));
+        
+        final long connectTimeout = config.getConnectTimeout() != null 
+                ? config.getConnectTimeout() 
+                : Long.parseLong(getConfig("connectTimeout"));
+        final long kvTimeout = config.getKvTimeout() != null
+                ? config.getKvTimeout()
+                : Long.parseLong(getConfig("kvTimeout"));
+        
+        builder.timeoutConfig(TimeoutConfig
+                .connectTimeout(ofMillis(connectTimeout))
+                .kvTimeout(ofMillis(kvTimeout))
+                .queryTimeout(ofMillis(config.getQueryTimeout()))
+                .analyticsTimeout(ofMillis(config.getAnalyticsTimeout()))
+                .disconnectTimeout(ofMillis(config.getDisconnectTimeout()))
+                .viewTimeout(ofMillis(config.getViewTimeout()))
+                .searchTimeout(ofMillis(config.getSearchTimeout()))
+        );
         builder.ioEnvironment(IoEnvironment.builder().eventLoopThreadCount(
                 Integer.parseInt(getConfig("ioPoolSize"))));
 
