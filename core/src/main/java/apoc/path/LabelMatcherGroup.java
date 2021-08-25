@@ -3,6 +3,10 @@ package apoc.path;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.traversal.Evaluation;
 
+import java.util.regex.Matcher;
+
+import static apoc.path.PathExplorer.PIPE_SEPARATOR;
+import static apoc.path.PropertyMatcher.LABEL_TYPE_PATTERN;
 import static org.neo4j.graphdb.traversal.Evaluation.*;
 
 /**
@@ -22,21 +26,29 @@ public class LabelMatcherGroup {
     private LabelMatcher endNodeMatcher = new LabelMatcher();
     private LabelMatcher terminatorNodeMatcher = new LabelMatcher();
 
-    public LabelMatcherGroup addLabels(String fullFilterString) {
+
+    public LabelMatcherGroup addLabels(String fullFilterString, String nodePropFilter) {
         if (fullFilterString !=  null && !fullFilterString.isEmpty()) {
-            String[] elements = fullFilterString.split("\\|");
+            // not allow || split
+            String[] elements = fullFilterString.split(PIPE_SEPARATOR);
 
             for (String filterString : elements) {
-                addLabel(filterString);
+                addLabel(filterString, nodePropFilter);
             }
         }
 
         return this;
     }
 
-    public LabelMatcherGroup addLabel(String filterString) {
+    public LabelMatcherGroup addLabel(String filterString, String nodePropFilter) {
         if (filterString !=  null && !filterString.isEmpty()) {
             LabelMatcher matcher;
+            final Matcher regExMatcher = LABEL_TYPE_PATTERN.matcher(filterString);
+            String props = nodePropFilter;
+            if (regExMatcher.matches()) {
+                filterString = regExMatcher.group("labelOrType");
+                props = regExMatcher.group("props");
+            }
 
             char operator = filterString.charAt(0);
 
@@ -61,7 +73,7 @@ public class LabelMatcherGroup {
                     matcher = whitelistMatcher;
             }
 
-            matcher.addLabel(filterString);
+            matcher.addLabel(filterString, props);
         }
 
         return this;

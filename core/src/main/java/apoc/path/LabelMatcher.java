@@ -1,8 +1,11 @@
 package apoc.path;
 
 import org.neo4j.graphdb.Node;
+import org.neo4j.internal.helpers.collection.Pair;
 
 import java.util.*;
+
+import static apoc.path.PropertyMatcher.matchesPropertyByLabel;
 
 /**
  * A generic label matcher which evaluates whether or not a node has at least one of the labels added on the matcher.
@@ -19,33 +22,13 @@ import java.util.*;
  * Please strip these symbols from the start of each label before adding to the matcher.
  */
 public class LabelMatcher {
-    private List<String> labels = new ArrayList<>();
-    private List<List<String>> compoundLabels;
+    private List<Pair<String, String>> labels = new ArrayList<>();
+    private List<Pair<List<String>, String>> compoundLabels;
 
-    private static LabelMatcher ACCEPTS_ALL_LABEL_MATCHER = new LabelMatcher() {
-        @Override
-        public boolean matchesLabels(Node node) {
-            return true;
-        }
-
-        @Override
-        public LabelMatcher addLabel(String label) {
-            return this; // no-op
-        }
-
-        @Override
-        public boolean isEmpty() {
-            return false;
-        }
-    };
-
-    public static LabelMatcher acceptsAllLabelMatcher() {
-        return ACCEPTS_ALL_LABEL_MATCHER;
-    }
-
-    public LabelMatcher addLabel(String label) {
+    public LabelMatcher addLabel(String label, String props) {
         if ("*".equals(label)) {
-            return ACCEPTS_ALL_LABEL_MATCHER;
+            labels = Collections.singletonList(Pair.of("*", props));
+            return this;
         }
 
         if (label.charAt(0) == ':') {
@@ -54,32 +37,38 @@ public class LabelMatcher {
 
         String[] elements = label.split(":");
         if (elements.length == 1) {
-            labels.add(label);
+            labels.add(Pair.of(label, props));
         } else if (elements.length > 1) {
             if (compoundLabels == null) {
                 compoundLabels = new ArrayList<>();
             }
 
-            compoundLabels.add(Arrays.asList(elements));
+            compoundLabels.add(Pair.of(Arrays.asList(elements), props));
         }
 
         return this;
     }
 
     public boolean matchesLabels(Node node) {
+        if (labels.size() == 1 && labels.get(0).first().equals("*")) {
+            return matchesPropertyByLabel(node, labels.get(0).other());
+        }
+        
         Set<String> nodeLabels = new HashSet<>();
         node.getLabels().forEach(label -> nodeLabels.add(label.name()));
 
-        for ( String label : labels ) {
+        for ( Pair<String, String> labelPair : labels ) {
+            final String label = labelPair.first();
             if (nodeLabels.contains(label)) {
-                return true;
+                return matchesPropertyByLabel(node, labelPair.other());
             }
         }
 
         if (compoundLabels != null) {
-            for (List<String> compoundLabel : compoundLabels) {
+            for (Pair<List<String>, String> compoundLabelPair : compoundLabels) {
+                final List<String> compoundLabel = compoundLabelPair.first();
                 if (nodeLabels.containsAll(compoundLabel)) {
-                    return true;
+                    return matchesPropertyByLabel(node, compoundLabelPair.other()); 
                 }
             }
         }

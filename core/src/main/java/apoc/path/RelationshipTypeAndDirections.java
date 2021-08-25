@@ -1,12 +1,16 @@
 package apoc.path;
 
+import org.apache.commons.lang3.tuple.Triple;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.internal.helpers.collection.Pair;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
 
+import static apoc.path.PathExplorer.PIPE_SEPARATOR;
+import static apoc.path.PropertyMatcher.LABEL_TYPE_PATTERN;
 import static org.neo4j.graphdb.Direction.BOTH;
 import static org.neo4j.graphdb.Direction.INCOMING;
 import static org.neo4j.graphdb.Direction.OUTGOING;
@@ -31,6 +35,26 @@ public abstract class RelationshipTypeAndDirections {
         }
     }
 
+	public static List<Triple<RelationshipType, Direction, String>> parseTriple(String pathFilter, String relPropFilter) {
+		List<Triple<RelationshipType, Direction, String>> relsAndDirs = new ArrayList<>();
+		if (pathFilter == null) {
+			relsAndDirs.add(Triple.of(null, BOTH, null));
+		} else {
+			String[] defs = pathFilter.split(PIPE_SEPARATOR);
+			for (String def : defs) {
+				final Matcher matcher = LABEL_TYPE_PATTERN.matcher(def);
+				String props = relPropFilter;
+				if (matcher.matches()) {
+					def = matcher.group("labelOrType");
+					props = matcher.group("props");
+				}
+				relsAndDirs.add(Triple.of(relationshipTypeFor(def), directionFor(def), props));
+			}
+		}
+		return relsAndDirs;
+	}
+
+	// todo - maybe is worth to use parseTriple() with props for all methods called by this parse(). Evaluate another separated issue
 	public static List<Pair<RelationshipType, Direction>> parse(String pathFilter) {
 		List<Pair<RelationshipType, Direction>> relsAndDirs = new ArrayList<>();
 		if (pathFilter == null) {

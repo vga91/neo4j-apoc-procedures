@@ -311,6 +311,7 @@ public class Neighbors {
                 .stream(Spliterators.spliteratorUnknownSize(seen[distance.intValue() - 1].iterator(), Spliterator.SORTED), false).map(y -> new NodeResult(tx.getNodeById(y)));
     }
 
+    // todo - vale la pena farlo pure qua?
     @Procedure("apoc.neighbors.athop.count")
     @Description("apoc.neighbors.athop.count(node, rel-direction-pattern, distance) - returns distinct nodes of the given relationships in the pattern at a distance, can use '>' or '<' for all outgoing or incoming relationships")
     public Stream<LongResult> neighborsAtHopCount(@Name("node") Node node, @Name(value = "types", defaultValue = "") String types, @Name(value="distance", defaultValue = "1") Long distance) {

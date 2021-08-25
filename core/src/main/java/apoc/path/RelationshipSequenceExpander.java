@@ -1,14 +1,22 @@
 package apoc.path;
 
-import org.neo4j.graphdb.*;
+import org.apache.commons.lang3.tuple.Triple;
+import org.neo4j.graphdb.Direction;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Path;
+import org.neo4j.graphdb.PathExpander;
+import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.traversal.BranchState;
+import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.helpers.collection.NestingIterator;
-import org.neo4j.internal.helpers.collection.Pair;
 
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+
+import static apoc.path.PathExplorer.COMMA_SEPARATOR;
 
 /**
  * An expander for repeating sequences of relationships. The sequence provided should be a string consisting of
@@ -22,19 +30,18 @@ import java.util.List;
  * The remaining relationship steps will be used as the repeating relationship sequence.
  */
 public class RelationshipSequenceExpander implements PathExpander {
-    private final List<List<Pair<RelationshipType, Direction>>> relSequences = new ArrayList<>();
-    private List<Pair<RelationshipType, Direction>> initialRels = null;
+    private final List<List<Triple<RelationshipType, Direction, String>>> relSequences = new ArrayList<>();
+    private List<Triple<RelationshipType, Direction, String>> initialRels = null;
 
-
-    public RelationshipSequenceExpander(String relSequenceString, boolean beginSequenceAtStart) {
+    public RelationshipSequenceExpander(String relSequenceString, boolean beginSequenceAtStart, String relPropFilter) {
         int index = 0;
 
-        for (String sequenceStep : relSequenceString.split(",")) {
+        for (String sequenceStep : relSequenceString.split(COMMA_SEPARATOR)) {
             sequenceStep = sequenceStep.trim();
-            Iterable<Pair<RelationshipType, Direction>> relDirIterable = RelationshipTypeAndDirections.parse(sequenceStep);
+            Iterable<Triple<RelationshipType, Direction, String>> relDirIterable = RelationshipTypeAndDirections.parseTriple(sequenceStep, relPropFilter);
 
-            List<Pair<RelationshipType, Direction>> stepRels = new ArrayList<>();
-            for (Pair<RelationshipType, Direction> pair : relDirIterable) {
+            List<Triple<RelationshipType, Direction, String>> stepRels = new ArrayList<>();
+            for (Triple<RelationshipType, Direction, String> pair : relDirIterable) {
                 stepRels.add(pair);
             }
 
@@ -48,15 +55,15 @@ public class RelationshipSequenceExpander implements PathExpander {
         }
     }
 
-    public RelationshipSequenceExpander(List<String> relSequenceList, boolean beginSequenceAtStart) {
+    public RelationshipSequenceExpander(List<String> relSequenceList, boolean beginSequenceAtStart, String relPropFilter) {
         int index = 0;
 
         for (String sequenceStep : relSequenceList) {
             sequenceStep = sequenceStep.trim();
-            Iterable<Pair<RelationshipType, Direction>> relDirIterable = RelationshipTypeAndDirections.parse(sequenceStep);
+            Iterable<Triple<RelationshipType, Direction, String>> relDirIterable = RelationshipTypeAndDirections.parseTriple(sequenceStep, relPropFilter);
 
-            List<Pair<RelationshipType, Direction>> stepRels = new ArrayList<>();
-            for (Pair<RelationshipType, Direction> pair : relDirIterable) {
+            List<Triple<RelationshipType, Direction, String>> stepRels = new ArrayList<>();
+            for (Triple<RelationshipType, Direction, String> pair : relDirIterable) {
                 stepRels.add(pair);
             }
 
@@ -74,7 +81,7 @@ public class RelationshipSequenceExpander implements PathExpander {
     public Iterable<Relationship> expand( Path path, BranchState state ) {
         final Node node = path.endNode();
         int depth = path.length();
-        List<Pair<RelationshipType, Direction>> stepRels;
+        List<Triple<RelationshipType, Direction, String>> stepRels;
 
         if (depth == 0 && initialRels != null) {
             stepRels = initialRels;
@@ -83,22 +90,25 @@ public class RelationshipSequenceExpander implements PathExpander {
         }
 
         return Iterators.asList(
-         new NestingIterator<Relationship, Pair<RelationshipType, Direction>>(
+        new NestingIterator<>(
                 stepRels.iterator() )
         {
             @Override
             protected Iterator<Relationship> createNestedIterator(
-                    Pair<RelationshipType, Direction> entry )
+                    Triple<RelationshipType, Direction, String> entry )
             {
-                RelationshipType type = entry.first();
-                Direction dir = entry.other();
+                RelationshipType type = entry.getLeft();
+                Direction dir = entry.getMiddle();
+                String props = entry.getRight();
+                final Iterable<Relationship> iterable;
                 if (type != null) {
-                    return ((dir == Direction.BOTH) ? node.getRelationships(type) :
-                            node.getRelationships(dir, type)).iterator();
+                        iterable = (dir == Direction.BOTH) ? node.getRelationships(type) :
+                            node.getRelationships(dir, type);
                 } else {
-                    return ((dir == Direction.BOTH) ? node.getRelationships() :
-                            node.getRelationships(dir)).iterator();
+                        iterable = (dir == Direction.BOTH) ? node.getRelationships() :
+                         node.getRelationships(dir);
                 }
+                return Iterables.filter(rel -> PropertyMatcher.matchesPropertyByLabel(rel, props), iterable).iterator();
             }
         });
     }

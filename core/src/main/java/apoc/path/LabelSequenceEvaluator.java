@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-
+import static apoc.path.PathExplorer.COMMA_SEPARATOR;
 import static org.neo4j.graphdb.traversal.Evaluation.EXCLUDE_AND_CONTINUE;
 import static org.neo4j.graphdb.traversal.Evaluation.INCLUDE_AND_CONTINUE;
 
@@ -23,31 +23,31 @@ public class LabelSequenceEvaluator implements Evaluator {
     private boolean beginSequenceAtStart;
     private long minLevel = -1;
 
-    public LabelSequenceEvaluator(String labelSequence, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel) {
+    public LabelSequenceEvaluator(String labelSequence, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter) {
         List<String> labelSequenceList;
 
         // parse sequence
         if (labelSequence != null && !labelSequence.isEmpty()) {
-            labelSequenceList = Arrays.asList(labelSequence.split(","));
+            labelSequenceList = Arrays.asList(labelSequence.split(COMMA_SEPARATOR));
         } else {
             labelSequenceList = Collections.emptyList();
         }
 
-        initialize(labelSequenceList, filterStartNode, beginSequenceAtStart, minLevel);
+        initialize(labelSequenceList, filterStartNode, beginSequenceAtStart, minLevel, nodePropFilter);
     }
 
-    public LabelSequenceEvaluator(List<String> labelSequenceList, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel) {
-        initialize(labelSequenceList, filterStartNode, beginSequenceAtStart, minLevel);
+    public LabelSequenceEvaluator(List<String> labelSequenceList, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter) {
+        initialize(labelSequenceList, filterStartNode, beginSequenceAtStart, minLevel, nodePropFilter);
     }
 
-    private void initialize(List<String> labelSequenceList, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel) {
+    private void initialize(List<String> labelSequenceList, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter) {
         this.filterStartNode = filterStartNode;
         this.beginSequenceAtStart = beginSequenceAtStart;
         this.minLevel = minLevel;
         sequenceMatchers = new ArrayList<>(labelSequenceList.size());
 
         for (String labelFilterString : labelSequenceList) {
-            LabelMatcherGroup matcherGroup = new LabelMatcherGroup().addLabels(labelFilterString.trim());
+            LabelMatcherGroup matcherGroup = new LabelMatcherGroup().addLabels(labelFilterString.trim(), nodePropFilter);
             sequenceMatchers.add(matcherGroup);
             endNodesOnly = endNodesOnly || matcherGroup.isEndNodesOnly();
         }

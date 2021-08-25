@@ -25,6 +25,8 @@ import java.util.stream.StreamSupport;
 import static apoc.path.PathExplorer.NodeFilter.*;
 
 public class PathExplorer {
+	public static final String PIPE_SEPARATOR = "\\|(?![^{]*})";
+	public static final String COMMA_SEPARATOR = ",(?![^{]*})";
 	public static final Uniqueness UNIQUENESS = Uniqueness.RELATIONSHIP_PATH;
 	public static final boolean BFS = true;
 	@Context
@@ -41,7 +43,7 @@ public class PathExplorer {
 			                   , @Name("minLevel") long minLevel
 			                   , @Name("maxLevel") long maxLevel ) throws Exception {
 		List<Node> nodes = startToNodes(start);
-		return explorePathPrivate(nodes, pathFilter, labelFilter, minLevel, maxLevel, BFS, UNIQUENESS, false, -1, null, null, true).map( PathResult::new );
+		return explorePathPrivate(nodes, pathFilter, labelFilter, minLevel, maxLevel, BFS, UNIQUENESS, false, -1, null, null, true, null, null).map( PathResult::new );
 	}
 
 	//
@@ -52,6 +54,9 @@ public class PathExplorer {
 		return expandConfigPrivate(start, config).map( PathResult::new );
 	}
 
+	
+	// todo - controllare se non ci sono altre procedure che richiamano ste cose
+	
 	@Procedure("apoc.path.subgraphNodes")
 	@Description("apoc.path.subgraphNodes(startNode <id>|Node|list, {maxLevel,relationshipFilter,labelFilter,bfs:true, filterStartNode:false, limit:-1, optional:false, endNodes:[], terminatorNodes:[], sequence, beginSequenceAtStart:true}) yield node - expand the subgraph nodes reachable from start node following relationships to max-level adhering to the label filters")
 	public Stream<NodeResult> subgraphNodes(@Name("start") Object start, @Name("config") Map<String,Object> config) throws Exception {
@@ -146,11 +151,15 @@ public class PathExplorer {
 		boolean optional = Util.toBoolean(config.getOrDefault("optional", false));
 		String sequence = (String) config.getOrDefault("sequence", null);
 		boolean beginSequenceAtStart = Util.toBoolean(config.getOrDefault("beginSequenceAtStart", true));
+		
+		String nodePropFilter = (String) config.get("nodePropFilter");
+		String relPropFilter = (String) config.get("relPropFilter");
 
 		List<Node> endNodes = startToNodes(config.get("endNodes"));
 		List<Node> terminatorNodes = startToNodes(config.get("terminatorNodes"));
 		List<Node> whitelistNodes = startToNodes(config.get("whitelistNodes"));
 		List<Node> blacklistNodes = startToNodes(config.get("blacklistNodes"));
+		// todo - questo che fa?
 		EnumMap<NodeFilter, List<Node>> nodeFilter = new EnumMap<>(NodeFilter.class);
 
 		if (endNodes != null && !endNodes.isEmpty()) {
@@ -166,10 +175,11 @@ public class PathExplorer {
 		}
 
 		if (blacklistNodes != null && !blacklistNodes.isEmpty()) {
+			// todo - potrei metterlo direttamente qua?...
 			nodeFilter.put(BLACKLIST_NODES, blacklistNodes);
 		}
 
-		Stream<Path> results = explorePathPrivate(nodes, relationshipFilter, labelFilter, minLevel, maxLevel, bfs, getUniqueness(uniqueness), filterStartNode, limit, nodeFilter, sequence, beginSequenceAtStart);
+		Stream<Path> results = explorePathPrivate(nodes, relationshipFilter, labelFilter, minLevel, maxLevel, bfs, getUniqueness(uniqueness), filterStartNode, limit, nodeFilter, sequence, beginSequenceAtStart, nodePropFilter, relPropFilter );
 
 		if (optional) {
 			return optionalStream(results);
@@ -189,9 +199,12 @@ public class PathExplorer {
 											long limit,
 											EnumMap<NodeFilter, List<Node>> nodeFilter,
 											String sequence,
-											boolean beginSequenceAtStart) {
+											boolean beginSequenceAtStart,
+											String nodePropFilter,
+											String relPropFilter) {
 
-		Traverser traverser = traverse(tx.traversalDescription(), startNodes, pathFilter, labelFilter, minLevel, maxLevel, uniqueness,bfs,filterStartNode, nodeFilter, sequence, beginSequenceAtStart);
+		// todo - Traverser è un Iterable<Path>
+		Traverser traverser = traverse(tx.traversalDescription(), startNodes, pathFilter, labelFilter, minLevel, maxLevel, uniqueness,bfs,filterStartNode, nodeFilter, sequence, beginSequenceAtStart, nodePropFilter, relPropFilter/*, sequencePropFilter*/);
 
 		if (limit == -1) {
 			return Iterables.stream(traverser);
@@ -230,7 +243,9 @@ public class PathExplorer {
 									 boolean filterStartNode,
 									 EnumMap<NodeFilter, List<Node>> nodeFilter,
 									 String sequence,
-									 boolean beginSequenceAtStart) {
+									 boolean beginSequenceAtStart,
+									 String nodePropFilter,
+									 String relPropFilter) {
 		TraversalDescription td = traversalDescription;
 		// based on the pathFilter definition now the possible relationships and directions must be shown
 
@@ -238,24 +253,24 @@ public class PathExplorer {
 
 		// if `sequence` is present, it overrides `labelFilter` and `relationshipFilter`
 		if (sequence != null && !sequence.trim().isEmpty())	{
-			String[] sequenceSteps = sequence.split(",");
+			String[] sequenceSteps = sequence.split(COMMA_SEPARATOR);
 			List<String> labelSequenceList = new ArrayList<>();
 			List<String> relSequenceList = new ArrayList<>();
 
-			for (int index = 0; index < sequenceSteps.length; index++) {
+			for (int index = 0; index < sequenceSteps.length; index++) { // todo - che fa sto fatto?
 				List<String> seq = (beginSequenceAtStart ? index : index - 1) % 2 == 0 ? labelSequenceList : relSequenceList;
 				seq.add(sequenceSteps[index]);
 			}
 
-			td = td.expand(new RelationshipSequenceExpander(relSequenceList, beginSequenceAtStart));
-			td = td.evaluator(new LabelSequenceEvaluator(labelSequenceList, filterStartNode, beginSequenceAtStart, (int) minLevel));
+			td = td.expand(new RelationshipSequenceExpander(relSequenceList, beginSequenceAtStart, relPropFilter));
+			td = td.evaluator(new LabelSequenceEvaluator(labelSequenceList, filterStartNode, beginSequenceAtStart, (int) minLevel, nodePropFilter));
 		} else {
 			if (pathFilter != null && !pathFilter.trim().isEmpty()) {
-				td = td.expand(new RelationshipSequenceExpander(pathFilter.trim(), beginSequenceAtStart));
+				td = td.expand(new RelationshipSequenceExpander(pathFilter.trim(), beginSequenceAtStart, relPropFilter));
 			}
 
 			if (labelFilter != null && sequence == null && !labelFilter.trim().isEmpty()) {
-				td = td.evaluator(new LabelSequenceEvaluator(labelFilter.trim(), filterStartNode, beginSequenceAtStart, (int) minLevel));
+				td = td.evaluator(new LabelSequenceEvaluator(labelFilter.trim(), filterStartNode, beginSequenceAtStart, (int) minLevel, nodePropFilter));
 			}
 		}
 
@@ -277,11 +292,13 @@ public class PathExplorer {
 				whitelistNodes = Collections.EMPTY_LIST;
 			}
 
+			// todo - qua non entra mai..
 			if (!blacklistNodes.isEmpty()) {
 				td = td.evaluator(NodeEvaluators.blacklistNodeEvaluator(filterStartNode, (int) minLevel, blacklistNodes));
 			}
 
 			Evaluator endAndTerminatorNodeEvaluator = NodeEvaluators.endAndTerminatorNodeEvaluator(filterStartNode, (int) minLevel, endNodes, terminatorNodes);
+			// todo - qua non entra mai..
 			if (endAndTerminatorNodeEvaluator != null) {
 				td = td.evaluator(endAndTerminatorNodeEvaluator);
 			}
