@@ -5,7 +5,7 @@ import org.neo4j.internal.helpers.collection.Pair;
 
 import java.util.*;
 
-import static apoc.path.PropertyMatcher.matchesPropertyByLabel;
+import static apoc.path.PropertyMatcher.matchesProperties;
 
 /**
  * A generic label matcher which evaluates whether or not a node has at least one of the labels added on the matcher.
@@ -51,7 +51,7 @@ public class LabelMatcher {
 
     public boolean matchesLabels(Node node) {
         if (labels.size() == 1 && labels.get(0).first().equals("*")) {
-            return matchesPropertyByLabel(node, labels.get(0).other());
+            return matchesProperties(node, labels.get(0).other());
         }
         
         Set<String> nodeLabels = new HashSet<>();
@@ -60,7 +60,7 @@ public class LabelMatcher {
         for ( Pair<String, String> labelPair : labels ) {
             final String label = labelPair.first();
             if (nodeLabels.contains(label)) {
-                return matchesPropertyByLabel(node, labelPair.other());
+                return matchesProperties(node, labelPair.other());
             }
         }
 
@@ -68,7 +68,7 @@ public class LabelMatcher {
             for (Pair<List<String>, String> compoundLabelPair : compoundLabels) {
                 final List<String> compoundLabel = compoundLabelPair.first();
                 if (nodeLabels.containsAll(compoundLabel)) {
-                    return matchesPropertyByLabel(node, compoundLabelPair.other()); 
+                    return matchesProperties(node, compoundLabelPair.other()); 
                 }
             }
         }

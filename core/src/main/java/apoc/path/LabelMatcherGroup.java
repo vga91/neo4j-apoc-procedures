@@ -7,6 +7,7 @@ import java.util.regex.Matcher;
 
 import static apoc.path.PathExplorer.PIPE_SEPARATOR;
 import static apoc.path.PropertyMatcher.LABEL_TYPE_PATTERN;
+import static apoc.path.PropertyMatcher.getPropsMatched;
 import static org.neo4j.graphdb.traversal.Evaluation.*;
 
 /**
@@ -47,7 +48,7 @@ public class LabelMatcherGroup {
             String props = nodePropFilter;
             if (regExMatcher.matches()) {
                 filterString = regExMatcher.group("labelOrType");
-                props = regExMatcher.group("props");
+                props = getPropsMatched(regExMatcher, props);
             }
 
             char operator = filterString.charAt(0);

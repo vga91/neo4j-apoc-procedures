@@ -11,6 +11,7 @@ import java.util.regex.Matcher;
 
 import static apoc.path.PathExplorer.PIPE_SEPARATOR;
 import static apoc.path.PropertyMatcher.LABEL_TYPE_PATTERN;
+import static apoc.path.PropertyMatcher.getPropsMatched;
 import static org.neo4j.graphdb.Direction.BOTH;
 import static org.neo4j.graphdb.Direction.INCOMING;
 import static org.neo4j.graphdb.Direction.OUTGOING;
@@ -42,11 +43,11 @@ public abstract class RelationshipTypeAndDirections {
 		} else {
 			String[] defs = pathFilter.split(PIPE_SEPARATOR);
 			for (String def : defs) {
-				final Matcher matcher = LABEL_TYPE_PATTERN.matcher(def);
+				final Matcher regExMatcher = LABEL_TYPE_PATTERN.matcher(def);
 				String props = relPropFilter;
-				if (matcher.matches()) {
-					def = matcher.group("labelOrType");
-					props = matcher.group("props");
+				if (regExMatcher.matches()) {
+					def = regExMatcher.group("labelOrType");
+					props = getPropsMatched(regExMatcher, props);
 				}
 				relsAndDirs.add(Triple.of(relationshipTypeFor(def), directionFor(def), props));
 			}

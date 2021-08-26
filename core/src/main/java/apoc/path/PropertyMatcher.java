@@ -31,7 +31,7 @@ public class PropertyMatcher {
     // regex for prop1 = value1 / prop1 != value1 and so on
     public static final Pattern FIELD_PATTERN = Pattern.compile("(?<prop>.[^!><]+)(?<operator>=|>=|<=|<|>|!=)(?<value>.+)");
     
-    public static boolean matchesPropertyByLabel(Entity entity, String propertyString) {
+    public static boolean matchesProperties(Entity entity, String propertyString) {
         // when property part or relPropFilter / nodePropFilter node is not present
         if (propertyString == null) {
             return true;
@@ -41,12 +41,11 @@ public class PropertyMatcher {
 
         return Arrays.stream(splitOrs).anyMatch(orItem -> {
             final String[] splitAnds = orItem.split("\\s*&\\s*");
-
-            return Arrays.stream(splitAnds).allMatch(andItem -> metodoMatch(andItem, entity));
+            return Arrays.stream(splitAnds).allMatch(andItem -> matchProperty(andItem, entity));
         });
     }
 
-    private static boolean metodoMatch(String orItem, Entity entity) {
+    private static boolean matchProperty(String orItem, Entity entity) {
         if (orItem.startsWith("+")) {
             return entity.hasProperty(orItem.substring(1));
         } 
@@ -64,13 +63,17 @@ public class PropertyMatcher {
             if (nodeProperty == null) {
                 return false;
             }
+            final boolean isComparable = nodeProperty instanceof Comparable;
+            final Object valueConverted = convertValue(value, nodeProperty.getClass());
             switch (operator) {
                 case ">":
-                    return nodeProperty instanceof Comparable 
-                            && ((Comparable) nodeProperty).compareTo(convertValue(value, nodeProperty.getClass())) > 0;
+                    return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) > 0;
+                case ">=":
+                    return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) >= 0;
                 case "<":
-                    return nodeProperty instanceof Comparable 
-                                && ((Comparable) nodeProperty).compareTo(convertValue(value, nodeProperty.getClass())) < 0;
+                    return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) < 0;
+                case "<=":
+                    return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) <= 0;
                 case "!=":
                     return !checkEquality(value, nodeProperty);
                 default: // '=' case:
@@ -131,9 +134,17 @@ public class PropertyMatcher {
         if (nodeProperty == DurationValue.class) {
             return DurationValue.parse(value).asObjectCopy();
         }
-        if (nodeProperty == Point.class) {
+        if (nodeProperty == PointValue.class) {
             return PointValue.parse(value);
         }
         return value;
-    } 
+    }
+
+    public static String getPropsMatched(Matcher matcher, String props) {
+        final String propsMatched = matcher.group("props");
+        if (propsMatched != null) {
+            props = propsMatched;
+        }
+        return props;
+    }
 }

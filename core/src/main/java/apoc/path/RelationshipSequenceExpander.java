@@ -108,7 +108,7 @@ public class RelationshipSequenceExpander implements PathExpander {
                         iterable = (dir == Direction.BOTH) ? node.getRelationships() :
                          node.getRelationships(dir);
                 }
-                return Iterables.filter(rel -> PropertyMatcher.matchesPropertyByLabel(rel, props), iterable).iterator();
+                return Iterables.filter(rel -> PropertyMatcher.matchesProperties(rel, props), iterable).iterator();
             }
         });
     }
