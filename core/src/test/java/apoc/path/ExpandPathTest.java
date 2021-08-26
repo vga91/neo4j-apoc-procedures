@@ -456,7 +456,7 @@ public class ExpandPathTest {
 				"MATCH (m:Movie {title: 'The Matrix'}) \n" +
 						"CALL apoc.path.expandConfig(m,{sequence: 'Movie,ACTED_IN,Person,ACTED_IN,>*', maxLevel: 2})   \n" +
 						"yield path return path", 14);
-		
+
 		TestUtil.testCall(db,
 				"MATCH (m:Movie {title: 'The Matrix'}) \n" +
 						"CALL apoc.path.expandConfig(m,{sequence: \"Movie,ACTED_IN,Person,ACTED_IN,>*{title=The Devil's Advocate}\", maxLevel: 2})   \n" +
@@ -493,7 +493,7 @@ public class ExpandPathTest {
 
 	@Test
 	public void testRelAndNodePropFilter() {
-		db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman'] SET c:Western, c.propNull = null");
+		db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman'] SET c:Western");
 		
 		TestUtil.testCallEmpty(db,
 				"MATCH (k:Person {name:'Keanu Reeves'}) " +
@@ -584,6 +584,8 @@ public class ExpandPathTest {
 	
 	@Test
 	public void testMultipleRelWithPropFilter() {
+		db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman'] SET c:Western");
+		
 		TestUtil.testResult(db,
 				"MATCH (k:Person {name:'Keanu Reeves'})\n" +
 						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN{+roles}|PRODUCED|DIRECTED', labelFilter:'/Western', uniqueness: 'NODE_GLOBAL', minLevel:3}) " +

@@ -2,8 +2,8 @@ package apoc.path;
 
 import apoc.convert.Convert;
 import apoc.meta.Meta;
+import apoc.util.Util;
 import org.neo4j.graphdb.Entity;
-import org.neo4j.graphdb.spatial.Point;
 import org.neo4j.values.storable.DateTimeValue;
 import org.neo4j.values.storable.DateValue;
 import org.neo4j.values.storable.DurationValue;
@@ -12,12 +12,7 @@ import org.neo4j.values.storable.LocalTimeValue;
 import org.neo4j.values.storable.PointValue;
 import org.neo4j.values.storable.TimeValue;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.OffsetTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -58,13 +53,16 @@ public class PropertyMatcher {
             final String propName = matcher.group("prop");
             final String value = matcher.group("value");
             final String operator = matcher.group("operator");
-            final Object nodeProperty = entity.getProperty(propName, null);
+            Object nodeProperty = entity.getProperty(propName, null);
             // when property doesn't exists
             if (nodeProperty == null) {
                 return false;
             }
             final boolean isComparable = nodeProperty instanceof Comparable;
             final Object valueConverted = convertValue(value, nodeProperty.getClass());
+            if (nodeProperty.getClass().isArray()) {
+                nodeProperty = (List<Object>) Convert.convertToList(nodeProperty);
+            }
             switch (operator) {
                 case ">":
                     return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) > 0;
@@ -75,69 +73,46 @@ public class PropertyMatcher {
                 case "<=":
                     return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) <= 0;
                 case "!=":
-                    return !checkEquality(value, nodeProperty);
+                    return !nodeProperty.equals(valueConverted);
                 default: // '=' case:
-                    return checkEquality(value, nodeProperty);
+                    return nodeProperty.equals(valueConverted);
             }
         }
         
-        // todo - qua quando ci va? (nb: true significa matchato)
-        return true;
-    }
-
-    private static boolean checkEquality(String value, Object nodeProperty) {
-        final Class<?> propertyClass = nodeProperty.getClass();
-        if (propertyClass.isArray()) {
-            final List<Object> propertyList = (List<Object>) Convert.convertToList(nodeProperty);
-            final List<Object> valueList = Arrays.stream(value.split(",")).map(item -> convertValue(item, propertyClass.getComponentType())).collect(Collectors.toList());
-            return valueList.equals(propertyList);
-        } else {
-            return convertValue(value, propertyClass).equals(nodeProperty);
-        }
+        return false;
     }
 
     private static Object convertValue(String value, Class<?> nodeProperty) {
-        nodeProperty = Meta.Types.primitivesMapping.getOrDefault(nodeProperty, nodeProperty);
-        if (nodeProperty == Long.class) {
-            return Long.valueOf(value);
+        // todo - evaluate reuse of Mapping.java from vga91:issue-1471  
+        final Meta.Types metaType = Meta.Types.of(nodeProperty);
+        switch (metaType) {
+            case POINT:
+                return PointValue.parse(value);
+            case LOCAL_DATE_TIME:
+                return LocalDateTimeValue.parse(value).asObjectCopy();
+            case LOCAL_TIME:
+                return LocalTimeValue.parse(value).asObjectCopy();
+            case DATE_TIME:
+                return DateTimeValue.parse(value, ZoneId::systemDefault).asObjectCopy();
+            case TIME:
+                return TimeValue.parse(value, ZoneId::systemDefault).asObjectCopy();
+            case DATE:
+                return DateValue.parse(value).asObjectCopy();
+            case DURATION:
+                return DurationValue.parse(value);
+            case INTEGER: 
+                return Util.toLong(value);
+            case FLOAT: 
+                return Util.toDouble(value);
+            case BOOLEAN: 
+                return Util.toBoolean(value);
+            case LIST:
+                return Arrays.stream(value.split(","))
+                        .map(item -> convertValue(item, nodeProperty.getComponentType()))
+                        .collect(Collectors.toList());
+            default:
+                return value;
         }
-        if (nodeProperty == Integer.class) {
-            return Integer.valueOf(value);
-        }
-        if (nodeProperty == Double.class) {
-            return Double.valueOf(value);
-        }
-        if (nodeProperty == Float.class) {
-            return Float.valueOf(value);
-        }
-        if (nodeProperty == Short.class) {
-            return Short.valueOf(value);
-        }
-        if (nodeProperty == Byte.class) {
-            return Byte.valueOf(value);
-        }
-        if (nodeProperty == LocalDate.class) {
-            return DateValue.parse(value).asObjectCopy();
-        }
-        if (nodeProperty == ZonedDateTime.class) {
-            return DateTimeValue.parse(value, ZoneId::systemDefault).asObjectCopy();
-        }
-        if (nodeProperty == LocalDateTime.class) {
-            return LocalDateTimeValue.parse(value).asObjectCopy();
-        }
-        if (nodeProperty == LocalTime.class) {
-            return LocalTimeValue.parse(value).asObjectCopy();
-        }
-        if (nodeProperty == OffsetTime.class) {
-            return TimeValue.parse(value, ZoneId::systemDefault).asObjectCopy();
-        }
-        if (nodeProperty == DurationValue.class) {
-            return DurationValue.parse(value).asObjectCopy();
-        }
-        if (nodeProperty == PointValue.class) {
-            return PointValue.parse(value);
-        }
-        return value;
     }
 
     public static String getPropsMatched(Matcher matcher, String props) {

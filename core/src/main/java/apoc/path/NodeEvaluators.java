@@ -87,14 +87,13 @@ public final class NodeEvaluators {
     private static class BlacklistNodeEvaluator extends PathExpanderNodeEvaluator {
         private Set<Node> blacklistSet;
 
-        // todo - qui potrei arrivarci in qualche modo..
         public BlacklistNodeEvaluator(boolean filterStartNode, int minLevel, List<Node> blacklistNodes) {
             super(filterStartNode, minLevel);
             blacklistSet = new HashSet<>(blacklistNodes);
         }
-// todo - ah, fa l'end node..  TODO!!! - non c'è nemmeno un test con blacklistNodes, forse potrei farlo?
+
         @Override
-        public Evaluation evaluate(Path path) { // todo - potrei metterlo qua... --> https://stackoverflow.com/questions/33596624/neo4j-node-property-comparison-during-traversal
+        public Evaluation evaluate(Path path) {
             return path.length() == 0 && !filterStartNode ? Evaluation.INCLUDE_AND_CONTINUE :
                     blacklistSet.contains(path.endNode()) ? Evaluation.EXCLUDE_AND_PRUNE : Evaluation.INCLUDE_AND_CONTINUE;
         }
