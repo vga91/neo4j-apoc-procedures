@@ -53,9 +53,6 @@ public class PathExplorer {
 	public Stream<PathResult> expandConfig(@Name("start") Object start, @Name("config") Map<String,Object> config) throws Exception {
 		return expandConfigPrivate(start, config).map( PathResult::new );
 	}
-
-	
-	// todo - controllare se non ci sono altre procedure che richiamano ste cose
 	
 	@Procedure("apoc.path.subgraphNodes")
 	@Description("apoc.path.subgraphNodes(startNode <id>|Node|list, {maxLevel,relationshipFilter,labelFilter,bfs:true, filterStartNode:false, limit:-1, optional:false, endNodes:[], terminatorNodes:[], sequence, beginSequenceAtStart:true}) yield node - expand the subgraph nodes reachable from start node following relationships to max-level adhering to the label filters")
@@ -159,7 +156,6 @@ public class PathExplorer {
 		List<Node> terminatorNodes = startToNodes(config.get("terminatorNodes"));
 		List<Node> whitelistNodes = startToNodes(config.get("whitelistNodes"));
 		List<Node> blacklistNodes = startToNodes(config.get("blacklistNodes"));
-		// todo - questo che fa?
 		EnumMap<NodeFilter, List<Node>> nodeFilter = new EnumMap<>(NodeFilter.class);
 
 		if (endNodes != null && !endNodes.isEmpty()) {
@@ -175,7 +171,6 @@ public class PathExplorer {
 		}
 
 		if (blacklistNodes != null && !blacklistNodes.isEmpty()) {
-			// todo - potrei metterlo direttamente qua?...
 			nodeFilter.put(BLACKLIST_NODES, blacklistNodes);
 		}
 
@@ -203,7 +198,6 @@ public class PathExplorer {
 											String nodePropFilter,
 											String relPropFilter) {
 
-		// todo - Traverser è un Iterable<Path>
 		Traverser traverser = traverse(tx.traversalDescription(), startNodes, pathFilter, labelFilter, minLevel, maxLevel, uniqueness,bfs,filterStartNode, nodeFilter, sequence, beginSequenceAtStart, nodePropFilter, relPropFilter/*, sequencePropFilter*/);
 
 		if (limit == -1) {
@@ -257,7 +251,7 @@ public class PathExplorer {
 			List<String> labelSequenceList = new ArrayList<>();
 			List<String> relSequenceList = new ArrayList<>();
 
-			for (int index = 0; index < sequenceSteps.length; index++) { // todo - che fa sto fatto?
+			for (int index = 0; index < sequenceSteps.length; index++) {
 				List<String> seq = (beginSequenceAtStart ? index : index - 1) % 2 == 0 ? labelSequenceList : relSequenceList;
 				seq.add(sequenceSteps[index]);
 			}
@@ -292,13 +286,11 @@ public class PathExplorer {
 				whitelistNodes = Collections.EMPTY_LIST;
 			}
 
-			// todo - qua non entra mai..
 			if (!blacklistNodes.isEmpty()) {
 				td = td.evaluator(NodeEvaluators.blacklistNodeEvaluator(filterStartNode, (int) minLevel, blacklistNodes));
 			}
 
 			Evaluator endAndTerminatorNodeEvaluator = NodeEvaluators.endAndTerminatorNodeEvaluator(filterStartNode, (int) minLevel, endNodes, terminatorNodes);
-			// todo - qua non entra mai..
 			if (endAndTerminatorNodeEvaluator != null) {
 				td = td.evaluator(endAndTerminatorNodeEvaluator);
 			}
