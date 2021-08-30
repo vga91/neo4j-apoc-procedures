@@ -1,5 +1,6 @@
 package apoc.data;
 
+import org.apache.http.client.utils.URIUtils;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.UserFunction;
@@ -19,6 +20,7 @@ public class Extract {
     @Description("apoc.data.domain('url_or_email_address') YIELD domain - extract the domain name from a url or an email address. If nothing was found, yield null.")
     public String domain(final @Name("url_or_email_address") String value) {
         if (value != null) {
+            // --> this!!! URIUtils.extractHost(URI.create("http://www.b.dk")).getHostName()
             if (value.contains("@")) {
                 String[] tokens = value.split("[@/<>]");
                 for (int i = tokens.length - 1; i >= 0; i--) {

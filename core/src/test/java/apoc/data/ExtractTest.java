@@ -60,6 +60,24 @@ public class ExtractTest {
     }
 
     @Test
+    public void testUrl2() {
+        testCall(db, "RETURN apoc.data.domain('http://P.O.Ws') AS value",
+                row -> assertEquals("P.O.Ws", row.get("value")));
+    }
+
+    @Test
+    public void testUrl3() {
+        testCall(db, "RETURN apoc.data.domain('http://www.b.dk') AS value",
+                row -> assertEquals("www.b.dk", row.get("value")));
+    }
+
+    @Test
+    public void testUrl4() {
+        testCall(db, "RETURN apoc.data.domain('http://www.abajournal.com:80/') AS value",
+                row -> assertEquals("www.abajournal.com", row.get("value")));
+    }
+
+    @Test
     public void testQueryParameter() {
         testCall(db, "RETURN apoc.data.domain($param) AS value",
                 map("param", "www.foo.bar/baz"),

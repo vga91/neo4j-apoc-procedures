@@ -119,4 +119,16 @@ public class ExtractURLTest {
             map("param", "partial.com/foobar"),
             row -> assertEquals(null, row.get("value")));
     }
+
+    @Test
+    public void testUrlMultiDot() {
+        testCall(db, "RETURN apoc.data.url('http://P.O.Ws').host AS value",
+                row -> assertEquals("P.O.Ws", row.get("value")));
+    }
+
+    @Test
+    public void testUrlWithPortNumber() {
+        testCall(db, "RETURN apoc.data.url('http://www.abajournal.com:80/').host AS value",
+                row -> assertEquals("www.abajournal.com", row.get("value")));
+    }
 }
