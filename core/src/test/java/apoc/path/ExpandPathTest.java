@@ -358,6 +358,12 @@ public class ExpandPathTest {
 						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{-notExistent}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
 						"return path",
 				this::assertClintEastwood);
+		
+		TestUtil.testResult(db,
+				"MATCH (k:Person {name:'Keanu Reeves'})\n" +
+						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN{+roles}|PRODUCED|DIRECTED', labelFilter:'/Western', uniqueness: 'NODE_GLOBAL', minLevel:3}) " +
+						"YIELD path RETURN path",
+				this::assertClintEastwood);
 	}
 
 	@Test
@@ -373,25 +379,62 @@ public class ExpandPathTest {
 	
 	@Test
 	public void testWithAndClausesAndMultiType() {
-		db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman'] SET c:Western, c.dateCustom = localdatetime('1992-01-01'), c.coord = point({latitude: 1, longitude: 2})");
+		db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman'] " +
+				"SET c:Western, c.dateCustom = localdatetime('1992-01-01'), c.coord = point({latitude: 1, longitude: 2})");
 
-		TestUtil.testResult(db,
-				"MATCH (k:Person {name:'Keanu Reeves'}) " +
-						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{name=Clint Eastwood & born=1930 & dateCustom=1992-01-01 & coord=point({srid:4326, x:2, y:1}) | name=Gene Hackman | name=Keanu Reeves}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
-						"RETURN path",
+		TestUtil.testResult(db, "MATCH (k:Person {name:'Keanu Reeves'}) CALL apoc.path.expandConfig(k, $config) yield path RETURN path",
+				Util.map("config", Util.map("relationshipFilter", "ACTED_IN|PRODUCED|DIRECTED", 
+						"labelFilter", "/Western{name=Clint Eastwood & born=1930 & dateCustom=1992-01-01 & coord=point({srid:4326, x:2, y:1}) | name=Gene Hackman | name=Keanu Reeves}",
+						"uniqueness", "NODE_GLOBAL", "minLevel", 3)),
 				this::assertClintEastwood);
 		
 		// notExistent=1 property with and
-		TestUtil.testCallEmpty(db,
-				"MATCH (k:Person {name:'Keanu Reeves'}) " +
-						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{name=Clint Eastwood & born=1930 & dateCustom=1992-01-01 & coord=point({srid:4326, x:2, y:1}) & notExistent=1 | name=Gene Hackman | name=Keanu Reeves}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
-						"RETURN path", emptyMap());
+		TestUtil.testCallEmpty(db, "MATCH (k:Person {name:'Keanu Reeves'}) CALL apoc.path.expandConfig(k, $config) yield path RETURN path",
+				Util.map("config", Util.map("relationshipFilter", "ACTED_IN|PRODUCED|DIRECTED",
+						"labelFilter", "/Western{name=Clint Eastwood & born=1930 & dateCustom=1992-01-01 & coord=point({srid:4326, x:2, y:1}) & notExistent=1  | name=Gene Hackman | name=Keanu Reeves}",
+						"uniqueness", "NODE_GLOBAL", "minLevel", 3)));
 
 		// notExistent=1 property with or
+		TestUtil.testResult(db, "MATCH (k:Person {name:'Keanu Reeves'}) CALL apoc.path.expandConfig(k, $config) yield path RETURN path",
+				Util.map("config", Util.map("relationshipFilter", "ACTED_IN|PRODUCED|DIRECTED",
+						"labelFilter", "/Western{name=Clint Eastwood & born=1930 & dateCustom=1992-01-01 & coord=point({srid:4326, x:2, y:1}) | notExistent=1 | name=Gene Hackman | name=Keanu Reeves}",
+						"uniqueness", "NODE_GLOBAL", "minLevel", 3)),
+				this::assertClintEastwood);
+	}
+	
+	@Test
+	public void testExpandPathWithDates() {
+		db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman', 'Keanu Reeves'] " +
+				"SET c:Western, c.dateCustom = datetime('1992-01-01'), c.duration = duration('PT3M'), c.date = date('2015-03-26'), c.time = time('125035.556+0100'), c.localtime = localtime('12:50:35.556')");
+
 		TestUtil.testResult(db,
 				"MATCH (k:Person {name:'Keanu Reeves'}) " +
-						"CALL apoc.path.expandConfig(k, { relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{name=Clint Eastwood & born=1930 & dateCustom=1992-01-01 & coord=point({srid:4326, x:2, y:1}) | notExistent=1 | name=Gene Hackman | name=Keanu Reeves}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
-						"return path",
+						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{dateCustom=1992-01-01T00:00:00Z}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
+						"RETURN path",
+				this::assertClintEastwood);
+		
+		TestUtil.testResult(db,
+				"MATCH (k:Person {name:'Keanu Reeves'}) " +
+						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{duration=P0M0DT180S}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
+						"RETURN path",
+				this::assertClintEastwood);
+		
+		TestUtil.testResult(db,
+				"MATCH (k:Person {name:'Keanu Reeves'}) " +
+						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{date=2015-03-26}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
+						"RETURN path",
+				this::assertClintEastwood);
+		
+		TestUtil.testResult(db,
+				"MATCH (k:Person {name:'Keanu Reeves'}) " +
+						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{time=12:50:35.556000000+01:00}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
+						"RETURN path",
+				this::assertClintEastwood);
+		
+		TestUtil.testResult(db,
+				"MATCH (k:Person {name:'Keanu Reeves'}) " +
+						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'/Western{localtime=12:50:35.556000000}', uniqueness: 'NODE_GLOBAL', minLevel:3}) yield path " +
+						"RETURN path",
 				this::assertClintEastwood);
 	}
 	
@@ -518,13 +561,6 @@ public class ExpandPathTest {
 				this::assertClintEastwood);
 	}
 
-	private void assertClintEastwood(Result result) {
-		List<Map<String, Object>> maps = Iterators.asList(result);
-		assertEquals(1, maps.size());
-		Path path = (Path) maps.get(0).get("path");
-		assertEquals("Clint Eastwood", path.endNode().getProperty("name"));
-	}
-
 	@Test
 	public void testFilterStartNodeFalseDoesNotFilterStartNodeWhenBelowMinLevel() throws Throwable {
 		String query = "MATCH (m:Movie {title: 'The Matrix'}) CALL apoc.path.expandConfig(m,{labelFilter:'+Person', minLevel:1, maxLevel:2, filterStartNode:false}) yield path return count(*) as c";
@@ -580,19 +616,13 @@ public class ExpandPathTest {
 					Node node = (Node) maps.get(0).get("node");
 					assertEquals("Gene Hackman", node.getProperty("name"));
 				});
-	}
-	
-	@Test
-	public void testMultipleRelWithPropFilter() {
-		db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman'] SET c:Western");
 		
-		TestUtil.testResult(db,
-				"MATCH (k:Person {name:'Keanu Reeves'})\n" +
-						"CALL apoc.path.expandConfig(k, {relationshipFilter:'ACTED_IN{+roles}|PRODUCED|DIRECTED', labelFilter:'/Western', uniqueness: 'NODE_GLOBAL', minLevel:3}) " +
-						"YIELD path RETURN path",
-				this::assertClintEastwood);
+		// with prop filter
+		TestUtil.testCallEmpty(db, "MATCH (k:Person {name:'Keanu Reeves'}) " +
+				"CALL apoc.path.subgraphNodes(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'>Western{-name}|-Western:Blacklist{-name}', uniqueness: 'NODE_GLOBAL'}) yield node " +
+				"return node", emptyMap());
+		
 	}
-
 	@Test
 	public void testCompoundLabelAndPropFilter() {
 		db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman'] SET c:Western WITH c WHERE c.name = 'Clint Eastwood' SET c:Blacklist");
@@ -642,5 +672,12 @@ public class ExpandPathTest {
 					List<Map<String, Object>> maps = Iterators.asList(result);
 					assertEquals(1, maps.size());
 				});
+	}
+
+	private void assertClintEastwood(Result result) {
+		List<Map<String, Object>> maps = Iterators.asList(result);
+		assertEquals(1, maps.size());
+		Path path = (Path) maps.get(0).get("path");
+		assertEquals("Clint Eastwood", path.endNode().getProperty("name"));
 	}
 }

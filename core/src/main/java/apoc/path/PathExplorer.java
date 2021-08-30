@@ -25,8 +25,8 @@ import java.util.stream.StreamSupport;
 import static apoc.path.PathExplorer.NodeFilter.*;
 
 public class PathExplorer {
-	public static final String PIPE_SEPARATOR = "\\|(?![^{]*})";
-	public static final String COMMA_SEPARATOR = ",(?![^{]*})";
+	public static final String PIPE_SEPARATOR = "\\|(?![^{]*})"; // pipe not in curly brackets
+	public static final String COMMA_SEPARATOR = ",(?![^{]*})"; // comma not in curly brackets
 	public static final Uniqueness UNIQUENESS = Uniqueness.RELATIONSHIP_PATH;
 	public static final boolean BFS = true;
 	@Context
@@ -53,7 +53,7 @@ public class PathExplorer {
 	public Stream<PathResult> expandConfig(@Name("start") Object start, @Name("config") Map<String,Object> config) throws Exception {
 		return expandConfigPrivate(start, config).map( PathResult::new );
 	}
-	
+
 	@Procedure("apoc.path.subgraphNodes")
 	@Description("apoc.path.subgraphNodes(startNode <id>|Node|list, {maxLevel,relationshipFilter,labelFilter,bfs:true, filterStartNode:false, limit:-1, optional:false, endNodes:[], terminatorNodes:[], sequence, beginSequenceAtStart:true}) yield node - expand the subgraph nodes reachable from start node following relationships to max-level adhering to the label filters")
 	public Stream<NodeResult> subgraphNodes(@Name("start") Object start, @Name("config") Map<String,Object> config) throws Exception {

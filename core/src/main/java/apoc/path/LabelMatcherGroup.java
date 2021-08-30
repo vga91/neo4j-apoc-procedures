@@ -30,7 +30,6 @@ public class LabelMatcherGroup {
 
     public LabelMatcherGroup addLabels(String fullFilterString, String nodePropFilter) {
         if (fullFilterString !=  null && !fullFilterString.isEmpty()) {
-            // not allow || split
             String[] elements = fullFilterString.split(PIPE_SEPARATOR);
 
             for (String filterString : elements) {

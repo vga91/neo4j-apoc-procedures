@@ -29,6 +29,8 @@ If set to `true`, a `null` value is yielded whenever the expansion would normall
 | terminatorNodes | List<Node> | null | Only these nodes can end returned paths, and expansion won't continue past these nodes.
 | whitelistNodes | List<Node> | null | Only these nodes are allowed in the expansion (though endNodes and terminatorNodes will also be allowed, if present).
 | blacklistNodes | List<Node> | null | None of the paths returned will include these nodes.
+| nodePropFilter | String | null | To specify a property filter for any nodes. See <<prop-filter>.
+| relPropFilter | String | null | To specify a property filter for any relationships. See <<prop-filter>.
 |===
 
 [[path-expander-paths-config-config-relationship-filters]]
@@ -59,3 +61,8 @@ include::partial$uniqueness-expand.adoc[]
 
 include::partial$sequences.adoc[]
 include::partial$sequence-tips.adoc[]
+
+[[prop-filter]]
+== Property filter
+
+include::partial$property-filter.adoc[]

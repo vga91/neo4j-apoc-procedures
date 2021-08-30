@@ -1,0 +1,31 @@
+We can specify the property filters via the following syntax:
+`{condition [operator condition operator condition]}`.
+
+where operator can be or operator `|` or and operator `&`. (`&` has precedence over `|`)
+
+`condition` can be:
+
+* `+propertyName`: `propertyName` must exist
+* `-propertyName`: `propertyName` must not exist
+* `propertyName=value`: `propertyName` must be equal to `value`
+* `propertyName!=value`: `propertyName` must be not different from `value`
+* `propertyName>value`: `propertyName` must be greater than `value`
+* `propertyName<value`: `propertyName` must be less than `value`
+* `propertyName>=value`: `propertyName` must be greater than or equal to `value`
+* `propertyName\<=value`: `propertyName` must be less than or equal to `value`
+
+So we can have, for example a label filter config like:
+`/Western{name=Clint Eastwood & born=1930 | name=Gene Hackman | name=Keanu Reeves}`,
+in this case we search for a path with a termination node with label `Western`
+that have a property `name` equals to `Clint Eastwood`, a property `born` equals to `1930` 
+or a `name` equals to `Gene Hackman` or a `name` equals to `Keanu Reeves`.
+
+In case a `propertyName` is not a string, the `value` will be converted before comparison.
+So, in this case, if the `Western` node has a `born` property of type `Long`, `1930` will be converted to Long as well.
+
+
+We can also specify a generic config `nodePropFilter` and `relPropFilter` 
+to filter all labels or relationship-types present in `labelFilter` and `relationshipFilter`,
+with the same syntax as before, without curly brackets.
+
+Note that a specific property filter has precedence over `nodePropFilter` and `relPropFilter`.

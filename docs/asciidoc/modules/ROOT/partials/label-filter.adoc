@@ -1,4 +1,4 @@
-Syntax: `[+-/>]LABEL1|LABEL2|*|...`
+Syntax: `[+-/>]LABEL1[prop_filter]|LABEL2[prop_filter]|*[prop_filter]|...`
 
 
 [opts=header,cols="m,a"]
@@ -12,3 +12,5 @@ Termination nodes do not have to respect the whitelist. Termination filtering ta
 | >Friend | end node filter - Only return paths up to a node of the given labels, but continue expansion to match on end nodes beyond it.
 End nodes do not have to respect the whitelist to be returned, but expansion beyond them is only allowed if the node has a label in the whitelist.
 |===
+
+We can also filter label properties through `prop_filter` part.  See <<prop-filter>>.

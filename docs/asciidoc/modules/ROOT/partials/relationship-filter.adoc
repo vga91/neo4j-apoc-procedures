@@ -1,4 +1,4 @@
-Syntax: `[<]RELATIONSHIP_TYPE1[>]|[<]RELATIONSHIP_TYPE2[>]|...`
+Syntax: `[<]RELATIONSHIP_TYPE1[>][prop_filter]|[<]RELATIONSHIP_TYPE2[>][prop_filter]|...`
 
 [opts=header,cols="m,m,a"]
 |===
@@ -9,3 +9,5 @@ Syntax: `[<]RELATIONSHIP_TYPE1[>]|[<]RELATIONSHIP_TYPE2[>]|...`
 | > | any type | OUTGOING
 | < | any type | INCOMING
 |===
+
+We can also filter relationship-type properties through `prop_filter` part.  See <<prop-filter>>.

@@ -13,6 +13,7 @@ import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
@@ -112,6 +113,13 @@ public class SubgraphTest {
 			List<NodeResult> subgraphNodes = (List<NodeResult>) row.get("subgraphNodes");
 			assertEquals(subgraph.size(), subgraphNodes.size());
 			assertTrue(subgraph.containsAll(subgraphNodes));
+		});
+		
+		String queryWithPropFilter = "MATCH (k:Person {name: 'Keanu Reeves'}) CALL apoc.path.subgraphNodes(k,{maxLevel:3, relationshipFilter:'ACTED_IN{+notExistent}'}) yield node return COLLECT(node) as subgraphNodes";
+		TestUtil.testCall(db, queryWithPropFilter, (row) -> {
+			List<NodeResult> subgraphNodes = (List<NodeResult>) row.get("subgraphNodes");
+			assertEquals(1, subgraphNodes.size());
+			assertEquals("Keanu Reeves", ((Node) subgraphNodes.get(0)).getProperty("name"));
 		});
 	}
 

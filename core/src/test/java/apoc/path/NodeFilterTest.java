@@ -12,6 +12,7 @@ import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -199,6 +200,25 @@ public class NodeFilterTest {
                     Node node = (Node) maps.get(0).get("node");
                     assertEquals("Gene Hackman", node.getProperty("name"));
                 });
+
+        // with matched prop filter
+        TestUtil.testResult(db,
+                "MATCH (k:Person {name:'Keanu Reeves'}), (gene:Person {name:'Gene Hackman'}), (clint:Person {name:'Clint Eastwood'}), (unforgiven:Movie{title:'Unforgiven'}) " +
+                        "CALL apoc.path.subgraphNodes(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'>Western{+name}', blacklistNodes:[unforgiven]}) yield node " +
+                        "return node",
+                result -> {
+
+                    List<Map<String, Object>> maps = Iterators.asList(result);
+                    assertEquals(1, maps.size());
+                    Node node = (Node) maps.get(0).get("node");
+                    assertEquals("Gene Hackman", node.getProperty("name"));
+                });
+        
+        // with not matched prop filter
+        TestUtil.testCallEmpty(db,
+                "MATCH (k:Person {name:'Keanu Reeves'}), (gene:Person {name:'Gene Hackman'}), (clint:Person {name:'Clint Eastwood'}), (unforgiven:Movie{title:'Unforgiven'}) " +
+                        "CALL apoc.path.subgraphNodes(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'>Western{-name}', blacklistNodes:[unforgiven]}) yield node " +
+                        "return node", Collections.emptyMap());
     }
 
     @Test
