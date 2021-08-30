@@ -124,7 +124,7 @@ public class MultiThreadedGlobalGraphOperations {
         }
     }
 
-    private static class BatchJob implements Callable<Void> {
+    public static class BatchJob implements Callable<Void> {
         private final GlobalOperationsTypes type;
         private final long batchStart;
         private final int batchSize;

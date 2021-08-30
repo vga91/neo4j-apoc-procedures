@@ -1,12 +1,17 @@
 import org.jetbrains.annotations.NotNull;
 import org.neo4j.common.DependencyResolver;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.TransactionConfig;
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.internal.kernel.api.procs.*;
 import org.neo4j.kernel.api.procedure.GlobalProcedures;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 
 import java.io.*;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -557,6 +562,13 @@ class DocumentationGenerator {
         writer.write("[.procedures, opts=header]\n" +
                 "|===\n" +
                 "| Name | Type \n");
+    }
+    
+    private void writeTransactionFile() throws Exception {
+        Method method = Class.forName(GraphDatabaseService.class.getName()).getDeclaredMethod("beginTx");
+        Method method1 = Class.forName(GraphDatabaseService.class.getName()).getDeclaredMethod("beginTx", long.class, TimeUnit.class);
+        Method method2 = Class.forName(Session.class.getName()).getDeclaredMethod("beginTransaction");
+        Method method3 = Class.forName(Session.class.getName()).getDeclaredMethod("beginTransaction", TransactionConfig.class);
     }
 
     @NotNull

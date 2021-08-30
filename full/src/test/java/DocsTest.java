@@ -5,17 +5,28 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.TransactionConfig;
+import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.procedure.Procedure;
+import org.neo4j.procedure.UserFunction;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.reflections.Reflections;
+import org.reflections.scanners.MemberUsageScanner;
 import org.reflections.scanners.SubTypesScanner;
 import org.reflections.scanners.TypeAnnotationsScanner;
 import org.reflections.util.ConfigurationBuilder;
+import org.reflections.util.Utils;
 
 import java.io.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.lang.reflect.Member;
+import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static apoc.ApocConfig.APOC_UUID_ENABLED;
 import static apoc.ApocConfig.apocConfig;
@@ -26,20 +37,143 @@ import static org.junit.Assert.assertFalse;
  * @since 05.09.18
  */
 public class DocsTest {
+    
+    // todo - fare in modo che ..docs/asciidoc/modules/ROOT/pages/transaction/index.adoc venga fatto ogni volta
 
     public static final String GENERATED_DOCUMENTATION_DIR = "../docs/asciidoc/modules/ROOT/examples/generated-documentation";
     public static final String GENERATED_PARTIALS_DOCUMENTATION_DIR = "../docs/asciidoc/modules/ROOT/partials/generated-documentation";
     public static final String GENERATED_OVERVIEW_DIR = "../docs/asciidoc/modules/ROOT/pages/overview";
+    public static final String TRANSACTION_FILE = "../docs/asciidoc/modules/ROOT/pages/transaction/index.adoc";
+    
+    private static Reflections reflections = null;
+    
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.auth_enabled, true)
             .withSetting(GraphDatabaseSettings.procedure_unrestricted, Collections.singletonList("apoc.*"));
 
+    public static void testMethod() {
+        System.out.println("testing");
+    }
+    
+    private static final Set<String> procs = new TreeSet<>();
+    
+    private void searchProcedures(Member member, Reflections reflections) {
+//        List<Method> methodList = new ArrayList<>();
+        String name;
+        try {
+            if (member instanceof Constructor) {
+                name = Utils.name((Constructor) member);
+            } else if (member instanceof Method) {
+                name = Utils.name((Method) member);
+            } else {
+                name = Utils.name((Field) member);
+            }
+        } catch (Exception e) {
+            // todo - vedere se entra
+            name = "";
+            System.out.println("DocsTest.searchProcedures");
+        }
+
+        // currently we cannot use directly org.reflections.Reflections.getMethodUsage() because doesn't recognize lambda function
+        reflections.getStore().get(MemberUsageScanner.class, name).forEach(methodUsed -> {
+
+            methodUsed = methodUsed.replaceAll("\\$\\d+", "").replaceAll("lambda\\$", "");
+            
+            final int indexOf = methodUsed.indexOf("(");
+            final String substring = methodUsed.substring(0, indexOf);
+            final String[] split = substring.split("\\.");
+            final String collect = Arrays.stream(Arrays.copyOf(split, split.length - 1)).collect(Collectors.joining("."));
+
+            
+            try {
+                Arrays.stream(Class.forName(collect).getDeclaredMethods()).filter(item -> item.getName().equals(split[split.length - 1]) && !item.equals(member)).forEach(item -> {
+                    final Procedure annotationProc = item.getAnnotation(Procedure.class);
+                    final UserFunction annotationFun = item.getAnnotation(UserFunction.class);
+                    if (annotationProc != null) {
+                        getCompleteName(item, annotationProc.value(), annotationProc.name());
+                    } else if(annotationFun != null) {
+                        getCompleteName(item, annotationFun.value(), annotationFun.name());
+                    } else {
+                        // to match e.g. java.util.concurrent.Callable
+                        if (Arrays.stream(item.getDeclaringClass().getInterfaces()).anyMatch(i -> i.getAnnotation(FunctionalInterface.class) != null)) {
+                            final Constructor<?>[] constructors = item.getDeclaringClass().getConstructors();
+                            for (Constructor cons : constructors) {
+                                searchProcedures(cons, reflections);
+                            }
+                        } else {
+                            searchProcedures(item, reflections);
+                        }
+                    }
+                });
+            } catch (ClassNotFoundException e) {  }
+        });
+
+//        methodList.forEach(method1 -> searchProcedures(method1, reflections));
+    }
+
+    private void getCompleteName(Method item, String value, String name) {
+        if (!value.equals("")) {
+            procs.add(value);
+        } else if (!name.equals("")) {
+            procs.add(name);
+        } else {
+            procs.add(item.getDeclaringClass().getPackageName() + "." + item.getName());
+        }
+    }
+
     @Before
     public void setUp() throws Exception {
-        apocConfig().setProperty(APOC_UUID_ENABLED, true);
 
-        Set<Class<?>> allClasses = allClasses();
+        // todo - foreach searchProcedures. List.of
+        Method method = Class.forName(GraphDatabaseService.class.getName()).getDeclaredMethod("beginTx");
+        Method method1 = Class.forName(GraphDatabaseService.class.getName()).getDeclaredMethod("beginTx", long.class, TimeUnit.class);
+        Method method2 = Class.forName(Session.class.getName()).getDeclaredMethod("beginTransaction");
+        Method method3 = Class.forName(Session.class.getName()).getDeclaredMethod("beginTransaction", TransactionConfig.class);
+
+        
+//        Reflections reflections = new Reflections(new ConfigurationBuilder()
+//                .forPackages("apoc")
+//                .setScanners(new SubTypesScanner(true), new TypeAnnotationsScanner(), new MemberUsageScanner())
+//                .filterInputsBy(input -> !input.contains("Test") && !input.endsWith("Test.class") && !input.endsWith("Result.class"))
+////                .getUrls()
+//        );
+        reflections = new Reflections(new ConfigurationBuilder()
+                .forPackages("apoc")
+                .setScanners(new SubTypesScanner(false), new TypeAnnotationsScanner(), new MemberUsageScanner())
+                .filterInputsBy(input -> !input.endsWith("Test.class") && !input.endsWith("Result.class") && !input.contains("$"))
+        );
+        
+        // todo - foreach
+        searchProcedures(method, reflections);
+        searchProcedures(method1, reflections);
+        searchProcedures(method2, reflections);
+        searchProcedures(method3, reflections);
+
+        try(FileWriter writer = new FileWriter(TRANSACTION_FILE)) {
+            // header
+            writer.write("[[transaction]]\n" +
+                    "= List of procedures with its own transaction\n" +
+                    ":description: This chapter describes the list of procedures that start their own transaction in the APOC library.\n\n" +
+                    "The list of procedures that start their own transaction:\n\n");
+
+            for (String proc : procs) {
+                writer.write("* " + proc + "\n");
+            }
+            
+            writer.write("\n\n");
+//        procs.forEach(proc -> writer.write(proc));
+        }
+        
+        
+        apocConfig().setProperty(APOC_UUID_ENABLED, true);
+        
+//        Reflections reflections = new Reflections(new ConfigurationBuilder()
+//                .forPackages("apoc")
+//                .setScanners(new SubTypesScanner(false), new TypeAnnotationsScanner())
+//                .filterInputsBy(input -> !input.endsWith("Test.class") && !input.endsWith("Result.class") && !input.contains("$"))
+//        );
+        Set<Class<?>> allClasses = allClasses(reflections);
         assertFalse(allClasses.isEmpty());
 
         for (Class<?> klass : allClasses) {
@@ -81,6 +215,8 @@ public class DocsTest {
 
     @Test
     public void generateDocs() {
+        // todo - mettere qua
+        
         Set<String> extended = readExtended();
         Map<String, String> docs = docsMapping();
         DocumentationGenerator documentationGenerator = new DocumentationGenerator(db, extended, docs);
@@ -93,6 +229,8 @@ public class DocsTest {
 
         documentationGenerator.writeProcedurePages();
         documentationGenerator.writeFunctionPages();
+        
+        
     }
 
     @NotNull
@@ -170,12 +308,12 @@ public class DocsTest {
         return docs;
     }
 
-    private Set<Class<?>> allClasses() {
-        Reflections reflections = new Reflections(new ConfigurationBuilder()
-                .forPackages("apoc")
-                .setScanners(new SubTypesScanner(false), new TypeAnnotationsScanner())
-                .filterInputsBy(input -> !input.endsWith("Test.class") && !input.endsWith("Result.class") && !input.contains("$"))
-        );
+    private Set<Class<?>> allClasses(Reflections reflections) {
+//        Reflections reflections = new Reflections(new ConfigurationBuilder()
+//                .forPackages("apoc")
+//                .setScanners(new SubTypesScanner(false), new TypeAnnotationsScanner())
+//                .filterInputsBy(input -> !input.endsWith("Test.class") && !input.endsWith("Result.class") && !input.contains("$"))
+//        );
 
         return reflections.getSubTypesOf(Object.class);
     }

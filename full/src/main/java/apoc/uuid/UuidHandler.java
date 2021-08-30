@@ -201,6 +201,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     public synchronized Map<String, UuidConfig> removeAll() {
         Map<String, UuidConfig> retval = new HashMap<>(configuredLabelAndPropertyNames);
         configuredLabelAndPropertyNames.clear();
+        // todo - questo non lo prende????
         try (Transaction tx = apocConfig.getSystemDb().beginTx()) {
             tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName() )
                     .forEachRemaining(node -> node.delete());
