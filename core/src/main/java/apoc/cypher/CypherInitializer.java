@@ -4,17 +4,21 @@ import apoc.ApocConfig;
 import apoc.util.Util;
 import org.apache.commons.configuration2.Configuration;
 import org.neo4j.common.DependencyResolver;
+import org.neo4j.configuration.Config;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.graphdb.config.Setting;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.procedure.GlobalProcedures;
 import org.neo4j.kernel.availability.AvailabilityListener;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Collections;
 
 import java.util.ConcurrentModificationException;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -47,7 +51,14 @@ public class CypherInitializer implements AvailabilityListener {
 
     @Override
     public void available() {
-        System.out.println("CypherInitializer.available");
+        Config neo4jConfig = dependencyResolver.resolveDependency(Config.class);
+        final List<Setting> neo4jDirSettingNames = ApocConfig.apocConfig().getNeo4jDirSettingNames();
+        for (Setting setting : neo4jDirSettingNames) {
+            Path value = (Path) neo4jConfig.get(setting);
+            if (value!=null) {
+                ApocConfig.apocConfig().setProperty(setting.name(), value.toString());
+            }
+        }
 
         // run initializers in a new thread
         // we need to wait until apoc procs are registered

@@ -1,11 +1,8 @@
 package apoc.util;
 
 import org.apache.commons.codec.digest.DigestUtils;
-import org.neo4j.configuration.Config;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.TransactionTerminatedException;
-import org.neo4j.graphdb.config.Setting;
-import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.procedure.*;
 
 import java.util.List;
@@ -22,7 +19,6 @@ public class Utils {
 
     @Context
     public TerminationGuard terminationGuard;
-
 
     @UserFunction
     @Description("apoc.util.sha1([values]) | computes the sha1 of the concatenation of all string values of the list")

@@ -50,9 +50,9 @@ public class TestcontainersCausalCluster {
     }
 
     public static TestcontainersCausalCluster create(int numberOfCoreMembers, int numberOfReadReplica, Duration timeout, Map<String, Object> neo4jConfig, Map<String, String> envSettings) {
-//        if (numberOfCoreMembers < 2) {
-//            throw new IllegalArgumentException("numberOfCoreMembers must be >= 3");
-//        }
+        if (numberOfCoreMembers < 3) {
+            throw new IllegalArgumentException("numberOfCoreMembers must be >= 3");
+        }
         if (numberOfReadReplica < 0) {
             throw new IllegalArgumentException("numberOfReadReplica must be >= 0");
         }

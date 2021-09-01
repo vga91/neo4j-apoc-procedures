@@ -55,7 +55,7 @@ public class Pools extends LifecycleAdapter {
 
     @Override
     public void init() {
-        System.out.println("Pools.init");
+
         int threads = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_POOL_NUM_THREADS, DEFAULT_POOL_THREADS));
 
         int queueSize = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_QUEUE_SIZE, threads * 5));
@@ -87,7 +87,6 @@ public class Pools extends LifecycleAdapter {
 
     @Override
     public void shutdown() throws Exception {
-        System.out.println("Pools.shutdown");
         Stream.of(singleExecutorService, defaultExecutorService, scheduledExecutorService).forEach( service -> {
             try {
                 service.shutdown();
@@ -96,12 +95,6 @@ public class Pools extends LifecycleAdapter {
 
             }
         });
-    }
-
-
-    @Override
-    public void start() {
-        System.out.println("Pools.start");
     }
 
     public ExecutorService getSingleExecutorService() {

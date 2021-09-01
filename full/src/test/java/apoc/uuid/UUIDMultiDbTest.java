@@ -44,7 +44,6 @@ public class UUIDMultiDbTest {
 
         driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.basic("neo4j", "apoc"));
 
-        System.out.println("ora vado a create il nuovo database");
         try (Session session = driver.session()) {
             session.writeTransaction(tx -> tx.run(String.format("CREATE DATABASE %s;", dbTest)));
         }

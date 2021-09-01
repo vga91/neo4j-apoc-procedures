@@ -116,7 +116,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     @Override
     public void available() {
-        System.out.println("CypherProceduresHandler.available");
         restoreProceduresAndFunctions();
         long refreshInterval = apocConfig().getInt(CUSTOM_PROCEDURES_REFRESH, 60000);
         restoreProceduresHandle = jobScheduler.scheduleRecurring(REFRESH_GROUP, () -> {
@@ -206,7 +205,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public void restoreProceduresAndFunctions() {
-        System.out.println("CypherProceduresHandler.restoreProceduresAndFunctions");
         lastUpdate = System.currentTimeMillis();
         Set<ProcedureSignature> currentProceduresToRemove = new HashSet<>(registeredProcedureSignatures);
         Set<UserFunctionSignature> currentUserFunctionsToRemove = new HashSet<>(registeredUserFunctionSignatures);

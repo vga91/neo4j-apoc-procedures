@@ -27,7 +27,7 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
 
     @Override
     public Map<String, Lifecycle> getServices(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
-        System.out.println("ExtendedApocGlobalComponents.getServices");
+
 
         CypherProceduresHandler cypherProcedureHandler = new CypherProceduresHandler(
                 db,
@@ -58,13 +58,11 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
 
     @Override
     public Collection<Class> getContextClasses() {
-        System.out.println("ExtendedApocGlobalComponents.getContextClasses");
         return List.of(CypherProceduresHandler.class, UuidHandler.class, LoadDirectoryHandler.class);
     }
 
     @Override
     public Iterable<AvailabilityListener> getListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
-        System.out.println("ExtendedApocGlobalComponents.getListeners");
         CypherProceduresHandler cypherProceduresHandler = cypherProcedureHandlers.get(db);
         return cypherProceduresHandler==null ? Collections.emptyList() : Collections.singleton(cypherProceduresHandler);
     }

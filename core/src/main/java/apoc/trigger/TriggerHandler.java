@@ -261,7 +261,6 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     @Override
     public void start() throws Exception {
-        System.out.println("TriggerHandler.start");
         updateCache();
     }
 

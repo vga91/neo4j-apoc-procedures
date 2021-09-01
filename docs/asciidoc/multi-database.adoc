@@ -144,3 +144,26 @@ CypherInitializer.available
 CypherProceduresHandler.available
 CypherProceduresHandler.restoreProceduresAndFunctions
 2021-08-30 12:41:26.248+0000 INFO  Called db.clearQueryCaches(): Query cache already empty.
+
+
+SINGLE
+TTLConfigExtensionFactory.newInstance
+TTLConfig.TTLConfig
+ApocExtensionFactory.newInstance
+config.get(GraphDatabaseSettings.neo4j_home)
+/Users/GiuseppeVillani/Library/Application Support/Neo4j Desktop/Application/relate-data/dbmss/dbms-dc265bd1-a5fe-4e00-b0c7-417ef655a4b1
+ApocLifecycle.init
+CoreApocGlobalComponents.getServices
+ExtendedApocGlobalComponents.getServices
+ApocLifecycle.start
+TriggerHandler.start
+TTLLifeCycle.start
+UuidHandler.start
+LoadDirectoryHandler.start
+CoreApocGlobalComponents.getListeners
+ExtendedApocGlobalComponents.getListeners
+CypherInitializer.available
+CypherProceduresHandler.available
+CypherProceduresHandler.restoreProceduresAndFunctions
+
+

@@ -5,12 +5,10 @@ import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 
 public class TTLConfig extends LifecycleAdapter {
-
     private final ApocConfig apocConfig;
     public static final int DEFAULT_SCHEDULE = 60;
 
     public TTLConfig(ApocConfig apocConfig, GlobalProcedures globalProceduresRegistry) {
-        System.out.println("TTLConfig.TTLConfig");
         this.apocConfig = apocConfig;
 
         globalProceduresRegistry.registerComponent((Class<TTLConfig>) getClass(), ctx -> this, true);

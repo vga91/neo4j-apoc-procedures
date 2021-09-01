@@ -25,12 +25,10 @@ public class RegisterComponentFactory extends ExtensionFactory<RegisterComponent
 
     public RegisterComponentFactory() {
         super(ExtensionType.GLOBAL, "ApocRegisterComponent");
-        System.out.println("RegisterComponentFactory.RegisterComponentFactory");
     }
 
     @Override
     public Lifecycle newInstance(ExtensionContext context, Dependencies dependencies) {
-        System.out.println("RegisterComponentFactory.newInstance");
         globalProceduresRegistry = dependencies.globalProceduresRegistry();
         log = dependencies.log().getUserLog(RegisterComponentFactory.class);
         return new RegisterComponentLifecycle();
@@ -42,10 +40,6 @@ public class RegisterComponentFactory extends ExtensionFactory<RegisterComponent
     }
 
     public class RegisterComponentLifecycle extends LifecycleAdapter {
-
-        public RegisterComponentLifecycle() {
-            System.out.println("RegisterComponentLifecycle.RegisterComponentLifecycle");
-        }
 
         private final Map<Class, Map<String, Object>> resolvers = new ConcurrentHashMap<>();
 
@@ -60,7 +54,7 @@ public class RegisterComponentFactory extends ExtensionFactory<RegisterComponent
 
         @Override
         public void init() throws Exception {
-            System.out.println("RegisterComponentLifecycle.init");
+
             for (ApocGlobalComponents c: Services.loadAll(ApocGlobalComponents.class)) {
                 for (Class clazz: c.getContextClasses()) {
                     resolvers.put(clazz, new ConcurrentHashMap<>());

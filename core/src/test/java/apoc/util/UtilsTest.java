@@ -40,8 +40,6 @@ public class UtilsTest {
         TestUtil.registerProcedure(db, Utils.class);
     }
 
-
-
     @Test
     public void testMultipleCharsetsCompressionWithDifferentResults() throws Exception {
 

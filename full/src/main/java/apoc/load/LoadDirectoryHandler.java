@@ -64,13 +64,11 @@ public class LoadDirectoryHandler extends LifecycleAdapter {
     }
 
     @Override
-    public void start() {
-        System.out.println("LoadDirectoryHandler.start");
-    }
+    public void start() {}
 
     @Override
     public void stop() {
-        System.out.println("LoadDirectoryHandler.stop");removeAll();
+        removeAll();
     }
 
     public void remove(String name) {

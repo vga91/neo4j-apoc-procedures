@@ -1,9 +1,6 @@
 package apoc.custom;
 
 import apoc.Extended;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.neo4j.configuration.Config;
-import org.neo4j.graphdb.config.Setting;
 import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.kernel.api.exceptions.ProcedureException;
 import org.neo4j.internal.kernel.api.procs.ProcedureSignature;
@@ -18,13 +15,11 @@ import org.neo4j.procedure.Procedure;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Mode;
-import org.neo4j.procedure.UserFunction;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.custom.CypherProceduresHandler.*;
@@ -47,23 +42,6 @@ public class CypherProcedures {
 
     @Context
     public CypherProceduresHandler cypherProceduresHandler;
-
-
-//    @Context
-//    public GraphDatabaseAPI api;
-//
-//    @UserFunction
-//    public String get(@Name("configKey") String configKey) throws Exception {
-////        final Config config = api.getDependencyResolver().resolveDependency(Config.class);
-//////        config.getSetting(configKey).name();
-////        final Setting<Object> setting = config.getSetting(configKey);
-////        return config.get(setting).toString();
-//        return null;
-//    }
-
-
-    
-    
 
     /*
      * store in graph properties, load at startup
