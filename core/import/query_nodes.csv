@@ -1,0 +1,4 @@
+"u"
+"{""id"":0,""labels"":[""User"",""User1""],""properties"":{""name"":""foo"",""age"":42,""male"":true,""kids"":[""a"",""b"",""c""]}}"
+"{""id"":1,""labels"":[""User""],""properties"":{""name"":""bar"",""age"":42}}"
+"{""id"":2,""labels"":[""User""],""properties"":{""age"":12}}"

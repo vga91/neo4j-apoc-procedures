@@ -5,6 +5,8 @@ import apoc.Extended;
 import apoc.result.KeyValueResult;
 import apoc.result.ObjectResult;
 import apoc.util.Util;
+import org.neo4j.configuration.Config;
+import org.neo4j.graphdb.config.Setting;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.procedure.*;
@@ -32,13 +34,21 @@ public class Static {
     @Deprecated
     @Description("apoc.static.get(name) - returns statically stored value from config (apoc.static.<key>) or server lifetime storage")
     public Stream<ObjectResult> getProcedure(@Name("key") String key) {
-        return Stream.of(new ObjectResult(storage.getOrDefault(key, fromConfig(key))));
+//        final Config config = db.getDependencyResolver().resolveDependency(Config.class);
+//        config.getSetting(key).name();
+//        final Setting<Object> setting = config.getSetting(key);
+//        return config.get(setting).toString();
+//        return null;
+        return Stream.empty();
     }
 
     @UserFunction("apoc.static.get")
     @Description("apoc.static.get(name) - returns statically stored value from config (apoc.static.<key>) or server lifetime storage")
     public Object get(@Name("key") String key) {
-        return storage.getOrDefault(key, fromConfig(key));
+        final Config config = db.getDependencyResolver().resolveDependency(Config.class);
+//        config.getSetting(key).name();
+        final Setting<Object> setting = config.getSetting(key);
+        return config.get(setting).toString();
     }
 
     @UserFunction("apoc.static.getAll")

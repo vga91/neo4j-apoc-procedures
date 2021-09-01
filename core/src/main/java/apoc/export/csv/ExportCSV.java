@@ -1,6 +1,7 @@
 package apoc.export.csv;
 
 import apoc.ApocConfig;
+import apoc.ApocExtensionFactory;
 import apoc.Pools;
 import apoc.export.cypher.ExportFileManager;
 import apoc.export.cypher.FileManagerFactory;
@@ -11,9 +12,12 @@ import apoc.export.util.ProgressReporter;
 import apoc.result.ProgressInfo;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
+import org.neo4j.configuration.Config;
+import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.cypher.export.DatabaseSubGraph;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.*;
+import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -36,6 +40,12 @@ public class ExportCSV {
 
     @Context
     public GraphDatabaseService db;
+    
+    @Context
+    public GraphDatabaseAPI api;
+
+//    @Context
+//    public GraphDatabaseSettings settings;
 
     @Context
     public TerminationGuard terminationGuard;
@@ -52,6 +62,23 @@ public class ExportCSV {
     @Procedure
     @Description("apoc.export.csv.all(file,config) - exports whole database as csv to the provided file")
     public Stream<ProgressInfo> all(@Name("file") String fileName, @Name("config") Map<String, Object> config) throws Exception {
+        System.out.println("config1 from apocLifecycle");
+        final GraphDatabaseAPI db1 = ApocExtensionFactory.ApocLifecycle.apocLifecycle().getDb();
+        final Config config1 = db1.getDependencyResolver().resolveDependency(Config.class);
+        System.out.println(config1.get(GraphDatabaseSettings.neo4j_home).toString());
+        System.out.println("---");
+        System.out.println("GraphDatabaseSettings.neo4j_home.defaultValue()");
+        System.out.println(GraphDatabaseSettings.neo4j_home.defaultValue().toString());
+        GraphDatabaseSettings settings = new GraphDatabaseSettings();
+        System.out.println("ApocConfig.apocConfig().getNeo4jConfig().get(GraphDatabaseSettings.neo4j_home);");
+        System.out.println(ApocConfig.apocConfig().getNeo4jConfig().get(GraphDatabaseSettings.neo4j_home).toString());
+        final Config neo4jConfig = api.getDependencyResolver().resolveDependency(Config.class);
+        System.out.println("neo4jConfig.get(GraphDatabaseSettings.neo4j_home);");
+        System.out.println(neo4jConfig.get(GraphDatabaseSettings.neo4j_home).toString());
+        System.out.println("neo4jConfig.getValues().toString()");
+        System.out.println(neo4jConfig.getValues().toString());
+        System.out.println("--- ---");
+        //        Config config1 = new Config();
         String source = String.format("database: nodes(%d), rels(%d)", Util.nodeCount(tx), Util.relCount(tx));
         return exportCsv(fileName, source, new DatabaseSubGraph(tx), new ExportConfig(config));
     }

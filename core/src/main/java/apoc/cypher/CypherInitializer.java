@@ -47,6 +47,7 @@ public class CypherInitializer implements AvailabilityListener {
 
     @Override
     public void available() {
+        System.out.println("CypherInitializer.available");
 
         // run initializers in a new thread
         // we need to wait until apoc procs are registered

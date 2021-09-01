@@ -13,6 +13,7 @@ public class PoolExtensionFactory extends ExtensionFactory<PoolExtensionFactory.
 
     public PoolExtensionFactory() {
         super(ExtensionType.GLOBAL, "APOC_POOLS");
+        System.out.println("PoolExtensionFactory.PoolExtensionFactory");
     }
 
     public interface Dependencies {
@@ -23,6 +24,7 @@ public class PoolExtensionFactory extends ExtensionFactory<PoolExtensionFactory.
 
     @Override
     public Lifecycle newInstance(ExtensionContext context, Dependencies dependencies) {
+        System.out.println("PoolExtensionFactory.newInstance"); // todo - questo non viene richiamato, e quindi non fa Pools.start
         return new Pools(dependencies.log(), dependencies.globalProceduresRegistry(), dependencies.apocConfig());
     }
 

@@ -1,7 +1,10 @@
 package apoc;
 
 import apoc.util.ApocUrlStreamHandlerFactory;
+import org.apache.commons.configuration2.Configuration;
 import org.neo4j.annotations.service.ServiceProvider;
+import org.neo4j.configuration.Config;
+import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.internal.kernel.api.Procedures;
@@ -42,8 +45,12 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
             System.err.println("APOC couln't set a URLStreamHandlerFactory since some other tool already did this (e.g. tomcat). This means you cannot use s3:// or hdfs:// style URLs in APOC. This is caused by a limitation of the JVM which we cannot fix. ");
         }
     }
+
+    private GraphDatabaseAPI db;
+
     public ApocExtensionFactory() {
         super(ExtensionType.DATABASE, "APOC");
+        System.out.println("ApocExtensionFactory.ApocExtensionFactory");
     }
 
     public interface Dependencies {
@@ -62,13 +69,28 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
 
     @Override
     public Lifecycle newInstance(ExtensionContext context, Dependencies dependencies) {
-        GraphDatabaseAPI db = dependencies.graphdatabaseAPI();
+        System.out.println("ApocExtensionFactory.newInstance");
+        this.db = dependencies.graphdatabaseAPI();
         LogService log = dependencies.log();
         return new ApocLifecycle(log, db, dependencies);
     }
 
+    public GraphDatabaseAPI getDb() {
+        return db;
+    }
+
     public static class ApocLifecycle extends LifecycleAdapter {
 
+
+        public static ApocLifecycle apocLifecycle() {
+            return theInstance;
+        }
+        
+        public GraphDatabaseAPI getDb() {
+            return db;
+        }
+        
+        private static ApocLifecycle theInstance;
         private final LogService log;
         private final Log userLog;
         private final GraphDatabaseAPI db;
@@ -86,6 +108,11 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
             this.dependencies = dependencies;
             this.userLog = log.getUserLog(ApocExtensionFactory.class);
             this.apocGlobalComponents = Services.loadAll(ApocGlobalComponents.class);
+            theInstance = this;
+            final Config config = db.getDependencyResolver().resolveDependency(Config.class);
+            System.out.println("config.get(GraphDatabaseSettings.neo4j_home)");
+            System.out.println(config.get(GraphDatabaseSettings.neo4j_home).toString());
+//            System.out.println("ApocLifecycle.ApocLifecycle");
         }
 
         public static void withNonSystemDatabase(GraphDatabaseService db, Consumer<Void> consumer) {
@@ -96,6 +123,7 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
 
         @Override
         public void init() throws Exception {
+            System.out.println("ApocLifecycle.init");
             withNonSystemDatabase(db, aVoid -> {
                 for (ApocGlobalComponents c: apocGlobalComponents) {
                     services.putAll(c.getServices(db, dependencies));
@@ -112,6 +140,7 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
 
         @Override
         public void start() {
+            System.out.println("ApocLifecycle.start");
             withNonSystemDatabase(db, aVoid -> {
                 services.forEach((key, value) -> {
                     try {
@@ -133,6 +162,7 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
 
         @Override
         public void stop() {
+            System.out.println("ApocLifecycle.stop");
             withNonSystemDatabase(db, aVoid -> {
                 services.forEach((key, value) -> {
                     try {

@@ -11,11 +11,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
-@ServiceProvider
+@ServiceProvider // todo - queste cose qua vengono fatte
 public class CoreApocGlobalComponents implements ApocGlobalComponents {
 
     @Override
     public Map<String,Lifecycle> getServices(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
+        System.out.println("CoreApocGlobalComponents.getServices");
         return Collections.singletonMap("trigger", new TriggerHandler(db,
                 dependencies.databaseManagementService(),
                 dependencies.apocConfig(),
@@ -27,11 +28,13 @@ public class CoreApocGlobalComponents implements ApocGlobalComponents {
 
     @Override
     public Collection<Class> getContextClasses() {
+        System.out.println("CoreApocGlobalComponents.getContextClasses");
         return Collections.singleton(TriggerHandler.class);
     }
 
     @Override
     public Iterable<AvailabilityListener> getListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
+        System.out.println("CoreApocGlobalComponents.getListeners");
         return Collections.singleton(new CypherInitializer(db, dependencies.log().getUserLog(CypherInitializer.class)));
     }
 }

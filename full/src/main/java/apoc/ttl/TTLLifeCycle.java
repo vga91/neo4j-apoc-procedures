@@ -41,6 +41,7 @@ public class TTLLifeCycle extends LifecycleAdapter {
 
     @Override
     public void start() {
+        System.out.println("TTLLifeCycle.start");
         TTLConfig.Values configValues = ttlConfig.configFor(db);
         if(configValues.enabled) {
             long ttlScheduleDb = configValues.schedule;
@@ -87,6 +88,7 @@ public class TTLLifeCycle extends LifecycleAdapter {
 
     @Override
     public void stop() {
+        System.out.println("TTLLifeCycle.stop");
         if (ttlIndexJobHandle != null) ttlIndexJobHandle.cancel();
         if (ttlJobHandle != null) ttlJobHandle.cancel();
     }

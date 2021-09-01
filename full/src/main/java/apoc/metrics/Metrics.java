@@ -7,6 +7,9 @@ import apoc.load.LoadCsv;
 import apoc.load.util.LoadCsvConfig;
 import apoc.util.FileUtils;
 import apoc.util.Util;
+import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Transaction;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
@@ -29,9 +32,12 @@ import static apoc.util.FileUtils.closeReaderSafely;
 public class Metrics {
     @Context
     public Log log;
+    
+    @Context
+    public Transaction transaction;
 
     /** Simple DAO that pairs a config setting name with a File path that it refers to */
-    public static class StoragePair {
+    public static class StoragePair { // todo - provare a cambiare qui...
         public final String setting;
         public final File dir;
         public StoragePair(String setting, File dir) {
@@ -110,15 +116,22 @@ public class Metrics {
     @Procedure(mode=Mode.DBMS)
     @Description("apoc.metrics.list() - get a list of available metrics")
     public Stream<Neo4jMeasuredMetric> list() {
+        System.out.println("Metrics.list - other code");
+        System.out.println("Metrics.list");
         File metricsDir = FileUtils.getMetricsDirectory();
-
+        System.out.println("metricsDir = " + metricsDir);
         final FilenameFilter filter = (dir, name) -> name.toLowerCase().endsWith(".csv");
+        System.out.println("filter = " + filter);
         return Arrays.asList(metricsDir.listFiles(filter))
                 .stream()
                 .map(metricFile -> {
+                    System.out.println("Metrics.list lambda");
                     String name = metricFile.getName();
+                    System.out.println("name = " + name);
                     String metricName = name.substring(0, name.length() - 4);
+                    System.out.println("metricName = " + metricName);
                     File f = new File(metricsDir, name);
+                    System.out.println("f = " + f);
                     return new Neo4jMeasuredMetric(metricName, f.lastModified());
                 });
     }
@@ -206,6 +219,7 @@ public class Metrics {
                 .filter(dirSetting -> (input == null || input.equals(dirSetting)))
                 .map(StoragePair::fromDirectorySetting)
                 .filter(sp -> {
+                    System.out.println("Metrics.storage");
                     if (sp == null) { return false; }
 
                     if (sp.dir.exists() && sp.dir.isDirectory() && sp.dir.canRead()) {

@@ -1,6 +1,7 @@
 package apoc;
 
 import apoc.export.util.ExportConfig;
+import apoc.graph.util.GraphsConfig;
 import apoc.util.SimpleRateLimiter;
 import org.apache.commons.configuration2.Configuration;
 import org.apache.commons.configuration2.PropertiesConfiguration;
@@ -16,6 +17,7 @@ import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.config.Setting;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.procedure.GlobalProcedures;
+import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
 import org.neo4j.logging.NullLog;
@@ -24,10 +26,14 @@ import org.neo4j.logging.internal.LogService;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.time.Duration;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.FileUtils.isFile;
@@ -90,6 +96,7 @@ public class ApocConfig extends LifecycleAdapter {
     private final Config neo4jConfig;
     private final Log log;
     private final DatabaseManagementService databaseManagementService;
+    private final GraphDatabaseAPI databaseAPI;
 
     private Configuration config;
 
@@ -102,8 +109,9 @@ public class ApocConfig extends LifecycleAdapter {
      */
     private boolean initialized = false;
 
-    public ApocConfig(Config neo4jConfig, LogService log, GlobalProcedures globalProceduresRegistry, DatabaseManagementService databaseManagementService) {
+    public ApocConfig(Config neo4jConfig, LogService log, GlobalProcedures globalProceduresRegistry, DatabaseManagementService databaseManagementService, GraphDatabaseAPI databaseAPI) {
         this.neo4jConfig = neo4jConfig;
+        this.databaseAPI = databaseAPI;
         this.log = log.getInternalLog(ApocConfig.class);
         this.databaseManagementService = databaseManagementService;
         theInstance = this;
@@ -116,6 +124,7 @@ public class ApocConfig extends LifecycleAdapter {
     // use only for unit tests
     public ApocConfig() {
         this.neo4jConfig = null;
+        this.databaseAPI = null;
         this.log = NullLog.getInstance();
         this.databaseManagementService = null;
         theInstance = this;
@@ -126,8 +135,35 @@ public class ApocConfig extends LifecycleAdapter {
         return config;
     }
 
+    public Config getNeo4jConfig() {
+        return neo4jConfig;
+    }
+    
+    @Override
+    public void start() {
+        System.out.println("ApocConfig.start");
+//        final Config neo4jConfig = databaseAPI.getDependencyResolver().resolveDependency(Config.class);
+////        loadConfiguration();
+//        for (Setting s : NEO4J_DIRECTORY_CONFIGURATION_SETTING_NAMES) {
+//
+////                s.defaultValue()
+//                Object value = neo4jConfig.get(s);
+//                if (value!=null) {
+//                    System.out.println("s.defaultValue()\n");
+//                    System.out.println(s.defaultValue()+"\n");
+//                    System.out.println("neo4jConfig.get(s)\n");
+//                    System.out.println(neo4jConfig.get(s) + "\n");
+//                    this.config.setProperty(s.name(), value.toString());
+//                }
+//            }
+//
+//            boolean allowFileUrls = neo4jConfig.get(GraphDatabaseSettings.allow_file_urls);
+//            this.config.setProperty(APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM, allowFileUrls);
+    }
+    
     @Override
     public void init() throws Exception {
+        System.out.println("ApocConfig.init");
         log.debug("called init");
         // grab NEO4J_CONF from environment. If not set, calculate it from sun.java.command system property
         String neo4jConfFolder = System.getenv().getOrDefault("NEO4J_CONF", determineNeo4jConfFolder());
@@ -168,13 +204,30 @@ public class ApocConfig extends LifecycleAdapter {
      */
     protected void loadConfiguration() {
         try {
-
+            System.out.println("ApocConfig.loadConfiguration");
             URL resource = getClass().getClassLoader().getResource("apoc-config.xml");
             log.info("loading apoc meta config from %s", resource.toString());
             CombinedConfigurationBuilder builder = new CombinedConfigurationBuilder()
                     .configure(new Parameters().fileBased().setURL(resource));
             config = builder.getConfiguration();
 
+            System.out.println("neo4jConfig.getDeclaredSettings().entrySet()");
+            System.out.println(neo4jConfig.getDeclaredSettings().entrySet().stream()
+                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList()));
+
+            
+            // -- todo: provo a mettere listener
+            // no... non va dice che non è dynamic e quindi non può cambiare. Bugiardo...
+//            neo4jConfig.addListener(neo4j_home, (home, home1) -> {
+//                System.out.println("ApocConfig - listener");
+//                System.out.println("home");
+//                System.out.println(home);
+//                System.out.println("home1");
+//                System.out.println(home1);
+//                config.setProperty(neo4j_home.name(), home1);
+//            });
+            
             // copy apoc settings from neo4j.conf for legacy support
             neo4jConfig.getDeclaredSettings().entrySet().stream()
                     .filter(e -> !config.containsKey(e.getKey()))
@@ -186,8 +239,14 @@ public class ApocConfig extends LifecycleAdapter {
 
             addDbmsDirectoriesMetricsSettings();
             for (Setting s : NEO4J_DIRECTORY_CONFIGURATION_SETTING_NAMES) {
+
+//                s.defaultValue()
                 Object value = neo4jConfig.get(s);
                 if (value!=null) {
+                    System.out.println("s.defaultValue()\n");
+                    System.out.println(s.defaultValue()+"\n");
+                    System.out.println("neo4jConfig.get(s)\n");
+                    System.out.println(neo4jConfig.get(s) + "\n");
                     config.setProperty(s.name(), value.toString());
                 }
             }
@@ -279,6 +338,9 @@ public class ApocConfig extends LifecycleAdapter {
     }
 
     public String getString(String key) {
+        // todo - cambiare qua in qualche modo...
+        databaseManagementService.database("neo4j").executeTransactionally("CALL dbms.listConfig", Map.of())
+        
         return getConfig().getString(key);
     }
 

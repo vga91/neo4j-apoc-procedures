@@ -27,7 +27,8 @@ public class CypherProceduresClusterTest {
     public static void setupCluster() {
         assumeFalse(isRunningInCI());
         TestUtil.ignoreException(() ->  cluster = TestContainerUtil
-                .createEnterpriseCluster(3, 1, Collections.emptyMap(), MapUtil.stringMap("apoc.custom.procedures.refresh", "100")),
+                .createEnterpriseCluster(3, 0, Collections.emptyMap(), 
+                        MapUtil.stringMap("apoc.custom.procedures.refresh", "100", "apoc.export.file.enabled", "true")),
                 Exception.class);
         Assume.assumeNotNull(cluster);
     }
@@ -41,6 +42,53 @@ public class CypherProceduresClusterTest {
 
     @Test
     public void shouldRecreateCustomFunctionsOnOtherClusterMembers() throws InterruptedException {
+        // given
+        
+        try(Session session = cluster.getDriver().session()) {
+            session.writeTransaction(tx -> tx.run("call apoc.custom.asFunction('answer1', 'RETURN 42 as answer')")); // we create a function
+        }
+
+        // whencypher procedures
+        try(Session session = cluster.getDriver().session()) {
+            TestContainerUtil.testCall(session, "CALL apoc.export.csv.all('prova.csv',{})", (row) -> {
+                System.out.println(row.toString());
+            });
+        }
+
+
+        // then
+        // we use the readTransaction in order to route the execution to the READ_REPLICA
+        try(Session session = cluster.getDriver().session()) {
+            TestContainerUtil.testCallInReadTransaction(session, "CALL apoc.export.csv.all('prova.csv',{})", (row) -> {
+                System.out.println(row.toString());
+            });
+        }
+    }
+
+    @Test
+    public void shouldRecreateCustomFunctionsOnOtherClusterMembers123() throws InterruptedException {
+        // given
+        
+        try(Session session = cluster.getDriver().session()) {
+            session.writeTransaction(tx -> tx.run("CREATE DATABASE prova WAIT")); // we create a function
+        }
+
+        // whencypher procedures
+        try(Session session = cluster.getDriver().session()) {
+            TestContainerUtil.testCall(session, "return custom.answer1() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        }
+
+        Thread.sleep(1000);
+
+        // then
+        // we use the readTransaction in order to route the execution to the READ_REPLICA
+        try(Session session = cluster.getDriver().session()) {
+            TestContainerUtil.testCallInReadTransaction(session, "return custom.answer1() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        }
+    }
+
+    @Test
+    public void shouldRecreateCustomFunctionsOnOtherClusterMembers1() throws InterruptedException {
         // given
         
         try(Session session = cluster.getDriver().session()) {

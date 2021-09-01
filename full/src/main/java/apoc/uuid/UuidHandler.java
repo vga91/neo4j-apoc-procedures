@@ -54,6 +54,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
 
     @Override
     public void start() {
+        System.out.println("UuidHandler.start");
         if (isEnabled()) {
             refresh();
             databaseManagementService.registerTransactionEventListener(db.databaseName(), this);
@@ -67,6 +68,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
 
     @Override
     public void stop() {
+        System.out.println("UuidHandler.stop");
         if (isEnabled()) {
             databaseManagementService.unregisterTransactionEventListener(db.databaseName(), this);
         }

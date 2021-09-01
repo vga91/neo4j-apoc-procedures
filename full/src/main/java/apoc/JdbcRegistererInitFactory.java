@@ -19,11 +19,13 @@ public class JdbcRegistererInitFactory extends ExtensionFactory<JdbcRegistererIn
 
     public JdbcRegistererInitFactory() {
         super(ExtensionType.GLOBAL, "JdbcDriverRegisterer");
+        System.out.println("JdbcRegistererInitFactory.JdbcRegistererInitFactory");
     }
 
     @Override
     public Lifecycle newInstance(ExtensionContext context, Dependencies dependencies) {
-        return new LifecycleAdapter() {
+        System.out.println("JdbcRegistererInitFactory.newInstance");
+        return new LifecycleAdapter() { 
             @Override
             public void init() throws Exception {
                 // we need to await initialization of ApocConfig. Unfortunately Neo4j's internal service loading tooling does *not* honor the order of service loader META-INF/services files.

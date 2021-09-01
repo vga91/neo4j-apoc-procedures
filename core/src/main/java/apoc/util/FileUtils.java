@@ -262,11 +262,13 @@ public class FileUtils {
      * aren't enabled, or aren't readable.
      */
     public static File getMetricsDirectory() {
+        System.out.println("FileUtils.getMetricsDirectory");
         String neo4jHome = apocConfig().getString(GraphDatabaseSettings.neo4j_home.name());
+        System.out.println("neo4jHome = " + neo4jHome); // todo - qua non va bene
         String metricsSetting = apocConfig().getString("dbms.directories.metrics", neo4jHome + File.separator + "metrics");
-
+        System.out.println("metricsSetting = " + metricsSetting);
         File metricsDir = metricsSetting.isEmpty() ? new File(neo4jHome, "metrics") : new File(metricsSetting);
-
+        System.out.println("metricsDir = " + metricsDir);
         if (metricsDir.exists() && metricsDir.canRead() && metricsDir.isDirectory() ) {
             return metricsDir;
         }

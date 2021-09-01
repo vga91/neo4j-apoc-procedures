@@ -24,10 +24,12 @@ public class TTLConfigExtensionFactory extends ExtensionFactory<TTLConfigExtensi
 
     public TTLConfigExtensionFactory() {
         super(ExtensionType.DATABASE, "TTLConfig");
+        System.out.println("TTLConfigExtensionFactory.TTLConfigExtensionFactory");
     }
 
     @Override
     public Lifecycle newInstance(ExtensionContext context, Dependencies dependencies) {
+        System.out.println("TTLConfigExtensionFactory.newInstance");
         return new TTLConfig(dependencies.config(), dependencies.globalProceduresRegistry());
     }
 

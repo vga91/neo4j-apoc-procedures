@@ -62,8 +62,8 @@ public class StaticTest {
 
     @Test
     public void testOverrideConfig() throws Exception {
-        TestUtil.testCall(db, "call apoc.static.get('test')", r -> assertEquals(VALUE,r.get("value")));
-        TestUtil.testCall(db, "return apoc.static.get('test') as value", r -> assertEquals(VALUE,r.get("value")));
+//        TestUtil.testCall(db, "call apoc.static.get('test')", r -> assertEquals(VALUE,r.get("value")));
+        TestUtil.testCall(db, "return apoc.static.get('dbms.directories.neo4j_home') as value", r -> assertEquals(VALUE,r.get("value")));
         TestUtil.testCall(db, "call apoc.static.set('test',42)", r -> assertEquals(VALUE,r.get("value")));
         TestUtil.testCall(db, "call apoc.static.get('test')", r -> assertEquals(42L,r.get("value")));
         TestUtil.testCall(db, "return apoc.static.get('test') as value", r -> assertEquals(42L,r.get("value")));

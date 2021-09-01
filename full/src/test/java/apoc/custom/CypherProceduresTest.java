@@ -42,6 +42,14 @@ public class CypherProceduresTest  {
         TestUtil.registerProcedure(db, CypherProcedures.class);
     }
 
+//    @Test
+//    public void daTogliere() throws Exception {
+//        TestUtil.testCall(db, "RETURN apoc.custom.sha1(['dbms.directories.neo4j_home']) as value",
+//                (r) -> {
+//                    System.out.println("ExportCsvTest.daTogliere");
+//                });
+//    }
+    
     @Test
     public void registerSimpleStatement() throws Exception {
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
