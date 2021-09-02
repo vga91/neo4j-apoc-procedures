@@ -29,7 +29,7 @@ public class LoadLdap {
     public static Map<String, Object> getConnectionMap(Object conn) {
         if (conn instanceof String) {
             //String value = "ldap.forumsys.com cn=read-only-admin,dc=example,dc=com password";
-            String value = apocConfig().getString("apoc.loadldap" + conn.toString() + ".config");
+            String value = apocConfig().getString("apoc.loadldap." + conn.toString() + ".config");
             // format <ldaphost:port> <logindn> <loginpw>
             if (value == null) throw new RuntimeException("No apoc.loadldap."+conn+".config ldap access configuration specified");
             Map<String, Object> config = new HashMap<>();

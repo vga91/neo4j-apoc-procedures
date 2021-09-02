@@ -63,7 +63,7 @@ public class CypherTest {
 
     @BeforeClass
     public static void setUp() {
-        apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
+        apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, false);
         TestUtil.registerProcedure(db, Cypher.class, Utils.class, CypherFunctions.class, Timeboxed.class, Strings.class);
     }
 
