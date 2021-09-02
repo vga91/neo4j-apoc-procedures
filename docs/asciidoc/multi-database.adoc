@@ -1,169 +1,49 @@
-== Notes about multi database support for apoc developers
+== Multi database support for apoc developers
 
-=== which extension factories are started / restarted on a per db basis
+Notes about multi database support for apoc developers.
 
-=== which things are re-initialized
+=== What is re-initialized
 
-in cluster:
-ApocLifecycle.stop
-TTLLifeCycle.stop
-UuidHandler.stop
-LoadDirectoryHandler.stop
-ApocLifecycle.stop
-Pools.shutdown
+In a cluster LEADER:
+
+* TTLConfigExtensionFactory
+** TTLConfig
+* CoreApocGlobalComponents
+** CypherInitializer
+** TriggerHandler
+* ExtendedApocGlobalComponents
+** TTLLifeCycle
+** UuidHandler
+** LoadDirectoryHandler
+** CypherProceduresHandler
+* JdbcRegistererInitFactory
+* ApocConfigExtensionFactory
+* ApocExtensionFactory
+** ApocLifecycle
+* PoolExtensionFactory
+** Pools
+* RegisterComponentFactory
+* RegisterComponentLifecycle
+
+In a cluster FOLLOWER / single instance db :
+
+* TTLConfigExtensionFactory
+** TTLConfig
+* ApocExtensionFactory
+** ApocLifecycle
+* CoreApocGlobalComponents
+** CypherInitializer
+** TriggerHandler
+* ExtendedApocGlobalComponents
+** TTLLifeCycle
+** UuidHandler
+** LoadDirectoryHandler
+** CypherProceduresHandler
 
 
-
-
-=== what did we do in apoc to accommodate for multi-db so far
+=== What did we do in apoc to accommodate for multi-db so far
 
 * UuidHandler: to support multi-db we have a per db DatabaseManagementService.registerTransactionEventListener(dbName, this)
 * TriggerHandler: to support multi-db we create for each a system node with a property `database` 
 * apoc.ttl.*: to support multi-db we have a `TTLConfig.Values` specific per db
 * Cypher initializer: `CypherProceduresHandler.storeFunction()` and `CypherProceduresHandler.storeProcedure()` specific per db
-
-=== other things
-
-
-
-TODO : suddividere LEADER, FOLLOWER.
-            vedere non cluster cosa fa, dovrebbe fare lo stesso di LEADER
-
-
-
-
-LEADER:
-TTLConfigExtensionFactory.newInstance
-TTLConfig.TTLConfig
-ApocExtensionFactory.newInstance
-ApocLifecycle.init
-CoreApocGlobalComponents.getServices
-ExtendedApocGlobalComponents.getServices
-JdbcRegistererInitFactory.JdbcRegistererInitFactory
-ApocConfigExtensionFactory.ApocConfigExtensionFactory
-ApocExtensionFactory.ApocExtensionFactory
-PoolExtensionFactory.PoolExtensionFactory
-RegisterComponentFactory.RegisterComponentFactory
-TTLConfigExtensionFactory.TTLConfigExtensionFactory
-JdbcRegistererInitFactory.JdbcRegistererInitFactory
-ApocConfigExtensionFactory.ApocConfigExtensionFactory
-ApocExtensionFactory.ApocExtensionFactory
-PoolExtensionFactory.PoolExtensionFactory
-RegisterComponentFactory.RegisterComponentFactory
-TTLConfigExtensionFactory.TTLConfigExtensionFactory
-JdbcRegistererInitFactory.JdbcRegistererInitFactory
-ApocConfigExtensionFactory.ApocConfigExtensionFactory
-ApocExtensionFactory.ApocExtensionFactory
-PoolExtensionFactory.PoolExtensionFactory
-RegisterComponentFactory.RegisterComponentFactory
-TTLConfigExtensionFactory.TTLConfigExtensionFactory
-RegisterComponentFactory.newInstance
-RegisterComponentLifecycle.RegisterComponentLifecycle
-ApocConfigExtensionFactory.newInstance
-JdbcRegistererInitFactory.newInstance
-PoolExtensionFactory.newInstance
-RegisterComponentLifecycle.init
-CoreApocGlobalComponents.getContextClasses
-ExtendedApocGlobalComponents.getContextClasses
-ApocConfig.init
-Pools.init
-TTLConfigExtensionFactory.newInstance
-TTLConfig.TTLConfig
-ApocExtensionFactory.newInstance
-ApocLifecycle.init
-ApocLifecycle.start
-CoreApocGlobalComponents.getListeners
-ExtendedApocGlobalComponents.getListeners
-CypherInitializer.available
-TTLConfigExtensionFactory.newInstance
-TTLConfig.TTLConfig
-ApocExtensionFactory.newInstance
-ApocLifecycle.init
-CoreApocGlobalComponents.getServices
-ExtendedApocGlobalComponents.getServices
-ApocLifecycle.start
-TriggerHandler.start
-TTLLifeCycle.start
-UuidHandler.start
-LoadDirectoryHandler.start
-CoreApocGlobalComponents.getListeners
-ExtendedApocGlobalComponents.getListeners
-CypherInitializer.available
-CypherProceduresHandler.available
-CypherProceduresHandler.restoreProceduresAndFunctions
-Pools.start
-ApocLifecycle.stop
-TTLLifeCycle.stop
-UuidHandler.stop
-LoadDirectoryHandler.stop
-ApocLifecycle.stop
-Pools.shutdown
-2021-08-30 12:41:21.008+0000 INFO  This instance bootstrapped a raft for database 'franchino' with raft id '4309edaf-4969-4f17-b11a-11f2be2f89a7' as member id 'b1dcee6a-9c29-431a-a084-7393a2e5d2b4'.
-ApocLifecycle.start
-TriggerHandler.start
-TTLLifeCycle.start
-UuidHandler.start
-LoadDirectoryHandler.start
-CoreApocGlobalComponents.getListeners
-ExtendedApocGlobalComponents.getListeners
-CypherInitializer.available
-CypherProceduresHandler.available
-CypherProceduresHandler.restoreProceduresAndFunctions
-2021-08-30 12:41:21.612+0000 INFO  Called db.clearQueryCaches(): Query cache already empty.
-
-
-FOLLOWER:
-TTLConfigExtensionFactory.newInstance
-TTLConfig.TTLConfig
-ApocExtensionFactory.newInstance
-ApocLifecycle.init
-CoreApocGlobalComponents.getServices
-ExtendedApocGlobalComponents.getServices
-JdbcRegistererInitFactory.JdbcRegistererInitFactory
-ApocConfigExtensionFactory.ApocConfigExtensionFactory
-ApocExtensionFactory.ApocExtensionFactory
-PoolExtensionFactory.PoolExtensionFactory
-RegisterComponentFactory.RegisterComponentFactory
-TTLConfigExtensionFactory.TTLConfigExtensionFactory
-2021-08-30 12:41:22.533+0000 INFO  Started downloading snapshot for database 'franchino'...
-JdbcRegistererInitFactory.JdbcRegistererInitFactory
-ApocConfigExtensionFactory.ApocConfigExtensionFactory
-ApocExtensionFactory.ApocExtensionFactory
-PoolExtensionFactory.PoolExtensionFactory
-RegisterComponentFactory.RegisterComponentFactory
-TTLConfigExtensionFactory.TTLConfigExtensionFactory
-2021-08-30 12:41:25.667+0000 INFO  Download of snapshot for database 'franchino' complete.
-ApocLifecycle.start
-TriggerHandler.start
-TTLLifeCycle.start
-UuidHandler.start
-LoadDirectoryHandler.start
-CoreApocGlobalComponents.getListeners
-ExtendedApocGlobalComponents.getListeners
-CypherInitializer.available
-CypherProceduresHandler.available
-CypherProceduresHandler.restoreProceduresAndFunctions
-2021-08-30 12:41:26.248+0000 INFO  Called db.clearQueryCaches(): Query cache already empty.
-
-
-SINGLE
-TTLConfigExtensionFactory.newInstance
-TTLConfig.TTLConfig
-ApocExtensionFactory.newInstance
-config.get(GraphDatabaseSettings.neo4j_home)
-/Users/GiuseppeVillani/Library/Application Support/Neo4j Desktop/Application/relate-data/dbmss/dbms-dc265bd1-a5fe-4e00-b0c7-417ef655a4b1
-ApocLifecycle.init
-CoreApocGlobalComponents.getServices
-ExtendedApocGlobalComponents.getServices
-ApocLifecycle.start
-TriggerHandler.start
-TTLLifeCycle.start
-UuidHandler.start
-LoadDirectoryHandler.start
-CoreApocGlobalComponents.getListeners
-ExtendedApocGlobalComponents.getListeners
-CypherInitializer.available
-CypherProceduresHandler.available
-CypherProceduresHandler.restoreProceduresAndFunctions
-
-
