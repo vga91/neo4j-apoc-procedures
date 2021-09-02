@@ -52,15 +52,10 @@ public class DocsTest {
             .withSetting(GraphDatabaseSettings.auth_enabled, true)
             .withSetting(GraphDatabaseSettings.procedure_unrestricted, Collections.singletonList("apoc.*"));
 
-    public static void testMethod() {
-        System.out.println("testing");
-    }
-    
     private static final Set<String> procs = new TreeSet<>();
     
     private void searchProcedures(Member member, Reflections reflections) {
-//        List<Method> methodList = new ArrayList<>();
-        String name;
+        String name = "";
         try {
             if (member instanceof Constructor) {
                 name = Utils.name((Constructor) member);
@@ -70,14 +65,13 @@ public class DocsTest {
                 name = Utils.name((Field) member);
             }
         } catch (Exception e) {
-            // todo - vedere se entra
-            name = "";
-            System.out.println("DocsTest.searchProcedures");
+            System.out.println("Member not found");
         }
 
         // currently we cannot use directly org.reflections.Reflections.getMethodUsage() because doesn't recognize lambda function
         reflections.getStore().get(MemberUsageScanner.class, name).forEach(methodUsed -> {
 
+            // todo - we assume that method name is equal to lambda method signature
             methodUsed = methodUsed.replaceAll("\\$\\d+", "").replaceAll("lambda\\$", "");
             
             final int indexOf = methodUsed.indexOf("(");
@@ -108,8 +102,6 @@ public class DocsTest {
                 });
             } catch (ClassNotFoundException e) {  }
         });
-
-//        methodList.forEach(method1 -> searchProcedures(method1, reflections));
     }
 
     private void getCompleteName(Method item, String value, String name) {
@@ -131,13 +123,7 @@ public class DocsTest {
         Method method2 = Class.forName(Session.class.getName()).getDeclaredMethod("beginTransaction");
         Method method3 = Class.forName(Session.class.getName()).getDeclaredMethod("beginTransaction", TransactionConfig.class);
 
-        
-//        Reflections reflections = new Reflections(new ConfigurationBuilder()
-//                .forPackages("apoc")
-//                .setScanners(new SubTypesScanner(true), new TypeAnnotationsScanner(), new MemberUsageScanner())
-//                .filterInputsBy(input -> !input.contains("Test") && !input.endsWith("Test.class") && !input.endsWith("Result.class"))
-////                .getUrls()
-//        );
+
         reflections = new Reflections(new ConfigurationBuilder()
                 .forPackages("apoc")
                 .setScanners(new SubTypesScanner(false), new TypeAnnotationsScanner(), new MemberUsageScanner())
@@ -150,6 +136,7 @@ public class DocsTest {
         searchProcedures(method2, reflections);
         searchProcedures(method3, reflections);
 
+        // file creation
         try(FileWriter writer = new FileWriter(TRANSACTION_FILE)) {
             // header
             writer.write("[[transaction]]\n" +
@@ -162,17 +149,11 @@ public class DocsTest {
             }
             
             writer.write("\n\n");
-//        procs.forEach(proc -> writer.write(proc));
         }
         
         
         apocConfig().setProperty(APOC_UUID_ENABLED, true);
         
-//        Reflections reflections = new Reflections(new ConfigurationBuilder()
-//                .forPackages("apoc")
-//                .setScanners(new SubTypesScanner(false), new TypeAnnotationsScanner())
-//                .filterInputsBy(input -> !input.endsWith("Test.class") && !input.endsWith("Result.class") && !input.contains("$"))
-//        );
         Set<Class<?>> allClasses = allClasses(reflections);
         assertFalse(allClasses.isEmpty());
 
