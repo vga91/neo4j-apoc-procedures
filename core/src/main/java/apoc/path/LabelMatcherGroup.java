@@ -5,6 +5,7 @@ import org.neo4j.graphdb.traversal.Evaluation;
 
 import java.util.regex.Matcher;
 
+import static apoc.path.LabelRelMatcherUtil.LABEL_TYPE_REGEX;
 import static apoc.path.PathExplorer.PIPE_SEPARATOR;
 import static apoc.path.PropertyMatcher.LABEL_TYPE_PATTERN;
 import static apoc.path.PropertyMatcher.getPropsMatched;
@@ -43,10 +44,11 @@ public class LabelMatcherGroup {
     public LabelMatcherGroup addLabel(String filterString, String nodePropFilter) {
         if (filterString !=  null && !filterString.isEmpty()) {
             LabelMatcher matcher;
+            // todo - riutilizzare questo codice
             final Matcher regExMatcher = LABEL_TYPE_PATTERN.matcher(filterString);
             String props = nodePropFilter;
             if (regExMatcher.matches()) {
-                filterString = regExMatcher.group("labelOrType");
+                filterString = regExMatcher.group(LABEL_TYPE_REGEX);
                 props = getPropsMatched(regExMatcher, props);
             }
 

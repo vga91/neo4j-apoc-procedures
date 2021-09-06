@@ -5,6 +5,8 @@ import apoc.export.cypher.formatter.CypherFormatterUtils;
 import apoc.export.util.ExportConfig;
 import apoc.export.util.ExportFormat;
 import apoc.export.util.Reporter;
+import apoc.path.LabelMatcher;
+import apoc.path.RelMatcher;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.cypher.export.SubGraph;
@@ -14,11 +16,15 @@ import org.neo4j.internal.helpers.collection.Iterables;
 
 import java.io.PrintWriter;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_LABEL;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_PROP;
+import static apoc.path.LabelRelMatcherUtil.LABEL_TYPE_REGEX;
+import static apoc.path.LabelRelMatcherUtil.PROPS_REGEX;
+import static apoc.path.PropertyMatcher.LABEL_TYPE_PATTERN;
 
 /*
  * Idea is to lookup nodes for relationships via a unique index
@@ -65,6 +71,8 @@ public class MultiStatementCypherSubGraphExporter {
     private CypherFormatter cypherFormat;
     private ExportConfig exportConfig;
     private GraphDatabaseService db;
+    private RelMatcher relMatcher;
+    private LabelMatcher labelMatcher;
 
     public MultiStatementCypherSubGraphExporter(SubGraph graph, ExportConfig config, GraphDatabaseService db) {
         this.graph = graph;
@@ -72,6 +80,7 @@ public class MultiStatementCypherSubGraphExporter {
         this.exportConfig = config;
         this.cypherFormat = config.getCypherFormat().getFormatter();
         this.db = db;
+        getFilterPairs();
         gatherUniqueConstraints();
     }
 
@@ -133,16 +142,23 @@ public class MultiStatementCypherSubGraphExporter {
 
     private void exportNodes(PrintWriter out, Reporter reporter, int batchSize) {
         if (graph.getNodes().iterator().hasNext()) {
-            begin(out);
-            appendNodes(out, batchSize, reporter);
-            commit(out);
-            out.flush();
+//            begin(out);
+            // TODO !!! se non trova niente mette comunque begin(out)!!!
+            long count = appendNodes(out, batchSize, reporter);
+            if (count > 0) {
+                commit(out);
+                out.flush();
+            }
         }
     }
 
     private void exportNodesUnwindBatch(PrintWriter out, Reporter reporter) {
         if (graph.getNodes().iterator().hasNext()) {
-            this.cypherFormat.statementForNodes(graph.getNodes(), uniqueConstraints, exportConfig, out, reporter, db);
+            // todo - forse qua. filtro i nodi.., vedere se la this.labelMatcher::matchesLabels funziona
+//            final List<Node> nodes = Iterables.stream(graph.getNodes())
+//                    .filter(this.labelMatcher::matchesLabels)
+//                    .collect(Collectors.toList());
+            this.cypherFormat.statementForNodes(graph.getNodes(), uniqueConstraints, exportConfig, out, reporter, db, labelMatcher);
             out.flush();
         }
     }
@@ -150,14 +166,22 @@ public class MultiStatementCypherSubGraphExporter {
     private long appendNodes(PrintWriter out, int batchSize, Reporter reporter) {
         long count = 0;
         for (Node node : graph.getNodes()) {
-            if (count > 0 && count % batchSize == 0) restart(out);
-            count++;
-            appendNode(out, node, reporter);
+            if (this.labelMatcher.matchesLabels(node, true)) { // todo - check
+                if (count == 0) { // if at least one node found
+                    begin(out);
+                }
+                if (count > 0 && count % batchSize == 0) restart(out);
+                count++;
+                appendNode(out, node, reporter);
+            }
         }
         return count;
     }
 
     private void appendNode(PrintWriter out, Node node, Reporter reporter) {
+//        if (!this.labelMatcher.matchesLabels(node)) { // todo - forse qua...
+//            return;
+//        }
         artificialUniques += countArtificialUniques(node);
         String cypher = this.cypherFormat.statementForNode(node, uniqueConstraints, indexedProperties, indexNames);
         if (Util.isNotNullOrEmpty(cypher)) {
@@ -170,16 +194,18 @@ public class MultiStatementCypherSubGraphExporter {
 
     private void exportRelationships(PrintWriter out, Reporter reporter, int batchSize) {
         if (graph.getRelationships().iterator().hasNext()) {
-            begin(out);
-            appendRelationships(out, batchSize, reporter);
-            commit(out);
-            out.flush();
+//            begin(out);
+            final long count = appendRelationships(out, batchSize, reporter);
+            if (count > 0) {
+                commit(out);
+                out.flush();
+            }
         }
     }
-
+// todo - anche qui... da qualche parte
     private void exportRelationshipsUnwindBatch(PrintWriter out, Reporter reporter) {
         if (graph.getRelationships().iterator().hasNext()) {
-            this.cypherFormat.statementForRelationships(graph.getRelationships(), uniqueConstraints, exportConfig, out, reporter, db);
+            this.cypherFormat.statementForRelationships(graph.getRelationships(), uniqueConstraints, exportConfig, out, reporter, db, this.relMatcher);
             out.flush();
         }
     }
@@ -187,9 +213,14 @@ public class MultiStatementCypherSubGraphExporter {
     private long appendRelationships(PrintWriter out, int batchSize, Reporter reporter) {
         long count = 0;
         for (Relationship rel : graph.getRelationships()) {
-            if (count > 0 && count % batchSize == 0) restart(out);
-            count++;
-            appendRelationship(out, rel, reporter);
+            if (this.relMatcher.matchesRels(rel)) {
+                if (count == 0) { // if at least one rel found
+                    begin(out);
+                }
+                if (count > 0 && count % batchSize == 0) restart(out);
+                count++;
+                appendRelationship(out, rel, reporter);
+            }
         }
         return count;
     }
@@ -241,9 +272,18 @@ public class MultiStatementCypherSubGraphExporter {
                     if ("UNIQUE".equals(map.get("uniqueness"))) {
                         return null;  // delegate to the constraint creation
                     }
+                    final boolean isNode = "NODE".equals(map.get("entityType"));
+//                    if (isNode && isNodeSchemaNotMatched(props, tokenNames) || isRelSchemaNotMatched(props, tokenNames)) {
+//                        return null;
+//                    }
+                    final Set<String> setTokens = Set.copyOf(tokenNames);
+                    if (isNode && !this.labelMatcher.isMatchedSchema(props, setTokens) 
+                            || !this.relMatcher.isMatchedSchema(props, setTokens)) {
+                        return null;
+                    }
 
                     if ("FULLTEXT".equals(map.get("type"))) {
-                        if ("NODE".equals(map.get("entityType"))) {
+                        if (isNode) {
                             List<Label> labels = toLabels(tokenNames);
                             return this.cypherFormat.statementForNodeFullTextIndex(name, labels, props);
                         } else {
@@ -295,7 +335,9 @@ public class MultiStatementCypherSubGraphExporter {
                 .map(index -> {
                     String label = Iterables.single(index.getLabels()).name();
                     Iterable<String> props = index.getPropertyKeys();
-                    return this.cypherFormat.statementForConstraint(label, props);
+                    return this.labelMatcher.isMatchedSchema(Iterables.asList(props), Set.of(label)) 
+                            ? this.cypherFormat.statementForConstraint(label, props)
+                            : null;
                 })
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.toList());
@@ -343,6 +385,7 @@ public class MultiStatementCypherSubGraphExporter {
         out.print(exportFormat.commit());
     }
 
+    // todo - sta cosa che fa?
     private void gatherUniqueConstraints() {
         for (IndexDefinition indexDefinition : graph.getIndexes()) {
             Set<String> label = StreamSupport.stream(indexDefinition.getLabels().spliterator(), false)
@@ -351,12 +394,34 @@ public class MultiStatementCypherSubGraphExporter {
             Set<String> props = StreamSupport
                     .stream(indexDefinition.getPropertyKeys().spliterator(), false)
                     .collect(Collectors.toSet());
+            final List<String> propsList = List.copyOf(props);
+            if (indexDefinition.isNodeIndex() && !this.labelMatcher.isMatchedSchema(propsList, label)
+                    || !this.relMatcher.isMatchedSchema(propsList, label)) { // todo - devo capire a cosa serve per bene...
+                continue;
+            }
             indexNames.add(indexDefinition.getName());
             indexedProperties.addAll(props);
             if (indexDefinition.isConstraintIndex()) { // we use the constraint that have few properties
                 uniqueConstraints.compute(String.join(":", label), (k, v) ->  v == null || v.size() > props.size() ? props : v);
             }
         }
+    }
+
+    private void getFilterPairs() {
+        this.labelMatcher = populateMatcher(new LabelMatcher(), exportConfig.getNodeFilter());
+        this.relMatcher = (RelMatcher) populateMatcher(new RelMatcher(this.labelMatcher), exportConfig.getRelFilter());
+    }
+
+    private LabelMatcher populateMatcher(LabelMatcher labelRelMatcher, List<String> relFilter) {
+        relFilter.forEach(filter -> {
+            final Matcher regExMatcher = LABEL_TYPE_PATTERN.matcher(filter);
+            if (regExMatcher.matches()) {
+                labelRelMatcher.addLabel(regExMatcher.group(LABEL_TYPE_REGEX), regExMatcher.group(PROPS_REGEX), true); // todo - static var per labelOrType e props
+            } else {
+                throw new RuntimeException("Incorrect format. Filter must be of type +|-|++|--NAME_REL_OR_TYPE[{optionalPropFilter}]");
+            }
+        });
+        return labelRelMatcher;
     }
 
     private long countArtificialUniques(Node node) {

@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 
+import static apoc.path.LabelRelMatcherUtil.LABEL_TYPE_REGEX;
 import static apoc.path.PathExplorer.PIPE_SEPARATOR;
 import static apoc.path.PropertyMatcher.LABEL_TYPE_PATTERN;
 import static apoc.path.PropertyMatcher.getPropsMatched;
@@ -24,17 +25,17 @@ public abstract class RelationshipTypeAndDirections {
 
 	public static final char BACKTICK = '`';
 
-    public static String format(Pair<RelationshipType, Direction> typeAndDirection) {
-        String type = typeAndDirection.first().name();
-        switch (typeAndDirection.other()) {
-            case OUTGOING:
-                return type + ">";
-            case INCOMING:
-                return "<" + type;
-            default:
-                return type;
-        }
-    }
+	public static String format(Pair<RelationshipType, Direction> typeAndDirection) {
+		String type = typeAndDirection.first().name();
+		switch (typeAndDirection.other()) {
+			case OUTGOING:
+				return type + ">";
+			case INCOMING:
+				return "<" + type;
+			default:
+				return type;
+		}
+	}
 
 	public static List<Triple<RelationshipType, Direction, String>> parseTriple(String pathFilter, String relPropFilter) {
 		List<Triple<RelationshipType, Direction, String>> relsAndDirs = new ArrayList<>();
@@ -43,10 +44,11 @@ public abstract class RelationshipTypeAndDirections {
 		} else {
 			String[] defs = pathFilter.split(PIPE_SEPARATOR);
 			for (String def : defs) {
+				// todo - riutilizzare questo codice
 				final Matcher regExMatcher = LABEL_TYPE_PATTERN.matcher(def);
 				String props = relPropFilter;
 				if (regExMatcher.matches()) {
-					def = regExMatcher.group("labelOrType");
+					def = regExMatcher.group(LABEL_TYPE_REGEX);
 					props = getPropsMatched(regExMatcher, props);
 				}
 				relsAndDirs.add(Triple.of(relationshipTypeFor(def), directionFor(def), props));

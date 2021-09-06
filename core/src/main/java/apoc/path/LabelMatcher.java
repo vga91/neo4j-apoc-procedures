@@ -1,11 +1,18 @@
 package apoc.path;
 
+import org.apache.commons.lang3.StringUtils;
+import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.internal.helpers.collection.Pair;
 
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import static apoc.path.LabelRelMatcherUtil.LABEL_TYPE_REGEX;
 import static apoc.path.PropertyMatcher.matchesProperties;
+import static apoc.path.PropertyMatcher.matchesPropsSchema;
 
 /**
  * A generic label matcher which evaluates whether or not a node has at least one of the labels added on the matcher.
@@ -21,15 +28,61 @@ import static apoc.path.PropertyMatcher.matchesProperties;
  * LabelMatchers hold no context about what a match means, and do not handle labels prefixed with filter symbols (+, -, /, &gt;).
  * Please strip these symbols from the start of each label before adding to the matcher.
  */
-public class LabelMatcher {
-    private List<Pair<String, String>> labels = new ArrayList<>();
-    private List<Pair<List<String>, String>> compoundLabels;
+public class LabelMatcher { // todo - creo una classe che estende questo va...
+
+    private static final Pattern FILTER_TYPE_PATTERN = Pattern.compile("(?<typeFilter>--|\\+\\+|-|\\+)(?<labelOrType>.+)");
+    
+    private static final String CHECK_TYPE = "checkType";
+    private static final String PROPS = "props";
+
+    private enum CheckType {BLACKLIST_ALL, BLACKLIST_ANY, WHITELIST_ALL, WHITELIST_ANY}
+    // todo - il default dovrebbe essere WHITELIST_ANY, verificare ed in caso togliere none
+
+    private List<Pair<String, Map<String, Object>>> labels = new ArrayList<>();
+    private List<Pair<Set<String>, Map<String, Object>>> compoundLabels = new ArrayList<>();
+//    private CheckType checkType = CheckType.WHITELIST_ANY;
 
     public LabelMatcher addLabel(String label, String props) {
-        if ("*".equals(label)) {
-            labels = Collections.singletonList(Pair.of("*", props));
+        return addLabel(label, props, false);
+    }
+
+    public LabelMatcher addLabel(String label, String props, boolean checkFirstChar) {
+        props = props == null ? StringUtils.EMPTY : props;
+        
+        // todo - questo deve valere solo per PathExpander
+        if (!checkFirstChar && "*".equals(label)) {
+            labels = Collections.singletonList(Pair.of("*", Map.of(PROPS, props, CHECK_TYPE, CheckType.WHITELIST_ANY)));
             return this;
         }
+
+        // todo - questo NON deve valere solo per PathExpander
+        CheckType checkType = CheckType.WHITELIST_ANY;
+        if (checkFirstChar) { // for export-cypher case
+            final Matcher regExMatcher = FILTER_TYPE_PATTERN.matcher(label);
+            if (regExMatcher.matches()) {
+                String operator = regExMatcher.group("typeFilter");
+                switch (operator) {
+                    case "++":
+                        checkType = CheckType.WHITELIST_ALL;
+                        break;
+                    case "--":
+                        checkType = CheckType.BLACKLIST_ALL;
+                        break;
+                    case "-":
+                        checkType = CheckType.BLACKLIST_ANY;
+                        break;
+                    case "+":
+                        break;
+                    default:
+                        throw new RuntimeException("e"); // todo - forse non serve
+                }
+            } else {
+                // todo - testare questo...
+                throw new RuntimeException("Invalid type filter. Valid types are '++', '--', '+' and '-'");
+            }
+            label = regExMatcher.group(LABEL_TYPE_REGEX);
+        }
+
 
         if (label.charAt(0) == ':') {
             label = label.substring(1);
@@ -37,38 +90,90 @@ public class LabelMatcher {
 
         String[] elements = label.split(":");
         if (elements.length == 1) {
-            labels.add(Pair.of(label, props));
+            labels.add(Pair.of(label, Map.of(PROPS, props, "checkType", checkType)));
         } else if (elements.length > 1) {
-            if (compoundLabels == null) {
-                compoundLabels = new ArrayList<>();
-            }
+//            if (compoundLabels == null) {
+//                compoundLabels = new ArrayList<>();
+//            }
 
-            compoundLabels.add(Pair.of(Arrays.asList(elements), props));
+            compoundLabels.add(Pair.of(Set.copyOf(Arrays.asList(elements)), Map.of(PROPS, props, "checkType", checkType)));
         }
 
         return this;
     }
 
-    public boolean matchesLabels(Node node) {
-        if (labels.size() == 1 && labels.get(0).first().equals("*")) {
-            return matchesProperties(node, labels.get(0).other());
-        }
-        
-        Set<String> nodeLabels = new HashSet<>();
-        node.getLabels().forEach(label -> nodeLabels.add(label.name()));
+    public static boolean matchesLabels(Node node, List<Pair<String, String>> labelsPairs) {
+        // todo : prima di Set<String> nodeLabels = new HashSet<>();
+        //  --> vedo il primo simbolo cos'è (+, -, ++ , --)
 
-        for ( Pair<String, String> labelPair : labels ) {
+        return true; // todo
+        // todo - suddividere if (nodeLabels.contains(label)) { in 4 parti -->
+        //  nodeLabels.contains(label)
+        //  !nodeLabels.contains(label)
+        //  nodeLabel.equals(label) --> deve contenere ESATTAMENTE le stesse label [anche per i compoundLabels andrebbe bene...]
+        //  !nodeLabel.equals(label) --> NON deve contenere ESATTAMENTE le stesse label
+    }
+
+//    public boolean matchesLabels(Node node, boolean ) {
+//
+//    }
+
+    public boolean matchesLabels(Entity entity) {
+        return matchesLabels(entity, false);
+    }
+
+//    public boolean matchesRels(Relationship relationship, boolean allowEmptyLabels, LabelMatcher nodeLabelMatcher) {
+////        final Set<String> nodeLabels = new HashSet<>();
+////        nodeLabels.add(relationship.getType().name());
+////        matchesLabels(relationship.getStartNode(), true);
+////        matchesLabels(relationship.getEndNode(), true);
+//        
+//        return nodeLabelMatcher.matchesLabels(relationship.getStartNode(), true) 
+//                && nodeLabelMatcher.matchesLabels(relationship.getEndNode(), true) 
+//                && matchCommon(relationship, true);
+//    }
+    
+    public boolean matchesLabels(Entity entity, boolean allowEmptyLabels) {
+
+        if (!allowEmptyLabels) {
+            if (labels.size() == 1 && labels.get(0).first().equals("*")) { // todo - valutare questa prima parte...
+                return matchesProperties(entity, (String) labels.get(0).other().get(PROPS));
+            }
+        }
+
+        return matchCommon(entity, allowEmptyLabels);
+    }
+
+    boolean matchCommon(Entity entity, boolean allowEmptyLabels) {
+        final Set<String> nodeLabels = new HashSet<>();
+        if (entity instanceof Node) {
+            ((Node) entity).getLabels().forEach(label -> nodeLabels.add(label.name()));
+        } else {
+            final Relationship relationship = (Relationship) entity;
+//            matchesLabels(relationship.getStartNode(), true);
+//            matchesLabels(relationship.getEndNode(), true);
+            nodeLabels.add(relationship.getType().name());
+        }
+
+        // with export cypher we consider all labels / rel-types, if label / rel-type filter is empty
+        if (allowEmptyLabels && labels.isEmpty() && compoundLabels.isEmpty()) {
+            return true; // todo - questa parte non dovrebbe valere per pathExpander credo...
+        }
+
+        for (Pair<String, Map<String, Object>> labelPair : labels) {
             final String label = labelPair.first();
-            if (nodeLabels.contains(label)) {
-                return matchesProperties(node, labelPair.other());
+            final Map<String, Object> other = labelPair.other();
+            if (isContains(nodeLabels, label, (CheckType) other.get(CHECK_TYPE))) { // todo - fare discorso come sopra, nodeLabels.contains(label), !nodeLabels.contains(label), etc..
+                return matchesProperties(entity, (String) other.get(PROPS));
             }
         }
 
         if (compoundLabels != null) {
-            for (Pair<List<String>, String> compoundLabelPair : compoundLabels) {
-                final List<String> compoundLabel = compoundLabelPair.first();
-                if (nodeLabels.containsAll(compoundLabel)) {
-                    return matchesProperties(node, compoundLabelPair.other()); 
+            for (Pair<Set<String>, Map<String, Object>> compoundLabelPair : compoundLabels) {
+                final Set<String> compoundLabel = compoundLabelPair.first();
+                final Map<String, Object> other = compoundLabelPair.other();
+                if (isContainsAll(nodeLabels, compoundLabel, (CheckType) other.get(CHECK_TYPE))) { // todo - fare discorso come sopra, nodeLabels.contains(label), !nodeLabels.contains(label), etc..
+                    return matchesProperties(entity, (String) other.get(PROPS));
                 }
             }
         }
@@ -76,9 +181,83 @@ public class LabelMatcher {
         return false;
     }
 
+    // todo - forse questo posso metterlo come sottometodo di matchesLabels...
+    public boolean isMatchedSchema(List<String> props, Set<String> nodeLabels) {
+        if (labels.isEmpty() && compoundLabels.isEmpty()) {
+            return true; // todo - questa parte non dovrebbe valere per pathExpander credo...
+        }
+        
+        for (Pair<String, Map<String, Object>> labelPair : labels) {
+            final String label = labelPair.first();
+            final Map<String, Object> other = labelPair.other();
+            if (isContainsSchema(nodeLabels, Set.of(label), (CheckType) other.get(CHECK_TYPE))) { // todo - fare discorso come sopra, nodeLabels.contains(label), !nodeLabels.contains(label), etc..
+                return matchesPropsSchema(props, (String) other.get(PROPS));
+            }
+        }
+
+        if (compoundLabels != null) {
+            for (Pair<Set<String>, Map<String, Object>> compoundLabelPair : compoundLabels) {
+                final Set<String> compoundLabel = compoundLabelPair.first();
+                final Map<String, Object> other = compoundLabelPair.other();
+                if (isContainsSchema(nodeLabels, compoundLabel, (CheckType) other.get(CHECK_TYPE))) { // todo - fare discorso come sopra, nodeLabels.contains(label), !nodeLabels.contains(label), etc..
+                    return matchesPropsSchema(props, (String) other.get(PROPS));
+                }
+            }
+        }
+        return false;
+    }
+
+    // todo - provare un factory pattern...
+    
+    // todo - forse isContainsAll e isContains si possono unire, se metto set.of(..) a tutto?
+    
+    private boolean isContainsAll(Set<String> nodeLabels, Set<String> compoundLabel, CheckType checkType) {
+        if (compoundLabel.equals(Set.of("*"))) {
+            return true;
+        }
+        switch (checkType) {
+            case BLACKLIST_ALL:
+                return !nodeLabels.equals(compoundLabel);
+            case BLACKLIST_ANY:
+                return !nodeLabels.containsAll(compoundLabel);
+            case WHITELIST_ALL:
+                return nodeLabels.equals(compoundLabel);
+            default:
+                return nodeLabels.containsAll(compoundLabel);
+        }
+    }
+
+    private boolean isContains(Set<String> nodeLabels, String label, CheckType checkType) {
+        if (label.equals("*")) {
+            return true;
+        }
+        switch (checkType) {
+            case BLACKLIST_ALL:
+                return !nodeLabels.equals(Set.of(label));
+            case BLACKLIST_ANY:
+                return !nodeLabels.contains(label);
+            case WHITELIST_ALL:
+                return nodeLabels.equals(Set.of(label));
+            default:
+                return nodeLabels.contains(label);
+        }
+    }
+
+    private boolean isContainsSchema(Set<String> nodeLabels, Set<String> label, CheckType checkType) {
+        if (label.equals(Set.of("*"))) {
+            return true;
+        }
+        switch (checkType) {
+            case BLACKLIST_ANY:
+                return !nodeLabels.containsAll(label);
+            case WHITELIST_ANY:
+                return nodeLabels.containsAll(label);
+            default:
+                return true; // with BLACKLIST_ALL and WHITELIST_ALL i can have other labels
+        }
+    }
+
     public boolean isEmpty() {
         return labels.isEmpty() && (compoundLabels == null || compoundLabels.isEmpty());
     }
 }
-
-

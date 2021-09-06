@@ -3,6 +3,7 @@ package apoc.path;
 import apoc.convert.Convert;
 import apoc.meta.Meta;
 import apoc.util.Util;
+import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.values.storable.DateTimeValue;
 import org.neo4j.values.storable.DateValue;
@@ -15,9 +16,12 @@ import org.neo4j.values.storable.TimeValue;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static apoc.path.LabelRelMatcherUtil.PROPS_REGEX;
 
 public class PropertyMatcher {
 
@@ -25,26 +29,59 @@ public class PropertyMatcher {
     public static final Pattern LABEL_TYPE_PATTERN = Pattern.compile("(?<labelOrType>.[^{]*)(\\{(?<props>.+)\\})?");
     // regex for prop1 = value1 / prop1 != value1 and so on
     public static final Pattern FIELD_PATTERN = Pattern.compile("(?<prop>.[^!><]+)(?<operator>=|>=|<=|<|>|!=)(?<value>.+)");
-    
+    private static final String PIPE_IN_BRACKETS = "\\s*\\|\\s*";
+    private static final String INCLUDE_PFX = "+";
+    private static final String EXCLUDE_PFX = "-";
+
     public static boolean matchesProperties(Entity entity, String propertyString) {
+        return matchesProperties1(propertyString, andItem -> matchProperty(andItem, entity));
         // when property part or relPropFilter / nodePropFilter node is not present
-        if (propertyString == null) {
+//        if (StringUtils.isBlank(propertyString)) {
+//            return true;
+//        }
+//        
+//        final String[] splitOrs = propertyString.split(PIPE_IN_BRACKETS);
+//
+//        return Arrays.stream(splitOrs).anyMatch(orItem -> {
+//            final String[] splitAnds = orItem.split("\\s*&\\s*");
+//            return Arrays.stream(splitAnds).allMatch(andItem -> matchProperty(andItem, entity));
+//        });
+    }
+    
+    public static boolean matchesPropsSchema(List<String> propsList, String propertyString) {
+        return matchesProperties1(propertyString, andItem -> {
+            final String itemSubstring = andItem.substring(1);
+            if (andItem.startsWith(INCLUDE_PFX)) {
+                return propsList.contains(itemSubstring);
+            } else if (andItem.startsWith(EXCLUDE_PFX)) {
+                return !propsList.contains(itemSubstring);
+            } else {
+                // we consider only + and - to filter schema
+                return true;
+            }
+        });
+    }
+
+    private static boolean matchesProperties1(String propertyString, Predicate<String> stringPredicate) {
+        // when property part or relPropFilter / nodePropFilter node is not present
+        if (StringUtils.isBlank(propertyString)) {
             return true;
         }
         
-        final String[] splitOrs = propertyString.split("\\s*\\|\\s*");
+        final String[] splitOrs = propertyString.split(PIPE_IN_BRACKETS);
 
         return Arrays.stream(splitOrs).anyMatch(orItem -> {
             final String[] splitAnds = orItem.split("\\s*&\\s*");
-            return Arrays.stream(splitAnds).allMatch(andItem -> matchProperty(andItem, entity));
+//            final Predicate<String> stringPredicate = andItem -> matchProperty(andItem, entity);
+            return Arrays.stream(splitAnds).allMatch(stringPredicate);
         });
     }
 
     private static boolean matchProperty(String orItem, Entity entity) {
-        if (orItem.startsWith("+")) {
+        if (orItem.startsWith(INCLUDE_PFX)) {
             return entity.hasProperty(orItem.substring(1));
         } 
-        if(orItem.startsWith("-")) {
+        if(orItem.startsWith(EXCLUDE_PFX)) {
             return !entity.hasProperty(orItem.substring(1));
         }
         
@@ -116,10 +153,35 @@ public class PropertyMatcher {
     }
 
     public static String getPropsMatched(Matcher matcher, String props) {
-        final String propsMatched = matcher.group("props");
+        final String propsMatched = matcher.group(PROPS_REGEX);
         if (propsMatched != null) {
             props = propsMatched;
         }
         return props;
+    }
+    
+//    public static boolean matchesPropsSchema(List<String> propsList, String propertyString) {
+//        // when property part or relPropFilter / nodePropFilter node is not present
+//        if (StringUtils.isBlank(propertyString)) { // todo - serve sta cosa?
+//            return true;
+//        }
+//        final String[] splitOrs = propertyString.split(PIPE_IN_BRACKETS);
+//
+//        final Predicate<String> stringPredicate = orItem -> {
+//            final String itemSubstring = orItem.substring(1);
+//            if (orItem.startsWith(INCLUDE_PFX)) {
+//                return propsList.contains(itemSubstring);
+//            } else if (orItem.startsWith(EXCLUDE_PFX)) {
+//                return !propsList.contains(itemSubstring);
+//            } else {
+//                // we consider only + and - to filter schema
+//                return true;
+//            }
+//        };
+//        return Arrays.stream(splitOrs).allMatch(stringPredicate);
+//    }
+    
+    public static boolean isRelSchemaNotMatched(List<String> props, List<String> tokenNames) {
+        return false;
     }
 }
