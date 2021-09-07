@@ -73,6 +73,9 @@ dependencies {
     }
     compile group: 'org.yaml', name: 'snakeyaml', version: '1.26'
     testCompile group: 'com.github.stefanbirkner', name: 'system-rules', version: '1.19.0'
+    testCompile group: 'com.github.stefanbirkner', name: 'fake-sftp-server-rule', version: '2.0.1'
+    testCompile group: 'org.mockftpserver', name: 'MockFtpServer', version: '2.7.1'
+
 
     testCompile 'net.sourceforge.jexcelapi:jxl:2.6.12'
 
@@ -85,6 +88,7 @@ dependencies {
     testCompile group: 'org.neo4j.test', name: 'neo4j-harness', version: neo4jVersionEffective
     testCompile group: 'org.eclipse.jetty', name: 'jetty-server', version: '9.2.22.v20170606'
     testCompile group: 'org.apache.derby', name: 'derby', version: '10.12.1.1'
+
 
     testCompile group: 'org.postgresql', name: 'postgresql', version: '42.1.4'
     testCompile group: 'io.minio', name: 'minio', version: '3.0.11', {

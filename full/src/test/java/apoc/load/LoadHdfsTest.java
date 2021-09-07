@@ -23,6 +23,7 @@ import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 
+// todo - fare i test sullo stesso livello di questo
 public class LoadHdfsTest {
 
     @Rule
@@ -35,7 +36,7 @@ public class LoadHdfsTest {
         miniDFSCluster = HdfsTestUtils.getLocalHDFSCluster();
 		FileSystem fs = miniDFSCluster.getFileSystem();
 		String fileName = "test.csv";
-		Path file = new Path(fileName);
+		Path file = new Path(fileName); // todo - fare questa cosa anche per ftp...
 		try (OutputStream out = fs.create(file);) {
 			URL url = ClassLoader.getSystemResource(fileName);
 			try (InputStream in = url.openStream();) {

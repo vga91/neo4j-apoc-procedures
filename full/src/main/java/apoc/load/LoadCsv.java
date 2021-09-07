@@ -44,7 +44,7 @@ public class LoadCsv {
         CountingReader reader = null;
         try {
             httpHeaders = httpHeaders != null ? httpHeaders : new HashMap<>();
-            httpHeaders.putAll(Util.extractCredentialsIfNeeded(url, true));
+            httpHeaders.putAll(Util.extractCredentialsIfNeeded(url, true)); // todo - non è che questo mi scombina qualcosa?
             reader = FileUtils.readerFor(url, httpHeaders, payload);
             return streamCsv(url, config, reader);
         } catch (IOException e) {

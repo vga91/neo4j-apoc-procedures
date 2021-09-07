@@ -19,6 +19,7 @@ public class HDFSUtils {
 
 	private HDFSUtils() {}
 
+	// todo ???
 	public static StreamConnection readFile(String fileName) throws IOException {
 		FileSystem hdfs = getFileSystem(fileName);
 		Path file = getPath(fileName);

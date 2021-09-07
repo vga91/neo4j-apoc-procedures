@@ -3,6 +3,7 @@ package apoc.util;
 import apoc.ApocConfig;
 import apoc.export.util.CountingInputStream;
 import apoc.export.util.CountingReader;
+import apoc.util.ftp.FtpUtils;
 import apoc.util.hdfs.HDFSUtils;
 import apoc.util.s3.S3URLConnection;
 import apoc.util.s3.S3UploadUtils;
@@ -44,18 +45,38 @@ public class FileUtils {
     static final boolean HDFS_ENABLED = Util.classExists("org.apache.hadoop.fs.FileSystem");
     public static final Pattern HDFS_PATTERN = Pattern.compile("^(hdfs:\\/\\/)(?:[^@\\/\\n]+@)?([^\\/\\n]+)");
     public static final Pattern S3_PATTERN = Pattern.compile("^(s3:\\/\\/)(?:[^@\\/\\n]+@)?([^\\/\\n]+)");
+    private static final String FTP_PROTOCOL = "ftp";
+    private static final String SFTP_PROTOCOL = "sftp";
+    private static final String FTPS_PROTOCOL = "ftps";
 
-    private static final List<String> NON_FILE_PROTOCOLS = Arrays.asList(HTTP_PROTOCOL, S3_PROTOCOL, GCS_PROTOCOL, HDFS_PROTOCOL);
+    private static final List<String> NON_FILE_PROTOCOLS = Arrays.asList(HTTP_PROTOCOL, S3_PROTOCOL, GCS_PROTOCOL, HDFS_PROTOCOL, FTP_PROTOCOL, SFTP_PROTOCOL, FTPS_PROTOCOL);
 
     public static CountingReader readerFor(String fileName) throws IOException {
         return readerFor(fileName, null, null);
     }
 
+    // todo - qui...
     public static CountingReader readerFor(String fileName, Map<String, Object> headers, String payload) throws IOException {
+//        Use java.net.URI. It will be more robust, and will probably be faster.
+        // però con stp
+        // https://stackoverflow.com/questions/33609411/how-to-extract-sftp-url-sftp-userhostport-directory-in-java
+        // sembra fattibile
+        // forse c'è qualcosa di simile...
+
+        // todo - URI uri = new URI(encodePath(url)); <-- forse serve encodarlo??? provare spazi
+
         apocConfig().checkReadAllowed(fileName);
         if (fileName==null) return null;
-        fileName = changeFileUrlIfImportDirectoryConstrained(fileName);
+        fileName = changeFileUrlIfImportDirectoryConstrained(fileName); // todo - qua che fa?
         if (fileName.matches("^\\w+:/.+")) {
+            final URI uri = URI.create(fileName);
+            final String uriScheme = uri.getScheme();
+            if (uriScheme.equals(FTP_PROTOCOL)) {
+                return FtpUtils.readFtp(uri);
+            }
+            if (uriScheme.equals(SFTP_PROTOCOL)) {
+                return FtpUtils.readSFTP(uri);
+            }
             if (isHdfs(fileName)) {
                 return readHdfs(fileName);
             } else {
@@ -64,6 +85,8 @@ public class FileUtils {
         }
         return readFile(fileName);
     }
+
+    // todo - qui...
     public static CountingInputStream inputStreamFor(String fileName) throws IOException {
         apocConfig().checkReadAllowed(fileName);
         if (fileName==null) return null;
@@ -86,7 +109,7 @@ public class FileUtils {
             throw new RuntimeException(e);
         }
     }
-
+    
     private static CountingReader readHdfs(String fileName) {
         try {
             StreamConnection streamConnection = HDFSUtils.readFile(fileName);
@@ -112,7 +135,7 @@ public class FileUtils {
     public static String changeFileUrlIfImportDirectoryConstrained(String urlNotEncoded) throws IOException {
         final String url = encodeExceptQM(urlNotEncoded);
 
-        if (isFile(url) && isImportUsingNeo4jConfig()) {
+        if (isFile(url) && isImportUsingNeo4jConfig()) { // todo - mi sa pure qua...
             if (!apocConfig().getBoolean(APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM)) {
                 throw new RuntimeException("Import file "+url+" not enabled, please set dbms.security.allow_csv_import_from_file_urls=true in your neo4j.conf");
             }
