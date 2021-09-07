@@ -111,11 +111,6 @@ public class ExportCypherTest {
     }
 
     // -- Whole file test -- //
-    // todo - {nodeWhitelist: ["*:gender"]} <-- per tutte le proprietà posso usare questa sintassi
-
-    // todo - skippare (o meno) anche schema!
-
-    // todo - questi test metterli un po più giù
     @Test
     public void testExportAllCypherWithNodeWhiteList() throws Exception {
         String fileName = "all.cypher";
@@ -147,7 +142,6 @@ public class ExportCypherTest {
     
     @Test
     public void testExportAllCypherWithSchemaFilter() throws Exception {
-        // todo - in questo caso dovrebbe fare la DROP CONSTRAINT / INDEX se non trova nodi di quel tipo...
         db.executeTransactionally("CREATE CONSTRAINT baz_constraint ON (b:Baz) ASSERT b.name IS UNIQUE");
         String fileName = "all.cypher";
         TestUtil.testCall(db, "CALL apoc.export.cypher.all($fileName,{nodeFilter: ['-Baz'],  useOptimizations: { type: 'none'}, format: 'neo4j-shell'})",
@@ -162,7 +156,6 @@ public class ExportCypherTest {
     
     @Test
     public void testExportAllCypherWithFilter() throws Exception {
-        // todo - in questo caso dovrebbe fare la DROP CONSTRAINT / INDEX se non trova nodi di quel tipo...
         String fileName = "all.cypher";
         TestUtil.testCall(db, "CALL apoc.export.cypher.all($fileName,{nodeFilter: ['+Foo{name=foo}'],  useOptimizations: { type: 'none'}, format: 'neo4j-shell'})",
                 map("fileName", fileName),
@@ -172,7 +165,6 @@ public class ExportCypherTest {
     
     @Test
     public void testNodeMultiFilter() throws Exception {
-        // todo - in questo caso dovrebbe fare la DROP CONSTRAINT / INDEX se non trova nodi di quel tipo...
         String fileName = "all.cypher";
         db.executeTransactionally("CREATE (:Foo {name:'foo', born:date('1999-10-10')})");
         TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,{nodeFilter: ['+Foo{+name & born>2018-01-01 & -notExistent}'], useOptimizations: { type: 'none'}, format: 'neo4j-shell'})",
@@ -187,7 +179,6 @@ public class ExportCypherTest {
     }
     
     
-    
     @Test
     public void testFilterWithWildcard() throws Exception {
         String fileName = "all.cypher";
@@ -195,10 +186,9 @@ public class ExportCypherTest {
                 map("file", fileName),
                 (r) -> assertResults(fileName, r, "database", 3L, 1L, 6L));
         assertEquals(EXPECTED_NEO4J_SHELL, readFile(fileName));
-//        
+
         // include all nodes WITH property 'notExistent'
         TestUtil.testCall(db, "CALL apoc.export.cypher.all($file,{nodeFilter: ['+*{+notExistent}'], useOptimizations: { type: 'none'}, format: 'neo4j-shell'})",
-//        TestUtil.testCall(db, "CALL apoc.export.cypher.all($fileName,{relFilter: ['-KNOWS'],  useOptimizations: { type: 'unwind_batch', unwindBatchSize: 2}, format: 'neo4j-shell'})",
                 map("file", fileName),
                 (r) -> assertResults(fileName, r, "database", 0L, 0L, 0L));
         assertEquals(StringUtils.EMPTY, readFile(fileName));
@@ -215,7 +205,6 @@ public class ExportCypherTest {
 
     @Test
     public void testFilterNotMatched() throws Exception {
-        // todo - in questo caso dovrebbe fare la DROP CONSTRAINT / INDEX se non trova nodi di quel tipo...
         String fileName = "all.cypher";
         TestUtil.testCall(db, "CALL apoc.export.cypher.all($fileName,{nodeFilter: ['+NotExistent'],  useOptimizations: { type: 'none'}, format: 'neo4j-shell'})",
                 map("fileName", fileName),
@@ -259,9 +248,9 @@ public class ExportCypherTest {
     public void testExportGraphCypher() throws Exception {
         String fileName = "graph.cypher";
         TestUtil.testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
-                        "CALL apoc.export.cypher.graph(graph, $file,$exportConfig) " +
-                        "YIELD nodes, relationships, properties, file, source,format, time " +
-                        "RETURN *", map("file", fileName, "exportConfig", map("useOptimizations", map("type", "none"), "format", "neo4j-shell")),
+                "CALL apoc.export.cypher.graph(graph, $file,$exportConfig) " +
+                "YIELD nodes, relationships, properties, file, source,format, time " +
+                "RETURN *", map("file", fileName, "exportConfig", map("useOptimizations", map("type", "none"), "format", "neo4j-shell")),
                 (r) -> assertResults(fileName, r, "graph"));
         assertEquals(EXPECTED_NEO4J_SHELL, readFile(fileName));
     }
@@ -341,7 +330,7 @@ public class ExportCypherTest {
                 (r) -> assertResults(fileName, r, "graph"));
         assertEquals(EXPECTED_CLEAN_UP, readFile("graph.cleanup.cypher"));
     }
-    
+
     private void assertResults(String fileName, Map<String, Object> r, final String source) {
         assertResults(fileName, r, source, 3L, 1L, 6L);
     }
@@ -785,7 +774,7 @@ public class ExportCypherTest {
                     assertEquals(expected, unwind);
                 });
     }
-
+  
     @Test
     public void shouldHandleTwoLabelsWithOneUniqueConstraintEach() {
         db.executeTransactionally("CREATE CONSTRAINT ON (b:Base) ASSERT b.id IS UNIQUE");
@@ -881,7 +870,6 @@ public class ExportCypherTest {
                 "COMMIT%n");
 
         static final String EXPECTED_NODES_FILTER_WHITELIST_STRICT = String.format("BEGIN%n" +
-//                "CREATE (:Foo:`UNIQUE IMPORT LABEL` {born:date('2018-10-31'), name:\"foo\", `UNIQUE IMPORT ID`:0});%n" +
                 "CREATE (:Bar {age:42, name:\"bar\"});%n" +
                 "CREATE (:Bar:`UNIQUE IMPORT LABEL` {age:12, `UNIQUE IMPORT ID`:2});%n" +
                 "COMMIT%n");
@@ -1116,12 +1104,12 @@ public class ExportCypherTest {
 
         static final String EXPECTED_RELATIONSHIPS_PARAMS_ODD = String.format(
                 "BEGIN%n" +
-                        ":param rows => [{start: {_id:0}, end: {name:\"bar\"}, properties:{since:2016}}]%n" +
-                        "UNWIND $rows AS row%n" +
-                        "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})%n" +
-                        "MATCH (end:Bar{name: row.end.name})%n" +
-                        "CREATE (start)-[r:KNOWS]->(end) SET r += row.properties;%n" +
-                        "COMMIT%n");
+                ":param rows => [{start: {_id:0}, end: {name:\"bar\"}, properties:{since:2016}}]%n" +
+                "UNWIND $rows AS row%n" +
+                "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})%n" +
+                "MATCH (end:Bar{name: row.end.name})%n" +
+                "CREATE (start)-[r:KNOWS]->(end) SET r += row.properties;%n" +
+                "COMMIT%n");
 
         static final String DROP_UNIQUE_OPTIMIZED = String.format("BEGIN%n" +
                 "MATCH (n:`UNIQUE IMPORT LABEL`)  WITH n LIMIT 20000 REMOVE n:`UNIQUE IMPORT LABEL` REMOVE n.`UNIQUE IMPORT ID`;%n" +
@@ -1183,28 +1171,28 @@ public class ExportCypherTest {
 
         static final String EXPECTED_NODES_OPTIMIZED_PARAMS_BATCH_SIZE_ODD = String.format(
                 ":begin%n" +
-                        ":param rows => [{_id:4, properties:{age:12}}, {_id:5, properties:{age:4}}]%n" +
-                        "UNWIND $rows AS row%n" +
-                        "CREATE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) SET n += row.properties SET n:Bar;%n" +
-                        ":commit%n" +
-                        ":begin%n" +
-                        ":param rows => [{_id:0, properties:{born:date('2018-10-31'), name:\"foo\"}}, {_id:1, properties:{born:date('2017-09-29'), name:\"foo2\"}}]%n" +
-                        "UNWIND $rows AS row%n" +
-                        "CREATE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) SET n += row.properties SET n:Foo;%n" +
-                        ":commit%n" +
-                        ":begin%n" +
-                        ":param rows => [{_id:2, properties:{born:date('2016-03-12'), name:\"foo3\"}}]%n" +
-                        "UNWIND $rows AS row%n" +
-                        "CREATE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) SET n += row.properties SET n:Foo;%n" +
-                        ":param rows => [{name:\"bar\", properties:{age:42}}]%n" +
-                        "UNWIND $rows AS row%n" +
-                        "CREATE (n:Bar{name: row.name}) SET n += row.properties;%n" +
-                        ":commit%n" +
-                        ":begin%n" +
-                        ":param rows => [{name:\"bar2\", properties:{age:44}}]%n" +
-                        "UNWIND $rows AS row%n" +
-                        "CREATE (n:Bar{name: row.name}) SET n += row.properties;%n" +
-                        ":commit%n");
+                ":param rows => [{_id:4, properties:{age:12}}, {_id:5, properties:{age:4}}]%n" +
+                "UNWIND $rows AS row%n" +
+                "CREATE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) SET n += row.properties SET n:Bar;%n" +
+                ":commit%n" +
+                ":begin%n" +
+                ":param rows => [{_id:0, properties:{born:date('2018-10-31'), name:\"foo\"}}, {_id:1, properties:{born:date('2017-09-29'), name:\"foo2\"}}]%n" +
+                "UNWIND $rows AS row%n" +
+                "CREATE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) SET n += row.properties SET n:Foo;%n" +
+                ":commit%n" +
+                ":begin%n" +
+                ":param rows => [{_id:2, properties:{born:date('2016-03-12'), name:\"foo3\"}}]%n" +
+                "UNWIND $rows AS row%n" +
+                "CREATE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) SET n += row.properties SET n:Foo;%n" +
+                ":param rows => [{name:\"bar\", properties:{age:42}}]%n" +
+                "UNWIND $rows AS row%n" +
+                "CREATE (n:Bar{name: row.name}) SET n += row.properties;%n" +
+                ":commit%n" +
+                ":begin%n" +
+                ":param rows => [{name:\"bar2\", properties:{age:44}}]%n" +
+                "UNWIND $rows AS row%n" +
+                "CREATE (n:Bar{name: row.name}) SET n += row.properties;%n" +
+                ":commit%n");
 
         static final String EXPECTED_PLAIN_ADD_STRUCTURE_UNWIND = String.format("UNWIND [{_id:3, properties:{age:12}}] AS row%n" +
                 "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) ON CREATE SET n += row.properties SET n:Bar;%n" +

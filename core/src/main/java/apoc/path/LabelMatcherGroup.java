@@ -44,7 +44,6 @@ public class LabelMatcherGroup {
     public LabelMatcherGroup addLabel(String filterString, String nodePropFilter) {
         if (filterString !=  null && !filterString.isEmpty()) {
             LabelMatcher matcher;
-            // todo - riutilizzare questo codice
             final Matcher regExMatcher = LABEL_TYPE_PATTERN.matcher(filterString);
             String props = nodePropFilter;
             if (regExMatcher.matches()) {

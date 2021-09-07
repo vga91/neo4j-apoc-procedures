@@ -6,7 +6,6 @@ import apoc.export.util.Reporter;
 import apoc.path.LabelMatcher;
 import apoc.path.RelMatcher;
 import apoc.util.Util;
-import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
@@ -135,11 +134,6 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 			if (!labelMatcher.matchesLabels(node, true)) {
 				return nullEntry;
 			}
-//			if (node.getId() == 0L) {
-//				return nullEntry;// new AbstractMap.SimpleImmutableEntry<>(Collections.emptySet(), Collections.emptySet());
-//			}
-
-			// todo - se non trovo nessuna del group, non devo metterlo nel groupedData, verificare...
 			try (Transaction tx = db.beginTx()) {
 				node = tx.getNodeById(node.getId());
 				Set<String> idProperties = CypherFormatterUtils.getNodeIdProperties(node, uniqueConstraints).keySet();
@@ -150,7 +144,6 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 		};
 		
 		Map<Map.Entry<Set<String>, Set<String>>, List<Node>> groupedData = StreamSupport.stream(nodes.spliterator(), true)
-				.filter(node -> true ) // provare con filtro
 				.collect(Collectors.groupingByConcurrent(keyMapper));
 		groupedData.remove(nullEntry);
 

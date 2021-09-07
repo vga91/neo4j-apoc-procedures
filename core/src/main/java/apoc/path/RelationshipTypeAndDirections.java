@@ -25,17 +25,17 @@ public abstract class RelationshipTypeAndDirections {
 
 	public static final char BACKTICK = '`';
 
-	public static String format(Pair<RelationshipType, Direction> typeAndDirection) {
-		String type = typeAndDirection.first().name();
-		switch (typeAndDirection.other()) {
-			case OUTGOING:
-				return type + ">";
-			case INCOMING:
-				return "<" + type;
-			default:
-				return type;
-		}
-	}
+    public static String format(Pair<RelationshipType, Direction> typeAndDirection) {
+        String type = typeAndDirection.first().name();
+        switch (typeAndDirection.other()) {
+            case OUTGOING:
+                return type + ">";
+            case INCOMING:
+                return "<" + type;
+            default:
+                return type;
+        }
+    }
 
 	public static List<Triple<RelationshipType, Direction, String>> parseTriple(String pathFilter, String relPropFilter) {
 		List<Triple<RelationshipType, Direction, String>> relsAndDirs = new ArrayList<>();

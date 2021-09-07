@@ -28,7 +28,7 @@ import static apoc.path.PropertyMatcher.matchesPropsSchema;
  * LabelMatchers hold no context about what a match means, and do not handle labels prefixed with filter symbols (+, -, /, &gt;).
  * Please strip these symbols from the start of each label before adding to the matcher.
  */
-public class LabelMatcher { // todo - creo una classe che estende questo va...
+public class LabelMatcher {
 
     private static final Pattern FILTER_TYPE_PATTERN = Pattern.compile("(?<typeFilter>--|\\+\\+|-|\\+)(?<labelOrType>.+)");
     
@@ -36,11 +36,9 @@ public class LabelMatcher { // todo - creo una classe che estende questo va...
     private static final String PROPS = "props";
 
     private enum CheckType {BLACKLIST_ALL, BLACKLIST_ANY, WHITELIST_ALL, WHITELIST_ANY}
-    // todo - il default dovrebbe essere WHITELIST_ANY, verificare ed in caso togliere none
 
     private List<Pair<String, Map<String, Object>>> labels = new ArrayList<>();
     private List<Pair<Set<String>, Map<String, Object>>> compoundLabels = new ArrayList<>();
-//    private CheckType checkType = CheckType.WHITELIST_ANY;
 
     public LabelMatcher addLabel(String label, String props) {
         return addLabel(label, props, false);
@@ -49,13 +47,11 @@ public class LabelMatcher { // todo - creo una classe che estende questo va...
     public LabelMatcher addLabel(String label, String props, boolean checkFirstChar) {
         props = props == null ? StringUtils.EMPTY : props;
         
-        // todo - questo deve valere solo per PathExpander
         if (!checkFirstChar && "*".equals(label)) {
             labels = Collections.singletonList(Pair.of("*", Map.of(PROPS, props, CHECK_TYPE, CheckType.WHITELIST_ANY)));
             return this;
         }
-
-        // todo - questo NON deve valere solo per PathExpander
+        
         CheckType checkType = CheckType.WHITELIST_ANY;
         if (checkFirstChar) { // for export-cypher case
             final Matcher regExMatcher = FILTER_TYPE_PATTERN.matcher(label);
@@ -92,46 +88,15 @@ public class LabelMatcher { // todo - creo una classe che estende questo va...
         if (elements.length == 1) {
             labels.add(Pair.of(label, Map.of(PROPS, props, "checkType", checkType)));
         } else if (elements.length > 1) {
-//            if (compoundLabels == null) {
-//                compoundLabels = new ArrayList<>();
-//            }
-
             compoundLabels.add(Pair.of(Set.copyOf(Arrays.asList(elements)), Map.of(PROPS, props, "checkType", checkType)));
         }
 
         return this;
     }
 
-    public static boolean matchesLabels(Node node, List<Pair<String, String>> labelsPairs) {
-        // todo : prima di Set<String> nodeLabels = new HashSet<>();
-        //  --> vedo il primo simbolo cos'è (+, -, ++ , --)
-
-        return true; // todo
-        // todo - suddividere if (nodeLabels.contains(label)) { in 4 parti -->
-        //  nodeLabels.contains(label)
-        //  !nodeLabels.contains(label)
-        //  nodeLabel.equals(label) --> deve contenere ESATTAMENTE le stesse label [anche per i compoundLabels andrebbe bene...]
-        //  !nodeLabel.equals(label) --> NON deve contenere ESATTAMENTE le stesse label
-    }
-
-//    public boolean matchesLabels(Node node, boolean ) {
-//
-//    }
-
     public boolean matchesLabels(Entity entity) {
         return matchesLabels(entity, false);
     }
-
-//    public boolean matchesRels(Relationship relationship, boolean allowEmptyLabels, LabelMatcher nodeLabelMatcher) {
-////        final Set<String> nodeLabels = new HashSet<>();
-////        nodeLabels.add(relationship.getType().name());
-////        matchesLabels(relationship.getStartNode(), true);
-////        matchesLabels(relationship.getEndNode(), true);
-//        
-//        return nodeLabelMatcher.matchesLabels(relationship.getStartNode(), true) 
-//                && nodeLabelMatcher.matchesLabels(relationship.getEndNode(), true) 
-//                && matchCommon(relationship, true);
-//    }
     
     public boolean matchesLabels(Entity entity, boolean allowEmptyLabels) {
 
@@ -150,20 +115,18 @@ public class LabelMatcher { // todo - creo una classe che estende questo va...
             ((Node) entity).getLabels().forEach(label -> nodeLabels.add(label.name()));
         } else {
             final Relationship relationship = (Relationship) entity;
-//            matchesLabels(relationship.getStartNode(), true);
-//            matchesLabels(relationship.getEndNode(), true);
             nodeLabels.add(relationship.getType().name());
         }
 
         // with export cypher we consider all labels / rel-types, if label / rel-type filter is empty
         if (allowEmptyLabels && labels.isEmpty() && compoundLabels.isEmpty()) {
-            return true; // todo - questa parte non dovrebbe valere per pathExpander credo...
+            return true;
         }
 
         for (Pair<String, Map<String, Object>> labelPair : labels) {
             final String label = labelPair.first();
             final Map<String, Object> other = labelPair.other();
-            if (isContains(nodeLabels, label, (CheckType) other.get(CHECK_TYPE))) { // todo - fare discorso come sopra, nodeLabels.contains(label), !nodeLabels.contains(label), etc..
+            if (isContains(nodeLabels, label, (CheckType) other.get(CHECK_TYPE))) {
                 return matchesProperties(entity, (String) other.get(PROPS));
             }
         }
@@ -172,7 +135,7 @@ public class LabelMatcher { // todo - creo una classe che estende questo va...
             for (Pair<Set<String>, Map<String, Object>> compoundLabelPair : compoundLabels) {
                 final Set<String> compoundLabel = compoundLabelPair.first();
                 final Map<String, Object> other = compoundLabelPair.other();
-                if (isContainsAll(nodeLabels, compoundLabel, (CheckType) other.get(CHECK_TYPE))) { // todo - fare discorso come sopra, nodeLabels.contains(label), !nodeLabels.contains(label), etc..
+                if (isContainsAll(nodeLabels, compoundLabel, (CheckType) other.get(CHECK_TYPE))) {
                     return matchesProperties(entity, (String) other.get(PROPS));
                 }
             }
@@ -181,7 +144,7 @@ public class LabelMatcher { // todo - creo una classe che estende questo va...
         return false;
     }
 
-    // todo - forse questo posso metterlo come sottometodo di matchesLabels...
+    
     public boolean isMatchedSchema(List<String> props, Set<String> nodeLabels) {
         if (labels.isEmpty() && compoundLabels.isEmpty()) {
             return true; // todo - questa parte non dovrebbe valere per pathExpander credo...
@@ -206,10 +169,6 @@ public class LabelMatcher { // todo - creo una classe che estende questo va...
         }
         return false;
     }
-
-    // todo - provare un factory pattern...
-    
-    // todo - forse isContainsAll e isContains si possono unire, se metto set.of(..) a tutto?
     
     private boolean isContainsAll(Set<String> nodeLabels, Set<String> compoundLabel, CheckType checkType) {
         if (compoundLabel.equals(Set.of("*"))) {

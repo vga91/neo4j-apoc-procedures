@@ -34,22 +34,11 @@ public class PropertyMatcher {
     private static final String EXCLUDE_PFX = "-";
 
     public static boolean matchesProperties(Entity entity, String propertyString) {
-        return matchesProperties1(propertyString, andItem -> matchProperty(andItem, entity));
-        // when property part or relPropFilter / nodePropFilter node is not present
-//        if (StringUtils.isBlank(propertyString)) {
-//            return true;
-//        }
-//        
-//        final String[] splitOrs = propertyString.split(PIPE_IN_BRACKETS);
-//
-//        return Arrays.stream(splitOrs).anyMatch(orItem -> {
-//            final String[] splitAnds = orItem.split("\\s*&\\s*");
-//            return Arrays.stream(splitAnds).allMatch(andItem -> matchProperty(andItem, entity));
-//        });
+        return matchesPropertiesCommon(propertyString, andItem -> matchProperty(andItem, entity));
     }
     
     public static boolean matchesPropsSchema(List<String> propsList, String propertyString) {
-        return matchesProperties1(propertyString, andItem -> {
+        return matchesPropertiesCommon(propertyString, andItem -> {
             final String itemSubstring = andItem.substring(1);
             if (andItem.startsWith(INCLUDE_PFX)) {
                 return propsList.contains(itemSubstring);
@@ -62,7 +51,7 @@ public class PropertyMatcher {
         });
     }
 
-    private static boolean matchesProperties1(String propertyString, Predicate<String> stringPredicate) {
+    private static boolean matchesPropertiesCommon(String propertyString, Predicate<String> stringPredicate) {
         // when property part or relPropFilter / nodePropFilter node is not present
         if (StringUtils.isBlank(propertyString)) {
             return true;
@@ -72,7 +61,6 @@ public class PropertyMatcher {
 
         return Arrays.stream(splitOrs).anyMatch(orItem -> {
             final String[] splitAnds = orItem.split("\\s*&\\s*");
-//            final Predicate<String> stringPredicate = andItem -> matchProperty(andItem, entity);
             return Arrays.stream(splitAnds).allMatch(stringPredicate);
         });
     }
@@ -158,30 +146,5 @@ public class PropertyMatcher {
             props = propsMatched;
         }
         return props;
-    }
-    
-//    public static boolean matchesPropsSchema(List<String> propsList, String propertyString) {
-//        // when property part or relPropFilter / nodePropFilter node is not present
-//        if (StringUtils.isBlank(propertyString)) { // todo - serve sta cosa?
-//            return true;
-//        }
-//        final String[] splitOrs = propertyString.split(PIPE_IN_BRACKETS);
-//
-//        final Predicate<String> stringPredicate = orItem -> {
-//            final String itemSubstring = orItem.substring(1);
-//            if (orItem.startsWith(INCLUDE_PFX)) {
-//                return propsList.contains(itemSubstring);
-//            } else if (orItem.startsWith(EXCLUDE_PFX)) {
-//                return !propsList.contains(itemSubstring);
-//            } else {
-//                // we consider only + and - to filter schema
-//                return true;
-//            }
-//        };
-//        return Arrays.stream(splitOrs).allMatch(stringPredicate);
-//    }
-    
-    public static boolean isRelSchemaNotMatched(List<String> props, List<String> tokenNames) {
-        return false;
     }
 }

@@ -154,10 +154,6 @@ public class MultiStatementCypherSubGraphExporter {
 
     private void exportNodesUnwindBatch(PrintWriter out, Reporter reporter) {
         if (graph.getNodes().iterator().hasNext()) {
-            // todo - forse qua. filtro i nodi.., vedere se la this.labelMatcher::matchesLabels funziona
-//            final List<Node> nodes = Iterables.stream(graph.getNodes())
-//                    .filter(this.labelMatcher::matchesLabels)
-//                    .collect(Collectors.toList());
             this.cypherFormat.statementForNodes(graph.getNodes(), uniqueConstraints, exportConfig, out, reporter, db, labelMatcher);
             out.flush();
         }
@@ -179,9 +175,6 @@ public class MultiStatementCypherSubGraphExporter {
     }
 
     private void appendNode(PrintWriter out, Node node, Reporter reporter) {
-//        if (!this.labelMatcher.matchesLabels(node)) { // todo - forse qua...
-//            return;
-//        }
         artificialUniques += countArtificialUniques(node);
         String cypher = this.cypherFormat.statementForNode(node, uniqueConstraints, indexedProperties, indexNames);
         if (Util.isNotNullOrEmpty(cypher)) {
@@ -194,7 +187,6 @@ public class MultiStatementCypherSubGraphExporter {
 
     private void exportRelationships(PrintWriter out, Reporter reporter, int batchSize) {
         if (graph.getRelationships().iterator().hasNext()) {
-//            begin(out);
             final long count = appendRelationships(out, batchSize, reporter);
             if (count > 0) {
                 commit(out);
@@ -202,7 +194,7 @@ public class MultiStatementCypherSubGraphExporter {
             }
         }
     }
-// todo - anche qui... da qualche parte
+
     private void exportRelationshipsUnwindBatch(PrintWriter out, Reporter reporter) {
         if (graph.getRelationships().iterator().hasNext()) {
             this.cypherFormat.statementForRelationships(graph.getRelationships(), uniqueConstraints, exportConfig, out, reporter, db, this.relMatcher);
@@ -273,10 +265,8 @@ public class MultiStatementCypherSubGraphExporter {
                         return null;  // delegate to the constraint creation
                     }
                     final boolean isNode = "NODE".equals(map.get("entityType"));
-//                    if (isNode && isNodeSchemaNotMatched(props, tokenNames) || isRelSchemaNotMatched(props, tokenNames)) {
-//                        return null;
-//                    }
                     final Set<String> setTokens = Set.copyOf(tokenNames);
+                    
                     if (isNode && !this.labelMatcher.isMatchedSchema(props, setTokens) 
                             || !this.relMatcher.isMatchedSchema(props, setTokens)) {
                         return null;
@@ -385,7 +375,6 @@ public class MultiStatementCypherSubGraphExporter {
         out.print(exportFormat.commit());
     }
 
-    // todo - sta cosa che fa?
     private void gatherUniqueConstraints() {
         for (IndexDefinition indexDefinition : graph.getIndexes()) {
             Set<String> label = StreamSupport.stream(indexDefinition.getLabels().spliterator(), false)
@@ -396,7 +385,7 @@ public class MultiStatementCypherSubGraphExporter {
                     .collect(Collectors.toSet());
             final List<String> propsList = List.copyOf(props);
             if (indexDefinition.isNodeIndex() && !this.labelMatcher.isMatchedSchema(propsList, label)
-                    || !this.relMatcher.isMatchedSchema(propsList, label)) { // todo - devo capire a cosa serve per bene...
+                    || !this.relMatcher.isMatchedSchema(propsList, label)) {
                 continue;
             }
             indexNames.add(indexDefinition.getName());
