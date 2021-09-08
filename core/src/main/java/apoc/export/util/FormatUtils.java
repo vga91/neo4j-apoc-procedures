@@ -3,6 +3,7 @@ package apoc.export.util;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.commons.text.StringEscapeUtils;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -75,6 +76,11 @@ public class FormatUtils {
             return formatPoint((Point) value);
         }
         return value.toString();
+    }
+    
+    public static String toXmlString(Object value) {
+        final String stringFormatted = toString(value);
+        return StringEscapeUtils.escapeXml10(stringFormatted);
     }
 
     public static String formatPoint(Point value) {

@@ -3,6 +3,7 @@ package apoc.export.graphml;
 import apoc.export.util.BatchTransaction;
 import apoc.export.util.Reporter;
 import apoc.util.JsonUtil;
+import com.ctc.wstx.exc.WstxUnexpectedCharException;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.*;
 
@@ -193,7 +194,13 @@ public class XmlGraphMLReader {
         try (BatchTransaction tx = new BatchTransaction(db, batchSize * 10, reporter)) {
 
             while (reader.hasNext()) {
-                XMLEvent event = (XMLEvent) reader.next();
+                XMLEvent event;
+                try {
+                    event = (XMLEvent) reader.next();
+                } catch (Exception e) {
+                    // in case of unicode unrecognized chars
+                    continue;
+                }
                 if (event.isStartElement()) {
 
                     StartElement element = event.asStartElement();

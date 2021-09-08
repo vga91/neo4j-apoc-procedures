@@ -180,6 +180,43 @@ public class ExportGraphMLTest {
 
         db.executeTransactionally("CREATE (f:Foo:Foo2:Foo0 {name:'foo', born:Date('2018-10-10'), place:point({ longitude: 56.7, latitude: 12.78, height: 100 })})-[:KNOWS]->(b:Bar {name:'bar',age:42, place:point({ longitude: 56.7, latitude: 12.78})}),(c:Bar {age:12,values:[1,2,3]})");
     }
+    
+    @Test
+    public void testRoundtripUnicode() {
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+        db.executeTransactionally("CREATE (n:Unicode {propOne: '1628\\u0013–30', propTwo: 'abcd\\u001e'})");
+
+        String fileName = "data.graphml";
+        TestUtil.testCall(db, "CALL apoc.export.graphml.all($file, null)", map("file", fileName),
+                (r) -> assertEquals(1L, r.get("nodes")));
+
+        db.executeTransactionally("MATCH (n:Unicode) DETACH DELETE n");
+        
+        TestUtil.testCall(db, "CALL apoc.import.graphml($file, {readLabels:true})",  map("file", fileName),
+                r -> assertEquals(1L, r.get("nodes")));
+        
+        TestUtil.testCall(db, "MATCH (n:Unicode) RETURN n", r -> {
+            final Node n = (Node) r.get("n");
+            assertEquals("1628–30", n.getProperty("propOne"));
+            assertEquals("abcd", n.getProperty("propTwo"));
+        });
+        
+        db.executeTransactionally("MATCH (n:Unicode) DETACH DELETE n");
+    }
+
+    @Test
+    public void testImportUnicodeFile() {
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+
+        final String file = ClassLoader.getSystemResource("fileWithUnicode.graphml").toString();
+        TestUtil.testCall(db, "CALL apoc.import.graphml($file,{readLabels:true})", map("file", file),
+                (r) -> assertEquals(true, r.get("done")));
+        
+        TestUtil.testCall(db, "MATCH (n:Unicode) RETURN n", 
+                r -> assertEquals("1628", ((Node) r.get("n")).getProperty("prop")));
+
+        db.executeTransactionally("MATCH (n:Unicode) DETACH DELETE n");
+    }
 
     @Test
     public void testImportGraphML() throws Exception {
