@@ -32,7 +32,8 @@ Exporting to S3 can be done by simply replacing the file output with an S3 endpo
 * `s3://endpoint:port/bucket/key?accessKey=accessKey&secretKey=secretKey[&sessionToken=sessionToken]`
 (where the sessionToken is optional) or
 * `s3://endpoint:port/bucket/key`
-if the accessKey, secretKey, and the optional sessionToken are provided in the environment variables
+if the `accessKey`, `secretKey`, and the optional `sessionToken` are provided in the environment variables,
+named respectively `AWS_ACCESS_KEY_ID`, `AWS_SECRET_KEY` and `AWS_SESSION_TOKEN`.
 
 == Memory Requirements
 

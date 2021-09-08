@@ -20,14 +20,22 @@ public class MinioSetUp {
         this.bucketName = bucketName;
     }
 
-    public String putFile(String filePath) throws Exception{
+    public String putFile(String filePath, boolean withCredentials) throws Exception {
         String fileName = filePath.substring(filePath.lastIndexOf("/") + 1);
         if(!minioClient.bucketExists(bucketName)) {
             minioClient.makeBucket(bucketName);
         }
         minioClient.putObject(bucketName,fileName, filePath);
 
-        return S3_PROTOCOL + ENDPOINT + "/" + bucketName +  "/" + fileName + "?accessKey=" + ACCESS_KEY + "&secretKey=" + SECRET_KEY;
+        final String url = S3_PROTOCOL + ENDPOINT + "/" + bucketName + "/" + fileName;
+        if (withCredentials) {
+            return url + "?accessKey=" + ACCESS_KEY + "&secretKey=" + SECRET_KEY;
+        }
+        return url;
+    }
+    
+    public String putFile(String filePath) throws Exception {
+        return putFile(filePath, true);
     }
 
     public void deleteAll() throws Exception{
