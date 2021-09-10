@@ -22,6 +22,8 @@ import static apoc.util.Util.map;
 public class Json {
 
     // visible for testing
+    public static final String OUTGOING_SUFF = " >";
+    public static final String INCOMING_SUFF = " <";
     public static String NODE = "node";
     public static String RELATIONSHIP = "relationship";
 
@@ -152,10 +154,16 @@ public class Json {
                     Relationship r = (Relationship) it.next();
                     Node m = r.getOtherNode(n);
                     String typeName = lowerCaseRels ? r.getType().name().toLowerCase() : r.getType().name();
+                    String direction = "";
+                    if (conf.isIncludeDirections()) {
+                        direction = r.getStartNode().equals(n) ? OUTGOING_SUFF : INCOMING_SUFF;
+                    }
+                    final String typeAndDir = typeName + direction;
+                    
                     // todo take direction into account and create collection into outgoing direction ??
                     // parent-[:HAS_CHILD]->(child) vs. (parent)<-[:PARENT_OF]-(child)
-                    if (!nMap.containsKey(typeName)) nMap.put(typeName, new ArrayList<>(16));
-                    List<Map<String, Object>> list = (List) nMap.get(typeName);
+                    if (!nMap.containsKey(typeAndDir)) nMap.put(typeAndDir, new ArrayList<>(16));
+                    List<Map<String, Object>> list = (List) nMap.get(typeAndDir);
                     Optional<Map<String, Object>> optMap = list.stream()
                             .filter(elem -> elem.get("_id").equals(m.getId()))
                             .findFirst();

@@ -1,5 +1,7 @@
 package apoc.convert;
 
+import apoc.util.Util;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -14,12 +16,14 @@ public class ConvertConfig {
 
     private Map<String, List<String>> nodes;
     private Map<String, List<String>> rels;
+    private boolean includeDirections;
 
     public ConvertConfig(Map<String,Object> config) {
 
         this.nodes = (Map<String, List<String>>) config.getOrDefault("nodes", Collections.EMPTY_MAP);
         this.rels = (Map<String, List<String>>) config.getOrDefault("rels", Collections.EMPTY_MAP);
-
+        this.includeDirections = Util.toBoolean(config.get("includeDirections"));
+        
         this.nodes.values().forEach(s -> validateListProperties(s));
         this.rels.values().forEach(s -> validateListProperties(s));
     }
@@ -30,6 +34,10 @@ public class ConvertConfig {
 
     public Map<String, List<String>> getRels() {
         return rels;
+    }
+
+    public boolean isIncludeDirections() {
+        return includeDirections;
     }
 
     private void validateListProperties(List<String> list) {

@@ -369,3 +369,53 @@ a|
 }
 ----
 |===
+
+With this data set (note that the 2 rels have different direction respect to `Movie` node):
+[source,cypher]
+----
+CREATE p1=(m:Movie {title:'M'})<-[:ACTED_IN {role:'R1'}]-(:Actor {name:'A1'}), 
+p2 = (m)-[:ACTED_IN  {role:'R2'}]->(:Actor {name:'A2'})
+----
+
+we can use `includeDirections` to distinguish the direction with the suffix " >" and " <".
+
+[source,cypher]
+----
+MATCH p1=(m:Movie {title:'M'})<-[:ACTED_IN {role:'R1'}]-(:Actor {name:'A1'}), 
+p2 = (m)-[:ACTED_IN  {role:'R2'}]->(:Actor {name:'A2'})
+WITH [p1,p2] as paths
+CALL apoc.convert.toTree(paths, true, {includeDirections: true}) 
+YIELD value RETURN value
+----
+
+
+.Results
+[opts="header",cols="1"]
+|===
+| value
+a|
+[source,json]
+----
+{
+  "_type": "Movie",
+  "acted_in >": [
+    {
+      "_type": "Actor",
+      "name": "A2",
+      "_id": 2,
+      "acted_in >.role": "R2"
+    }
+  ],
+  "_id": 0,
+  "title": "M",
+  "acted_in <": [
+    {
+      "_type": "Actor",
+      "name": "A1",
+      "_id": 1,
+      "acted_in <.role": "R1"
+    }
+  ]
+}
+----
+|===
