@@ -207,7 +207,6 @@ public class CsvFormat implements Format {
                                     return entrySet.getKey().name();
                                 default:
                                     String prop = s.split(":")[0];
-                                    // todo - qui non dovrebbe servire l'escape, giusto, o no?
                                     return "".equals(prop) ? String.valueOf(r.getId()) : cleanPoint(FormatUtils.toString(r.getProperty(prop, "")));
                             }
                         }).collect(Collectors.toList());
