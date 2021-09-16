@@ -178,4 +178,5 @@ In order to replicate the procedure/function in a cluster environment you can tu
 | name | type | description
 | `apoc.custom.procedures.refresh` | long (default `60000`) | the refresh time that allows replicating the procedure/function
 changes to each cluster member
+| `apoc.custom.procedures.check` | boolean (default: `true`) | to disable procedure/function check through the `apoc.custom.procedures.refresh`
 |===
