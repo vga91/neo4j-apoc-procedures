@@ -1,6 +1,7 @@
 package apoc.export.util;
 
 import java.io.*;
+import java.util.function.Function;
 
 /**
  * @author mh
@@ -9,6 +10,7 @@ import java.io.*;
 public class CountingInputStream extends FilterInputStream implements SizeCounter {
     public static final int BUFFER_SIZE = 1024 * 1024;
     private final long total;
+    private Function<Character, Boolean> ignoreCondition = character -> true;
     private long count=0;
     private long newLines;
 
@@ -20,15 +22,32 @@ public class CountingInputStream extends FilterInputStream implements SizeCounte
         super(new BufferedInputStream(stream, BUFFER_SIZE));
         this.total = total;
     }
+    public CountingInputStream(InputStream stream, long total, Function<Character, Boolean> ignoreCondition) throws FileNotFoundException {
+        this(stream, total);
+        this.ignoreCondition = ignoreCondition;
+    }
 
     @Override
-    public int read(byte[] buf, int off, int len) throws IOException {
-        int read = super.read(buf, off, len);
+    public int read(byte[] b, int off, int len) throws IOException {
+        int read = super.read(b, off, len);
         count+=read;
-        for (int i=off;i<off+len;i++) {
-            if (buf[i] == '\n') newLines++;
+        
+        if (read == -1) {
+            return -1;
         }
-        return read;
+        int pos = off - 1;
+        for (int readPos = off; readPos < off + read; readPos++) {
+            if (ignoreCondition.apply((char) b[readPos])) {
+                continue;
+            } else {
+                pos++;
+            }
+            if (pos < readPos) {
+                b[pos] = b[readPos];
+            }
+            if (b[pos] == '\n') newLines++;
+        }
+        return pos - off + 1;
     }
 
     @Override

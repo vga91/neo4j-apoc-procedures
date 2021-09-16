@@ -27,6 +27,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM;
 import static apoc.ApocConfig.apocConfig;
@@ -158,12 +159,16 @@ public class FileUtils {
     }
 
     public static CountingInputStream inputStreamFor(Object input, Map<String, Object> headers, String payload, String compressionAlgo) throws IOException {
+        return inputStreamFor(input, headers, payload, compressionAlgo, c -> false);
+    }
+
+    public static CountingInputStream inputStreamFor(Object input, Map<String, Object> headers, String payload, String compressionAlgo, Function<Character, Boolean> ignoreCondition) throws IOException {
         if (input == null) return null;
         if (input instanceof String) {
             String fileName = (String) input;
             apocConfig().checkReadAllowed(fileName);
             fileName = changeFileUrlIfImportDirectoryConstrained(fileName);
-            return Util.openInputStream(fileName, headers, payload, compressionAlgo);
+            return Util.openInputStream(fileName, headers, payload, compressionAlgo, ignoreCondition);
         } else if (input instanceof byte[]) {
             return getInputStreamFromBinary((byte[]) input, compressionAlgo);
         } else {

@@ -10,6 +10,7 @@ import apoc.util.CompressionConfig;
 import apoc.util.FileUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.xerces.util.XMLChar;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
@@ -59,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.util.CompressionConfig.COMPRESSION;
@@ -92,6 +94,10 @@ public class Xml {
     public Map<String, Object> parse(@Name("data") String data, @Name(value = "path", defaultValue = "/") String path, @Name(value = "config",defaultValue = "{}") Map<String, Object> config, @Name(value = "simple", defaultValue = "false") boolean simpleMode) throws Exception {
         if (config == null) config = Collections.emptyMap();
         boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
+        data = data.chars().mapToObj(c -> (char) c)
+                .filter(XMLChar::isValid)
+                .map(String::valueOf).collect(Collectors.joining());
+
         return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, failOnError)
                 .map(mr -> mr.value).findFirst().orElse(null);
     }
@@ -101,7 +107,7 @@ public class Xml {
         boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
         try {
             Map<String, Object> headers = (Map) config.getOrDefault("headers", Collections.emptyMap());
-            CountingInputStream is = FileUtils.inputStreamFor(urlOrBinary, headers, null, (String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name()));
+            CountingInputStream is = FileUtils.inputStreamFor(urlOrBinary, headers, null, (String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name()), XMLChar::isInvalid);
             return parse(is, simpleMode, path, failOnError);
         } catch (Exception e){
             if(!failOnError)
@@ -120,7 +126,6 @@ public class Xml {
             documentBuilderFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
             documentBuilder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
-
             Document doc = documentBuilder.parse(data);
             XPathFactory xPathFactory = XPathFactory.newInstance();
 
@@ -634,5 +639,4 @@ public class Xml {
             root.setProperty(propertyKey, value);
         }
     }
-
 }

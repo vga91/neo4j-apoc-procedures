@@ -362,15 +362,19 @@ public class Util {
        return con.getHeaderField("Location");
     }
 
-    public static CountingInputStream openInputStream(Object input, Map<String, Object> headers, String payload, String compressionAlgo) throws IOException {
+    public static CountingInputStream openInputStream(String urlAddress, Map<String, Object> headers, String payload, String compressionAlgo) throws IOException {
+        return openInputStream(urlAddress, headers, payload, compressionAlgo, c -> true);
+    }
+
+    public static CountingInputStream openInputStream(Object input, Map<String, Object> headers, String payload, String compressionAlgo, Function<Character, Boolean> ignoreFunction) throws IOException {
         if (input instanceof String) {
             String urlAddress = (String) input;
             if (urlAddress.contains("!") && (urlAddress.contains(".zip") || urlAddress.contains(".tar") || urlAddress.contains(".tgz"))) {
-                return getStreamCompressedFile(urlAddress, headers, payload);
+                return getStreamCompressedFile(urlAddress, headers, payload, ignoreFunction);
             }
 
             StreamConnection sc = getStreamConnection(urlAddress, headers, payload);
-            return sc.toCountingInputStream();
+            return sc.toCountingInputStream(ignoreFunction);
         } else if (input instanceof byte[]) {
             return FileUtils.getInputStreamFromBinary((byte[]) input, compressionAlgo);
         } else {
@@ -378,7 +382,7 @@ public class Util {
         }
     }
 
-    private static CountingInputStream getStreamCompressedFile(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
+    private static CountingInputStream getStreamCompressedFile(String urlAddress, Map<String, Object> headers, String payload, Function<Character, Boolean> ignoreFunction) throws IOException {
         StreamConnection sc;
         InputStream stream;
         String[] tokens = urlAddress.split("!");
@@ -391,7 +395,7 @@ public class Util {
         }else
             throw new IllegalArgumentException("filename can't be null or empty");
 
-        return new CountingInputStream(stream, sc.getLength());
+        return new CountingInputStream(stream, sc.getLength(), ignoreFunction);
     }
 
     private static StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload) throws IOException {

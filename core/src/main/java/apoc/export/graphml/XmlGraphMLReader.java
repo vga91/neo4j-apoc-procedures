@@ -3,7 +3,6 @@ package apoc.export.graphml;
 import apoc.export.util.BatchTransaction;
 import apoc.export.util.Reporter;
 import apoc.util.JsonUtil;
-import com.ctc.wstx.exc.WstxUnexpectedCharException;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.*;
 

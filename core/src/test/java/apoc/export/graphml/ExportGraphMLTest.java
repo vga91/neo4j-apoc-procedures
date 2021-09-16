@@ -7,6 +7,7 @@ import apoc.util.Util;
 import junit.framework.TestCase;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.text.StringEscapeUtils;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -19,8 +20,10 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.xmlunit.builder.DiffBuilder;
+import org.xmlunit.diff.ComparisonResult;
 import org.xmlunit.diff.DefaultNodeMatcher;
 import org.xmlunit.diff.Diff;
+import org.xmlunit.diff.DifferenceEvaluators;
 import org.xmlunit.diff.ElementSelector;
 import org.xmlunit.util.Nodes;
 
@@ -131,7 +134,7 @@ public class ExportGraphMLTest {
             "<node id=\"n1\" labels=\":Bar\"><data key=\"TYPE\">:Bar</data><data key=\"label\">bar</data><data key=\"age\">42</data><data key=\"name\">bar</data><data key=\"place\">{\"crs\":\"wgs-84\",\"latitude\":12.78,\"longitude\":56.7,\"height\":null}</data></node>%n" +
             "<edge id=\"e0\" source=\"n0\" target=\"n1\" label=\"KNOWS\"><data key=\"label\">KNOWS</data><data key=\"TYPE\">KNOWS</data></edge>%n";
 
-    public static final String DATA_PATH_CAPTION_DEFAULT = "<node id=\"n0\" labels=\":Foo:Foo0:Foo2\"><data key=\"TYPE\">:Foo:Foo0:Foo2</data><data key=\"label\">point({x: 56.7, y: 12.78, z: 100.0, crs: 'wgs-84-3d'})</data><data key=\"place\">{\"crs\":\"wgs-84-3d\",\"latitude\":12.78,\"longitude\":56.7,\"height\":100.0}</data><data key=\"name\">foo</data><data key=\"born\">2018-10-10</data></node>%n" +
+    public static final String DATA_PATH_CAPTION_DEFAULT = "<node id=\"n0\" labels=\":Foo:Foo0:Foo2\"><data key=\"TYPE\">:Foo:Foo0:Foo2</data><data key=\"label\">point({x: 56.7, y: 12.78, z: 100.0, crs: &apos;wgs-84-3d&apos;})</data><data key=\"place\">{\"crs\":\"wgs-84-3d\",\"latitude\":12.78,\"longitude\":56.7,\"height\":100.0}</data><data key=\"name\">foo</data><data key=\"born\">2018-10-10</data></node>%n" +
             "<node id=\"n1\" labels=\":Bar\"><data key=\"TYPE\">:Bar</data><data key=\"label\">42</data><data key=\"age\">42</data><data key=\"name\">bar</data><data key=\"place\">{\"crs\":\"wgs-84\",\"latitude\":12.78,\"longitude\":56.7,\"height\":null}</data></node>%n" +
             "<edge id=\"e0\" source=\"n0\" target=\"n1\" label=\"KNOWS\"><data key=\"label\">KNOWS</data><data key=\"TYPE\">KNOWS</data></edge>%n";
 
@@ -429,7 +432,7 @@ public class ExportGraphMLTest {
         assertXMLEquals(output, EXPECTED_FALSE);
     }
 
-    private void assertXMLEquals(Object output, String xmlString) {
+    private void assertXMLEquals(Object output, String xmlString) { // todo - aggiustare qui in qualche modo...
         Diff myDiff = DiffBuilder.compare(xmlString)
                 .withTest(output)
                 .checkForSimilar()
@@ -453,6 +456,25 @@ public class ExportGraphMLTest {
                         }
                     }
                     return true;
+                }))
+                // add to Default evaluator this custom evaluator
+                .withDifferenceEvaluator(DifferenceEvaluators.chain(DifferenceEvaluators.Default, (comparison, outcome) -> {
+                    if (outcome == ComparisonResult.EQUAL || outcome == ComparisonResult.SIMILAR) {
+                        return outcome;
+                    }
+                    final org.w3c.dom.Node expectedTarget = comparison.getControlDetails().getTarget();
+                    final org.w3c.dom.Node actualTarget = comparison.getTestDetails().getTarget();
+                    // null handling
+                    if (expectedTarget == null || actualTarget == null
+                            || expectedTarget.getNodeValue() == null || actualTarget.getNodeValue() == null) {
+                        return outcome;
+                    }
+                    final String expectedNode = expectedTarget.getNodeValue();
+                    final String actualNode = actualTarget.getNodeValue();
+                    if (StringEscapeUtils.unescapeXml(actualNode).equals(expectedNode)) {
+                        return ComparisonResult.SIMILAR;
+                    }
+                    return outcome;
                 }))
                 .build();
 

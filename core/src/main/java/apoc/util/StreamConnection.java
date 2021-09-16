@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URLConnection;
+import java.util.function.Function;
 import java.util.zip.DeflaterInputStream;
 import java.util.zip.GZIPInputStream;
 
@@ -22,13 +23,16 @@ public interface StreamConnection {
     String getName();
 
     default CountingInputStream toCountingInputStream() throws IOException {
+        return toCountingInputStream(c -> true);
+    }
+    default CountingInputStream toCountingInputStream(Function<Character, Boolean> ignoreFunction) throws IOException {
         if ("gzip".equals(getEncoding()) || getName().endsWith(".gz")) {
             return new CountingInputStream(new GZIPInputStream(getInputStream()), getLength());
         }
         if ("deflate".equals(getName())) {
             return new CountingInputStream(new DeflaterInputStream(getInputStream()), getLength());
         }
-        return new CountingInputStream(getInputStream(), getLength());
+        return new CountingInputStream(getInputStream(), getLength(), ignoreFunction);
     }
 
     static class UrlStreamConnection implements StreamConnection {
