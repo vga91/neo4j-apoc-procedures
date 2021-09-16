@@ -363,7 +363,7 @@ public class Util {
     }
 
     public static CountingInputStream openInputStream(String urlAddress, Map<String, Object> headers, String payload, String compressionAlgo) throws IOException {
-        return openInputStream(urlAddress, headers, payload, compressionAlgo, c -> true);
+        return openInputStream(urlAddress, headers, payload, compressionAlgo, c -> false);
     }
 
     public static CountingInputStream openInputStream(Object input, Map<String, Object> headers, String payload, String compressionAlgo, Function<Character, Boolean> ignoreFunction) throws IOException {

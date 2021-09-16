@@ -10,7 +10,7 @@ import java.util.function.Function;
 public class CountingInputStream extends FilterInputStream implements SizeCounter {
     public static final int BUFFER_SIZE = 1024 * 1024;
     private final long total;
-    private Function<Character, Boolean> ignoreCondition = character -> true;
+    private Function<Character, Boolean> ignoreCondition = character -> false;
     private long count=0;
     private long newLines;
 
@@ -18,36 +18,36 @@ public class CountingInputStream extends FilterInputStream implements SizeCounte
         super(new BufferedInputStream(new FileInputStream(file), BUFFER_SIZE));
         this.total = file.length();
     }
-    public CountingInputStream(InputStream stream, long total) throws FileNotFoundException {
+    public CountingInputStream(InputStream stream, long total) {
         super(new BufferedInputStream(stream, BUFFER_SIZE));
         this.total = total;
     }
-    public CountingInputStream(InputStream stream, long total, Function<Character, Boolean> ignoreCondition) throws FileNotFoundException {
+    public CountingInputStream(InputStream stream, long total, Function<Character, Boolean> ignoreFunction) {
         this(stream, total);
-        this.ignoreCondition = ignoreCondition;
+        this.ignoreCondition = ignoreFunction;
     }
 
     @Override
-    public int read(byte[] b, int off, int len) throws IOException {
-        int read = super.read(b, off, len);
+    public int read(byte[] buf, int off, int len) throws IOException {
+        int read = super.read(buf, off, len);
         count+=read;
         
         if (read == -1) {
             return -1;
         }
-        int pos = off - 1;
-        for (int readPos = off; readPos < off + read; readPos++) {
-            if (ignoreCondition.apply((char) b[readPos])) {
+        int indexeEvaluated = off - 1;
+        for (int currIndex = off; currIndex < off + read; currIndex++) {
+            if (ignoreCondition.apply((char) buf[currIndex])) {
                 continue;
             } else {
-                pos++;
+                indexeEvaluated++;
             }
-            if (pos < readPos) {
-                b[pos] = b[readPos];
+            if (indexeEvaluated < currIndex) {
+                buf[indexeEvaluated] = buf[currIndex];
             }
-            if (b[pos] == '\n') newLines++;
+            if (buf[indexeEvaluated] == '\n') newLines++;
         }
-        return pos - off + 1;
+        return indexeEvaluated - off + 1;
     }
 
     @Override

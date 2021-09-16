@@ -432,7 +432,7 @@ public class ExportGraphMLTest {
         assertXMLEquals(output, EXPECTED_FALSE);
     }
 
-    private void assertXMLEquals(Object output, String xmlString) { // todo - aggiustare qui in qualche modo...
+    private void assertXMLEquals(Object output, String xmlString) {
         Diff myDiff = DiffBuilder.compare(xmlString)
                 .withTest(output)
                 .checkForSimilar()
