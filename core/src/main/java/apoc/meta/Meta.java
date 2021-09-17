@@ -382,7 +382,7 @@ public class    Meta {
     }
 
     @UserFunction(name = "apoc.meta.nodes.count")
-    @Description("apoc.meta.nodes.count")
+    @Description("apoc.meta.nodes.count([labels], $config) - Returns the sum of the nodes with a label present in the list.")
     public long count(@Name(value = "nodes", defaultValue = "[]") List<String> nodes, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         MetaConfig conf = new MetaConfig(config);
         AtomicLong sum = new AtomicLong();
@@ -393,21 +393,31 @@ public class    Meta {
                 : nodes.stream().map(Label::label).collect(Collectors.toList());
 
         final Set<String> includesRels = conf.getIncludesRels();
-        final boolean isRelsEmpty = CollectionUtils.isEmpty(includesRels);
-        final RelationshipType[] relationshipTypes = isRelsEmpty ? null
-                : includesRels.stream().map(RelationshipType::withName).toArray(RelationshipType[]::new);
-
         Set<Long> ids = new HashSet<>();
+        
         labels.forEach(label -> {
-            if (isRelsEmpty) {
+            if (CollectionUtils.isEmpty(includesRels)) {
                 sum.addAndGet(subGraph.countsForNode(label));
             } else {
                 // we cannot use DatabaseSubGraph because we must exclude nodes with multiple rels matched
                 transaction.findNodes(label).forEachRemaining(node -> {
                     if (!ids.contains(node.getId())) {
-                        if (node.hasRelationship(relationshipTypes)) {
-                            ids.add(node.getId());
-                        }
+                        includesRels.forEach(relName -> {
+                            Direction direction = Direction.BOTH;
+                            final int index = relName.length() - 1;
+                            switch (relName.charAt(index)) {
+                                case '>':
+                                    direction = Direction.OUTGOING;
+                                    relName = relName.substring(0, index);
+                                    break;
+                                case '<':
+                                    direction = Direction.INCOMING;
+                                    relName = relName.substring(0, index);
+                            }
+                            if (node.hasRelationship(direction, RelationshipType.withName(relName))) {
+                                ids.add(node.getId());
+                            }
+                        });
                     }
                 });
             }
