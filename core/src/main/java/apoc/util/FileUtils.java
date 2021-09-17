@@ -7,13 +7,12 @@ import apoc.util.hdfs.HDFSUtils;
 import apoc.util.s3.S3URLConnection;
 import apoc.util.s3.S3UploadUtils;
 import org.apache.commons.io.output.WriterOutputStream;
-import org.apache.commons.lang3.StringUtils;
 import org.neo4j.configuration.GraphDatabaseSettings;
 
 import java.io.*;
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URL;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,9 +24,7 @@ import java.util.regex.Pattern;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM;
 import static apoc.ApocConfig.apocConfig;
-import static org.apache.commons.lang3.StringUtils.replaceOnce;
 import static org.eclipse.jetty.util.URIUtil.encodePath;
-import static org.eclipse.jetty.util.URIUtil.encodeSpaces;
 
 /**
  * @author mh
@@ -201,7 +198,12 @@ public class FileUtils {
         return apocConfig().getBoolean(ApocConfig.APOC_IMPORT_FILE_USE_NEO4J_CONFIG);
     }
 
-    public static StreamConnection openS3InputStream(URL url) throws IOException {
+    public static StreamConnection openS3InputStream(URI uri) throws IOException {
+        checkS3Enabled();
+        return S3URLConnection.openS3InputStream(uri.toURL());
+    }
+
+    private static boolean checkS3Enabled() {
         if (!S3_ENABLED) {
             throw new MissingDependencyException("Cannot find the S3 jars in the plugins folder. \n" +
                     "Please put these files into the plugins folder :\n\n" +
@@ -212,10 +214,15 @@ public class FileUtils {
                     "joda-time-x.y.z.jar\n" +
                     "\nSee the documentation: https://neo4j-contrib.github.io/neo4j-apoc-procedures/#_loading_data_from_web_apis_json_xml_csv");
         }
-        return S3URLConnection.openS3InputStream(url);
+        return true;
     }
 
-    public static StreamConnection openHdfsInputStream(URL url) throws IOException {
+    public static StreamConnection openHdfsInputStream(URI uri) throws IOException {
+        checkHdfsEnabled();
+        return HDFSUtils.readFile(uri.toURL());
+    }
+
+    private static boolean checkHdfsEnabled() {
         if (!HDFS_ENABLED) {
             throw new MissingDependencyException("Cannot find the HDFS/Hadoop jars in the plugins folder. \n" +
                     "Please put these files into the plugins folder :\n\n" +
@@ -228,17 +235,17 @@ public class FileUtils {
                     "protobuf-java\n" +
                     "\nSee the documentation: https://neo4j-contrib.github.io/neo4j-apoc-procedures/#_loading_data_from_web_apis_json_xml_csv");
         }
-        return HDFSUtils.readFile(url);
+        return true;
     }
 
     public static boolean isS3(String fileName) {
         Matcher matcher = S3_PATTERN.matcher(fileName);
-        return matcher.find();
+        return matcher.find() && checkS3Enabled();
     }
 
     public static boolean isHdfs(String fileName) {
         Matcher matcher = HDFS_PATTERN.matcher(fileName);
-        return matcher.find();
+        return matcher.find() && checkHdfsEnabled();
     }
 
     /**
@@ -310,5 +317,13 @@ public class FileUtils {
     // to exclude cases like 'testload.tar.gz?raw=true'
     private static String encodeExceptQM(String url) {
         return encodePath(url).replace("%3F", "?");
+    }
+    
+    public static URI getUri(String urlAddress) {
+        try {
+            return new URI(urlAddress);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

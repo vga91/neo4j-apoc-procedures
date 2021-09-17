@@ -392,12 +392,12 @@ public class Util {
     }
 
     private static StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
-        URL url = new URL(urlAddress);
-        String protocol = url.getProtocol();
+        URI uri = FileUtils.getUri(urlAddress);
+        String protocol = uri.getScheme();
         if (FileUtils.S3_PROTOCOL.equalsIgnoreCase(protocol)) {
-            return FileUtils.openS3InputStream(url);
+            return FileUtils.openS3InputStream(uri);
         } else if (FileUtils.HDFS_PROTOCOL.equalsIgnoreCase(protocol)) {
-            return FileUtils.openHdfsInputStream(url);
+            return FileUtils.openHdfsInputStream(uri);
         } else {
             return readHttpInputStream(urlAddress, headers, payload);
         }
