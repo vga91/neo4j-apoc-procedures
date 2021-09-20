@@ -21,12 +21,12 @@ import java.util.stream.Collectors;
 
 public class PropertyMatcher {
 
-    // regex for nameLabel{propertyPartOptional}
-    public static final Pattern LABEL_TYPE_PATTERN = Pattern.compile("(?<labelOrType>.[^{]*)(\\{(?<props>.+)\\})?");
+    // regex for nameLabel {propertyPartOptional}
+    public static final Pattern LABEL_TYPE_PATTERN = Pattern.compile("(?<labelOrType>.*?(?=\\s\\{)|.*)(\\s*\\{(?<props>.+)\\})?");
     // regex for prop1 = value1 / prop1 != value1 and so on
     public static final Pattern FIELD_PATTERN = Pattern.compile("(?<prop>.[^!><]+)(?<operator>=|>=|<=|<|>|!=)(?<value>.+)");
     
-    public static boolean matchesProperties(Entity entity, String propertyString) {
+    public static boolean matchesProperties(Entity entity, String propertyString, boolean regexMode) {
         // when property part or relPropFilter / nodePropFilter node is not present
         if (propertyString == null) {
             return true;
@@ -36,50 +36,68 @@ public class PropertyMatcher {
 
         return Arrays.stream(splitOrs).anyMatch(orItem -> {
             final String[] splitAnds = orItem.split("\\s*&\\s*");
-            return Arrays.stream(splitAnds).allMatch(andItem -> matchProperty(andItem, entity));
+            return Arrays.stream(splitAnds).allMatch(andItem -> matchProperty(andItem, entity, regexMode));
         });
     }
 
-    private static boolean matchProperty(String orItem, Entity entity) {
-        if (orItem.startsWith("+")) {
-            return entity.hasProperty(orItem.substring(1));
+    private static boolean matchProperty(String andItem, Entity entity, boolean regexMode) {
+        
+        if (andItem.startsWith("+")) {
+            return isPropertyExistent(andItem, entity, regexMode);
         } 
-        if(orItem.startsWith("-")) {
-            return !entity.hasProperty(orItem.substring(1));
+        if(andItem.startsWith("-")) {
+            return !isPropertyExistent(andItem, entity, regexMode);
         }
         
-        final Matcher matcher = FIELD_PATTERN.matcher(orItem);
+        final Matcher matcher = FIELD_PATTERN.matcher(andItem);
         if (matcher.matches()) {
             final String propName = matcher.group("prop");
             final String value = matcher.group("value");
             final String operator = matcher.group("operator");
-            Object nodeProperty = entity.getProperty(propName, null);
-            // when property doesn't exists
-            if (nodeProperty == null) {
-                return false;
-            }
-            final boolean isComparable = nodeProperty instanceof Comparable;
-            final Object valueConverted = convertValue(value, nodeProperty.getClass());
-            if (nodeProperty.getClass().isArray()) {
-                nodeProperty = (List<Object>) Convert.convertToList(nodeProperty);
-            }
-            switch (operator) {
-                case ">":
-                    return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) > 0;
-                case ">=":
-                    return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) >= 0;
-                case "<":
-                    return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) < 0;
-                case "<=":
-                    return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) <= 0;
-                case "!=":
-                    return !nodeProperty.equals(valueConverted);
-                default: // '=' case:
-                    return nodeProperty.equals(valueConverted);
+            if (regexMode) {
+                return entity.getAllProperties().entrySet().stream()
+                        .filter(prop -> prop.getKey().matches(propName))
+                        .anyMatch(prop -> isPropertyMatched(value, operator, prop.getValue()));
+            } else {
+                Object nodeProperty = entity.getProperty(propName, null);
+                // when property doesn't exists
+                if (nodeProperty == null) {
+                    return false;
+                }
+                return isPropertyMatched(value, operator, nodeProperty);
             }
         }
         
         return false;
+    }
+
+    private static boolean isPropertyExistent(String orItem, Entity entity, boolean regexMode) {
+        final String propSubstring = orItem.substring(1);
+        return regexMode
+                ? entity.getAllProperties().entrySet().stream().anyMatch(prop -> prop.getKey().matches(propSubstring))
+                : entity.hasProperty(propSubstring);
+    }
+
+    private static boolean isPropertyMatched(String value, String operator, Object nodeProperty) {
+        final boolean isComparable = nodeProperty instanceof Comparable;
+        final Object valueConverted = convertValue(value, nodeProperty.getClass());
+        if (nodeProperty.getClass().isArray()) {
+            nodeProperty = (List<Object>) Convert.convertToList(nodeProperty);
+        }
+        switch (operator) {
+            case ">":
+                return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) > 0;
+            case ">=":
+                return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) >= 0;
+            case "<":
+                return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) < 0;
+            case "<=":
+                return isComparable && ((Comparable) nodeProperty).compareTo(valueConverted) <= 0;
+            case "!=":
+                return !nodeProperty.equals(valueConverted);
+            default: // '=' case:
+                return nodeProperty.equals(valueConverted);
+        }
     }
 
     private static Object convertValue(String value, Class<?> nodeProperty) {

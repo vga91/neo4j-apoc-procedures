@@ -30,18 +30,19 @@ import static apoc.path.PathExplorer.COMMA_SEPARATOR;
  * The remaining relationship steps will be used as the repeating relationship sequence.
  */
 public class RelationshipSequenceExpander implements PathExpander {
-    private final List<List<Triple<RelationshipType, Direction, String>>> relSequences = new ArrayList<>();
-    private List<Triple<RelationshipType, Direction, String>> initialRels = null;
+    private final List<List<Triple<String, Direction, String>>> relSequences = new ArrayList<>();
+    private List<Triple<String, Direction, String>> initialRels = null;
+    private boolean regexMode;
 
-    public RelationshipSequenceExpander(String relSequenceString, boolean beginSequenceAtStart, String relPropFilter) {
+    public RelationshipSequenceExpander(String relSequenceString, boolean beginSequenceAtStart, String relPropFilter, boolean regexMode) {
         int index = 0;
 
         for (String sequenceStep : relSequenceString.split(COMMA_SEPARATOR)) {
             sequenceStep = sequenceStep.trim();
-            Iterable<Triple<RelationshipType, Direction, String>> relDirIterable = RelationshipTypeAndDirections.parseTriple(sequenceStep, relPropFilter);
+            Iterable<Triple<String, Direction, String>> relDirIterable = RelationshipTypeAndDirections.parseTriple(sequenceStep, relPropFilter);
 
-            List<Triple<RelationshipType, Direction, String>> stepRels = new ArrayList<>();
-            for (Triple<RelationshipType, Direction, String> pair : relDirIterable) {
+            List<Triple<String, Direction, String>> stepRels = new ArrayList<>();
+            for (Triple<String, Direction, String> pair : relDirIterable) {
                 stepRels.add(pair);
             }
 
@@ -53,17 +54,18 @@ public class RelationshipSequenceExpander implements PathExpander {
 
             index++;
         }
+        this.regexMode = regexMode;
     }
 
-    public RelationshipSequenceExpander(List<String> relSequenceList, boolean beginSequenceAtStart, String relPropFilter) {
+    public RelationshipSequenceExpander(List<String> relSequenceList, boolean beginSequenceAtStart, String relPropFilter, boolean regexMode) {
         int index = 0;
 
         for (String sequenceStep : relSequenceList) {
             sequenceStep = sequenceStep.trim();
-            Iterable<Triple<RelationshipType, Direction, String>> relDirIterable = RelationshipTypeAndDirections.parseTriple(sequenceStep, relPropFilter);
+            Iterable<Triple<String, Direction, String>> relDirIterable = RelationshipTypeAndDirections.parseTriple(sequenceStep, relPropFilter);
 
-            List<Triple<RelationshipType, Direction, String>> stepRels = new ArrayList<>();
-            for (Triple<RelationshipType, Direction, String> pair : relDirIterable) {
+            List<Triple<String, Direction, String>> stepRels = new ArrayList<>();
+            for (Triple<String, Direction, String> pair : relDirIterable) {
                 stepRels.add(pair);
             }
 
@@ -75,40 +77,43 @@ public class RelationshipSequenceExpander implements PathExpander {
 
             index++;
         }
+        this.regexMode = regexMode;
     }
 
     @Override
     public Iterable<Relationship> expand( Path path, BranchState state ) {
         final Node node = path.endNode();
         int depth = path.length();
-        List<Triple<RelationshipType, Direction, String>> stepRels;
+        List<Triple<String, Direction, String>> stepRels;
 
         if (depth == 0 && initialRels != null) {
             stepRels = initialRels;
         } else {
             stepRels = relSequences.get((initialRels == null ? depth : depth - 1) % relSequences.size());
         }
-
+// todo - qui da capire dove  --> potrei collezionare i matcher --> final Matcher matcher = FIELD_PATTERN.matcher(orItem);
+        
         return Iterators.asList(
         new NestingIterator<>(
                 stepRels.iterator() )
         {
             @Override
             protected Iterator<Relationship> createNestedIterator(
-                    Triple<RelationshipType, Direction, String> entry )
+                    Triple<String, Direction, String> entry )
             {
-                RelationshipType type = entry.getLeft();
+                String type = entry.getLeft();
                 Direction dir = entry.getMiddle();
                 String props = entry.getRight();
                 final Iterable<Relationship> iterable;
                 if (type != null) {
-                        iterable = (dir == Direction.BOTH) ? node.getRelationships(type) :
-                            node.getRelationships(dir, type);
+                    iterable = regexMode 
+                            ? Iterables.filter(rel -> rel.getType().name().matches(type), node.getRelationships(dir)) 
+                            : node.getRelationships(dir, RelationshipType.withName(type));
                 } else {
                         iterable = (dir == Direction.BOTH) ? node.getRelationships() :
                          node.getRelationships(dir);
                 }
-                return Iterables.filter(rel -> PropertyMatcher.matchesProperties(rel, props), iterable).iterator();
+                return Iterables.filter(rel -> PropertyMatcher.matchesProperties(rel, props, regexMode), iterable).iterator();
             }
         });
     }

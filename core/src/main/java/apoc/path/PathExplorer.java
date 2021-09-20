@@ -43,7 +43,7 @@ public class PathExplorer {
 			                   , @Name("minLevel") long minLevel
 			                   , @Name("maxLevel") long maxLevel ) throws Exception {
 		List<Node> nodes = startToNodes(start);
-		return explorePathPrivate(nodes, pathFilter, labelFilter, minLevel, maxLevel, BFS, UNIQUENESS, false, -1, null, null, true, null, null).map( PathResult::new );
+		return explorePathPrivate(nodes, pathFilter, labelFilter, minLevel, maxLevel, BFS, UNIQUENESS, false, -1, null, null, true, null, null, false).map( PathResult::new );
 	}
 
 	//
@@ -148,6 +148,7 @@ public class PathExplorer {
 		boolean optional = Util.toBoolean(config.getOrDefault("optional", false));
 		String sequence = (String) config.getOrDefault("sequence", null);
 		boolean beginSequenceAtStart = Util.toBoolean(config.getOrDefault("beginSequenceAtStart", true));
+		boolean regexMode = Util.toBoolean(config.get("regexMode"));
 		
 		String nodePropFilter = (String) config.get("nodePropFilter");
 		String relPropFilter = (String) config.get("relPropFilter");
@@ -174,7 +175,7 @@ public class PathExplorer {
 			nodeFilter.put(BLACKLIST_NODES, blacklistNodes);
 		}
 
-		Stream<Path> results = explorePathPrivate(nodes, relationshipFilter, labelFilter, minLevel, maxLevel, bfs, getUniqueness(uniqueness), filterStartNode, limit, nodeFilter, sequence, beginSequenceAtStart, nodePropFilter, relPropFilter );
+		Stream<Path> results = explorePathPrivate(nodes, relationshipFilter, labelFilter, minLevel, maxLevel, bfs, getUniqueness(uniqueness), filterStartNode, limit, nodeFilter, sequence, beginSequenceAtStart, nodePropFilter, relPropFilter, regexMode);
 
 		if (optional) {
 			return optionalStream(results);
@@ -196,9 +197,10 @@ public class PathExplorer {
 											String sequence,
 											boolean beginSequenceAtStart,
 											String nodePropFilter,
-											String relPropFilter) {
+											String relPropFilter,
+											boolean regexMode) {
 
-		Traverser traverser = traverse(tx.traversalDescription(), startNodes, pathFilter, labelFilter, minLevel, maxLevel, uniqueness,bfs,filterStartNode, nodeFilter, sequence, beginSequenceAtStart, nodePropFilter, relPropFilter/*, sequencePropFilter*/);
+		Traverser traverser = traverse(tx.traversalDescription(), startNodes, pathFilter, labelFilter, minLevel, maxLevel, uniqueness,bfs,filterStartNode, nodeFilter, sequence, beginSequenceAtStart, nodePropFilter, relPropFilter, regexMode/*, sequencePropFilter*/);
 
 		if (limit == -1) {
 			return Iterables.stream(traverser);
@@ -239,7 +241,8 @@ public class PathExplorer {
 									 String sequence,
 									 boolean beginSequenceAtStart,
 									 String nodePropFilter,
-									 String relPropFilter) {
+									 String relPropFilter,
+									 boolean regexMode) {
 		TraversalDescription td = traversalDescription;
 		// based on the pathFilter definition now the possible relationships and directions must be shown
 
@@ -256,15 +259,15 @@ public class PathExplorer {
 				seq.add(sequenceSteps[index]);
 			}
 
-			td = td.expand(new RelationshipSequenceExpander(relSequenceList, beginSequenceAtStart, relPropFilter));
-			td = td.evaluator(new LabelSequenceEvaluator(labelSequenceList, filterStartNode, beginSequenceAtStart, (int) minLevel, nodePropFilter));
+			td = td.expand(new RelationshipSequenceExpander(relSequenceList, beginSequenceAtStart, relPropFilter, regexMode));
+			td = td.evaluator(new LabelSequenceEvaluator(labelSequenceList, filterStartNode, beginSequenceAtStart, (int) minLevel, nodePropFilter, regexMode));
 		} else {
 			if (pathFilter != null && !pathFilter.trim().isEmpty()) {
-				td = td.expand(new RelationshipSequenceExpander(pathFilter.trim(), beginSequenceAtStart, relPropFilter));
+				td = td.expand(new RelationshipSequenceExpander(pathFilter.trim(), beginSequenceAtStart, relPropFilter, regexMode));
 			}
 
 			if (labelFilter != null && sequence == null && !labelFilter.trim().isEmpty()) {
-				td = td.evaluator(new LabelSequenceEvaluator(labelFilter.trim(), filterStartNode, beginSequenceAtStart, (int) minLevel, nodePropFilter));
+				td = td.evaluator(new LabelSequenceEvaluator(labelFilter.trim(), filterStartNode, beginSequenceAtStart, (int) minLevel, nodePropFilter, regexMode));
 			}
 		}
 

@@ -1,5 +1,6 @@
 package apoc.path;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Triple;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.RelationshipType;
@@ -36,8 +37,8 @@ public abstract class RelationshipTypeAndDirections {
         }
     }
 
-	public static List<Triple<RelationshipType, Direction, String>> parseTriple(String pathFilter, String relPropFilter) {
-		List<Triple<RelationshipType, Direction, String>> relsAndDirs = new ArrayList<>();
+	public static List<Triple<String, Direction, String>> parseTriple(String pathFilter, String relPropFilter) {
+		List<Triple<String, Direction, String>> relsAndDirs = new ArrayList<>();
 		if (pathFilter == null) {
 			relsAndDirs.add(Triple.of(null, BOTH, null));
 		} else {
@@ -49,7 +50,7 @@ public abstract class RelationshipTypeAndDirections {
 					def = regExMatcher.group("labelOrType");
 					props = getPropsMatched(regExMatcher, props);
 				}
-				relsAndDirs.add(Triple.of(relationshipTypeFor(def), directionFor(def), props));
+				relsAndDirs.add(Triple.of(getRelName(def), directionFor(def), props));
 			}
 		}
 		return relsAndDirs;
@@ -68,18 +69,29 @@ public abstract class RelationshipTypeAndDirections {
 		}
 		return relsAndDirs;
 	}
-
+// todo - con regex da cambiare
 	public static Direction directionFor(String type) {
 		if (type.contains("<")) return INCOMING;
 		if (type.contains(">")) return OUTGOING;
 		return BOTH;
 	}
 
+	// todo - forse non serve... però replaceAll("[<>:]", ""); mi sa di sì
 	public static RelationshipType relationshipTypeFor(String name) {
-		if (name.indexOf(BACKTICK) > -1) name = name.substring(name.indexOf(BACKTICK)+1,name.lastIndexOf(BACKTICK));
-		else {
+		name = getRelName(name);
+		return getRelationshipType(name);
+	}
+
+	public static RelationshipType getRelationshipType(String name) {
+		return name == null ? null : RelationshipType.withName(name); // todo - forse non serve questa funzione
+	}
+
+	private static String getRelName(String name) {
+		if (name.indexOf(BACKTICK) > -1) {
+			name = name.substring(name.indexOf(BACKTICK) + 1, name.lastIndexOf(BACKTICK));
+		} else {
 			name = name.replaceAll("[<>:]", "");
 		}
-		return name.trim().isEmpty() ? null : RelationshipType.withName(name);
+		return StringUtils.isBlank(name) ? null : name;
 	}
 }

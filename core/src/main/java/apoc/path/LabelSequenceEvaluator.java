@@ -22,8 +22,9 @@ public class LabelSequenceEvaluator implements Evaluator {
     private boolean filterStartNode;
     private boolean beginSequenceAtStart;
     private long minLevel = -1;
+    private boolean regexMode;
 
-    public LabelSequenceEvaluator(String labelSequence, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter) {
+    public LabelSequenceEvaluator(String labelSequence, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter, boolean regexMode) {
         List<String> labelSequenceList;
 
         // parse sequence
@@ -33,21 +34,22 @@ public class LabelSequenceEvaluator implements Evaluator {
             labelSequenceList = Collections.emptyList();
         }
 
-        initialize(labelSequenceList, filterStartNode, beginSequenceAtStart, minLevel, nodePropFilter);
+        initialize(labelSequenceList, filterStartNode, beginSequenceAtStart, minLevel, nodePropFilter, regexMode);
     }
 
-    public LabelSequenceEvaluator(List<String> labelSequenceList, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter) {
-        initialize(labelSequenceList, filterStartNode, beginSequenceAtStart, minLevel, nodePropFilter);
+    public LabelSequenceEvaluator(List<String> labelSequenceList, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter, boolean regexMode) {
+        initialize(labelSequenceList, filterStartNode, beginSequenceAtStart, minLevel, nodePropFilter, regexMode);
     }
 
-    private void initialize(List<String> labelSequenceList, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter) {
+    private void initialize(List<String> labelSequenceList, boolean filterStartNode, boolean beginSequenceAtStart, int minLevel, String nodePropFilter, boolean regexMode) {
         this.filterStartNode = filterStartNode;
         this.beginSequenceAtStart = beginSequenceAtStart;
         this.minLevel = minLevel;
+        this.regexMode = regexMode;
         sequenceMatchers = new ArrayList<>(labelSequenceList.size());
 
         for (String labelFilterString : labelSequenceList) {
-            LabelMatcherGroup matcherGroup = new LabelMatcherGroup().addLabels(labelFilterString.trim(), nodePropFilter);
+            LabelMatcherGroup matcherGroup = new LabelMatcherGroup(regexMode).addLabels(labelFilterString.trim(), nodePropFilter);
             sequenceMatchers.add(matcherGroup);
             endNodesOnly = endNodesOnly || matcherGroup.isEndNodesOnly();
         }
@@ -77,6 +79,6 @@ public class LabelSequenceEvaluator implements Evaluator {
         // the user may want the sequence to begin at the start node (default), or the sequence may only apply from the next node on
         LabelMatcherGroup matcherGroup = sequenceMatchers.get((beginSequenceAtStart ? depth : depth - 1) % sequenceMatchers.size());
 
-        return matcherGroup.evaluate(node, belowMinLevel);
+        return matcherGroup.evaluate(node, belowMinLevel, regexMode);
     }
 }

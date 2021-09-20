@@ -22,8 +22,13 @@ import static apoc.path.PropertyMatcher.matchesProperties;
  * Please strip these symbols from the start of each label before adding to the matcher.
  */
 public class LabelMatcher {
+    private final boolean regexMode;
     private List<Pair<String, String>> labels = new ArrayList<>();
     private List<Pair<List<String>, String>> compoundLabels;
+
+    public LabelMatcher(boolean regexMode) {
+        this.regexMode = regexMode;
+    }
 
     public LabelMatcher addLabel(String label, String props) {
         if ("*".equals(label)) {
@@ -51,7 +56,7 @@ public class LabelMatcher {
 
     public boolean matchesLabels(Node node) {
         if (labels.size() == 1 && labels.get(0).first().equals("*")) {
-            return matchesProperties(node, labels.get(0).other());
+            return matchesProperties(node, labels.get(0).other(), regexMode);
         }
         
         Set<String> nodeLabels = new HashSet<>();
@@ -59,16 +64,18 @@ public class LabelMatcher {
 
         for ( Pair<String, String> labelPair : labels ) {
             final String label = labelPair.first();
-            if (nodeLabels.contains(label)) {
-                return matchesProperties(node, labelPair.other());
+            final boolean b = regexMode ? nodeLabels.stream().anyMatch(nodeLabel -> nodeLabel.matches(label)) : nodeLabels.contains(label);
+            if (b) { // todo - qui
+                return matchesProperties(node, labelPair.other(), regexMode);
             }
         }
 
         if (compoundLabels != null) {
             for (Pair<List<String>, String> compoundLabelPair : compoundLabels) {
                 final List<String> compoundLabel = compoundLabelPair.first();
-                if (nodeLabels.containsAll(compoundLabel)) {
-                    return matchesProperties(node, compoundLabelPair.other()); 
+                final boolean b = regexMode ? nodeLabels.stream().anyMatch( nodeLabel -> compoundLabel.stream().anyMatch(nodeLabel::matches) ) : nodeLabels.containsAll(compoundLabel);
+                if (b) {  // todo - qui
+                    return matchesProperties(node, compoundLabelPair.other(), regexMode); 
                 }
             }
         }

@@ -22,10 +22,17 @@ import static org.neo4j.graphdb.traversal.Evaluation.*;
  */
 public class LabelMatcherGroup {
     private boolean endNodesOnly;
-    private LabelMatcher whitelistMatcher = new LabelMatcher();
-    private LabelMatcher blacklistMatcher = new LabelMatcher();
-    private LabelMatcher endNodeMatcher = new LabelMatcher();
-    private LabelMatcher terminatorNodeMatcher = new LabelMatcher();
+    private LabelMatcher whitelistMatcher;
+    private LabelMatcher blacklistMatcher;
+    private LabelMatcher endNodeMatcher;
+    private LabelMatcher terminatorNodeMatcher;
+
+    public LabelMatcherGroup(boolean regexMode) {
+        whitelistMatcher = new LabelMatcher(regexMode);
+        blacklistMatcher = new LabelMatcher(regexMode);
+        endNodeMatcher = new LabelMatcher(regexMode);
+        terminatorNodeMatcher = new LabelMatcher(regexMode);
+    }
 
 
     public LabelMatcherGroup addLabels(String fullFilterString, String nodePropFilter) {
@@ -79,7 +86,7 @@ public class LabelMatcherGroup {
         return this;
     }
 
-    public Evaluation evaluate(Node node, boolean belowMinLevel) {
+    public Evaluation evaluate(Node node, boolean belowMinLevel, boolean regexMode) {
         if (blacklistMatcher.matchesLabels(node)) {
             return EXCLUDE_AND_PRUNE;
         }
