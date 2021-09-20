@@ -21,8 +21,8 @@ import java.util.stream.Collectors;
 
 public class PropertyMatcher {
 
-    // regex for nameLabel{propertyPartOptional}
-    public static final Pattern LABEL_TYPE_PATTERN = Pattern.compile("(?<labelOrType>.[^{]*)(\\{(?<props>.+)\\})?");
+    // regex for nameLabel {propertyPartOptional}
+    public static final Pattern LABEL_TYPE_PATTERN = Pattern.compile("(?<labelOrType>.*?(?=\\s\\{)|.*)(\\s*\\{(?<props>.+)\\})?");
     // regex for prop1 = value1 / prop1 != value1 and so on
     public static final Pattern FIELD_PATTERN = Pattern.compile("(?<prop>.[^!><]+)(?<operator>=|>=|<=|<|>|!=)(?<value>.+)");
     
@@ -40,15 +40,15 @@ public class PropertyMatcher {
         });
     }
 
-    private static boolean matchProperty(String orItem, Entity entity) {
-        if (orItem.startsWith("+")) {
-            return entity.hasProperty(orItem.substring(1));
+    private static boolean matchProperty(String andItem, Entity entity) {
+        if (andItem.startsWith("+")) {
+            return entity.hasProperty(andItem.substring(1));
         } 
-        if(orItem.startsWith("-")) {
-            return !entity.hasProperty(orItem.substring(1));
+        if(andItem.startsWith("-")) {
+            return !entity.hasProperty(andItem.substring(1));
         }
         
-        final Matcher matcher = FIELD_PATTERN.matcher(orItem);
+        final Matcher matcher = FIELD_PATTERN.matcher(andItem);
         if (matcher.matches()) {
             final String propName = matcher.group("prop");
             final String value = matcher.group("value");

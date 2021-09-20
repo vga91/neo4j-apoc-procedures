@@ -190,7 +190,7 @@ public class NodeFilterTest {
         db.executeTransactionally("MATCH (c:Person) WHERE c.name in ['Clint Eastwood', 'Gene Hackman'] SET c:Western");
 
         TestUtil.testResult(db,
-                "MATCH (k:Person {name:'Keanu Reeves'}), (gene:Person {name:'Gene Hackman'}), (clint:Person {name:'Clint Eastwood'}), (unforgiven:Movie{title:'Unforgiven'}) " +
+                "MATCH (k:Person {name:'Keanu Reeves'}), (gene:Person {name:'Gene Hackman'}), (clint:Person {name:'Clint Eastwood'}), (unforgiven:Movie {title:'Unforgiven'}) " +
                         "CALL apoc.path.subgraphNodes(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'>Western', blacklistNodes:[unforgiven]}) yield node " +
                         "return node",
                 result -> {
@@ -203,8 +203,8 @@ public class NodeFilterTest {
 
         // with matched prop filter
         TestUtil.testResult(db,
-                "MATCH (k:Person {name:'Keanu Reeves'}), (gene:Person {name:'Gene Hackman'}), (clint:Person {name:'Clint Eastwood'}), (unforgiven:Movie{title:'Unforgiven'}) " +
-                        "CALL apoc.path.subgraphNodes(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'>Western{+name}', blacklistNodes:[unforgiven]}) yield node " +
+                "MATCH (k:Person {name:'Keanu Reeves'}), (gene:Person {name:'Gene Hackman'}), (clint:Person {name:'Clint Eastwood'}), (unforgiven:Movie {title:'Unforgiven'}) " +
+                        "CALL apoc.path.subgraphNodes(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'>Western {+name}', blacklistNodes:[unforgiven]}) yield node " +
                         "return node",
                 result -> {
 
@@ -217,7 +217,7 @@ public class NodeFilterTest {
         // with not matched prop filter
         TestUtil.testCallEmpty(db,
                 "MATCH (k:Person {name:'Keanu Reeves'}), (gene:Person {name:'Gene Hackman'}), (clint:Person {name:'Clint Eastwood'}), (unforgiven:Movie{title:'Unforgiven'}) " +
-                        "CALL apoc.path.subgraphNodes(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'>Western{-name}', blacklistNodes:[unforgiven]}) yield node " +
+                        "CALL apoc.path.subgraphNodes(k, {relationshipFilter:'ACTED_IN|PRODUCED|DIRECTED', labelFilter:'>Western {-name}', blacklistNodes:[unforgiven]}) yield node " +
                         "return node", Collections.emptyMap());
     }
 

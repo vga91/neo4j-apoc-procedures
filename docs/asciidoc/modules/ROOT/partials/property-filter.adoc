@@ -1,4 +1,4 @@
-We can specify the property filters via the following syntax:
+We can specify the property filters adding a whitespace and a pattern with the following syntax:
 `{condition [operator condition operator condition]}`.
 
 where operator can be or operator `|` or and operator `&`. (`&` has precedence over `|`)
@@ -15,7 +15,7 @@ where operator can be or operator `|` or and operator `&`. (`&` has precedence o
 * `propertyName\<=value`: `propertyName` must be less than or equal to `value`
 
 So we can have, for example a label filter config like:
-`/Western{name=Clint Eastwood & born=1930 | name=Gene Hackman | name=Keanu Reeves}`,
+`/Western {name=Clint Eastwood & born=1930 | name=Gene Hackman | name=Keanu Reeves}`,
 in this case we search for a path with a termination node with label `Western`
 that have a property `name` equals to `Clint Eastwood`, a property `born` equals to `1930` 
 or a `name` equals to `Gene Hackman` or a `name` equals to `Keanu Reeves`.
