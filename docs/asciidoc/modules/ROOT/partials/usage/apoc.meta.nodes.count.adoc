@@ -54,7 +54,7 @@ otherwise with an `incoming` relationship `MY_COUNT_REL` (with the suffix `<`):
 
 [source,cypher]
 ----
-RETURN apoc.meta.nodes.count(['MyCountLabel'], {rels: ['MY_COUNT_REL']}) AS count;
+RETURN apoc.meta.nodes.count(['MyCountLabel'], {rels: ['MY_COUNT_REL<']}) AS count;
 ----
 
 .Results
