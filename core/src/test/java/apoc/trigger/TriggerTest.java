@@ -72,16 +72,16 @@ public class TriggerTest {
 
     @Test
     public void testIssue1152()  {
-        final Long id = db.executeTransactionally("CREATE (n:To:Delete {prop1: 'val1', prop2: 'val2'}) RETURN id(n) as id", Collections.emptyMap(), 
+        final Long id = db.executeTransactionally("CREATE (n:To:Delete {prop1: 'val1', prop2: 'val2'}) RETURN id(n) as id", Collections.emptyMap(),
                 r -> r.<Long>columnAs("id").next());
-        
+
         // we check that we can execute write operation (through virtualNode functions)
         db.executeTransactionally("call apoc.trigger.add('ugone', " +
                 "\"UNWIND $deletedNodes as deletedNode CREATE (r:Report {id: id(deletedNode)}) WITH r, deletedNode " +
                 "CALL apoc.create.addLabels(r, apoc.node.labels(deletedNode)) yield node with node, deletedNode " +
                 "set node+=apoc.any.properties(deletedNode)\" ,{phase:'before'})");
         db.executeTransactionally("MATCH (f:To:Delete) DELETE f");
-        
+
         TestUtil.testCall(db, "MATCH (n:Report:To:Delete) RETURN n", (row) -> {
             final Node n = (Node) row.get("n");
             assertEquals("val1", n.getProperty("prop1"));
@@ -94,9 +94,9 @@ public class TriggerTest {
     public void testIssue2247() {
         db.executeTransactionally("CREATE (n:ToBeDeleted)");
         db.executeTransactionally("CALL apoc.trigger.add('myTrig', 'RETURN 1', {phase: 'afterAsync'})");
-        
+
         db.executeTransactionally("MATCH (n:ToBeDeleted) DELETE n");
-        
+
         db.executeTransactionally("CALL apoc.trigger.remove('myTrig')");
     }
 
