@@ -206,7 +206,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     @Override
     public Void beforeCommit(TransactionData txData, Transaction transaction, GraphDatabaseService databaseService) {
         if (hasPhase(Phase.before)) {
-            executeTriggers(transaction, txData, Phase.before);
+            executeTriggers(transaction, txData, Phase.before, true);
         }
         return null;
     }
@@ -215,7 +215,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     public void afterCommit(TransactionData txData, Void state, GraphDatabaseService databaseService) {
         if (hasPhase(Phase.after)) {
             try (Transaction tx = db.beginTx()) {
-                executeTriggers(tx, txData, Phase.after);
+                executeTriggers(tx, txData, Phase.after, false);
                 tx.commit();
             }
         }
@@ -236,7 +236,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     public void afterRollback(TransactionData txData, Void state, GraphDatabaseService databaseService) {
         if (hasPhase(Phase.rollback)) {
             try (Transaction tx = db.beginTx()) {
-                executeTriggers(tx, txData, Phase.rollback);
+                executeTriggers(tx, txData, Phase.rollback, false);
                 tx.commit();
             }
         }
@@ -248,8 +248,8 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
                 .anyMatch(selector -> when(selector, phase));
     }
 
-    private void executeTriggers(Transaction tx, TransactionData txData, Phase phase) {
-        executeTriggers(tx, TriggerMetadata.from(txData, false), phase);
+    private void executeTriggers(Transaction tx, TransactionData txData, Phase phase, boolean rebindDeleted) {
+        executeTriggers(tx, TriggerMetadata.from(txData, rebindDeleted), phase);
     }
 
     private void executeTriggers(Transaction tx, TriggerMetadata triggerMetadata, Phase phase) {
