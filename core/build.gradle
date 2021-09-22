@@ -41,10 +41,10 @@ dependencies {
     apt project(':processor')
 
     apt group: 'org.neo4j', name: 'neo4j', version: neo4jVersionEffective
-    compile group: 'commons-codec', name: 'commons-codec', version: '1.14', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
-    compile group: 'com.jayway.jsonpath', name: 'json-path', version: '2.4.0', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
-    compile group: 'net.minidev', name: 'json-smart', version: '2.4.2', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
-    compile group: 'org.hdrhistogram', name: 'HdrHistogram', version: '2.1.9', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
+    compile group: 'commons-codec', name: 'commons-codec', version: '1.14'
+    compile group: 'com.jayway.jsonpath', name: 'json-path', version: '2.4.0'
+    compile group: 'net.minidev', name: 'json-smart', version: '2.4.2'
+    compile group: 'org.hdrhistogram', name: 'HdrHistogram', version: '2.1.9'
 
     antlr "org.antlr:antlr4:4.7.2", {
         exclude group: 'org.glassfish'
@@ -54,17 +54,19 @@ dependencies {
     // compileOnly "org.antlr:antlr4-runtime:4.7.2"
     // testCompile "org.antlr:antlr4-runtime:4.7.2"
 
-    compile group: 'org.roaringbitmap', name: 'RoaringBitmap', version: '0.7.17', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
-    compile group: 'org.apache.commons', name: 'commons-configuration2', version: '2.7', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
+    compile group: 'org.roaringbitmap', name: 'RoaringBitmap', version: '0.7.17'
+    compile group: 'org.apache.commons', name: 'commons-configuration2', version: '2.7'
     compile(group: 'org.apache.commons', name: 'commons-configuration2', version: '2.7') {
         exclude group: "org.yaml"
         exclude module: "snakeyaml"
-        exclude group: 'org.apache.commons', module: 'commons-lang3'
     }
-    compile group: 'org.yaml', name: 'snakeyaml', version: '1.26', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
+    compile group: 'org.yaml', name: 'snakeyaml', version: '1.26'
     testCompile group: 'com.github.stefanbirkner', name: 'system-rules', version: '1.19.0'
-    compileOnly group: 'org.apache.commons', name: 'commons-lang3', version: '3.11'
-    testCompile group: 'org.apache.commons', name: 'commons-lang3', version: '3.11'
+    compile(group: 'org.apache.commons', name: 'commons-lang3') {
+        version {
+            strictly '3.11'
+        }
+    }
     testCompile 'net.sourceforge.jexcelapi:jxl:2.6.12'
 
     compileOnly group: 'com.amazonaws', name: 'aws-java-sdk-s3', version: '1.11.270'
@@ -107,7 +109,7 @@ dependencies {
     testCompile group: 'org.codehaus.jackson', name: 'jackson-mapper-asl', version: '1.9.7'
     compile group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.10.5.1'
     compile group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
-    compile group: 'com.opencsv', name: 'opencsv', version: '4.6', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
+    compile group: 'com.opencsv', name: 'opencsv', version: '4.6'
     compile group: 'commons-beanutils', name: 'commons-beanutils', version: '1.9.4'
     compileOnly group: 'org.ow2.asm', name: 'asm', version: '5.0.2'
 
@@ -118,7 +120,7 @@ dependencies {
 
     compile group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
     // explicit update comomns.io version
-    compile group: 'commons-io', name: 'commons-io', version: '2.9.0', { exclude group: 'org.apache.commons', module: 'commons-lang3' }
+    compile group: 'commons-io', name: 'commons-io', version: '2.9.0'
 
     //compileOnly group: 'org.apache.commons', name: 'commons-text', version: '1.7'
 //    jmh group: 'org.neo4j', name: 'neo4j-lucene-index', version: neo4jVersionEffective
