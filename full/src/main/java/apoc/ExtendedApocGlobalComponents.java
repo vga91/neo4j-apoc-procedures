@@ -1,5 +1,6 @@
 package apoc;
 
+import apoc.create.VirtualEntitiesHandler;
 import apoc.custom.CypherProcedures;
 import apoc.custom.CypherProceduresHandler;
 import apoc.load.LoadDirectory;
@@ -58,7 +59,7 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
 
     @Override
     public Collection<Class> getContextClasses() {
-        return List.of(CypherProceduresHandler.class, UuidHandler.class, LoadDirectoryHandler.class);
+        return List.of(CypherProceduresHandler.class, UuidHandler.class, LoadDirectoryHandler.class, VirtualEntitiesHandler.class);
     }
 
     @Override

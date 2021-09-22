@@ -10,7 +10,11 @@ import org.neo4j.procedure.*;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
@@ -19,6 +23,8 @@ import static org.neo4j.graphdb.RelationshipType.withName;
 public class Create {
 
     public static final String[] EMPTY_ARRAY = new String[0];
+    
+    public static final VirtualEntitiesHandler handler = new VirtualEntitiesHandler();
 
     @Context
     public Transaction tx;
@@ -146,39 +152,91 @@ public class Create {
 
     @Procedure
     @Description("apoc.create.vNode(['Label'], {key:value,...}) returns a virtual node")
-    public Stream<NodeResult> vNode(@Name("label") List<String> labelNames, @Name("props") Map<String, Object> props) {
-        return Stream.of(new NodeResult(vNodeFunction(labelNames, props)));
+    public Stream<NodeResult> vNode(@Name("label") List<String> labelNames, @Name("props") Map<String, Object> props, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        return Stream.of(new NodeResult(vNodeFunction(labelNames, props, config)));
     }
 
     @UserFunction("apoc.create.vNode")
     @Description("apoc.create.vNode(['Label'], {key:value,...}) returns a virtual node")
-    public Node vNodeFunction(@Name("label") List<String> labelNames, @Name(value = "props",defaultValue = "{}") Map<String, Object> props) {
-        return new VirtualNode(Util.labels(labelNames), props);
+    public Node vNodeFunction(@Name("label") List<String> labelNames, @Name(value = "props",defaultValue = "{}") Map<String, Object> props, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        VirtualConfig conf = new VirtualConfig(config);
+        if (!conf.isMerge()) {
+            return createVirtualNode(labelNames, props);
+        } else {
+            return handler.getNodes().stream().filter(node -> 
+                            Iterables.asSet(Iterables.map(Label::name, node.getLabels())).equals(Set.copyOf(labelNames)) 
+                                    && isaBoolean(props, node))
+                    .findAny()
+                    .map(getVirtualNodeVirtualNodeFunction(conf))
+                    .orElseGet(getVirtualNodeSupplier(()-> createVirtualNode(labelNames, props), conf));
+        }
+    }
+
+    private <T extends Entity> Supplier<T> getVirtualNodeSupplier(Supplier<T> supplier, VirtualConfig conf) {
+        return () -> {
+            final T node = supplier.get();
+            conf.getOnCreate().forEach(node::setProperty);
+            return node;
+        };
+    }
+
+    private <T extends Entity> Function<T, T> getVirtualNodeVirtualNodeFunction(VirtualConfig conf) {
+        return node -> {
+            conf.getOnMatch().forEach(node::setProperty);
+            return node;
+        };
+    }
+
+    private VirtualNode createVirtualNode(List<String> labelNames, Map<String, Object> props) {
+        return new VirtualNode(Util.labels(labelNames), props, handler);
     }
 
     @UserFunction("apoc.create.virtual.fromNode")
     @Description("apoc.create.virtual.fromNode(node, [propertyNames]) returns a virtual node built from an existing node with only the requested properties")
     public Node virtualFromNodeFunction(@Name("node") Node node, @Name("propertyNames") List<String> propertyNames) {
-        return new VirtualNode(node, propertyNames);
+        return new VirtualNode(node, propertyNames, handler);
     }
 
     @Procedure
     @Description("apoc.create.vNodes(['Label'], [{key:value,...}]) returns virtual nodes")
     public Stream<NodeResult> vNodes(@Name("label") List<String> labelNames, @Name("props") List<Map<String, Object>> props) {
         Label[] labels = Util.labels(labelNames);
-        return props.stream().map(p -> new NodeResult(new VirtualNode(labels, p)));
+        return props.stream().map(p -> new NodeResult(new VirtualNode(labels, p, handler)));
     }
 
     @Procedure
     @Description("apoc.create.vRelationship(nodeFrom,'KNOWS',{key:value,...}, nodeTo) returns a virtual relationship")
-    public Stream<RelationshipResult> vRelationship(@Name("from") Node from, @Name("relType") String relType, @Name("props") Map<String, Object> props, @Name("to") Node to) {
-        return Stream.of(new RelationshipResult(vRelationshipFunction(from, relType, props, to)));
+    public Stream<RelationshipResult> vRelationship(@Name("from") Node from, @Name("relType") String relType, @Name("props") Map<String, Object> props, @Name("to") Node to,
+            @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        return Stream.of(new RelationshipResult(vRelationshipFunction(from, relType, props, to, config)));
     }
 
     @UserFunction("apoc.create.vRelationship")
     @Description("apoc.create.vRelationship(nodeFrom,'KNOWS',{key:value,...}, nodeTo) returns a virtual relationship")
-    public Relationship vRelationshipFunction(@Name("from") Node from, @Name("relType") String relType, @Name("props") Map<String, Object> props, @Name("to") Node to) {
-        return new VirtualRelationship(from, to, withName(relType)).withProperties(props);
+    public Relationship vRelationshipFunction(@Name("from") Node from, @Name("relType") String relType, @Name("props") Map<String, Object> props, @Name("to") Node to,
+                                              @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        VirtualConfig conf = new VirtualConfig(config);
+        final RelationshipType type = withName(relType);
+        if (!conf.isMerge()) {
+            return createVirtualRelationship(from, props, to, type);
+        } else {
+            return handler.getRels().stream().filter(rel -> rel.getType().equals(type) 
+                    && rel.getStartNode().equals(from)
+                    && rel.getEndNode().equals(to)
+                    && isaBoolean(props, rel))
+                    .findAny()
+                    .map(getVirtualNodeVirtualNodeFunction(conf))
+                    .orElseGet(getVirtualNodeSupplier(() -> createVirtualRelationship(from, props, to, type), conf));
+        }
+        
+    }
+
+    private <T extends Entity> boolean isaBoolean(Map<String, Object> props, T entity) {
+        return props.entrySet().stream().allMatch(e -> Objects.deepEquals(e.getValue(), entity.getProperty(e.getKey(), null)));
+    }
+
+    private VirtualRelationship createVirtualRelationship(Node from, Map<String, Object> props, Node to, RelationshipType type) {
+        return new VirtualRelationship(from, to, type, handler).withProperties(props);
     }
 
     @Procedure(deprecatedBy = "apoc.create.virtualPath")
@@ -190,9 +248,9 @@ public class Create {
         n = new LinkedHashMap<>(n);
         m = new LinkedHashMap<>(m);
         RelationshipType type = withName(relType);
-        VirtualNode from = new VirtualNode(Util.labels(n.remove("_labels")), n);
-        VirtualNode to = new VirtualNode(Util.labels(m.remove("_labels")), m);
-        Relationship rel = new VirtualRelationship(from, to, withName(relType)).withProperties(props);
+        VirtualNode from = new VirtualNode(Util.labels(n.remove("_labels")), n, handler);
+        VirtualNode to = new VirtualNode(Util.labels(m.remove("_labels")), m, handler);
+        Relationship rel = createVirtualRelationship(from, props, to, withName(relType));
         return Stream.of(new VirtualPathResult(from, rel, to));
     }
 
@@ -205,7 +263,7 @@ public class Create {
         RelationshipType type = withName(relType);
         VirtualNode from = new VirtualNode(Util.labels(labelsN), n);
         VirtualNode to = new VirtualNode(Util.labels(labelsM), m);
-        Relationship rel = new VirtualRelationship(from, to, type).withProperties(props);
+        Relationship rel = createVirtualRelationship(from, props, to, type);
         return Stream.of(new VirtualPathResult(from, rel, to));
     }
 
@@ -215,9 +273,9 @@ public class Create {
                                                   @Name("relType") String relType, @Name("props") Map<String, Object> props,
                                                   @Name("labelsM") List<String> labelsM, @Name("m") Map<String, Object> m) {
         RelationshipType type = withName(relType);
-        VirtualNode from = new VirtualNode(Util.labels(labelsN), n);
-        VirtualNode to = new VirtualNode(Util.labels(labelsM), m);
-        Relationship rel = new VirtualRelationship(from, to, type).withProperties(props);
+        VirtualNode from = new VirtualNode(Util.labels(labelsN), n, handler);
+        VirtualNode to = new VirtualNode(Util.labels(labelsM), m, handler);
+        Relationship rel = createVirtualRelationship(from, props, to, type);
         return Stream.of(new VirtualPathResult(from, rel, to));
     }
 
@@ -236,11 +294,11 @@ public class Create {
     private PathResult createVirtualPath(Path path) {
         final Iterable<Relationship> relationships = path.relationships();
         final Node first = path.startNode();
-        VirtualPath virtualPath = new VirtualPath(new VirtualNode(first, Iterables.asList(first.getPropertyKeys())));
+        VirtualPath virtualPath = new VirtualPath(new VirtualNode(first, Iterables.asList(first.getPropertyKeys()), handler));
         for (Relationship rel : relationships) {
-            VirtualNode start = VirtualNode.from(rel.getStartNode());
-            VirtualNode end = VirtualNode.from(rel.getEndNode());
-            virtualPath.addRel(VirtualRelationship.from(start, end, rel));
+            VirtualNode start = VirtualNode.from(rel.getStartNode(), handler);
+            VirtualNode end = VirtualNode.from(rel.getEndNode(), handler);
+            virtualPath.addRel(VirtualRelationship.from(start, end, rel, handler));
         }
         return new PathResult(virtualPath);
     }
