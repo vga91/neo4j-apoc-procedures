@@ -1,29 +1,22 @@
-package apoc.create;
+package apoc.merge;
 
-import apoc.util.Util;
-
-import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public class VirtualConfig {
+public class MergeConfig {
 
-    private final boolean merge;
+    private final List<String> mergeKeysList;
     private final Map<String, Object> onMatch;
     private final Map<String, Object> onCreate;
 
-    public VirtualConfig(Map<String, Object> config) {
+    public MergeConfig(Map<String, Object> config) {
         if (config == null) {
             config = Collections.emptyMap();
         }
-        this.merge = Util.toBoolean(config.get("merge"));
+        this.mergeKeysList = (List<String>) config.getOrDefault("mergeKeysList", Collections.emptyList());
         this.onMatch = (Map<String, Object>) config.getOrDefault("onMatch", Collections.emptyMap());
         this.onCreate = (Map<String, Object>) config.getOrDefault("onCreate", Collections.emptyMap());
-    }
-
-    public boolean isMerge() {
-        return merge;
     }
 
     public Map<String, Object> getOnMatch() {
@@ -32,5 +25,9 @@ public class VirtualConfig {
 
     public Map<String, Object> getOnCreate() {
         return onCreate;
+    }
+
+    public List<String> getMergeKeysList() {
+        return mergeKeysList;
     }
 }

@@ -2,11 +2,12 @@ package apoc.create;
 
 import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
+import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class VirtualEntitiesHandler {
+public class VirtualEntitiesHandler extends LifecycleAdapter {
     private final Set<VirtualNode> nodes = ConcurrentHashMap.newKeySet();
     private final Set<VirtualRelationship> rels = ConcurrentHashMap.newKeySet();
 
@@ -25,4 +26,14 @@ public class VirtualEntitiesHandler {
     public void addRel(VirtualRelationship rel) {
         this.rels.add(rel);
     }
+
+    @Override
+    public void start() {}
+
+    @Override
+    public void stop() {
+        nodes.clear();
+        rels.clear();
+    }
+
 }
