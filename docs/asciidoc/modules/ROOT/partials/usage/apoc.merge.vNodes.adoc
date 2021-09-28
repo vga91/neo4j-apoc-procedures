@@ -1,0 +1,52 @@
+With the following query:
+
+[source,cypher]
+----
+CALL apoc.create.vNode(["A", "B", "C"], {alpha: 'beta'} ) yield node with node as nodeOne
+CALL apoc.create.vNode(["A", "B", "C"], {alpha: 'beta'}) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList
+CALL apoc.merge.vNodes(nodeList, {onMatch: {merged:true}}) YIELD nodes RETURN nodes
+----
+
+is returned a list of one node, with an additional property `merged: true`
+
+.Results
+[opts="header"]
+|===
+| nodes
+| [ `{"identity":-1,"labels":["A","B","C"],"properties":{"merged":true,"alpha":"beta"}}` ]
+|===
+
+
+Otherwise, with this query:
+
+[source,cypher]
+----
+CALL apoc.create.vNode(["A", "B", "C"], {alpha: 'beta'} ) yield node with node as nodeOne
+CALL apoc.create.vNode(["A", "B", "C"], {gamma: 'delta'}) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList
+CALL apoc.merge.vNodes(nodeList, {onCreate: {created:true}}) YIELD nodes RETURN nodes
+----
+
+is returned the list of 2 nodes passed as first parameter, with an additional property `created: true`
+
+.Results
+[opts="header"]
+|===
+| nodes
+| [ `{"identity":-5,"labels":["A","B","C"],"properties":{"created":true,"alpha":"beta"}}` , `{"identity":-6,"labels":["A","B","C"],"properties":{"gamma":"delta","created":true}}` ]
+|===
+
+We can also pass a `mergeKeysList` param to compare only a set of labels:
+
+[source,cypher]
+----
+CALL apoc.create.vNode(["A", "another"], {alpha: 'beta'} ) yield node with node as nodeOne
+CALL apoc.create.vNode(["A", "B", "C", "baz"], {alpha: 'beta'}) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList
+CALL apoc.merge.vNodes(nodeList, {mergeKeysList: ["A"], onMatch: {merged:true}}) YIELD nodes RETURN nodes
+----
+
+.Results
+[opts="header"]
+|===
+| nodes
+| [ `{"identity":-7,"labels":["A","another"],"properties":{"merged":true,"alpha":"beta"}}` ]
+|===

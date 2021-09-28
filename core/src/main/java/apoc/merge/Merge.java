@@ -40,23 +40,11 @@ public class Merge {
     
     @Procedure(value="apoc.merge.vNodes", mode = Mode.WRITE, eager = true)
     @Description("apoc.merge.vNodes(nodes, $config) - merge a virtual node list")
-    public Stream<NodeListResult> mergeVNodes(@Name("nodes") List<Node> nodes,
-//                                         @Name("mergeKeysList") List<String> mergeKeysList,
-                                              @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+    public Stream<NodeListResult> mergeVNodes(@Name("nodes") List<Node> nodes, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
         MergeConfig conf = new MergeConfig(config);
 
-
-//        for (Iterator<VirtualNode> iterator = nodes.iterator(); 
-//             iterator.hasNext(); ) {
-//            VirtualNode id = iterator.next();
-//            builder.append(quote(id));
-//            if (iterator.hasNext()) {
-//                builder.append(",");
-//            }
-//        }
         final List<String> mergeKeysList = conf.getMergeKeysList();
-//        List<VirtualNode> set = new HashSet<>(nodes);
-        List<Node> set = new ArrayList<>();
+        List<Node> currentList = new ArrayList<>();
         nodes.forEach(item1 -> {
             if (!(item1 instanceof VirtualNode)) {
                 throw new RuntimeException(ERROR_NOT_VIRTUAL_NODE);
@@ -64,81 +52,18 @@ public class Merge {
             
             final Set<String> labelsSet = getLabelsSet(mergeKeysList, item1);
             
-            // invece di noneMatch lo trovo e faccio set...
-            final Node nodeFound = set.stream().filter(setItem ->
+            final Node nodeFound = currentList.stream().filter(setItem ->
                     getLabelsSet(mergeKeysList, setItem).equals(labelsSet)
                             && item1.getAllProperties().equals(setItem.getAllProperties())).findAny().orElse(null);
-            if (
-                    nodeFound != null
-            ) {
-//                conf.getOnMatch()
-                // todo - check instance of VirtualNode
+            if (nodeFound != null) {
                 nodeFound.setProperty(MERGED, true);
             } else {
-                set.add(item1);
+                currentList.add(item1);
             }
         });
 
-        setOnMatchAndCreate(conf, set);
-
-        return Stream.of(new NodeListResult(set));// set.stream().map(NodeResult::new);
-
-//        Iterator<VirtualNode> i = nodes.iterator();
-//        while (i.hasNext()) {
-//            VirtualNode current = i.next(); // must be called before you can call i.remove()
-//            // Do something
-////            nodes.removeIf(item -> item.getId() != )
-//            i.forEachRemaining();
-////            ListIterator bItr = nodes.listIterator(i.forEachRemaining();)
-//            
-////            i.remove();
-//        }
-//        
-//        IntStream.range(0,nodes.size()-1).filter(i -> {
-//            final VirtualNode curr = nodes.get(i);
-//            final VirtualNode next = nodes.get(i + 1);
-////            doSomething(list.get(i),list.get(i+1));
-//        });
-
-//        for (nodes.iterator().next())
-
-
-        // todo.. no uso variabile d'appoggio va..
-
-//        nodes.stream().filter(curr -> {
-//
-//            final Iterable<String> labelNames = Iterables.map(Label::name, curr.getLabels());
-//            Iterable<String> labels = mergeKeysList.isEmpty() ? labelNames : Iterables.filter(item -> mergeKeysList.contains(item), labelNames);
-//
-//
-////            final Iterable<String> labelNames2 = Iterables.map(Label::name, other.getLabels());
-////            Iterable<String> labels2 = mergeKeysList.isEmpty() ? labelNames2 : Iterables.filter(item -> mergeKeysList.contains(item), labelNames2);
-////            if (mergeKeysList.isEmpty()) {
-//////                labels = curr.getLabels();
-////            } else {
-////                labels = Iterables.filter(item -> mergeKeysList.contains(item), labelNames);
-////            }
-////            if (Iterables.asSet(labels).equals(Iterables.asSet(labels2)) && ) {
-////                
-////            }
-//            nodes.stream().reduce(node -> {
-//                if (curr.getId() != node.getId()) {
-//                    final Iterable<String> labelNames2 = Iterables.map(Label::name, node.getLabels());
-//                    Iterable<String> labels2 = mergeKeysList.isEmpty() ? labelNames2 : Iterables.filter(item -> mergeKeysList.contains(item), labelNames2);
-//                    if ()
-//                }
-//                return false;
-//            })
-//        })
-
-
-//        return nodes.stream().filter(node ->
-//                nodes.stream().
-////                Iterables.asSet(Iterables.map(Label::name, node.getLabels())).equals(Set.copyOf(labelNames))
-//                        && isPropertiesMatched(props, node))
-//                .findAny()
-//                .map(getVirtualNodeVirtualNodeFunction(conf))
-//                .orElseGet(getVirtualNodeSupplier(()-> createVirtualNode(labelNames, props), conf));
+        setOnMatchAndCreate(conf, currentList);
+        return Stream.of(new NodeListResult(currentList));
     }
 
     private Set<String> getLabelsSet(List<String> mergeKeysList, Node item1) {
@@ -149,29 +74,27 @@ public class Merge {
 
     @Procedure(value="apoc.merge.vRelationships")
     @Description("apoc.merge.vRelationships(relationships, $config) - merge a virtual relationship list")
-    public Stream<RelationshipListResult> mergeVRelationships(@Name("relationships") List<Relationship> relationships,
-                                         @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+    public Stream<RelationshipListResult> mergeVRelationships(@Name("relationships") List<Relationship> relationships, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
         MergeConfig conf = new MergeConfig(config);
 
-        List<Relationship> set = new ArrayList<>();
+        List<Relationship> currentRels = new ArrayList<>();
         
         relationships.forEach(rel -> {
             if (!(rel instanceof VirtualRelationship)) {
                 throw new RuntimeException(ERROR_NOT_VIRTUAL_RELS);
             }
-            final Relationship relFound = set.stream().filter(i -> i.getType().equals(rel.getType()) && i.getAllProperties().equals(rel.getAllProperties())).findAny().orElse(null);
+            final Relationship relFound = currentRels.stream().filter(i -> i.getType().equals(rel.getType()) && i.getAllProperties().equals(rel.getAllProperties())).findAny().orElse(null);
             if (relFound != null) {
                 relFound.setProperty(MERGED, true);
             } else {
-                set.add(rel);
+                currentRels.add(rel);
             }
         });
 
-        setOnMatchAndCreate(conf, set);
-
-        return Stream.of(new RelationshipListResult(set));
+        setOnMatchAndCreate(conf, currentRels);
+        return Stream.of(new RelationshipListResult(currentRels));
     }
-
+    
     private <T extends Entity> void setOnMatchAndCreate(MergeConfig conf, List<T> list) {
         if (!conf.getOnMatch().isEmpty() || !conf.getOnCreate().isEmpty()) {
             list.forEach(entity -> {
@@ -183,26 +106,6 @@ public class Merge {
                 }
             });
         }
-    }
-
-    private <T extends Entity> Supplier<T> getVirtualNodeSupplier(Supplier<T> supplier, MergeConfig conf) {
-        return () -> {
-            final T node = supplier.get();
-            conf.getOnCreate().forEach(node::setProperty);
-            return node;
-        };
-    }
-
-    private <T extends Entity> Function<T, T> getVirtualNodeVirtualNodeFunction(MergeConfig conf) {
-        return node -> {
-            conf.getOnMatch().forEach(node::setProperty);
-            return node;
-        };
-    }
-    
-
-    private <T extends Entity> boolean isPropertiesMatched(Map<String, Object> props, T entity) {
-        return props.entrySet().stream().allMatch(e -> Objects.deepEquals(e.getValue(), entity.getProperty(e.getKey(), null)));
     }
 
     @Procedure(value="apoc.merge.node.eager", mode = Mode.WRITE, eager = true)

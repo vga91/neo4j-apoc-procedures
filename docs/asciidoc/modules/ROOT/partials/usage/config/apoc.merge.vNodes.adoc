@@ -1,0 +1,10 @@
+The procedure support the following config parameters:
+
+.Config parameters
+[opts=header]
+|===
+| name | type | default | description
+| onMatch | Map<String, Object> | {}| simulate the `ON MATCH SET` with cypher `MERGE` clause. That is, we add this map when a node is merged.
+| onCreate | Map<String, Object> | {} | simulate the `ON CREATE SET` with cypher `MERGE` clause. That is, we add this property map when a node is not merged.
+| mergeKeysList | List<String> | [] | If not empty, only the labels present will be compared to decide whether to join a node. Otherwise, we will check equality of all labels
+|===

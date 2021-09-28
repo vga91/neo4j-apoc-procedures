@@ -1,9 +1,5 @@
 package apoc.create;
 
-import apoc.merge.Merge;
-import apoc.periodic.Periodic;
-import apoc.result.VirtualNode;
-import apoc.result.VirtualRelationship;
 import apoc.util.TestUtil;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.junit.Before;
@@ -40,7 +36,7 @@ public class CreateTest {
     public DbmsRule db = new ImpermanentDbmsRule();
 
     @Before public void setUp() throws Exception {
-        TestUtil.registerProcedure(db,Create.class, Merge.class);
+        TestUtil.registerProcedure(db,Create.class);
     }
 
     @Test
@@ -142,145 +138,6 @@ public class CreateTest {
                     Node node = (Node) row.get("node");
                     assertEquals(true, node.hasLabel(Label.label("Person")));
                     assertEquals("John", node.getProperty("name"));
-                });
-    }
-
-    @Test
-    public void testMergeVirtualNode() {
-        VirtualNode firstNode = TestUtil.singleResultFirstColumn(db, "CALL apoc.create.vNode(['Person'],{name:'John'})");
-        assertTrue(firstNode.hasLabel(label("Person")));
-        assertEquals("John", firstNode.getProperty("name"));
-        
-        testCall(db, "CALL apoc.create.vNode(['Alfa'],{name:'John'}, {merge: true, onCreate: {gamma: ['delta', 'epsilon']}, onMatch: {alpha: 'beta'}})",
-                (row) -> {
-                    Node node = (Node) row.get("node");
-                    assertTrue(node.hasLabel(label("Alfa")));
-                    assertEquals("John", node.getProperty("name"));
-                    assertEquals(List.of("delta", "epsilon"), node.getProperty("gamma"));
-                    assertFalse(node.hasProperty("alpha"));
-                });
-        
-        testCall(db, "CALL apoc.create.vNode(['Person'],{name:'John'}, {merge: true})",
-                (row) -> {
-                    Node node = (Node) row.get("node");
-                    assertEquals(firstNode.getId(), node.getId());
-                    assertTrue(node.hasLabel(label("Person")));
-                    assertEquals("John", node.getProperty("name"));
-                    assertFalse(node.hasProperty("alpha"));
-                });
-        
-        testCall(db, "CALL apoc.create.vNode(['Person'],{name:'John'}, {merge: true, onMatch: {alpha: 'beta'}})",
-                (row) -> {
-                    Node node = (Node) row.get("node");
-                    assertEquals(firstNode.getId(), node.getId());
-                    assertTrue(node.hasLabel(label("Person")));
-                    assertEquals("John", node.getProperty("name"));
-                    assertTrue(node.hasProperty("alpha"));
-                });
-    }
-
-    @Test
-    public void testMergeVirtualRel() {
-        db.executeTransactionally("CREATE (:NodeStart {id: 1}), (:NodeEnd {id: 2})");
-        VirtualRelationship firstRel = TestUtil.singleResultFirstColumn(db, "MATCH (nodeStart:NodeStart), (nodeEnd:NodeEnd) WITH nodeStart, nodeEnd " +
-                "call apoc.create.vRelationship(nodeStart,'KNOWS',{name:'John'}, nodeEnd) yield rel return rel");
-        assertTrue(firstRel.isType(RelationshipType.withName("KNOWS")));
-        assertEquals("John", firstRel.getProperty("name"));
-        
-        testCall(db, "MATCH (nodeStart:NodeStart), (nodeEnd:NodeEnd) WITH nodeStart, nodeEnd " +
-                        "CALL apoc.create.vRelationship(nodeStart,'KNOWS', $props, nodeEnd, $conf) yield rel return rel",
-                Map.of("props", Map.of("foo", "baz"),
-                        "conf", Map.of("merge", true, 
-                        "onCreate", Map.of("gamma", List.of("delta", "epsilon")),
-                        "onMatch", Map.of("alpha", "beta"))),
-                (row) -> {
-                    Relationship rel = (Relationship) row.get("rel");
-                    assertTrue(rel.isType(RelationshipType.withName("KNOWS")));
-                    assertEquals("baz", rel.getProperty("foo"));
-                    assertEquals(List.of("delta", "epsilon"), rel.getProperty("gamma"));
-                    assertFalse(rel.hasProperty("alpha"));
-                });
-        
-        testCall(db, "MATCH (nodeStart:NodeStart), (nodeEnd:NodeEnd) WITH nodeStart, nodeEnd " +
-                        "CALL apoc.create.vRelationship(nodeStart,'KNOWS', $props, nodeEnd, $conf) yield rel return rel",
-                Map.of("props", Map.of("name", "John"), "conf", Map.of("merge", true)),
-                (row) -> {
-                    Relationship rel = (Relationship) row.get("rel");
-                    assertEquals(firstRel.getId(), rel.getId());
-                    assertTrue(rel.isType(RelationshipType.withName("KNOWS")));
-                    assertEquals("John", rel.getProperty("name"));
-                    assertFalse(rel.hasProperty("alpha"));
-                });
-        
-        testCall(db, "MATCH (nodeStart:NodeStart), (nodeEnd:NodeEnd) WITH nodeStart, nodeEnd " +
-                        "CALL apoc.create.vRelationship(nodeStart,'KNOWS', $props, nodeEnd, $conf) yield rel return rel",
-                Map.of( "props", Map.of("name", "John"),
-                        "conf", Map.of("merge", true,
-                        "onCreate", Map.of("gamma", List.of("delta", "epsilon")),
-                        "onMatch", Map.of("alpha", "beta"))),
-                (row) -> {
-                    Relationship rel = (Relationship) row.get("rel");
-                    assertEquals(firstRel.getId(), rel.getId());
-                    assertTrue(rel.isType(RelationshipType.withName("KNOWS")));
-                    assertEquals("John", rel.getProperty("name"));
-                    assertTrue(rel.hasProperty("alpha"));
-                });
-    }
-
-    @Test
-    public void testMergeVirtualNodeSam222222eQuery() {
-        testCall(db, "call apoc.create.vNode([\"ugo\"], {a: 'b'}) yield node with node as nodeOne\n" +
-                        "call apoc.create.vNode([\"ugo\"], {a: 'b'}, {merge: false}) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodes\n" +
-                        "call apoc.merge.vNodes(nodes) as node \n" +
-                        "return collect(node) as nodes",
-                r -> {
-                    System.out.println("MergeTest.testMergeVirtualNodeSameQuery");
-//                    assertNotEquals(r.get("id1"), r.get("id2"));
-                });
-
-//        testCall(db, "call apoc.create.vNode([\"altro\"], {a: 'b'}) yield node with node as nodeOne\n" +
-//                        "call apoc.create.vNode([\"altro\"], {a: 'b'}, {merge: true}) YIELD node\n" +
-//                        "return id(nodeOne) as id1, id(node) as id2",
-//                r -> assertEquals(r.get("id1"), r.get("id2")));
-    }
-    
-    @Test
-    public void testMergeVirtualNodeSameQuery() {
-        testCall(db, "call apoc.create.vNode([\"ugo\"], {a: 'b'}) yield node with node as nodeOne\n" +
-                        "call apoc.create.vNode([\"ugo\"], {a: 'b'}, {merge: false}) YIELD node\n" +
-                        "return id(nodeOne) as id1, id(node) as id2",
-                r -> assertNotEquals(r.get("id1"), r.get("id2")));
-        
-        testCall(db, "call apoc.create.vNode([\"altro\"], {a: 'b'}) yield node with node as nodeOne\n" +
-                "call apoc.create.vNode([\"altro\"], {a: 'b'}, {merge: true}) YIELD node\n" +
-                        "return id(nodeOne) as id1, id(node) as id2",
-                r -> assertEquals(r.get("id1"), r.get("id2")));
-    }
-    
-    @Test
-    public void testMergeVirtualRelSameQuery() {
-        testCall(db, "CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA',{key:'value'}, nodeTo) YIELD rel \n" +
-                        "with rel as relOne, nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA',{key:'value'}, nodeTo, {merge: false}) YIELD rel \n" +
-                        "return id(rel) as id1, id(relOne) as id2",
-                r -> assertNotEquals(r.get("id1"), r.get("id2")));
-        
-        testCall(db, "CREATE (nodeFrom:OtherNode {id:0}), (nodeTo:OtherNode {id:1}) with nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA',{key:'value'}, nodeTo) YIELD rel \n" +
-                        "with rel as relOne, nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA',{key:'value'}, nodeTo, {merge: true}) YIELD rel \n" +
-                        "return id(rel) as id1, id(relOne) as id2",
-                r -> assertEquals(r.get("id1"), r.get("id2")));
-    }
-    
-    @Test
-    public void testMergeVirtualRelationship() throws Exception {
-        testCall(db, "CREATE (n),(m) WITH n,m CALL apoc.create.vRelationship(n,'KNOWS',{since:2010}, m) YIELD rel RETURN rel",
-                (row) -> {
-                    Relationship rel = (Relationship) row.get("rel");
-                    assertEquals(true, rel.isType(RelationshipType.withName("KNOWS")));
-                    assertEquals(2010L, rel.getProperty("since"));
                 });
     }
 

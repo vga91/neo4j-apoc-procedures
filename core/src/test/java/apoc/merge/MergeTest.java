@@ -28,7 +28,6 @@ import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.*;
 
 public class MergeTest {
-    
     private static final PointValue POINT_VALUE_1 = PointValue.parse("point({x: 3, y: 0})");
     private static final PointValue POINT_VALUE_2 = PointValue.parse("point({x: 0, y: 4, z: 1})");
     private static final List<String> LABELS_V_NODES = List.of("labelOne", "labelTwo", "labelThree");
@@ -109,7 +108,7 @@ public class MergeTest {
             }
         }
     }
-
+    
     @Test
     public void testEscapeIdentityPropertiesWithSpecialCharactersShouldWork() {
         for (String key: new String[]{"normal", "i:d", "i-d", "i d"}) {
@@ -125,7 +124,7 @@ public class MergeTest {
                         });
         }
     }
-
+    
     @Test
     public void testLabelsWithSpecialCharactersShouldWork() {
         for (String label: new String[]{"Label with spaces", ":LabelWithColon", "label-with-dash", "LabelWithUmlautsÄÖÜ"}) {
@@ -164,56 +163,24 @@ public class MergeTest {
         }
     }
 
-
     @Test
-    public void testMergeVirtualNodeWithMergeKeysList() {
-        final List<String> mergeKeysList = List.of("labelOne", "labelTwo");
-        testCall(db, "call apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
-                        "call apoc.create.vNode($labelsTwo, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "call apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "return nodes",
-                Map.of("labels", LABELS_V_NODES, "labelsTwo", mergeKeysList, 
-                        "propsFirst", Map.of("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "conf", Map.of("mergeKeysList", mergeKeysList,
-                                "onMatch", Map.of("merged", true), "onCreate", Map.of("created", true))),
-                this::assertionsMergeCommon);
+    public void testMergeVirtualNode() {
         
-        testCall(db, "call apoc.create.vNode(['labelOne', 'labelTwo', 'labelThree'], $propsFirst  ) yield node with node as nodeOne\n" +
-                        "call apoc.create.vNode(['labelOne', 'labelTwo'], $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "call apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "return nodes",
-                Map.of("propsFirst", Map.of("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "conf", Map.of("onMatch", Map.of("merged", true), "onCreate", Map.of("created", true))),
-                r -> {
-                    final List<VirtualNode> nodes = (List<VirtualNode>) r.get("nodes");
-                    assertEquals(2, nodes.size());
-                    nodes.forEach(virtualNode -> {
-                        final List<Label> expectedLabels = mergeKeysList.stream().map(Label::label).collect(Collectors.toList());
-                        assertTrue(Iterables.asList(virtualNode.getLabels()).containsAll(expectedLabels));
-                        assertionsNotMergedCommon(virtualNode, false);
-                    });
-                });
-    }
-
-    @Test
-    public void testMergeVirtualNodeSameQuery() {
-        
-        testCall(db, "call apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
-                        "call apoc.create.vNode($labels, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "call apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "return nodes",
-                Map.of("labels", LABELS_V_NODES, "propsFirst", Map.of("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "conf", Map.of("onMatch", Map.of("merged", true), "onCreate", Map.of("created", true))),
+        testCall(db, "CALL apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
+                        "CALL apoc.create.vNode($labels, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
+                        "CALL apoc.merge.vNodes(nodeList, $conf) YIELD nodes RETURN nodes",
+                MapUtil.map("labels", LABELS_V_NODES, "propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 this::assertionsMergeCommon);
         
         // same value prop, but different keys
-        testCall(db, "call apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
-                        "call apoc.create.vNode($labels, $propsSecond) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "call apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "return nodes",
-                Map.of("labels", LABELS_V_NODES, "propsFirst", Map.of("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "propsSecond", Map.of("a", List.of("b", "c"), "p2", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "conf", Map.of("onMatch", Map.of("merged", true), "onCreate", Map.of("created", true))),
+        testCall(db, "CALL apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
+                        "CALL apoc.create.vNode($labels, $propsSecond) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
+                        "CALL apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
+                        "RETURN nodes",
+                MapUtil.map("labels", LABELS_V_NODES, "propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "propsSecond", MapUtil.map("a", List.of("b", "c"), "p2", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 r -> {
                     final List<VirtualNode> nodes = (List<VirtualNode>) r.get("nodes");
                     assertEquals(2, nodes.size());
@@ -226,14 +193,44 @@ public class MergeTest {
     }
 
     @Test
+    public void testMergeVirtualNodeWithMergeKeysList() {
+        final List<String> mergeKeysList = List.of("labelOne", "labelTwo");
+        testCall(db, "call apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
+                        "call apoc.create.vNode($labelsTwo, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
+                        "call apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
+                        "return nodes",
+                MapUtil.map("labels", LABELS_V_NODES, "labelsTwo", List.of("labelOne", "labelTwo", "another", "another2"),
+                        "propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "conf", MapUtil.map("mergeKeysList", mergeKeysList,
+                                "onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
+                this::assertionsMergeCommon);
+
+        testCall(db, "call apoc.create.vNode(['labelOne', 'labelTwo', 'labelThree'], $propsFirst  ) yield node with node as nodeOne\n" +
+                        "call apoc.create.vNode(['labelOne', 'labelTwo'], $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
+                        "call apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
+                        "return nodes",
+                MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
+                r -> {
+                    final List<VirtualNode> nodes = (List<VirtualNode>) r.get("nodes");
+                    assertEquals(2, nodes.size());
+                    nodes.forEach(virtualNode -> {
+                        final List<Label> expectedLabels = mergeKeysList.stream().map(Label::label).collect(Collectors.toList());
+                        assertTrue(Iterables.asList(virtualNode.getLabels()).containsAll(expectedLabels));
+                        assertionsNotMergedCommon(virtualNode, false);
+                    });
+                });
+    }
+
+    @Test
     public void testMergeVirtualRel() {
         testCall(db, "CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA', $propsFirst, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
-                        "call apoc.merge.vRelationships(relList, $conf) YIELD relationships \n" +
-                        "return relationships",
-                Map.of("propsFirst", Map.of("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "conf", Map.of("onMatch", Map.of("merged", true), "onCreate", Map.of("created", true))),
+                        "CALL apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
+                        "CALL apoc.create.vRelationship(nodeFrom,'AAA', $propsFirst, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
+                        "CALL apoc.merge.vRelationships(relList, $conf) \n" +
+                        "YIELD relationships RETURN relationships",
+                MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 r -> {
                     final List<VirtualRelationship> rels = (List<VirtualRelationship>) r.get("relationships");
                     assertEquals(1, rels.size());
@@ -243,12 +240,12 @@ public class MergeTest {
 
         // same props, but different rel-types
         testCall(db, "CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'CCC', $propsFirst, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
-                        "call apoc.merge.vRelationships(relList, $conf) YIELD relationships \n" +
-                        "return relationships",
-                Map.of("propsFirst", Map.of("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "conf", Map.of("onMatch", Map.of("merged", true), "onCreate", Map.of("created", true))),
+                        "CALL apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
+                        "CALL apoc.create.vRelationship(nodeFrom,'CCC', $propsFirst, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
+                        "CALL apoc.merge.vRelationships(relList, $conf) \n" +
+                        "YIELD relationships RETURN relationships",
+                MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 r -> {
                     final List<VirtualRelationship> rels = (List<VirtualRelationship>) r.get("relationships");
                     assertEquals(2, rels.size());
@@ -264,9 +261,9 @@ public class MergeTest {
                         "call apoc.create.vRelationship(nodeFrom,'AAA', $propsSecond, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
                         "call apoc.merge.vRelationships(relList, $conf) YIELD relationships \n" +
                         "return relationships",
-                Map.of("propsFirst", Map.of("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "propsSecond", Map.of("a", List.of("b", "c"), "p2", List.of(POINT_VALUE_1, POINT_VALUE_2)),
-                        "conf", Map.of("onMatch", Map.of("merged", true), "onCreate", Map.of("created", true))),
+                MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "propsSecond", MapUtil.map("a", List.of("b", "c"), "p2", List.of(POINT_VALUE_1, POINT_VALUE_2)),
+                        "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 r -> {
                     final List<VirtualRelationship> rels = (List<VirtualRelationship>) r.get("relationships");
                     assertEquals(2, rels.size());

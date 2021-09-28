@@ -1,0 +1,40 @@
+With the following query:
+
+[source,cypher]
+----
+CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo
+CALL apoc.create.vRelationship(nodeFrom,'AAA',{alpha: 'beta'}, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo
+CALL apoc.create.vRelationship(nodeFrom,'AAA', {alpha: 'beta'}, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList
+CALL apoc.merge.vRelationships(relList, {onMatch: {merged:true}})
+YIELD relationships RETURN relationships
+----
+
+is returned a list of one relationship, with an additional property `merged: true`
+
+.Results
+[opts="header"]
+|===
+| relationships
+| [ `{"identity":-1,"start":0,"end":1,"type":"AAA","properties":{"merged":true,"alpha":"beta"}}` ]
+|===
+
+
+Otherwise, with this query:
+
+[source,cypher]
+----
+CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo
+CALL apoc.create.vRelationship(nodeFrom,'AAA',{alpha: 'beta'}, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo
+CALL apoc.create.vRelationship(nodeFrom,'AAA', {gamma: 'delta'}, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList
+CALL apoc.merge.vRelationships(relList, {onCreate: {created:true}})
+YIELD relationships RETURN relationships
+----
+
+is returned the list of 2 relationships passed as first parameter, with an additional property `created: true`
+
+.Results
+[opts="header"]
+|===
+| relationships
+| [ `{"identity":-7,"start":6,"end":7,"type":"AAA","properties":{"created":true,"alpha":"beta"}}` , `{"identity":-8,"start":6,"end":7,"type":"AAA","properties":{"gamma":"delta","created":true}}` ]
+|===

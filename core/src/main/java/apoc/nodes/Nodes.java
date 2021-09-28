@@ -270,7 +270,7 @@ public class Nodes {
         if (conf.isCollapsedLabel()) {
             labels.add("Collapsed");
         }
-        VirtualNode virtualNode = (VirtualNode) create.vNodeFunction(labels, first.getAllProperties());//, Collections.emptyMap());
+        VirtualNode virtualNode = (VirtualNode) create.vNodeFunction(labels, first.getAllProperties());
         createVirtualRelationships(nodes, virtualNode, first, conf);
         nodes.stream().skip(1).forEach(node -> {
             virtualNode.addLabels(node.getLabels());

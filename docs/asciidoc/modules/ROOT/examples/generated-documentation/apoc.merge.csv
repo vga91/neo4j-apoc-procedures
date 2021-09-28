@@ -9,3 +9,13 @@
 apoc.merge.relationship(startNode, relType,  identProps:{key:value, ...}, onCreateProps:{key:value, ...}, endNode, onMatchProps:{key:value, ...}) - merge relationship with dynamic type, with support for setting properties ON CREATE or ON MATCH
 |label:procedure[]
 |label:apoc-core[]
+|xref::overview/apoc.merge/apoc.merge.adoc[apoc.merge.vNodes icon:book[]]
+
+apoc.merge.vNodes(nodes, $config) - merge a virtual node list
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.merge/apoc.merge.adoc[apoc.merge.vRelationships icon:book[]]
+
+apoc.merge.vRelationships(relationships, $config) - merge a virtual relationship list
+|label:procedure[]
+|label:apoc-core[]

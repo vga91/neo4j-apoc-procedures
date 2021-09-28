@@ -1,0 +1,9 @@
+The procedure support the following config parameters:
+
+.Config parameters
+[opts=header]
+|===
+| name | type | default | description
+| onMatch | Map<String, Object> | {}| simulate the `ON MATCH SET` with cypher `MERGE` clause. That is, we add this map when a relationship is merged. 
+| onCreate | Map<String, Object> | {} | simulate the `ON CREATE SET` with cypher `MERGE` clause. That is, we add this property map when a relationship is not merged.
+|===
