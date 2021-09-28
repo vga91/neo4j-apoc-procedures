@@ -37,6 +37,12 @@ By default file paths are global, for paths relative to the `import` directory s
 apoc.import.file.use_neo4j_config=true
 ----
 
+
+[NOTE]
+====
+These procedures encode url under the hood, except the character `?` to exclude urls like 'testload.tar.gz?raw=true' in case of compressed file. So you don't have to encode the url, e.g. with `apoc.text.urlencode`.
+====
+
 == Examples for apoc.load.csv
 
 .test.csv

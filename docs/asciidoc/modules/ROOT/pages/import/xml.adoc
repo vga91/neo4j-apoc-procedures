@@ -132,6 +132,12 @@ This procedure supports the following config parameters:
 | charactersForTag | {} | map of tagname -> string. For the given tag names an additional text element is added containing the value as `text` property. Useful e.g. for `<lb/>` tags in TEI-XML to be represented as `<lb> </lb>`.
 |===
 
+[NOTE]
+====
+These procedures encode url under the hood, except the character `?` to exclude urls like 'testload.tar.gz?raw=true' in case of compressed file. So you don't have to encode the url, e.g. with `apoc.text.urlencode`.
+====
+
+
 
 [[load-xml-file-import]]
 == Importing from a file

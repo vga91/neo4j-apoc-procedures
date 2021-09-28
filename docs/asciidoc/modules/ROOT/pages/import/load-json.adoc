@@ -33,6 +33,12 @@ include::example$generated-documentation/apoc.load.jsonArray.adoc[]
 include::example$generated-documentation/apoc.import.json.adoc[]
 |===
 
+
+[NOTE]
+====
+These procedures encode url under the hood, except the character `?` to exclude urls like 'testload.tar.gz?raw=true' in case of compressed file. So you don't have to encode the url, e.g. with `apoc.text.urlencode`.
+====
+
 [[load-json-available-procedures-apoc.load.json]]
 === `apoc.load.json`
 
