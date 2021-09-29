@@ -83,12 +83,12 @@ public class Cypher {
     }
 
 
-    private Stream<RowResult> runManyStatements(Reader reader, Map<String, Object> params, boolean schemaOperation, boolean addStatistics, int timeout, int queueCapacity) {
+    private Stream<RowResult> runManyStatements(Reader reader, Map<String, Object> params, boolean schemaOperation, boolean addStatistics, int timeout, int queueCapacity, boolean isWriteOperation) {
         BlockingQueue<RowResult> queue = runInSeparateThreadAndSendTombstone(queueCapacity, internalQueue -> {
             if (schemaOperation) {
                 runSchemaStatementsInTx(reader, internalQueue, params, addStatistics, timeout);
             } else {
-                runDataStatementsInTx(reader, internalQueue, params, addStatistics, timeout);
+                runDataStatementsInTx(reader, internalQueue, params, addStatistics, timeout, isWriteOperation);
             }
         }, RowResult.TOMBSTONE);
         return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, Integer.MAX_VALUE), false);
@@ -118,7 +118,7 @@ public class Cypher {
         return queue;
     }
 
-    private void runDataStatementsInTx(Reader reader, BlockingQueue<RowResult> queue, Map<String, Object> params, boolean addStatistics, long timeout) {
+    private void runDataStatementsInTx(Reader reader, BlockingQueue<RowResult> queue, Map<String, Object> params, boolean addStatistics, long timeout, boolean isWriteOperation) {
         Scanner scanner = new Scanner(reader);
         scanner.useDelimiter(";\r?\n");
         while (scanner.hasNext()) {
@@ -126,12 +126,12 @@ public class Cypher {
             if (stmt.trim().isEmpty()) continue;
             if (!isSchemaOperation(stmt)) {
                 if (isPeriodicOperation(stmt)) {
-                    Util.inThread(pools , () -> db.executeTransactionally(stmt, params, result -> consumeResult(result, queue, addStatistics, timeout)));
+                    Util.inThread(pools , () -> db.executeTransactionally(stmt, params, result -> consumeResult(result, queue, addStatistics, timeout, isWriteOperation)));
                 }
                 else {
                     Util.inTx(db, pools, threadTx -> {
                         try (Result result = threadTx.execute(stmt, params)) {
-                            return consumeResult(result, queue, addStatistics, timeout);
+                            return consumeResult(result, queue, addStatistics, timeout, isWriteOperation);
                         }
                     });
                 }
@@ -155,20 +155,34 @@ public class Cypher {
         }
     }
 
+    @Procedure
+    @Description("apoc.cypher.runManyRead('cypher;\\nstatements;',{params},{statistics:true,timeout:10}) - equivalent to apoc.cypher.runMany with read-only queries")
+    public Stream<RowResult> runManyRead(@Name("cypher") String cypher, @Name("params") Map<String,Object> params, @Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
+        return cypherRunMany(cypher, params, config, false);
+    }
+
     @Procedure(mode = WRITE)
     @Description("apoc.cypher.runMany('cypher;\\nstatements;',{params},[{statistics:true,timeout:10}]) - runs each semicolon separated statement and returns summary - currently no schema operations")
     public Stream<RowResult> runMany(@Name("cypher") String cypher, @Name("params") Map<String,Object> params, @Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
+        return cypherRunMany(cypher, params, config, true);
+    }
+
+    private Stream<RowResult> cypherRunMany(String cypher, Map<String, Object> params, Map<String, Object> config, boolean isWriteOperation) {
         boolean addStatistics = Util.toBoolean(config.getOrDefault("statistics",true));
         int timeout = Util.toInteger(config.getOrDefault("timeout",1));
         int queueCapacity = Util.toInteger(config.getOrDefault("queueCapacity",100));
 
         StringReader stringReader = new StringReader(cypher);
-        return runManyStatements(stringReader ,params, false, addStatistics, timeout, queueCapacity);
+        return runManyStatements(stringReader , params, false, addStatistics, timeout, queueCapacity, isWriteOperation);
     }
 
     private final static Pattern shellControl = Pattern.compile("^:?\\b(begin|commit|rollback)\\b", Pattern.CASE_INSENSITIVE);
 
-    private Object consumeResult(Result result, BlockingQueue<RowResult> queue, boolean addStatistics, long timeout) {
+    private Object consumeResult(Result result, BlockingQueue<RowResult> queue, boolean addStatistics, long timeout) { 
+        return consumeResult(result, queue, addStatistics, timeout, true);
+    }
+    
+    private Object consumeResult(Result result, BlockingQueue<RowResult> queue, boolean addStatistics, long timeout, boolean isWriteOperation) {
         try {
             long time = System.currentTimeMillis();
             int row = 0;
@@ -177,7 +191,8 @@ public class Cypher {
                 queue.put(new RowResult(row++, result.next()));
             }
             if (addStatistics) {
-                queue.put(new RowResult(-1, toMap(result.getQueryStatistics(), System.currentTimeMillis() - time, row)));
+                // with read operation "getQueryStatistics" with relationshipsCreated, nodesCreated, ... is useless
+                queue.put(new RowResult(-1, toMap(isWriteOperation ? result.getQueryStatistics() : null, System.currentTimeMillis() - time, row)));
             }
             return row;
         } catch (InterruptedException e) {
@@ -203,21 +218,25 @@ public class Cypher {
     }
 
     private Map<String, Object> toMap(QueryStatistics stats, long time, long rows) {
-        return map(
+        final Map<String, Object> map = map(
                 "rows",rows,
-                "time",time,
-                "nodesCreated",stats.getNodesCreated(),
-                "nodesDeleted",stats.getNodesDeleted(),
-                "labelsAdded",stats.getLabelsAdded(),
-                "labelsRemoved",stats.getLabelsRemoved(),
-                "relationshipsCreated",stats.getRelationshipsCreated(),
-                "relationshipsDeleted",stats.getRelationshipsDeleted(),
-                "propertiesSet",stats.getPropertiesSet(),
-                "constraintsAdded",stats.getConstraintsAdded(),
-                "constraintsRemoved",stats.getConstraintsRemoved(),
-                "indexesAdded",stats.getIndexesAdded(),
-                "indexesRemoved",stats.getIndexesRemoved()
-        );
+                "time",time);
+        if (stats != null) {
+            final Map<String, Object> statsMap = map("nodesCreated",stats.getNodesCreated(),
+                    "nodesDeleted",stats.getNodesDeleted(),
+                    "labelsAdded",stats.getLabelsAdded(),
+                    "labelsRemoved",stats.getLabelsRemoved(),
+                    "relationshipsCreated",stats.getRelationshipsCreated(),
+                    "relationshipsDeleted",stats.getRelationshipsDeleted(),
+                    "propertiesSet",stats.getPropertiesSet(),
+                    "constraintsAdded",stats.getConstraintsAdded(),
+                    "constraintsRemoved",stats.getConstraintsRemoved(),
+                    "indexesAdded",stats.getIndexesAdded(),
+                    "indexesRemoved",stats.getIndexesRemoved()
+            );
+            map.putAll(statsMap);
+        }
+        return map;
     }
 
     public static class RowResult {

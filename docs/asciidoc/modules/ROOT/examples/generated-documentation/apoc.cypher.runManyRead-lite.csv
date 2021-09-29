@@ -1,0 +1,2 @@
+¦signature
+¦apoc.cypher.runManyRead(cypher :: STRING?, params :: MAP?, config = {} :: MAP?) :: (row :: INTEGER?, result :: MAP?)

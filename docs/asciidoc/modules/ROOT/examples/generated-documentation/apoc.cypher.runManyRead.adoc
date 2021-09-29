@@ -1,0 +1,5 @@
+¦xref::overview/apoc.cypher/apoc.cypher.runManyRead.adoc[apoc.cypher.runManyRead icon:book[]] +
+
+ - equivalent to apoc.cypher.runMany with read-only queries
+¦label:procedure[]
+¦label:apoc-core[]

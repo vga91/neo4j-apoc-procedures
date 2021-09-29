@@ -196,6 +196,79 @@ public class CypherTest {
     }
 
     @Test
+    public void testRunManyRead() {
+        db.executeTransactionally("create (:Node {id: 1}),(:Node {id: 2}),(:Node {id: 3})");
+        testResult(db, "CALL apoc.cypher.runManyRead($cypher,$params)",
+                map("cypher", "MATCH (n:Node) RETURN n;\nRETURN 2;\nRETURN $string as string;", 
+                        "params",map("string","ajeje")),
+                r -> assertionsRunManyRead(r, true));
+
+        testResult(db, "CALL apoc.cypher.runManyRead($cypher,$params, $conf)",
+                map("cypher", "MATCH (n:Node) RETURN n;\nRETURN 2;\nRETURN $string as string;", 
+                        "params",map("string","ajeje"), "conf", map("statistics", false)),
+                r -> assertionsRunManyRead(r, false));
+    }
+
+    private void assertionsRunManyRead(Result r, boolean withStats) {
+        Map<String, Object> row = r.next();
+        assertEquals(0L, row.get("row"));
+        Map result = (Map) row.get("result");
+        assertTrue(result.get("n") instanceof Node);
+        row = r.next();
+        result = (Map) row.get("result");
+        assertEquals(1L, row.get("row"));
+        assertTrue(result.get("n") instanceof Node);
+        row = r.next();
+        assertEquals(2L, row.get("row"));
+        result = (Map) row.get("result");
+        assertTrue(result.get("n") instanceof Node);
+
+        if (withStats) {
+            // stats 1st return
+            row = r.next();
+            result = (Map) row.get("result");
+            assertEquals(3L, result.get("rows"));
+            assertionsStatsRead(row, result);
+        }
+
+        // result 2n return
+        row = r.next();
+        result = (Map) row.get("result");
+        assertEquals(0L, row.get("row"));
+        assertEquals(2L, result.get("2"));
+
+        if (withStats) {
+            // stats 2nd return
+            row = r.next();
+            result = (Map) row.get("result");
+            assertEquals(1L, result.get("rows"));
+            assertionsStatsRead(row, result);
+        }
+
+        // result 3rd return
+        row = r.next();
+        result = (Map) row.get("result");
+        assertEquals(0L, row.get("row"));
+        assertEquals("ajeje", result.get("string"));
+
+        if (withStats) {
+            // stats 3rd return
+            row = r.next();
+            result = (Map) row.get("result");
+            assertEquals(1L, result.get("rows"));
+            assertionsStatsRead(row, result);
+        }
+
+        assertFalse(r.hasNext());
+    }
+
+    private void assertionsStatsRead(Map<String, Object> row, Map result) {
+        assertEquals(-1L, row.get("row"));
+        assertTrue((long) result.get("time") >= 0L);
+        assertFalse(result.containsKey("nodesDeleted"));
+    }
+
+    @Test
     public void shouldTimeboxedReturnAllResultsSoFar() {
         db.executeTransactionally(Util.readResourceFile("movies.cypher"));
 //        System.out.println("movies imported");
