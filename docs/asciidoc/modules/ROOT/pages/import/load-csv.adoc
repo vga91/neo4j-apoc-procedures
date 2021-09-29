@@ -78,6 +78,7 @@ Besides the file you can pass in a config map:
 | quoteChar | '"' | the char to use for quoted elements
 | arraySep | ';' | array separator
 | ignore | [] | which columns to ignore
+| ignoreArray | [] | which values to ignore in case of array value 
 | nullValues | [] | which values to treat as null, e.g. `['na',false]`
 | mapping | {} | per field mapping, entry key is field name, .e.g `{years:{....}` see below
 | failOnError | boolean | true | fail if error encountered while parsing CSV
@@ -92,6 +93,7 @@ Besides the file you can pass in a config map:
 | arraySep | ';' | separator for array
 | name | none | rename field
 | ignore | false | ignore/remove this field
+| ignoreArray | [] | which values of this field to ignore in case of array value
 | nullValues | [] | which values to treat as null, e.g. `['na',false]`
 |===
 

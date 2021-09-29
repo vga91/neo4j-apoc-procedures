@@ -6,6 +6,7 @@ import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.dataformat.csv.CsvMapper;
 import com.fasterxml.jackson.dataformat.csv.CsvSchema;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.*;
 import org.mockserver.client.server.MockServerClient;
 import org.mockserver.integration.ClientAndServer;
@@ -119,11 +120,25 @@ RETURN m.col_1,m.col_2,m.col_3
     }
 
     static void assertRow(Result r, long lineNo, Object...data) {
+        assertRow(r, StringUtils.EMPTY, lineNo, data);
+    }
+
+    static void assertRow(Result r, String joinArray, long lineNo, Object...data) {
         Map<String, Object> row = r.next();
         Map<String, Object> map = map(data);
         assertEquals(map, row.get("map"));
         Map<Object, Object> stringMap = new LinkedHashMap<>(map.size());
-        map.forEach((k,v) -> stringMap.put(k,v == null ? null : v.toString()));
+        map.forEach((k,v) -> {
+            final Object stringValue;
+            if (v == null) {
+                stringValue = null;
+            } else {
+                stringValue = v instanceof Collection 
+                        ? StringUtils.join((Collection) map.get("Foo"), joinArray) 
+                        : v.toString();
+            }
+            stringMap.put(k, stringValue);
+        });
         assertEquals(stringMap, row.get("stringMap"));
         assertEquals(new ArrayList<>(map.values()), row.get("list"));
         assertEquals(new ArrayList<>(stringMap.values()), row.get("strings"));
@@ -163,6 +178,32 @@ RETURN m.col_1,m.col_2,m.col_3
                     assertRow(r, 0L,"name", "Rana", "age","11");
                     assertEquals(false, r.hasNext());
                 });
+    }
+
+
+    @Test 
+    public void testLoadIgnoreArray() {
+        URL url = getUrlFileName("test-multi-char.csv");
+        testResult(db, "CALL apoc.load.csv($url, $conf)", 
+                map("url",url.toString(), 
+                        "conf", map("results", List.of("map","list", "stringMap", "strings"),
+                                "ignore", List.of(""), "ignoreArray", List.of(""), "sep", ";",
+                                "mapping", map("Foo", map("array", true, "arraySep", "|"))) ),
+                this::assertionsIgnoreArray);
+        
+        // same as above with ignoreArray in {mapping}
+        testResult(db, "CALL apoc.load.csv($url, $conf)", 
+                map("url",url.toString(), 
+                        "conf", map("results", List.of("map","list", "stringMap", "strings"),
+                                "ignore", List.of(""), "sep", ";",
+                                "mapping", map("Foo", map("ignoreArray", List.of(""), "array", true, "arraySep", "|"))) ),
+                this::assertionsIgnoreArray);
+    }
+
+    private void assertionsIgnoreArray(Result r) {
+        assertRow(r, 0L, "Foo", List.of("One"), "Bar", "Two", "Baz", "Three");
+        assertRow(r, "||", 1L, "Foo", List.of("Is", "Splitted"), "Bar", "1", "Baz", "");
+        assertFalse(r.hasNext());
     }
 
     @Test public void testLoadCsvNoHeader() throws Exception {

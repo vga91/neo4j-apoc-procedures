@@ -29,6 +29,7 @@ public class LoadCsvConfig {
     private EnumSet<Results> results;
 
     private List<String> ignore;
+    private List<String> ignoreArray;
     private List<String> nullValues;
     private Map<String, Map<String, Object>> mapping;
     private Map<String, Mapping> mappings;
@@ -55,17 +56,18 @@ public class LoadCsvConfig {
         }
 
         ignore = (List<String>) config.getOrDefault("ignore", emptyList());
+        ignoreArray = (List<String>) config.getOrDefault("ignoreArray", emptyList());
         nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
         mapping = (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
-        mappings = createMapping(mapping, arraySep, ignore);
+        mappings = createMapping(mapping, arraySep, ignore, ignoreArray);
     }
 
-    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore) {
+    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore, List<String> ignoreArray) {
         if (mapping.isEmpty()) return Collections.emptyMap();
         HashMap<String, Mapping> result = new HashMap<>(mapping.size());
         for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
             String name = entry.getKey();
-            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name)));
+            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name), ignoreArray));
         }
         return result;
     }

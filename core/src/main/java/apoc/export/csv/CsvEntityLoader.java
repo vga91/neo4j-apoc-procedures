@@ -73,7 +73,7 @@ public class CsvEntityLoader {
                                             new AbstractMap.SimpleEntry<>("type", f.getType()),
                                             new AbstractMap.SimpleEntry<>("array", f.isArray())
                                     ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
-                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false);
+                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false, Collections.emptyList());
                         }
                 )
         );
@@ -186,7 +186,7 @@ public class CsvEntityLoader {
                                             new AbstractMap.SimpleEntry<>("array", f.isArray())
                                     ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
 
-                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false);
+                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false, Collections.emptyList());
                         }
                 )
         );

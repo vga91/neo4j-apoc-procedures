@@ -13,19 +13,21 @@ import static apoc.util.Util.parseCharFromConfig;
 import static java.util.Collections.emptyList;
 
 public class Mapping {
-    public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), LoadCsvConfig.DEFAULT_ARRAY_SEP, false);
+    public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), LoadCsvConfig.DEFAULT_ARRAY_SEP, false, Collections.emptyList());
     final String name;
     final Collection<String> nullValues;
     final Meta.Types type;
     final boolean array;
     final boolean ignore;
     final char arraySep;
+    private final List<String> ignoreArray;
     private final Pattern arrayPattern;
 
-    public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore) {
+    public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, List<String> ignoreArray) {
         this.name = mapping.getOrDefault("name", name).toString();
         this.array = (Boolean) mapping.getOrDefault("array", false);
         this.ignore = (Boolean) mapping.getOrDefault("ignore", ignore);
+        this.ignoreArray = (List<String>) mapping.getOrDefault("ignoreArray", ignoreArray);
         this.nullValues = (Collection<String>) mapping.getOrDefault("nullValues", emptyList());
         this.arraySep = parseCharFromConfig(mapping, "arraySep", arraySep);
         this.type = Meta.Types.from(mapping.getOrDefault("type", "STRING").toString());
@@ -47,7 +49,9 @@ public class Mapping {
         String[] values = arrayPattern.split(value);
         List<Object> result = new ArrayList<>(values.length);
         for (String v : values) {
-            result.add(convertType(v));
+            if (!ignoreArray.contains(v)) {
+                result.add(convertType(v));
+            }
         }
         return result;
     }

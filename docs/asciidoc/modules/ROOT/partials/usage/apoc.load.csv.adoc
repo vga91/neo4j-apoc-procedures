@@ -27,3 +27,43 @@ RETURN *;
 | 1      | ["Rana", "12", "Tea;Milk"] | {name: "Rana", age: "12", beverage: "Tea;Milk"}
 | 2      | ["Selina", "19", "Cola"]   | {name: "Selina", age: "19", beverage: "Cola"}
 |===
+
+The library currently doesn't support multi-char separator. 
+As a workaround, we can use ignore and/or ignoreArray, in case of separator with equals chars.
+For example, with this csv:
+
+.multichar.csv
+----
+Foo;;Bar;;Baz
+One;;Two;;Three
+Is||Splitted;;1;;
+----
+
+we can add a config `ignoreArray: ['']` and `ignore: ['']` and a single char separator, 
+so that we ignore empty strings created between the two `|` and between the two `;`.
+That is:
+[source, cypher]
+----
+CALL apoc.load.csv("file.csv", {ignore:[""], ignoreArray:[""], 
+  mapping: {Foo: {array: true, arraySep: "|"}},
+  results: ["map","list", "stringMap", "strings"]})
+YIELD lineNo, list, map RETURN *
+----
+
+.Results
+[opts="header",cols="1,2,2"]
+|===
+| lineNo | list | map
+| 0      | [["One"], "Two", "Three"]     | {"Bar": "Two", "Baz": "Three", "Foo": ["One"]}
+| 1      | [["Is", "Splitted"], "1", ""] | {"Bar": "1", "Baz": "", "Foo": ["Is", "Splitted"]}
+|===
+
+instead without `ignore` and `ignoreArray` config we receive:
+
+.Results
+[opts="header",cols="1,2,2"]
+|===
+| lineNo | list | map
+| 0      | [["One"], "", "Two", "", "Three"]     | {"": "", "Bar": "Two", "Baz": "Three", "Foo": ["One"]}
+| 1      | [["Is", "", "Splitted"], "", "1", "", ""] | {"": "", "Bar": "1", "Baz": "", "Foo": ["Is", "", "Splitted"]}
+|===
