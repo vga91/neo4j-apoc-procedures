@@ -144,9 +144,9 @@ public class MergeTest {
     }
 
     @Test
-    public void testMergeVNodesAnrRelsFailsIfNotVirtual() {
+    public void testMergeVirtualNodesAndRelsFailsIfNotVirtual() {
         try {
-            testCall(db, "CREATE (n:Real) WITH COLLECT(n) as list call apoc.merge.vNodes(list) YIELD nodes RETURN nodes",
+            testCall(db, "CREATE (n:Real) WITH COLLECT(n) as list CALL apoc.merge.vNodes(list) YIELD nodes RETURN nodes",
                     r -> fail("Should fails because is a 'real' node"));
         } catch (Exception e) {
             final Throwable except = ExceptionUtils.getRootCause(e);
@@ -154,7 +154,7 @@ public class MergeTest {
             TestCase.assertTrue(except instanceof RuntimeException);
         }
         try {
-            testCall(db, "CREATE ()-[r:REAL]->() WITH COLLECT(r) as list call apoc.merge.vRelationships(list) YIELD relationships RETURN relationships",
+            testCall(db, "CREATE ()-[r:REAL]->() WITH COLLECT(r) as list CALL apoc.merge.vRelationships(list) YIELD relationships RETURN relationships",
                     r -> fail("Should fails because is a 'real' rel"));
         } catch (Exception e) {
             final Throwable except = ExceptionUtils.getRootCause(e);
@@ -164,7 +164,7 @@ public class MergeTest {
     }
 
     @Test
-    public void testMergeVirtualNode() {
+    public void testMergeVirtualNodes() {
         
         testCall(db, "CALL apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
                         "CALL apoc.create.vNode($labels, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
@@ -193,22 +193,22 @@ public class MergeTest {
     }
 
     @Test
-    public void testMergeVirtualNodeWithMergeKeysList() {
+    public void testMergeVirtualNodesWithMergeKeysList() {
         final List<String> mergeKeysList = List.of("labelOne", "labelTwo");
-        testCall(db, "call apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
-                        "call apoc.create.vNode($labelsTwo, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "call apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "return nodes",
+        testCall(db, "CALL apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
+                        "CALL apoc.create.vNode($labelsTwo, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
+                        "CALL apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
+                        "RETURN nodes",
                 MapUtil.map("labels", LABELS_V_NODES, "labelsTwo", List.of("labelOne", "labelTwo", "another", "another2"),
                         "propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("mergeKeysList", mergeKeysList,
                                 "onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 this::assertionsMergeCommon);
 
-        testCall(db, "call apoc.create.vNode(['labelOne', 'labelTwo', 'labelThree'], $propsFirst  ) yield node with node as nodeOne\n" +
-                        "call apoc.create.vNode(['labelOne', 'labelTwo'], $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "call apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "return nodes",
+        testCall(db, "CALL apoc.create.vNode(['labelOne', 'labelTwo', 'labelThree'], $propsFirst  ) yield node with node as nodeOne\n" +
+                        "CALL apoc.create.vNode(['labelOne', 'labelTwo'], $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
+                        "CALL apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
+                        "RETURN nodes",
                 MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 r -> {
@@ -223,7 +223,7 @@ public class MergeTest {
     }
 
     @Test
-    public void testMergeVirtualRel() {
+    public void testMergeVirtualRels() {
         testCall(db, "CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo\n" +
                         "CALL apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
                         "CALL apoc.create.vRelationship(nodeFrom,'AAA', $propsFirst, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
@@ -257,10 +257,10 @@ public class MergeTest {
         
         // same value prop, but different key
         testCall(db, "CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
-                        "call apoc.create.vRelationship(nodeFrom,'AAA', $propsSecond, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
-                        "call apoc.merge.vRelationships(relList, $conf) YIELD relationships \n" +
-                        "return relationships",
+                        "CALL apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
+                        "CALL apoc.create.vRelationship(nodeFrom,'AAA', $propsSecond, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
+                        "CALL apoc.merge.vRelationships(relList, $conf) YIELD relationships \n" +
+                        "RETURN relationships",
                 MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "propsSecond", MapUtil.map("a", List.of("b", "c"), "p2", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
