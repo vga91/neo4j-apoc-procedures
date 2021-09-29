@@ -633,7 +633,7 @@ public class LoadDirectoryTest {
     public void testLoadDirectoryConcatenatedWithLoadCsv() throws URISyntaxException {
         apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, false);
         File rootTempFolder = Paths.get(getUrlFileName("test.csv").toURI()).getParent().toFile();
-        String folderAsExternalUrl = "file://" + rootTempFolder;
+        String folderAsExternalUrl = "\tfile://" + rootTempFolder;
         testResult(db, "CALL apoc.load.directory('*.csv', '" + folderAsExternalUrl + "') YIELD value " +
                 "WITH value as url WHERE url ENDS WITH 'test.csv' OR url ENDS WITH 'test-pipe-column.csv' WITH url ORDER BY url DESC CALL apoc.load.csv(url, {results:['map']}) YIELD map RETURN map", result -> {
                     Map<String, Object> firstRowFirstFile = (Map<String, Object>) result.next().get("map");

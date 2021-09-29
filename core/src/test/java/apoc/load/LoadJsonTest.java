@@ -158,6 +158,19 @@ public class LoadJsonTest {
                     assertEquals(map("foo",asList(1L,2L,3L)), row.get("value"));
                 });
     }
+    
+    @Test
+    public void testLoadJsonWithNewLinesAndTabs() throws Exception {
+        final String url = "\nhttps://github.com\r/neo4j-contrib/neo4j-apoc-procedures/blob/3.4/src/test/resources/testload.zip?raw=true\t!person.json";
+        testCall(db, "CALL apoc.load.json($url)",map("url", url),
+                (row) -> {
+                    Map<String,Object> r = (Map<String, Object>) row.get("value");
+                    assertEquals("Michael", r.get("name"));
+                    assertEquals(41L, r.get("age"));
+                    assertEquals(asList("Selina", "Rana", "Selma"), r.get("children"));
+                });
+    }
+    
     @Test @Ignore public void testLoadJsonGraphCommons() throws Exception {
 		String url = "https://graphcommons.com/graphs/8da5327d-7829-4dfe-b60b-4c0bda956b2a.json";
 		testCall(db, "CALL apoc.load.json($url)",map("url", url), // 'file:map.json' YIELD value RETURN value
@@ -369,7 +382,7 @@ public class LoadJsonTest {
                     (row) -> assertEquals(responseBody, row.get("value"))
                 );
     }
-
+    
     @Test
     public void testLoadJsonParams() throws Exception {
         new MockServerClient("localhost", 1080)
