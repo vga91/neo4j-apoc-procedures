@@ -29,6 +29,9 @@ public class FileManagerFactory {
 
         final CompressionAlgo compressionAlgo = CompressionAlgo.valueOf(config.getCompressionAlgo());
 
+        // In case of export with separated files (with bulkImport: true) in case of compressed file retrieve also the compression extension
+        // e.g. from test.one.two.csv to test.one.two.nodes.LABELNAME.csv.gz, test.one.two.relationships.RELTYPE.csv.gz, etc...
+        // otherwise it becomes test.one.two.nodes.LABELNAME.csv, etc..
         int indexOfDot = StringUtils.lastOrdinalIndexOf(fileName, ".", compressionAlgo.equals(CompressionAlgo.NONE) ? 1 : 2);
         String fileType = fileName.substring(indexOfDot + 1);
         return new PhysicalExportFileManager(fileType, fileName, separatedFiles, config);
