@@ -3,6 +3,7 @@ package apoc.load;
 import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
 import apoc.util.Util;
+import apoc.util.Utils;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -67,7 +68,7 @@ public class LoadJsonTest {
 	    apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, false);
 	    apocConfig().setProperty("apoc.json.zip.url", "https://github.com/neo4j-contrib/neo4j-apoc-procedures/blob/3.4/src/test/resources/testload.zip?raw=true!person.json");
 	    apocConfig().setProperty("apoc.json.simpleJson.url", ClassLoader.getSystemResource("map.json").toString());
-        TestUtil.registerProcedure(db, LoadJson.class);
+        TestUtil.registerProcedure(db, LoadJson.class, Utils.class);
     }
 
     @Test public void testLoadJson() throws Exception {
@@ -160,15 +161,28 @@ public class LoadJsonTest {
     }
     
     @Test
-    public void testLoadJsonWithNewLinesAndTabs() throws Exception {
+    public void testLoadJsonWithSanitize() {
         final String url = "\nhttps://github.com\r/neo4j-contrib/neo4j-apoc-procedures/blob/3.4/src/test/resources/testload.zip?raw=true\t!person.json";
-        testCall(db, "CALL apoc.load.json($url)",map("url", url),
+        testCall(db, "CALL apoc.load.json(apoc.util.sanitize($url))",map("url", url),
                 (row) -> {
                     Map<String,Object> r = (Map<String, Object>) row.get("value");
                     assertEquals("Michael", r.get("name"));
                     assertEquals(41L, r.get("age"));
                     assertEquals(asList("Selina", "Rana", "Selma"), r.get("children"));
                 });
+    }
+    
+    @Test
+    // @Ignore
+    public void testLoadJsonIssue2377WithSanitize() {
+        testCall(db, "WITH 'SELECT * WHERE { \n" +
+                        "    ?person wdt:P106 wd:Q10833314 ; rdfs:label \"Nick Kyrgios\"@en ; wdt:P569 ?dateOfBirth ; wdt:P27 [ rdfs:label ?countryName ] . filter(lang(?countryName) = \"en\")}' AS sparql\n" +
+                        "CALL apoc.load.jsonParams(apoc.util.sanitize('https://query.wikidata.org/sparql?query=' + sparql),\n" +
+                        "  { Accept: \"application/sparql-results+json\"},\n" +
+                        "  null\n" +
+                        ")\n" +
+                        "YIELD value RETURN value",
+                (row) -> assertTrue(((Map<String, Object>) row.get("value")).containsKey("results")));
     }
     
     @Test @Ignore public void testLoadJsonGraphCommons() throws Exception {
@@ -382,7 +396,7 @@ public class LoadJsonTest {
                     (row) -> assertEquals(responseBody, row.get("value"))
                 );
     }
-    
+
     @Test
     public void testLoadJsonParams() throws Exception {
         new MockServerClient("localhost", 1080)

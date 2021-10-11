@@ -188,9 +188,3 @@ RETURN;
 | (:Person {name: "Joel Silver", born: "1952"})-[:PRODUCED]->(:Movie {tagline: "Welcome to the Real World", title: "The Matrix", released: "1999"})
 | (:Person {name: "Lana Wachowski", born: "1965"})-[:DIRECTED]->(:Movie {tagline: "Welcome to the Real World", title: "The Matrix", released: "1999"})
 |===
-
-
-[NOTE]
-====
-These procedures encode url under the hood, except the character `?` to exclude urls like 'testload.tar.gz?raw=true' in case of compressed file. So you don't have to encode the url, e.g. with `apoc.text.urlencode`.
-====

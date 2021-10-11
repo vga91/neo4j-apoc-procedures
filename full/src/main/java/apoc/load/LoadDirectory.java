@@ -27,6 +27,7 @@ import static apoc.ApocConfig.apocConfig;
 import static apoc.load.LoadDirectoryHandler.getPathDependingOnUseNeo4jConfig;
 import static apoc.util.FileUtils.getDirImport;
 import static apoc.util.FileUtils.getPathFromUrlString;
+import static org.eclipse.jetty.util.URIUtil.encodePath;
 import static org.neo4j.graphdb.QueryExecutionType.QueryType.READ_WRITE;
 import static org.neo4j.graphdb.QueryExecutionType.QueryType.WRITE;
 
@@ -110,7 +111,7 @@ public class LoadDirectory {
     // visible for test purpose
     public static String checkIfUrlBlankAndGetFileUrl(String urlDir) throws IOException {
         return StringUtils.isBlank(urlDir)
-                ? FileUtils.encodeAndSanitize(getDirImport())
+                ? encodePath(getDirImport())
                 : FileUtils.changeFileUrlIfImportDirectoryConstrained(urlDir.replace("?", "%3F"));
     }
 

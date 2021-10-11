@@ -97,9 +97,3 @@ RETURN path;
 | path
 | (:Person {name: "John", speaks: ["en", "fr"], __csv_id: 1})-[:KNOWS {since: 2016}]->(:Person {name: "Jane", speaks: ["en", "de"], __csv_id: 2})
 |===
-
-
-[NOTE]
-====
-These procedures encode url under the hood, except the character `?` to exclude urls like 'testload.tar.gz?raw=true' in case of compressed file. So you don't have to encode the url, e.g. with `apoc.text.urlencode`.
-====

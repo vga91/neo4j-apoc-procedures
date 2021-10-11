@@ -4,6 +4,7 @@
 ¦apoc.util.compress(data :: STRING?, config = {} :: MAP?) :: (BYTEARRAY?)
 ¦apoc.util.decompress(data :: BYTEARRAY?, config = {} :: MAP?) :: (STRING?)
 ¦apoc.util.md5(values :: LIST? OF ANY?) :: (STRING?)
+¦apoc.util.sanitize(string :: STRING?, config = {} :: MAP?) :: (STRING?)
 ¦apoc.util.sha1(values :: LIST? OF ANY?) :: (STRING?)
 ¦apoc.util.sha256(values :: LIST? OF ANY?) :: (STRING?)
 ¦apoc.util.sha384(values :: LIST? OF ANY?) :: (STRING?)

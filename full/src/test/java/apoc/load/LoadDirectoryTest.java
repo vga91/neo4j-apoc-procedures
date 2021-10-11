@@ -1,6 +1,7 @@
 package apoc.load;
 
 import apoc.util.TestUtil;
+import apoc.util.Utils;
 import junit.framework.TestCase;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.exception.ExceptionUtils;
@@ -17,6 +18,7 @@ import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
@@ -30,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
@@ -81,7 +84,7 @@ public class LoadDirectoryTest {
         DatabaseManagementService databaseManagementService = new TestDatabaseManagementServiceBuilder(importFolder.toPath()).build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
 
-        TestUtil.registerProcedure(db, LoadDirectory.class, LoadCsv.class, LoadJson.class);
+        TestUtil.registerProcedure(db, LoadDirectory.class, LoadCsv.class, LoadJson.class, Utils.class);
         apocConfig().setProperty(APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM, true);
 
         // create temp files and subfolder
@@ -633,23 +636,30 @@ public class LoadDirectoryTest {
     public void testLoadDirectoryConcatenatedWithLoadCsv() throws URISyntaxException {
         apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, false);
         File rootTempFolder = Paths.get(getUrlFileName("test.csv").toURI()).getParent().toFile();
-        String folderAsExternalUrl = "\tfile://" + rootTempFolder;
+        final Consumer<Result> resultConsumer = result -> {
+            Map<String, Object> firstRowFirstFile = (Map<String, Object>) result.next().get("map");
+            assertEquals(Map.of("name", "Selma", "age", "8"), firstRowFirstFile);
+            Map<String, Object> secondRowFirstFile = (Map<String, Object>) result.next().get("map");
+            assertEquals(Map.of("name", "Rana", "age", "11"), secondRowFirstFile);
+            Map<String, Object> thirdRowFirstFile = (Map<String, Object>) result.next().get("map");
+            assertEquals(Map.of("name", "Selina", "age", "18"), thirdRowFirstFile);
+            Map<String, Object> firstRowSecondFile = (Map<String, Object>) result.next().get("map");
+            assertEquals(Map.of("name", "Selma", "beverage", "Soda"), firstRowSecondFile);
+            Map<String, Object> secondRowSecondFile = (Map<String, Object>) result.next().get("map");
+            assertEquals(Map.of("name", "Rana", "beverage", "Tea|Milk"), secondRowSecondFile);
+            Map<String, Object> thirdRowSecondFile = (Map<String, Object>) result.next().get("map");
+            assertEquals(Map.of("name", "Selina", "beverage", "Cola"), thirdRowSecondFile);
+            assertFalse(result.hasNext());
+        };
+        String folderAsExternalUrl = "file://" + rootTempFolder;
         testResult(db, "CALL apoc.load.directory('*.csv', '" + folderAsExternalUrl + "') YIELD value " +
-                "WITH value as url WHERE url ENDS WITH 'test.csv' OR url ENDS WITH 'test-pipe-column.csv' WITH url ORDER BY url DESC CALL apoc.load.csv(url, {results:['map']}) YIELD map RETURN map", result -> {
-                    Map<String, Object> firstRowFirstFile = (Map<String, Object>) result.next().get("map");
-                    assertEquals(Map.of("name", "Selma", "age", "8"), firstRowFirstFile);
-                    Map<String, Object> secondRowFirstFile = (Map<String, Object>) result.next().get("map");
-                    assertEquals(Map.of("name", "Rana", "age", "11"), secondRowFirstFile);
-                    Map<String, Object> thirdRowFirstFile = (Map<String, Object>) result.next().get("map");
-                    assertEquals(Map.of("name", "Selina", "age", "18"), thirdRowFirstFile);
-                    Map<String, Object> firstRowSecondFile = (Map<String, Object>) result.next().get("map");
-                    assertEquals(Map.of("name", "Selma", "beverage", "Soda"), firstRowSecondFile);
-                    Map<String, Object> secondRowSecondFile = (Map<String, Object>) result.next().get("map");
-                    assertEquals(Map.of("name", "Rana", "beverage", "Tea|Milk"), secondRowSecondFile);
-                    Map<String, Object> thirdRowSecondFile = (Map<String, Object>) result.next().get("map");
-                    assertEquals(Map.of("name", "Selina", "beverage", "Cola"), thirdRowSecondFile);
-                    assertFalse(result.hasNext());
-                }
+                "WITH value as url WHERE url ENDS WITH 'test.csv' OR url ENDS WITH 'test-pipe-column.csv' WITH url ORDER BY url DESC CALL apoc.load.csv(url, {results:['map']}) YIELD map RETURN map", resultConsumer
+        );
+
+        // url with sanitize
+        String folderWithTabSpace = "\tfile://" + rootTempFolder;
+        testResult(db, "CALL apoc.load.directory('*.csv', apoc.util.sanitize('" + folderWithTabSpace + "')) YIELD value " +
+                "WITH value as url WHERE url ENDS WITH 'test.csv' OR url ENDS WITH 'test-pipe-column.csv' WITH url ORDER BY url DESC CALL apoc.load.csv(url, {results:['map']}) YIELD map RETURN map", resultConsumer
         );
     }
 }

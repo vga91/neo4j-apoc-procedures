@@ -1,6 +1,7 @@
 package apoc.util;
 
 import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.TransactionTerminatedException;
 import org.neo4j.procedure.*;
@@ -103,5 +104,11 @@ public class Utils {
 
         CompressionConfig conf = new CompressionConfig(config);
         return CompressionAlgo.valueOf(conf.getCompressionAlgo()).compress(data, conf.getCharset());
+    }
+
+    @UserFunction
+    @Description("apoc.util.sanitize(string, {config}) | remove tabs, newline and carriage return chars (that is \\n, \\r, \\t) from string")
+    public String sanitize(@Name("string") String string, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+        return string.replaceAll("[\\n\\r\\t]", StringUtils.EMPTY);
     }
 }

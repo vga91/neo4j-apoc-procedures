@@ -29,9 +29,3 @@ lon: "-0.08806049069724674", display_name: "Union House, 6, Martin Lane, Bishops
 om", type: "commercial", class: "building", place_id: 289689410, lat: "51.510519"}                                     | 51.510519          | -0.08806
 049069724674 | "Union House, 6, Martin Lane, Bishopsgate, City of London, Greater London, England, EC4R 0DP, United Kingdom"
 |===
-
-
-[NOTE]
-====
-These procedures encode url under the hood, except the character `?` to exclude urls like 'testload.tar.gz?raw=true' in case of compressed file. So you don't have to encode the url, e.g. with `apoc.text.urlencode`.
-====

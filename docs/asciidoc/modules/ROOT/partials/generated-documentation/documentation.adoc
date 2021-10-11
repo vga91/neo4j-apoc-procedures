@@ -3393,6 +3393,11 @@ apoc.util.decompress(compressed, \{config}) \| return a string from a compressed
 apoc.util.md5([values]) \| computes the md5 of the concatenation of all string values of the list
 |label:function[]
 |label:apoc-core[]
+|xref::overview/apoc.util/apoc.util.sanitize.adoc[apoc.util.sanitize icon:book[]]
+
+apoc.util.sanitize(string, \{config}) \| remove tabs, newline and carriage return chars (that is \n, \r, \t) from string
+|label:function[]
+|label:apoc-core[]
 |xref::overview/apoc.util/apoc.util.sha1.adoc[apoc.util.sha1 icon:book[]]
 
 apoc.util.sha1([values]) \| computes the sha1 of the concatenation of all string values of the list

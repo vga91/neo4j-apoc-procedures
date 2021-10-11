@@ -167,8 +167,3 @@ with these results:
 | { "name": "Rana", "beverage": "Tea\|Milk" }
 | { "name": "Selina", "beverage": "Cola" }
 |===
-
-[NOTE]
-====
-These procedures encode url under the hood. So you don't have to encode the url, e.g. with `apoc.text.urlencode`.
-====
