@@ -38,11 +38,11 @@ We can also configure a retry number for every execution:
 CALL apoc.periodic.repeat("create-people", "QUERY_WHICH_CAN_FAIL", 1, {retries: 5});
 ----
 
-Moreover, we can pass a `tolerateErrors`, to continue the execution in case of failed query, without interrupt the procedure.
+Moreover, we can pass a `failOnError`, to continue the execution in case of failed query, without interrupt the procedure.
 
 [source,cypher]
 ----
-CALL apoc.periodic.repeat("create-people", "QUERY_WHICH_CAN_FAIL", 1, {tolerateErrors: true});
+CALL apoc.periodic.repeat("create-people", "QUERY_WHICH_CAN_FAIL", 1, {failOnError: true});
 ----
 
 

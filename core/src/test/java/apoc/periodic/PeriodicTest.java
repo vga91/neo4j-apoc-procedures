@@ -514,21 +514,24 @@ public class PeriodicTest {
     }
 
     @Test
-    public void testRepeatParams1() throws InterruptedException {
+    public void testRepeatParamsWithFailOnErrors() throws InterruptedException {
         final List<String> labels = IntStream.range(0, 20).mapToObj(i -> UUID.randomUUID().toString()).collect(toList());
         // rate set to 1 second
-        // without tolerateErrors, any of these procedures should throw an exception because of toInteger(rand()*2) = 0 or 1
+        // without failOnError, any of these procedures should throw an exception because of toInteger(rand()*2) = 0 or 1
         // and then they don't repeat after a second
         labels.forEach(label -> db.executeTransactionally(
-                format("CALL apoc.periodic.repeat('%1$s', 'CREATE (n:`%1$s` {id: 1 / toInteger(rand()*2)})', 1, {tolerateErrors: true})", label)));
-        Thread.sleep(10000);
+                format("CALL apoc.periodic.repeat('%1$s', 'CREATE (n:`%1$s` {id: 1 / toInteger(rand()*2)})', 1, {failOnError: true})", label)));
 
         testCall(db, "CALL apoc.periodic.list() YIELD name RETURN count(name) as count", r -> assertEquals(20L, r.get("count")));
 
-        labels.forEach(label -> {
-            testCall(db, format("MATCH (n:`%s`) RETURN count(n) as count", label), r -> assertTrue((long) r.get("count") > 0));
-            db.executeTransactionally(format("CALL apoc.periodic.cancel('%s')", label));
-        });
+        Thread.sleep(10000);
+        assertEventually(() -> db.executeTransactionally("UNWIND $labels AS label WITH label MATCH (n) WHERE labels(n) = [label] RETURN label, count(n) as count",
+            map("labels", labels), (r) -> {
+                final ResourceIterator<Long> nameIterator = r.columnAs("count");
+                return Iterators.stream(nameIterator).allMatch(count -> count > 0);
+            }), (value) -> value, 15L, TimeUnit.SECONDS);
+        
+        labels.forEach(label -> db.executeTransactionally(format("CALL apoc.periodic.cancel('%s')", label)));
     }
 
     @Test
@@ -549,13 +552,13 @@ public class PeriodicTest {
     
     @Test
     public void testRepeatParamsWithRetryAndTolerate() {
-        // 2 "certainly failing" procedures, one with tolerateErrors: true and one with tolerateErrors: false
-        db.executeTransactionally("CALL apoc.periodic.repeat('retryAndTolerate', 'MATCH (n:Chuck) WITH count(n) as c CREATE (:Norris {id: 1/c})', 1, {retries: 3, tolerateErrors: true})");
-        db.executeTransactionally("CALL apoc.periodic.repeat('retryAndNOTolerate', 'MATCH (n:Chuck) WITH count(n) as c CREATE (:Norris {id: 1/c})', 1, {retries: 3, tolerateErrors: false})");
+        // 2 "certainly failing" procedures, one with failOnError: true and one with failOnError: false
+        db.executeTransactionally("CALL apoc.periodic.repeat('retryAndTolerate', 'MATCH (n:Chuck) WITH count(n) as c CREATE (:Norris {id: 1/c})', 1, {retries: 3, failOnError: true})");
+        db.executeTransactionally("CALL apoc.periodic.repeat('retryAndNOTolerate', 'MATCH (n:Chuck) WITH count(n) as c CREATE (:Norris {id: 1/c})', 1, {retries: 3, failOnError: false})");
         assertEventually(() -> db.executeTransactionally("CALL apoc.periodic.list()",
                 emptyMap(), (r) -> {
                     final ResourceIterator<String> nameIterator = r.columnAs("name");
-                    // only first periodic remains, because of 'tolerateErrors: true'
+                    // only first periodic remains, because of 'failOnError: true'
                     return nameIterator.next().equals("retryAndTolerate") && !nameIterator.hasNext();
                 }), (value) -> value, 15L, TimeUnit.SECONDS);
 

@@ -175,9 +175,9 @@ public class Periodic {
         validateQuery(statement);
         Map<String,Object> params = (Map)config.getOrDefault("params", Collections.emptyMap());
         long retries = Util.toLong(config.getOrDefault("retries", 0L));
-        boolean tolerateErrors = Util.toBoolean(config.getOrDefault("tolerateErrors", false));
+        boolean failOnError = Util.toBoolean(config.getOrDefault("failOnError", false));
         JobInfo info = schedule(name, () -> Util.retryInTx(
-                        log, db, tx -> tx.execute(statement, params), 0, retries, r -> {}, tolerateErrors),0,rate);
+                        log, db, tx -> tx.execute(statement, params), 0, retries, r -> {}, failOnError),0,rate);
         return Stream.of(info);
     }
 
