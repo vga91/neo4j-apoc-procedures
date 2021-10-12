@@ -115,6 +115,11 @@ public class ExportCypher {
 
     private Stream<DataProgressInfo> exportCypher(@Name("file") String fileName, String source, SubGraph graph, ExportConfig c, boolean onlySchema) throws IOException {
         apocConfig.checkWriteAllowed(c, fileName);
+        
+        if (c.isLockEntities()) {
+            graph.getNodes().forEach(n -> tx.acquireWriteLock(n));
+            graph.getRelationships().forEach(r -> tx.acquireWriteLock(r));
+        }
 
         ProgressInfo progressInfo = new ProgressInfo(fileName, source, "cypher");
         progressInfo.batchSize = c.getBatchSize();

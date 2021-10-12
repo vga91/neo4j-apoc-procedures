@@ -27,6 +27,7 @@ public class ExportConfig {
 
     private int batchSize;
     private boolean silent;
+    private boolean lockEntities;
     private boolean bulkImport = false;
     private boolean sampling;
     private String delim;
@@ -85,6 +86,7 @@ public class ExportConfig {
     public ExportConfig(Map<String,Object> config) {
         config = config != null ? config : Collections.emptyMap();
         this.silent = toBoolean(config.getOrDefault("silent",false));
+        this.lockEntities = toBoolean(config.getOrDefault("lockEntities",false));
         this.delim = delim(config.getOrDefault("delim", DEFAULT_DELIM).toString());
         this.arrayDelim = delim(config.getOrDefault("arrayDelim", DEFAULT_ARRAY_DELIM).toString());
         this.useTypes = toBoolean(config.get("useTypes"));
@@ -206,5 +208,8 @@ public class ExportConfig {
     public boolean isSampling() {
         return sampling;
     }
-    
+
+    public boolean isLockEntities() {
+        return lockEntities;
+    }
 }
