@@ -1,0 +1,6 @@
+¦Qualified Name¦Type¦Release
+|xref::overview/apoc.merge.nodeWithStats/apoc.merge.adoc[apoc.merge.nodeWithStats.eager icon:book[]]
+
+apoc.merge.nodeWithStats.eager - same as apoc.merge.node.eager providing queryStatistics into result
+|label:procedure[]
+|label:apoc-core[]

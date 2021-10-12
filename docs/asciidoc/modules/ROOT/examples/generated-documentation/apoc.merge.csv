@@ -4,8 +4,18 @@
 "apoc.merge.node.eager(['Label'], identProps:{key:value, ...}, onCreateProps:{key:value,...}, onMatchProps:{key:value,...}}) - merge nodes with dynamic labels, with support for setting properties ON CREATE or ON MATCH
 |label:procedure[]
 |label:apoc-core[]
+|xref::overview/apoc.merge/apoc.merge.adoc[apoc.merge.nodeWithStats icon:book[]]
+
+apoc.merge.nodeWithStats - same as apoc.merge.node providing queryStatistics into result
+|label:procedure[]
+|label:apoc-core[]
 |xref::overview/apoc.merge/apoc.merge.adoc[apoc.merge.relationship icon:book[]]
 
 apoc.merge.relationship(startNode, relType,  identProps:{key:value, ...}, onCreateProps:{key:value, ...}, endNode, onMatchProps:{key:value, ...}) - merge relationship with dynamic type, with support for setting properties ON CREATE or ON MATCH
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.merge/apoc.merge.adoc[apoc.merge.relationshipWithStats icon:book[]]
+
+apoc.merge.relationshipWithStats - same as apoc.merge.relationship providing queryStatistics into result
 |label:procedure[]
 |label:apoc-core[]
