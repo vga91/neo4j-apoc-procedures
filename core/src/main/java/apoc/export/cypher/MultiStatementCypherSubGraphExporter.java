@@ -206,15 +206,15 @@ public class MultiStatementCypherSubGraphExporter {
 
     private void exportSchema(PrintWriter out, ExportConfig config) {
         List<String> indexesAndConstraints = new ArrayList<>();
-        indexesAndConstraints.addAll(exportIndexes());
-        indexesAndConstraints.addAll(exportConstraints());
+        indexesAndConstraints.addAll(exportIndexes(config));
+        indexesAndConstraints.addAll(exportConstraints(config));
         if (indexesAndConstraints.isEmpty() && artificialUniques == 0) return;
         begin(out);
         for (String index : indexesAndConstraints) {
             out.println(index);
         }
         if (artificialUniques > 0) {
-            String cypher = this.cypherFormat.statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), config.ifNotExists());
+            String cypher = this.cypherFormat.statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), config.ifNotExists(), StringUtils.EMPTY);
             if (cypher != null && !"".equals(cypher)) {
                 out.println(cypher);
             }
@@ -227,7 +227,7 @@ public class MultiStatementCypherSubGraphExporter {
         out.flush();
     }
 
-    private List<String> exportIndexes() {
+    private List<String> exportIndexes(ExportConfig config) {
         return db.executeTransactionally("CALL db.indexes()", Collections.emptyMap(), result -> result.stream()
                 .map(map -> {
                     List<String> props = (List<String>) map.get("properties");
@@ -252,8 +252,9 @@ public class MultiStatementCypherSubGraphExporter {
                         }
                     }
                     // "normal" schema index
+                    String idxName = getIdxName(name, config.isSaveIndexNames());
                     String tokenName = tokenNames.get(0);
-                    return this.cypherFormat.statementForIndex(tokenName, props, exportConfig.ifNotExists());
+                    return this.cypherFormat.statementForIndex(tokenName, props, exportConfig.ifNotExists(), idxName);
 
                 })
                 .filter(StringUtils::isNotBlank)
@@ -289,16 +290,21 @@ public class MultiStatementCypherSubGraphExporter {
                 .collect(Collectors.toList());
     }
 
-    private List<String> exportConstraints() {
+    private List<String> exportConstraints(ExportConfig config) {
         return StreamSupport.stream(graph.getIndexes().spliterator(), false)
                 .filter(index -> index.isConstraintIndex())
                 .map(index -> {
+                    String name = getIdxName(index.getName(), config.isSaveConstraintNames());
                     String label = Iterables.single(index.getLabels()).name();
                     Iterable<String> props = index.getPropertyKeys();
-                    return this.cypherFormat.statementForConstraint(label, props, exportConfig.ifNotExists());
+                    return this.cypherFormat.statementForConstraint(label, props, exportConfig.ifNotExists(), name);
                 })
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.toList());
+    }
+
+    private String getIdxName(String name, boolean saveConstraintNames) {
+        return saveConstraintNames ? " " + name : StringUtils.EMPTY;
     }
 
     // ---- CleanUp ----
@@ -315,7 +321,7 @@ public class MultiStatementCypherSubGraphExporter {
                 artificialUniques -= batchSize;
             }
             begin(out);
-            String cypher = this.cypherFormat.statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), false)
+            String cypher = this.cypherFormat.statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), false, StringUtils.EMPTY)
                     .replaceAll("^CREATE", "DROP");
             if (cypher != null && !"".equals(cypher)) {
                 out.println(cypher);
