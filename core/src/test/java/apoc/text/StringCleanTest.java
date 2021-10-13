@@ -35,9 +35,9 @@ public class StringCleanTest {
     @Parameters(name = "{0}")
     public static Collection<Object[]> data() {
         return Arrays.asList(new Object[][]{
-                { "&N[]eo  4 #J-(3.0)  ", "neo4j30"},
-                { "German umlaut Ä Ö Ü ä ö ü ß ", "germanumlautaeoeueaeoeuess" },
-                { "French çÇéèêëïîôœàâæùûü", "frenchcceeeeiioœaaæuuue"}
+                { "&N[]eo  4 #J-(3.0)  ", "neo4j30", "&n[]eo  4 #j-(3.0)  ", "&n[]eo  4 #j-(3.0)  "},
+                { "German umlaut Ä Ö Ü ä ö ü ß ", "germanumlautaeoeueaeoeuess", "german umlaut ae oe ue ae oe ue ss ", "german umlaut ae oe ue ae oe ue ss " },
+                { "French çÇéèêëïîôœàâæùûüñ", "frenchcceeeeiioœaaæuuuen", "french cceeeeiioœaaæuuuen", "french ççéèêëïîôœàâæùûueñ"}
         });
     }
 
@@ -47,12 +47,34 @@ public class StringCleanTest {
     @Parameter(value = 1)
     public String clean;
 
+    @Parameter(value = 2)
+    public String clean2;
+
+    @Parameter(value = 3)
+    public String clean3;
+
     @Test
     public void testClean() throws Exception {
         testCall(db,
                 "RETURN apoc.text.clean($a) AS value",
                 map("a", dirty),
                 row -> assertEquals(clean, row.get("value")));
+    }
+
+    @Test
+    public void testCleanWithOnlyAnumFalse() {
+        testCall(db,
+                "RETURN apoc.text.clean($a, {onlyAnum: false}) AS value",
+                map("a", dirty),
+                row -> assertEquals(clean2, row.get("value")));
+    }
+
+    @Test
+    public void testCleanWithOnlyAnumFalse2() {
+        testCall(db,
+                "RETURN apoc.text.clean($a, {onlyAnum: false, normalizerForm: 'NFKC'}) AS value",
+                map("a", dirty),
+                row -> assertEquals(clean3, row.get("value")));
     }
 
 }

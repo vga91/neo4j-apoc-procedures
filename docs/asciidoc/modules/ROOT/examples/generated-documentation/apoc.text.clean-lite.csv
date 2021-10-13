@@ -1,2 +1,2 @@
 ¦signature
-¦apoc.text.clean(text :: STRING?) :: (STRING?)
+¦apoc.text.clean(text :: STRING?, config = {} :: MAP?) :: (STRING?)

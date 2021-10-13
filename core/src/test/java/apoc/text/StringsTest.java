@@ -247,13 +247,18 @@ public class StringsTest {
     }
 
     @Test
-    public void testCompareCleaned() throws Exception {
+    public void testCompareCleaned() {
         String string1 = "&N[]eo 4 #J-(3.0)  ";
         String string2 = " neo4j-<30";
         testCall(db,
                 "RETURN apoc.text.compareCleaned($text1,$text2) AS value",
                 map("text1", string1, "text2", string2),
                 row -> assertEquals(true, row.get("value")));
+
+        // with onlyAnum: false
+        testCall(db, "RETURN apoc.text.compareCleaned($text1,$text2, {onlyAnum: false}) AS value",
+                map("text1", string1, "text2", string2),
+                row -> assertEquals(false, row.get("value")));
     }
 
     @Test

@@ -156,18 +156,19 @@ public class Strings {
     }
 
     @UserFunction
-    @Description("apoc.text.clean(text) - strip the given string of everything except alpha numeric characters and convert it to lower case.")
-    public String clean(final @Name("text") String text) {
-        return text == null ? null : removeNonWordCharacters(text);
+    @Description("apoc.text.clean(text, $config) - normalize a string with a canonical decomposition (and with config onlyAnum:true [default] strip the given string of everything except alpha numeric characters) and convert it to lower case.")
+    public String clean(final @Name("text") String text, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        return text == null ? null : removeNonWordCharacters(text, new StringsConfig(config));
     }
 
     @UserFunction
-    @Description("apoc.text.compareCleaned(text1, text2) - compare the given strings stripped of everything except alpha numeric characters converted to lower case.")
-    public boolean compareCleaned(final @Name("text1") String text1, final @Name("text2") String text2) {
+    @Description("apoc.text.compareCleaned(text1, text2, $config) - compare the given strings normalized with a canonical decomposition (and with config onlyAnum:true [default] stripped of everything except alpha numeric characters) converted to lower case.")
+    public boolean compareCleaned(final @Name("text1") String text1, final @Name("text2") String text2, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
         if (text1 == null || text2 == null) {
             return false;
         }
-        return removeNonWordCharacters(text1).equals(removeNonWordCharacters(text2));
+        final StringsConfig stringsConfig = new StringsConfig(config);
+        return removeNonWordCharacters(text1, stringsConfig).equals(removeNonWordCharacters(text2, stringsConfig));
     }
 
     @UserFunction
@@ -274,16 +275,15 @@ public class Strings {
             { new String("ß"), "ss" }
     };
 
-
-    private static String removeNonWordCharacters(String s) {
-
+    private static String removeNonWordCharacters(String s, StringsConfig config) {
         String result = s ;
         for (int i=0; i<UMLAUT_REPLACEMENTS.length; i++) {
             result = result.replace(UMLAUT_REPLACEMENTS[i][0], UMLAUT_REPLACEMENTS[i][1]);
         }
-        result = Normalizer.normalize(result, Normalizer.Form.NFD);
+        result = Normalizer.normalize(result, config.getNormalizerForm());
         String tmp2 = specialCharPattern.matcher(result).replaceAll("");
-        return cleanPattern.matcher(tmp2).replaceAll("").toLowerCase();
+        final String stringStripped = config.isOnlyAnum() ? cleanPattern.matcher(tmp2).replaceAll("") : tmp2;
+        return stringStripped.toLowerCase();
     }
 
 

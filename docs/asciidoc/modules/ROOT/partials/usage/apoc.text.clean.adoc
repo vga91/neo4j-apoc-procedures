@@ -32,3 +32,36 @@ RETURN apoc.text.clean('$-Hello___World!$') AS output;
 | output
 | "helloworld"
 |===
+
+[source,cypher]
+----
+RETURN apoc.text.clean('$-Hello___World!$', {onlyAnum: false}) AS output;
+----
+.Results
+[opts="header"]
+|===
+| output
+| "$-hello___world!$"
+|===
+
+[source,cypher]
+----
+RETURN apoc.text.clean('Õ Ññ õ ãÃ, , ', {normalizerForm: 'NFKC'}) AS output;
+----
+.Results
+[opts="header"]
+|===
+| output
+| "õññõãã"
+|===
+
+[source,cypher]
+----
+RETURN apoc.text.clean('Õ Ññ õ ãÃ, , ', {normalizerForm: 'NFKD'}) AS output;
+----
+.Results
+[opts="header"]
+|===
+| output
+| "onnoaa"
+|===

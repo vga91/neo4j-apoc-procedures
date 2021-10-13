@@ -75,7 +75,7 @@ apoc.text.charAt(text, index) - the decimal value of the character at the given 
 |label:apoc-core[]
 |xref::overview/apoc.text/apoc.text.clean.adoc[apoc.text.clean icon:book[]]
 
-apoc.text.clean(text) - strip the given string of everything except alpha numeric characters and convert it to lower case.
+apoc.text.clean(text, $config) - normalize a string with a canonical decomposition (and with config onlyAnum:true [default] strip the given string of everything except alpha numeric characters) and convert it to lower case.
 |label:function[]
 |label:apoc-core[]
 |xref::overview/apoc.text/apoc.text.code.adoc[apoc.text.code icon:book[]]
@@ -85,7 +85,7 @@ apoc.text.code(codepoint) - Returns the unicode character of the given codepoint
 |label:apoc-core[]
 |xref::overview/apoc.text/apoc.text.compareCleaned.adoc[apoc.text.compareCleaned icon:book[]]
 
-apoc.text.compareCleaned(text1, text2) - compare the given strings stripped of everything except alpha numeric characters converted to lower case.
+apoc.text.compareCleaned(text1, text2, $config) - compare the given strings normalized with a canonical decomposition (and with config onlyAnum:true [default] stripped of everything except alpha numeric characters) converted to lower case.
 |label:function[]
 |label:apoc-core[]
 |xref::overview/apoc.text/apoc.text.decapitalize.adoc[apoc.text.decapitalize icon:book[]]

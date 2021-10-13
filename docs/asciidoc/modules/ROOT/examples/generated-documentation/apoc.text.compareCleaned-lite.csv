@@ -1,2 +1,2 @@
 ¦signature
-¦apoc.text.compareCleaned(text1 :: STRING?, text2 :: STRING?) :: (BOOLEAN?)
+¦apoc.text.compareCleaned(text1 :: STRING?, text2 :: STRING?, config = {} :: MAP?) :: (BOOLEAN?)

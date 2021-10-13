@@ -1,0 +1,9 @@
+The procedures support the following config parameters:
+
+.Config parameters
+[opts=header, cols="1,1,1,3"]
+|===
+| name | type | default | description
+| onlyAnum | boolean | true | strip the given string of everything except alpha numeric characters
+| normalizerForm | ENUM[NFD, NFC, NFKD, NFKC] | NFD | the https://docs.oracle.com/javase/8/docs/api/java/text/Normalizer.Form.html[Normalizer form] to use
+|===
