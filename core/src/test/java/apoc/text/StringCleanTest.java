@@ -48,10 +48,10 @@ public class StringCleanTest {
     public String clean;
 
     @Parameter(value = 2)
-    public String clean2;
+    public String cleanWithAnumFalse;
 
     @Parameter(value = 3)
-    public String clean3;
+    public String cleanWithFormNFKC;
 
     @Test
     public void testClean() throws Exception {
@@ -66,15 +66,15 @@ public class StringCleanTest {
         testCall(db,
                 "RETURN apoc.text.clean($a, {onlyAnum: false}) AS value",
                 map("a", dirty),
-                row -> assertEquals(clean2, row.get("value")));
+                row -> assertEquals(cleanWithAnumFalse, row.get("value")));
     }
 
     @Test
-    public void testCleanWithOnlyAnumFalse2() {
+    public void testCleanWithOnlyAnumFalseAndFormNFKC() {
         testCall(db,
                 "RETURN apoc.text.clean($a, {onlyAnum: false, normalizerForm: 'NFKC'}) AS value",
                 map("a", dirty),
-                row -> assertEquals(clean3, row.get("value")));
+                row -> assertEquals(cleanWithFormNFKC, row.get("value")));
     }
 
 }
