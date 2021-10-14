@@ -352,23 +352,7 @@ public class ConvertJsonTest {
         final String matchPathClause = "MATCH p1=(m:Movie {title:'M'})<-[:ACTED_IN {role:'R1'}]-(:Actor {name:'A1'}), " +
                 "p2 = (m)-[:ACTED_IN  {role:'R2'}]->(:Actor {name:'A2'}) " +
                 "WITH [p1,p2] as paths ";
-        
-        // includeDirection: false
-        testCall(db, matchPathClause + "CALL apoc.convert.toTree(paths) YIELD value RETURN value",
-                (row) -> {
-                    Map root = (Map) row.get("value");
-                    assertEquals("Movie", root.get("_type"));
-                    assertEquals("M", root.get("title"));
-                    List<Map<String, String>> actors = (List<Map<String, String>>) root.get("acted_in");
-                    assertEquals(2, actors.size());
-                    actors.forEach(actor -> {
-                        assertEquals("Actor", actor.get("_type"));
-                        assertTrue(actor.get("name").matches("A[12]"));
-                        assertTrue(actor.get("acted_in.role").matches("R[12]"));
-                    });
-                });
 
-        // includeDirection: true and lowerCaseRels: true
         testCall(db, matchPathClause + "CALL apoc.convert.toTree(paths, true, {includeDirections: true}) YIELD value RETURN value",
                 (row) -> {
                     Map root = (Map) row.get("value");
@@ -386,26 +370,6 @@ public class ConvertJsonTest {
                     assertEquals("Actor", actual2.get("_type"));
                     assertEquals("A1", actual2.get("name"));
                     assertEquals("R1", actual2.get("acted_in.role"));
-                });
-
-        // includeDirection: true and lowerCaseRels: false
-        testCall(db, matchPathClause + "CALL apoc.convert.toTree(paths, false, {includeDirections: true}) YIELD value RETURN value",
-                (row) -> {
-                    Map root = (Map) row.get("value");
-                    assertEquals("Movie", root.get("_type"));
-                    assertEquals("M", root.get("title"));
-                    List<Map> actorsOutgoing = (List<Map>) root.get("ACTED_IN" + OUTGOING_SUFF);
-                    assertEquals(1, actorsOutgoing.size());
-                    final Map actual = actorsOutgoing.get(0);
-                    assertEquals("Actor", actual.get("_type"));
-                    assertEquals("A2", actual.get("name"));
-                    assertEquals("R2", actual.get("ACTED_IN.role"));
-                    List<Map> actorsIncoming = (List<Map>) root.get("ACTED_IN" + INCOMING_SUFF);
-                    assertEquals(1, actorsIncoming.size());
-                    final Map actual2 = actorsIncoming.get(0);
-                    assertEquals("Actor", actual2.get("_type"));
-                    assertEquals("A1", actual2.get("name"));
-                    assertEquals("R1", actual2.get("ACTED_IN.role"));
                 });
         
         

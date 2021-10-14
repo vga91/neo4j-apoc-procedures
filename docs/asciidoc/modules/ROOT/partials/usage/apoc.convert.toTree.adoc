@@ -403,7 +403,7 @@ a|
       "_type": "Actor",
       "name": "A2",
       "_id": 2,
-      "acted_in >.role": "R2"
+      "acted_in.role": "R2"
     }
   ],
   "_id": 0,
@@ -413,7 +413,7 @@ a|
       "_type": "Actor",
       "name": "A1",
       "_id": 1,
-      "acted_in <.role": "R1"
+      "acted_in.role": "R1"
     }
   ]
 }
