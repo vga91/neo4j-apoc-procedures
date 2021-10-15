@@ -91,6 +91,16 @@ public class TriggerTest {
     }
 
     @Test
+    public void testIssue2247() {
+        db.executeTransactionally("CREATE (n:ToBeDeleted)");
+        db.executeTransactionally("CALL apoc.trigger.add('myTrig', 'RETURN 1', {phase: 'afterAsync'})");
+        
+        db.executeTransactionally("MATCH (n:ToBeDeleted) DELETE n");
+        
+        db.executeTransactionally("CALL apoc.trigger.remove('myTrig')");
+    }
+
+    @Test
     public void testDeletedRelationshipWithBefore()  {
         final Long id = db.executeTransactionally("CREATE (:Start)-[r:MY_TYPE {prop1: 'val1', prop2: 'val2'}]->(:End) RETURN id(r) as id", Collections.emptyMap(), 
                 r -> r.<Long>columnAs("id").next());
