@@ -159,7 +159,7 @@ public class Create {
     @UserFunction("apoc.create.virtual.fromNode")
     @Description("apoc.create.virtual.fromNode(node, [propertyNames]) returns a virtual node built from an existing node with only the requested properties")
     public Node virtualFromNodeFunction(@Name("node") Node node, @Name("propertyNames") List<String> propertyNames) {
-        return new VirtualNode(node, propertyNames);
+        return new VirtualNode(node, propertyNames, false);
     }
 
     @Procedure
@@ -236,7 +236,7 @@ public class Create {
     private PathResult createVirtualPath(Path path) {
         final Iterable<Relationship> relationships = path.relationships();
         final Node first = path.startNode();
-        VirtualPath virtualPath = new VirtualPath(new VirtualNode(first, Iterables.asList(first.getPropertyKeys())));
+        VirtualPath virtualPath = new VirtualPath(new VirtualNode(first, Iterables.asList(first.getPropertyKeys()), false));
         for (Relationship rel : relationships) {
             VirtualNode start = VirtualNode.from(rel.getStartNode());
             VirtualNode end = VirtualNode.from(rel.getEndNode());
