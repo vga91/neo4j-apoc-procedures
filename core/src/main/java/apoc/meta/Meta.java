@@ -59,10 +59,10 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -385,45 +385,46 @@ public class    Meta {
     @Description("apoc.meta.nodes.count([labels], $config) - Returns the sum of the nodes with a label present in the list.")
     public long count(@Name(value = "nodes", defaultValue = "[]") List<String> nodes, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         MetaConfig conf = new MetaConfig(config);
-        AtomicLong sum = new AtomicLong();
-
         final DatabaseSubGraph subGraph = new DatabaseSubGraph(transaction);
-        Iterable<Label> labels = CollectionUtils.isEmpty(nodes)
-                ? subGraph.getAllLabelsInUse()
-                : nodes.stream().map(Label::label).collect(Collectors.toList());
+        Stream<Label> labels = CollectionUtils.isEmpty(nodes)
+                ? StreamSupport.stream(subGraph.getAllLabelsInUse().spliterator(), false)
+                : nodes.stream().filter(Objects::nonNull).map(String::trim).map(Label::label);
 
-        final Set<String> includesRels = conf.getIncludesRels();
-        Set<Long> ids = new HashSet<>();
-        
-        labels.forEach(label -> {
-            if (CollectionUtils.isEmpty(includesRels)) {
-                sum.addAndGet(subGraph.countsForNode(label));
-            } else {
-                // we cannot use DatabaseSubGraph because we must exclude nodes with multiple rels matched
-                transaction.findNodes(label).forEachRemaining(node -> {
-                    if (!ids.contains(node.getId())) {
-                        includesRels.forEach(relName -> {
-                            Direction direction = Direction.BOTH;
-                            final int index = relName.length() - 1;
-                            switch (relName.charAt(index)) {
+        final boolean isIncludeRels = CollectionUtils.isEmpty(conf.getIncludesRels());
+        Set<Long> visitedNodes = new HashSet<>();
+        return labels
+                .flatMap(label -> isIncludeRels ? Stream.of(subGraph.countsForNode(label)) : conf.getIncludesRels()
+                        .stream()
+                        .filter(Objects::nonNull)
+                        .map(String::trim)
+                        .map(rel -> {
+                            final int lastCharIdx = rel.length() - 1;
+                            final Direction direction;
+                            switch (rel.charAt(lastCharIdx)) {
                                 case '>':
                                     direction = Direction.OUTGOING;
-                                    relName = relName.substring(0, index);
+                                    rel = rel.substring(0, lastCharIdx);
                                     break;
                                 case '<':
                                     direction = Direction.INCOMING;
-                                    relName = relName.substring(0, index);
+                                    rel = rel.substring(0, lastCharIdx);
+                                    break;
+                                default:
+                                    direction = Direction.BOTH;
                             }
-                            if (node.hasRelationship(direction, RelationshipType.withName(relName))) {
-                                ids.add(node.getId());
-                            }
-                        });
-                    }
-                });
-            }
-        });
-        
-        return ids.isEmpty() ? sum.get() : ids.size();
+                            return Pair.of(direction, rel);
+                        })
+                        .flatMap(pair -> transaction.findNodes(label)
+                                .map(node -> {
+                                    if (!visitedNodes.contains(node.getId()) && node.hasRelationship(pair.first(), RelationshipType.withName(pair.other()))) {
+                                        visitedNodes.add(node.getId());
+                                        return 1L;
+                                    } else {
+                                        return 0L;
+                                    }
+                                })
+                                .stream()))
+                .reduce(0L, Math::addExact);
     }
 
     private MetaStats collectStats() {
