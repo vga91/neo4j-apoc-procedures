@@ -59,9 +59,8 @@ public class CouchbaseConnection implements AutoCloseable {
      * @param hostOrKey
      * @param authenticator
      * @param bucketName
-     * @param env
      */
-    protected CouchbaseConnection(String hostOrKey, PasswordAuthenticator authenticator, String bucketName, ClusterEnvironment env, CouchbaseConfig config) {
+    protected CouchbaseConnection(String hostOrKey, PasswordAuthenticator authenticator, String bucketName, CouchbaseConfig config) {
 
         // get Set<SeedNode> by hostOrKey
         Set<SeedNode> seedNodes;
@@ -93,7 +92,7 @@ public class CouchbaseConnection implements AutoCloseable {
             ));
         }
 
-        this.env = env;
+        this.env = config.getEnv();
         this.cluster = Cluster.connect(seedNodes, clusterOptions(authenticator).environment(env));
         this.bucket = this.cluster.bucket(bucketName);
         if (config.getWaitUntilReady() != null) {

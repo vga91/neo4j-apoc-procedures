@@ -2,27 +2,36 @@ package apoc.couchbase;
 
 import apoc.util.Util;
 import com.couchbase.client.core.env.CompressionConfig;
+import com.couchbase.client.core.env.IoConfig;
+import com.couchbase.client.core.env.IoEnvironment;
 import com.couchbase.client.core.env.NetworkResolution;
+import com.couchbase.client.core.env.SecurityConfig;
+import com.couchbase.client.core.env.TimeoutConfig;
 import com.couchbase.client.core.io.CollectionIdentifier;
 import com.couchbase.client.core.retry.BestEffortRetryStrategy;
 import com.couchbase.client.core.retry.FailFastRetryStrategy;
 import com.couchbase.client.core.retry.RetryStrategy;
-import com.couchbase.client.java.codec.DefaultJsonSerializer;
-import com.couchbase.client.java.codec.JsonSerializer;
 import com.couchbase.client.java.codec.RawBinaryTranscoder;
 import com.couchbase.client.java.codec.RawJsonTranscoder;
 import com.couchbase.client.java.codec.RawStringTranscoder;
 import com.couchbase.client.java.codec.Transcoder;
+import com.couchbase.client.java.env.ClusterEnvironment;
 
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Map;
-import java.util.Optional;
 
+import static apoc.ApocConfig.apocConfig;
+import static apoc.couchbase.CouchbaseManager.COUCHBASE_CONFIG_KEY;
 import static com.couchbase.client.core.env.IoConfig.DEFAULT_DNS_SRV_ENABLED;
 import static com.couchbase.client.core.env.IoConfig.DEFAULT_TCP_KEEPALIVE_ENABLED;
-import static com.couchbase.client.core.env.IoEnvironment.DEFAULT_NATIVE_IO_ENABLED;
+import static java.time.Duration.ofMillis;
 
 public class CouchbaseConfig {
+    
+    private static final Map<String, Object> DEFAULT_CONFIG = Map.of("connectTimeout", 5000L,
+            "kvTimeout", 2500,
+            "ioPoolSize", 3);
     
     private final String collection;
     private final String scope;
@@ -182,6 +191,63 @@ public class CouchbaseConfig {
         return enableTcpKeepAlives;
     }
 
+    public ClusterEnvironment getEnv() {
+        ClusterEnvironment.Builder builder = ClusterEnvironment.builder()
+                .retryStrategy(retryStrategy);
+
+        if (trustCertificate != null) {
+            builder.securityConfig(SecurityConfig.builder()
+                    .enableTls(true)
+                    .trustCertificate(Path.of(trustCertificate)));
+        }
+
+        if (compressionEnabled) {
+            final CompressionConfig.Builder compressionConfig = CompressionConfig.enable(true);
+            compressionConfig.minSize(compressionMinSize);
+            compressionConfig.minRatio(compressionMinRatio);
+            builder.compressionConfig(compressionConfig);
+        }
+
+        // if null we take the default transcoder
+        if (transcoder != null) {
+            builder.transcoder(transcoder);
+        }
+
+        builder.ioConfig(IoConfig.enableMutationTokens(mutationTokensEnabled)
+                .configPollInterval(ofMillis(configPollInterval))
+                .idleHttpConnectionTimeout(ofMillis(idleHttpConnectionTimeout))
+                .enableTcpKeepAlives(enableTcpKeepAlives)
+                .tcpKeepAliveTime(ofMillis(tcpKeepAliveTime))
+                .enableDnsSrv(enableDnsSrv)
+                .networkResolution(networkResolution));
+
+        final long connectTimeoutFromConf = connectTimeout != null
+                ? connectTimeout
+                : Long.parseLong(getConfig("connectTimeout"));
+        
+        final long kvTimeoutFromConf= kvTimeout != null
+                ? kvTimeout
+                : Long.parseLong(getConfig("kvTimeout"));
+
+        builder.timeoutConfig(TimeoutConfig
+                .connectTimeout(ofMillis(connectTimeoutFromConf))
+                .kvTimeout(ofMillis(kvTimeoutFromConf))
+                .queryTimeout(ofMillis(queryTimeout))
+                .analyticsTimeout(ofMillis(analyticsTimeout))
+                .disconnectTimeout(ofMillis(disconnectTimeout))
+                .viewTimeout(ofMillis(viewTimeout))
+                .searchTimeout(ofMillis(searchTimeout))
+        );
+        builder.ioEnvironment(IoEnvironment.builder().eventLoopThreadCount(
+                Integer.parseInt(getConfig("ioPoolSize"))));
+
+        return builder.build();
+    }
+
+    private String getConfig(String key) {
+        return apocConfig().getString("apoc." + COUCHBASE_CONFIG_KEY + key, DEFAULT_CONFIG.get(key).toString());
+    }
+    
     enum RetryConfig {
         FAILFAST(FailFastRetryStrategy.INSTANCE),
         BESTEFFORT(BestEffortRetryStrategy.INSTANCE);

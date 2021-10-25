@@ -43,16 +43,6 @@ public class CouchbaseManager {
 
     protected static final String PORT_CONFIG_KEY = "port";
 
-    private static final Map<String, Object> DEFAULT_CONFIG;
-
-    static {
-        Map<String, Object> cfg = new HashMap<>();
-        cfg.put("connectTimeout", 5000L);
-        cfg.put("kvTimeout", 2500);
-        cfg.put("ioPoolSize", 3);
-        DEFAULT_CONFIG = Collections.unmodifiableMap(cfg);
-
-    }
 
     protected CouchbaseManager() {
     }
@@ -153,64 +143,8 @@ public class CouchbaseManager {
     public static CouchbaseConnection getConnection(String hostOrKey, String bucketName, CouchbaseConfig config) {
         PasswordAuthenticator passwordAuthenticator = getPasswordAuthenticator(hostOrKey);
 
-        // hostOrKey no longer necessary because bootstrapHttpDirectPort is configured via SeedNode in CouchbaseConnection
-        ClusterEnvironment env = getEnv(config);
-
         // The minimum cluster version supported by SDK 3 is Server 5.0, so bucket-level passwords are not supported anymore
-        return new CouchbaseConnection(hostOrKey, passwordAuthenticator, bucketName, env, config);
-    }
-
-    private static ClusterEnvironment getEnv(CouchbaseConfig config) {
-
-        ClusterEnvironment.Builder builder = ClusterEnvironment.builder()
-                .retryStrategy(config.getRetryStrategy());
-
-        if (config.getTrustCertificate() != null) {
-        builder.securityConfig(SecurityConfig.builder()
-                .enableTls(true)
-                .trustCertificate(Path.of(config.getTrustCertificate())));
-        }
-
-        if (config.isCompressionEnabled()) {
-            final CompressionConfig.Builder compressionConfig = CompressionConfig.enable(true);
-            compressionConfig.minSize(config.getCompressionMinSize());
-            compressionConfig.minRatio(config.getCompressionMinRatio());
-            builder.compressionConfig(compressionConfig);
-        }
-        
-        // if null we take the default transcoder
-        if (config.getTranscoder() != null) {
-            builder.transcoder(config.getTranscoder());
-        }
-        
-        builder.ioConfig(IoConfig.enableMutationTokens(config.isMutationTokensEnabled())
-                .configPollInterval(ofMillis(config.getConfigPollInterval()))
-                .idleHttpConnectionTimeout(ofMillis(config.getIdleHttpConnectionTimeout()))
-                .enableTcpKeepAlives(config.isEnableTcpKeepAlives())
-                .tcpKeepAliveTime(ofMillis(config.getTcpKeepAliveTime()))
-                .enableDnsSrv(config.isEnableDnsSrv())
-                .networkResolution(config.getNetworkResolution()));
-        
-        final long connectTimeout = config.getConnectTimeout() != null 
-                ? config.getConnectTimeout() 
-                : Long.parseLong(getConfig("connectTimeout"));
-        final long kvTimeout = config.getKvTimeout() != null
-                ? config.getKvTimeout()
-                : Long.parseLong(getConfig("kvTimeout"));
-        
-        builder.timeoutConfig(TimeoutConfig
-                .connectTimeout(ofMillis(connectTimeout))
-                .kvTimeout(ofMillis(kvTimeout))
-                .queryTimeout(ofMillis(config.getQueryTimeout()))
-                .analyticsTimeout(ofMillis(config.getAnalyticsTimeout()))
-                .disconnectTimeout(ofMillis(config.getDisconnectTimeout()))
-                .viewTimeout(ofMillis(config.getViewTimeout()))
-                .searchTimeout(ofMillis(config.getSearchTimeout()))
-        );
-        builder.ioEnvironment(IoEnvironment.builder().eventLoopThreadCount(
-                Integer.parseInt(getConfig("ioPoolSize"))));
-
-        return builder.build();
+        return new CouchbaseConnection(hostOrKey, passwordAuthenticator, bucketName, config);
     }
 
     private static PasswordAuthenticator getPasswordAuthenticator(String hostOrKey) {
@@ -239,10 +173,6 @@ public class CouchbaseManager {
         }
 
         return couchbaseConfig;
-    }
-
-    public static String getConfig(String key) {
-        return apocConfig().getString("apoc." + COUCHBASE_CONFIG_KEY + key, DEFAULT_CONFIG.get(key).toString());
     }
 
 }

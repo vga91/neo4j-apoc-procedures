@@ -76,10 +76,12 @@ public class CouchbaseIT {
 
     @Test
     public void testUpsertWithMutationTokenDisabled() {
+        // with mutationTokensEnabledv: false we expect that "mutationToken" in the result row should be null
         testCall(db, "CALL apoc.couchbase.upsert($host, $bucket, 'testUpsertViaCall', $data, $config)",
                 map("host", HOST, "bucket", BUCKET_NAME, "data", VINCENT_VAN_GOGH.toString(),
                         "config", map("mutationTokensEnabled", false)),
                 r -> {
+                    // this should be null
                     assertNull(r.get("mutationToken"));
                     assertTrue(r.get("content") instanceof Map);
                     Map<String, Object> content = (Map<String, Object>) r.get("content");
@@ -97,6 +99,9 @@ public class CouchbaseIT {
 
     @Test
     public void testGetWithCustomCollection() {
+        // with config collection: "<COLLECTION_NAME>" we should get only results coming from 
+        //  com.couchbase.client.java.manager.collection.CollectionManager.createCollection("<COLLECTION_NAME>")
+        //  instead of default collection ("_default");
         testCall(db, "CALL apoc.couchbase.get($host, $bucket, $documentId, $config)",
                 map("host", HOST, "bucket", BUCKET_NAME, "documentId", "foo:bar", "config", map("collection", COLL_NAME)),
                 r -> {
@@ -107,6 +112,9 @@ public class CouchbaseIT {
     
     @Test
     public void testGetWithCustomScope() {
+        // with config scope: "<SCOPE_NAME>" and collection: "<COLLECTION_NAME>" we should get only results coming from 
+        //  com.couchbase.client.java.manager.collection.CollectionManager.createScope("<SCOPE_NAME>") and CollectionManager.createCollection("<COLLECTION_NAME>")
+        //  instead of default collection and scope (both "_default");
         testCall(db, "CALL apoc.couchbase.get($host, $bucket, $documentId, $config)",
                 map("host", HOST, "bucket", BUCKET_NAME, "documentId", "secondScope", 
                         "config", map("collection", SECOND_COLL_NAME, "scope", SECOND_SCOPE)),
