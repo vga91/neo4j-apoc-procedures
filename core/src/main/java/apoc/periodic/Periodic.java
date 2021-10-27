@@ -49,6 +49,7 @@ public class Periodic {
     @Description("apoc.periodic.truncate({config}) - removes all entities (and optionally indexes and constraints) from db using the apoc.periodic.iterate under the hood")
     public void truncate(@Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
 
+        config.put("throwsError", true);
         iterate("MATCH ()-[r]->() RETURN id(r) as id", "MATCH ()-[r]->() WHERE id(r) = id DELETE r", config);
         iterate("MATCH (n) RETURN id(n) as id", "MATCH (n) WHERE id(n) = id DELETE n", config);
 
@@ -274,7 +275,7 @@ public class Periodic {
                         Iterators.count(r); // XXX: consume all results
                         return r.getQueryStatistics();
                     },
-                    concurrency, failedParams);
+                    concurrency, failedParams, Util.toBoolean(config.get("throwsError")));
         }
     }
 

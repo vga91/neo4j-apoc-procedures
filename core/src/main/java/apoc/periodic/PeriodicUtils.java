@@ -59,7 +59,7 @@ public class PeriodicUtils {
             GraphDatabaseService db, TerminationGuard terminationGuard, Log log, Pools pools,
             int batchsize, boolean parallel, boolean iterateList, long retries,
             Iterator<Map<String, Object>> iterator, BiFunction<Transaction, Map<String, Object>, QueryStatistics> consumer,
-            int concurrency, int failedParams) {
+            int concurrency, int failedParams, boolean throwsError) {
 
         ExecutorService pool = parallel ? pools.getDefaultExecutorService() : pools.getSingleExecutorService();
         List<Future<Long>> futures = new ArrayList<>(concurrency);
@@ -103,8 +103,8 @@ public class PeriodicUtils {
 
         boolean wasTerminated = Util.transactionIsTerminated(terminationGuard);
         ToLongFunction<Future<Long>> toLongFunction = wasTerminated ?
-                f -> Util.getFutureOrCancel(f, collector.getBatchErrors(), collector.getFailedBatches(), 0L) :
-                f -> Util.getFuture(f, collector.getBatchErrors(), collector.getFailedBatches(), 0L);
+                f -> Util.getFutureOrCancel(f, collector.getBatchErrors(), collector.getFailedBatches(), 0L, throwsError) :
+                f -> Util.getFuture(f, collector.getBatchErrors(), collector.getFailedBatches(), 0L, throwsError);
         collector.incrementSuccesses(futures.stream().mapToLong(toLongFunction).sum());
 
         Util.logErrors("Error during iterate.commit:", collector.getBatchErrors(), log);

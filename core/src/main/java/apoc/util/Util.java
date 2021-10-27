@@ -614,16 +614,21 @@ public class Util {
     }
 
     public static <T> T getFuture(Future<T> f, Map<String, Long> errorMessages, AtomicInteger errors, T errorValue) {
+        return getFuture(f, errorMessages, errors, errorValue, false);
+    }
+
+    public static <T> T getFuture(Future<T> f, Map<String, Long> errorMessages, AtomicInteger errors, T errorValue, boolean throwsError) {
         try {
             T t = f.get();
             return t;
         } catch (Exception e) {
+            throwPossibly(throwsError, e);
             errors.incrementAndGet();
             errorMessages.compute(e.getMessage(),(s, i) -> i == null ? 1 : i + 1);
             return errorValue;
         }
     }
-    public static <T> T getFutureOrCancel(Future<T> f, Map<String, Long> errorMessages, AtomicInteger errors, T errorValue) {
+    public static <T> T getFutureOrCancel(Future<T> f, Map<String, Long> errorMessages, AtomicInteger errors, T errorValue, boolean throwsError) {
         try {
             if (f.isDone()) return f.get();
             else {
@@ -631,10 +636,17 @@ public class Util {
                 errors.incrementAndGet();
             }
         } catch (Exception e) {
+            throwPossibly(throwsError, e);
             errors.incrementAndGet();
             errorMessages.compute(e.getMessage(),(s, i) -> i == null ? 1 : i + 1);
         }
         return errorValue;
+    }
+
+    private static void throwPossibly(boolean throwsError, Exception e) {
+        if (throwsError) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static boolean isSumOutOfRange(long... numbers) {
