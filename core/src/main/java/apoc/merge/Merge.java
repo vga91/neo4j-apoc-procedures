@@ -2,8 +2,8 @@ package apoc.merge;
 
 import apoc.cypher.Cypher;
 import apoc.result.NodeResult;
-import apoc.result.ObjectNodeResult;
-import apoc.result.ObjectRelationshipResult;
+import apoc.result.NodeResultWithStats;
+import apoc.result.RelationshipResultWithStats;
 import apoc.result.RelationshipResult;
 import apoc.util.Util;
 import org.neo4j.graphdb.Node;
@@ -35,33 +35,33 @@ public class Merge {
     }
 
     @Procedure(value="apoc.merge.node", mode = Mode.WRITE)
-    @Description("\"apoc.merge.node.eager(['Label'], identProps:{key:value, ...}, onCreateProps:{key:value,...}, onMatchProps:{key:value,...}}) - merge nodes with dynamic labels, with support for setting properties ON CREATE or ON MATCH")
+    @Description("\"apoc.merge.node(['Label'], identProps:{key:value, ...}, onCreateProps:{key:value,...}, onMatchProps:{key:value,...}}) - merge nodes with dynamic labels, with support for setting properties ON CREATE or ON MATCH")
     public Stream<NodeResult> nodes(@Name("label") List<String> labelNames,
                                           @Name("identProps") Map<String, Object> identProps,
                                           @Name(value = "props",defaultValue = "{}") Map<String, Object> props,
                                           @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
-        final Result nodeResultStream = getNodeResult(labelNames, identProps, props, onMatchProps);
-        return nodeResultStream.columnAs("n").stream().map(node -> new NodeResult((Node) node));
+        final Result nodeResult = getNodeResult(labelNames, identProps, props, onMatchProps);
+        return nodeResult.columnAs("n").stream().map(node -> new NodeResult((Node) node));
     }
 
     @Procedure(value="apoc.merge.nodeWithStats.eager", mode = Mode.WRITE, eager = true)
     @Description("apoc.merge.nodeWithStats.eager - same as apoc.merge.node.eager providing queryStatistics into result")
-    public Stream<ObjectNodeResult> nodeWithStatsEager(@Name("label") List<String> labelNames,
-                                         @Name("identProps") Map<String, Object> identProps,
-                                         @Name(value = "props",defaultValue = "{}") Map<String, Object> props,
-                                         @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
+    public Stream<NodeResultWithStats> nodeWithStatsEager(@Name("label") List<String> labelNames,
+                                                          @Name("identProps") Map<String, Object> identProps,
+                                                          @Name(value = "props",defaultValue = "{}") Map<String, Object> props,
+                                                          @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
         return nodeWithStats(labelNames, identProps,props,onMatchProps);
     }
 
     @Procedure(value="apoc.merge.nodeWithStats", mode = Mode.WRITE)
     @Description("apoc.merge.nodeWithStats - same as apoc.merge.node providing queryStatistics into result")
-    public Stream<ObjectNodeResult> nodeWithStats(@Name("label") List<String> labelNames,
-                                          @Name("identProps") Map<String, Object> identProps,
-                                          @Name(value = "props",defaultValue = "{}") Map<String, Object> props,
-                                          @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
+    public Stream<NodeResultWithStats> nodeWithStats(@Name("label") List<String> labelNames,
+                                                     @Name("identProps") Map<String, Object> identProps,
+                                                     @Name(value = "props",defaultValue = "{}") Map<String, Object> props,
+                                                     @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
         final Result nodeResult = getNodeResult(labelNames, identProps, props, onMatchProps);
         return nodeResult.columnAs("n").stream()
-                .map(node -> new ObjectNodeResult((Node) node, Cypher.toMap(nodeResult.getQueryStatistics())));
+                .map(node -> new NodeResultWithStats((Node) node, Cypher.toMap(nodeResult.getQueryStatistics())));
     }
 
     private Result getNodeResult(List<String> labelNames, Map<String, Object> identProps, Map<String, Object> props, Map<String, Object> onMatchProps) {
@@ -91,14 +91,14 @@ public class Merge {
 
     @Procedure(value = "apoc.merge.relationshipWithStats", mode = Mode.WRITE)
     @Description("apoc.merge.relationshipWithStats - same as apoc.merge.relationship providing queryStatistics into result")
-    public Stream<ObjectRelationshipResult> relationshipWithStats(@Name("startNode") Node startNode, @Name("relationshipType") String relType,
-                                                        @Name("identProps") Map<String, Object> identProps,
-                                                        @Name("props") Map<String, Object> onCreateProps,
-                                                        @Name("endNode") Node endNode,
-                                                        @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
+    public Stream<RelationshipResultWithStats> relationshipWithStats(@Name("startNode") Node startNode, @Name("relationshipType") String relType,
+                                                                     @Name("identProps") Map<String, Object> identProps,
+                                                                     @Name("props") Map<String, Object> onCreateProps,
+                                                                     @Name("endNode") Node endNode,
+                                                                     @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
         final Result relResult = getRelResult(startNode, relType, identProps, onCreateProps, endNode, onMatchProps);
         return relResult.columnAs("r").stream()
-                .map(rel -> new ObjectRelationshipResult((Relationship) rel, Cypher.toMap(relResult.getQueryStatistics())));
+                .map(rel -> new RelationshipResultWithStats((Relationship) rel, Cypher.toMap(relResult.getQueryStatistics())));
     }
 
     private Result getRelResult(Node startNode, String relType, Map<String, Object> identProps, Map<String, Object> onCreateProps, Node endNode, Map<String, Object> onMatchProps) {
@@ -109,10 +109,10 @@ public class Merge {
 
         final String cypher =
                 "WITH $startNode as startNode, $endNode as endNode " +
-                        "MERGE (startNode)-[r:"+ Util.quote(relType) +"{"+identPropsString+"}]->(endNode) " +
-                        "ON CREATE SET r+= $onCreateProps " +
-                        "ON MATCH SET r+= $onMatchProps " +
-                        "RETURN r";
+                "MERGE (startNode)-[r:"+ Util.quote(relType) +"{"+identPropsString+"}]->(endNode) " +
+                "ON CREATE SET r+= $onCreateProps " +
+                "ON MATCH SET r+= $onMatchProps " +
+                "RETURN r";
         return tx.execute(cypher, params);
     }
 
@@ -128,11 +128,11 @@ public class Merge {
 
     @Procedure(value = "apoc.merge.relationshipWithStats.eager", mode = Mode.WRITE, eager = true)
     @Description("apoc.merge.relationshipWithStats.eager - same as apoc.merge.relationship.eager providing queryStatistics into result")
-    public Stream<ObjectRelationshipResult> relationshipWithStatsEager(@Name("startNode") Node startNode, @Name("relationshipType") String relType,
-                                                        @Name("identProps") Map<String, Object> identProps,
-                                                        @Name("props") Map<String, Object> onCreateProps,
-                                                        @Name("endNode") Node endNode,
-                                                        @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
+    public Stream<RelationshipResultWithStats> relationshipWithStatsEager(@Name("startNode") Node startNode, @Name("relationshipType") String relType,
+                                                                          @Name("identProps") Map<String, Object> identProps,
+                                                                          @Name("props") Map<String, Object> onCreateProps,
+                                                                          @Name("endNode") Node endNode,
+                                                                          @Name(value = "onMatchProps",defaultValue = "{}") Map<String, Object> onMatchProps) {
         return relationshipWithStats(startNode, relType, identProps, onCreateProps, endNode, onMatchProps );
     }
 
