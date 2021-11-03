@@ -116,15 +116,16 @@ public class Fingerprinting {
                     () -> new TreeMap<>()
             ));
 
-            // step 2: build inverse entrySet()
-            final Stream<Map.Entry<String, Long>> inverseHashToNode = idToNodeHash.entrySet().stream()
-                    .flatMap(e -> Stream.of(new AbstractMap.SimpleEntry<>(e.getValue(), e.getKey())));
+            // step 2: build inverse map
+            final Map<String, List<Long>> nodeHashToId = idToNodeHash.entrySet()
+                    .stream()
+                    .collect(Collectors
+                            .groupingBy(Map.Entry::getValue, TreeMap::new,Collectors.mapping(Map.Entry::getKey, Collectors.toList())));
 
             // step 3: iterate nodes in order of their hash (we cannot rely on internal ids)
-            inverseHashToNode.forEach(entry -> {
-                messageDigest.update(entry.getKey().getBytes());
-
-                Node node = tx.getNodeById(entry.getValue());
+            nodeHashToId.forEach((hash, ids) -> ids.forEach(id -> {
+                messageDigest.update(hash.getBytes());
+                Node node = tx.getNodeById(id);
                 List<EndNodeRelationshipHashTuple> endNodeRelationshipHashTuples = StreamSupport.stream(node.getRelationships(Direction.OUTGOING).spliterator(), false)
                         .map(relationship -> {
                             String endNodeHash = idToNodeHash.get(relationship.getEndNodeId());
@@ -136,8 +137,7 @@ public class Fingerprinting {
                     messageDigest.update(endNodeRelationshipHashTuple.getEndNodeHash().getBytes());
                     messageDigest.update(endNodeRelationshipHashTuple.getRelationshipHash().getBytes());
                 });
-
-            });
+            }));
 
         });
     }
