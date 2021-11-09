@@ -31,6 +31,9 @@ import org.neo4j.internal.kernel.api.security.SecurityContext;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
+import org.neo4j.values.storable.CoordinateReferenceSystem;
+import org.neo4j.values.storable.PointValue;
+import org.neo4j.values.storable.Values;
 
 import javax.lang.model.SourceVersion;
 import java.io.BufferedWriter;
@@ -84,10 +87,14 @@ import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
+import java.util.zip.DeflaterInputStream;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static apoc.ApocConfig.apocConfig;
+import static apoc.export.cypher.formatter.CypherFormatterUtils.formatProperties;
+import static apoc.export.cypher.formatter.CypherFormatterUtils.formatToString;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatProperties;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatToString;
 import static apoc.util.DateFormatUtil.getOrCreate;
@@ -103,6 +110,7 @@ public class Util {
     public static final String NODE_COUNT = "MATCH (n) RETURN count(*) as result";
     public static final String REL_COUNT = "MATCH ()-->() RETURN count(*) as result";
     public static final String COMPILED = "interpreted"; // todo handle enterprise properly
+    public static final String ERROR_BYTES_OR_STRING = "Only byte[] or url String allowed";
 
     public static String labelString(List<String> labelNames) {
         return labelNames.stream().map(Util::quote).collect(Collectors.joining(":"));
@@ -408,7 +416,7 @@ public class Util {
         return null;
     }
 
-    public static StreamConnection readHttpInputStream(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
+    private static StreamConnection readHttpInputStream(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
         URLConnection con = openUrlConnection(urlAddress, headers);
         writePayload(con, payload);
         String newUrl = handleRedirect(con, urlAddress);
@@ -941,6 +949,37 @@ public class Util {
 
     public static boolean isSelfRel(Relationship rel) {
         return rel.getStartNodeId() == rel.getEndNodeId();
+    }
+    
+    public static PointValue toPoint(Map<String, Object> pointMap, Map<String, Object> defaultPointMap) {
+        double x;
+        double y;
+        Double z = null;
+
+        final CoordinateReferenceSystem crs = CoordinateReferenceSystem.byName((String) getOrDefault(pointMap, defaultPointMap, "crs"));
+
+        // It does not depend on the prefix of crs, I could also pass a point({x: 56.7, y: 12.78, crs: 'wgs-84'})
+        final boolean isLatitudePresent = pointMap.containsKey("latitude") || (!pointMap.containsKey("x") && defaultPointMap.containsKey("latitude"));
+        final boolean isCoord3D = crs.getName().endsWith("-3d");
+        if (isLatitudePresent) {
+            x = Util.toDouble(getOrDefault(pointMap, defaultPointMap, "longitude"));
+            y = Util.toDouble(getOrDefault(pointMap, defaultPointMap, "latitude"));
+            if (isCoord3D) {
+                z = Util.toDouble(getOrDefault(pointMap, defaultPointMap, "height"));
+            }
+        } else {
+            x = Util.toDouble(getOrDefault(pointMap, defaultPointMap, "x"));
+            y = Util.toDouble(getOrDefault(pointMap, defaultPointMap,  "y"));
+            if (isCoord3D) {
+                z = Util.toDouble(getOrDefault(pointMap, defaultPointMap, "z"));
+            }
+        }
+
+        return z != null ? Values.pointValue(crs, x, y, z) : Values.pointValue(crs, x, y);
+    }
+    
+    private static Object getOrDefault(Map<String, Object> firstMap, Map<String, Object> secondMap, String key) {
+        return firstMap.getOrDefault(key, secondMap.get(key));
     }
 
     public static String toCypherMap(Map<String, Object> map) {
