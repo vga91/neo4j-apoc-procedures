@@ -189,6 +189,48 @@ public class CouchbaseIT {
                     assertFalse(collection.exists("testInsertViaCall").exists());
                 });
     }
+    
+    @Test
+    public void testQueryWithConnectTimeout() {
+        try {
+            testCall(db, "CALL apoc.couchbase.insert($host, $bucket, 'testConnectTimeout', $data, $config)",
+                    map("host", HOST, "bucket", BUCKET_NAME, "data", BIG_JSON.toString(),
+                            "config", map("connectTimeout", 1)),
+                r -> fail("Should fail because of AmbiguousTimeoutException"));
+        } catch (Exception e) {
+            final Throwable rootCause = ExceptionUtils.getRootCause(e);
+            assertTrue(rootCause instanceof AmbiguousTimeoutException);
+            assertEquals("InsertRequest, Reason: TIMEOUT", rootCause.getMessage());
+        }
+    }
+    
+    @Test
+    public void testQueryWithKvTimeout() {
+        try {
+            testCall(db, "CALL apoc.couchbase.insert($host, $bucket, 'testKvTimeout', $data, $config)", 
+                    map("host", HOST, "bucket", BUCKET_NAME, "data", BIG_JSON.toString(),
+                        "config", map("kvTimeout", 1)),
+                r -> fail("Should fail because of AmbiguousTimeoutException"));
+        } catch (Exception e) {
+            final Throwable rootCause = ExceptionUtils.getRootCause(e);
+            assertTrue(rootCause instanceof AmbiguousTimeoutException);
+            assertEquals("InsertRequest, Reason: TIMEOUT", rootCause.getMessage());
+        }
+    }
+    
+    @Test
+    public void testQueryWithWaitUntilReadyTimeout() {
+        try {
+            testCall(db, "CALL apoc.couchbase.insert($host, $bucket, 'testWaitUntilReady', $data, $config)",
+                map("host", HOST, "bucket", BUCKET_NAME, "data", BIG_JSON.toString(),
+                        "config", map("waitUntilReady", 1)),
+                r -> fail("Should fail because of UnambiguousTimeoutException"));
+        } catch (Exception e) {
+            final Throwable rootCause = ExceptionUtils.getRootCause(e);
+            assertTrue(rootCause instanceof UnambiguousTimeoutException);
+            assertEquals("WaitUntilReady timed out", rootCause.getMessage());
+        }
+    }
 
     @Test(expected = QueryExecutionException.class)
     public void testQueryWithConnectTimeout() {
@@ -254,6 +296,19 @@ public class CouchbaseIT {
                     collection.remove(expectedId);
                     assertFalse(collection.exists(expectedId).exists());
                 });
+    }
+    
+    @Test
+    public void testUpsertFailBecauseOfIncorrectTranscoder() {
+        try {
+            testCall(db, "CALL apoc.couchbase.upsert($host, $bucket, 'testUpsertViaCall', $data, {transcoder: 'rawbinary'})",
+                    map("host", HOST, "bucket", BUCKET_NAME, "data", VINCENT_VAN_GOGH.toString()),
+                    r -> fail("Should fail because of rawbinary wrong config"));
+        } catch (Exception e) {
+            final Throwable rootCause = ExceptionUtils.getRootCause(e);
+            assertTrue(rootCause instanceof CouchbaseException);
+            assertEquals("Only byte[] is supported for the RawBinaryTranscoder!", rootCause.getMessage());
+        }
     }
 
     @Test(expected = QueryExecutionException.class)
@@ -337,6 +392,20 @@ public class CouchbaseIT {
         testCall(db, "CALL apoc.couchbase.query($host, $bucket, $query)",
                 map("host", HOST, "bucket", BUCKET_NAME, "query", "select * from " + BUCKET_NAME + " where lastName = \"Van Gogh\""),
                 r -> checkListResult(r));
+    }
+    
+    @Test
+    public void testQueryWithQueryTimeout() {
+        try {
+            testCall(db, "CALL apoc.couchbase.query($host, $bucket, $query, $config)",
+                    map("host", HOST, "bucket", BUCKET_NAME, "query", "select * from " + BUCKET_NAME + " where lastName = \"Van Gogh\"",
+                            "config", map("queryTimeout", 1)),
+                    r -> fail("Should fail because of AmbiguousTimeoutException"));
+        } catch (Exception e) {
+            final Throwable rootCause = ExceptionUtils.getRootCause(e);
+            assertTrue(rootCause instanceof AmbiguousTimeoutException);
+            assertEquals("QueryRequest, Reason: TIMEOUT", rootCause.getMessage());
+        }
     }
 
     @Test(expected = QueryExecutionException.class)
