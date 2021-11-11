@@ -1,6 +1,7 @@
 package apoc.export.util;
 
 import apoc.export.cypher.formatter.CypherFormat;
+import apoc.util.CompressionAlgo;
 import apoc.util.CompressionConfig;
 import apoc.util.Util;
 
@@ -85,7 +86,7 @@ public class ExportConfig extends CompressionConfig {
     public CypherFormat getCypherFormat() { return cypherFormat; }
 
     public ExportConfig(Map<String,Object> config) {
-        super(config);
+        super(config, CompressionAlgo.NONE.name());
         config = config != null ? config : Collections.emptyMap();
         this.silent = toBoolean(config.getOrDefault("silent",false));
         this.delim = delim(config.getOrDefault("delim", DEFAULT_DELIM).toString());
