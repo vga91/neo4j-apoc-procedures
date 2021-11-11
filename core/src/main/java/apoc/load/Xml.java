@@ -52,8 +52,6 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
 import java.time.ZoneId;
-import java.util.*;
-import java.util.function.Supplier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,15 +65,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static apoc.util.DateParseUtil.dateParse;
-import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
 import static apoc.util.Util.ERROR_BYTES_OR_STRING;
 import static apoc.util.Util.cleanUrl;
-import static javax.xml.stream.XMLStreamConstants.*;
 import static javax.xml.stream.XMLStreamConstants.CHARACTERS;
 import static javax.xml.stream.XMLStreamConstants.END_DOCUMENT;
 import static javax.xml.stream.XMLStreamConstants.END_ELEMENT;
@@ -114,7 +108,8 @@ public class Xml {
 
     private Stream<MapResult> xmlXpathToMapResult(@Name("urlOrBinary") Object urlOrBinary, boolean simpleMode, String path, Map<String, Object> config) throws Exception {
         if (config == null) config = Collections.emptyMap();
-        boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
+        LoadXmlConfig xmlConfig = new LoadXmlConfig(config);
+        final boolean failOnError = xmlConfig.isFailOnError();
         try {
             Map<String, Object> headers = (Map) config.getOrDefault("headers", Collections.emptyMap());
             CountingInputStream is = FileUtils.inputStreamFor(urlOrBinary, headers, null, (String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name()));
@@ -202,56 +197,7 @@ public class Xml {
         }
     }
 
-    private void handleXmlEvent(Deque<Map<String, Object>> stack, XMLStreamReader reader, boolean simpleMode) throws XMLStreamException {
-
-        Map<String, Object> elementMap;
-        switch (reader.getEventType()) {
-            case START_DOCUMENT:
-            case END_DOCUMENT:
-                // intentionally empty
-                break;
-            case START_ELEMENT:
-                int attributes = reader.getAttributeCount();
-                elementMap = new LinkedHashMap<>(attributes + 3);
-                elementMap.put("_type", reader.getLocalName());
-                for (int a = 0; a < attributes; a++) {
-                    elementMap.put(reader.getAttributeLocalName(a), reader.getAttributeValue(a));
-                }
-                if (!stack.isEmpty()) {
-                    final Map<String, Object> last = stack.getLast();
-                    String key = simpleMode ? "_" + reader.getLocalName() : "_children";
-                    amendToList(last, key, elementMap);
-                }
-                stack.addLast(elementMap);
-                break;
-
-            case END_ELEMENT:
-                elementMap = stack.size() > 1 ? stack.removeLast() : stack.getLast();
-
-                // maintain compatibility with previous implementation:
-                // if we only have text childs, return them in "_text" and not in "_children"
-                Object children = elementMap.get("_children");
-                if (children != null) {
-                    if ((children instanceof String) || collectionIsAllStrings(children)) {
-                        elementMap.put("_text", children);
-                        elementMap.remove("_children");
-                    }
-                }
-                break;
-
-            case CHARACTERS:
-                final String text = reader.getText().trim();
-                if (!text.isEmpty()) {
-                    Map<String, Object> map = stack.getLast();
-                    amendToList(map, "_children", text);
-                }
-                break;
-            default:
-                throw new RuntimeException("dunno know how to handle xml event type " + reader.getEventType());
-        }
-    }
-
-    private void handleNode(Deque<Map<String, Object>> stack, Node node, boolean simpleMode) {
+    private void handleNode(Deque<Map<String, Object>> stack, Node node, boolean simpleMode, LoadXmlConfig config) {
 
         // Handle document node
         if (node.getNodeType() == Node.DOCUMENT_NODE) {

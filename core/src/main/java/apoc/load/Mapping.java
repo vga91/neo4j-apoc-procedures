@@ -9,15 +9,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
-import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -45,7 +36,8 @@ public class Mapping extends AbstractMapping {
         
         if (this.zoneId == null) {
             // to preserve ImportCsv behavior
-            this.zoneId = getTimezoneIfValid(optionalData, ZoneId.systemDefault());
+//            this.zoneId = getTimezoneIfValid(optionalData, ZoneId.of(apocConfig().getString(db_temporal_timezone.name())));
+            this.zoneId = getTimezoneIfValid(optionalData, apocConfig().getString(db_temporal_timezone.name()));
         }
 
         if (this.type == null) {

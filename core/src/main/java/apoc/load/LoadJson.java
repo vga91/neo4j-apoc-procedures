@@ -90,6 +90,9 @@ public class LoadJson {
     }
 
     private static Map<String, Object> convertTypeMap(Map<String, Object> mapValue, LoadJsonConfig config) {
+        if (mapValue == null) {
+            return null;
+        }
         return mapValue.entrySet()
                 .stream()
                 .collect(HashMap::new,
@@ -98,10 +101,10 @@ public class LoadJson {
                             final String key = entry.getKey();
                             final Object value = entry.getValue();
                             final JsonMapping jsonMapping = new JsonMapping(key, mapping.get(key), config.getIgnore().contains(key), config.getNullValues(), config.getZoneId());
-                            if (!jsonMapping.isIgnore()) { 
-                                mapAccumulator.put(key, 
-                                        value instanceof Map && !mapping.containsKey(key) ? convertTypeMap((Map) value, config) 
-                                            : jsonMapping.convert(value)
+                            if (!jsonMapping.isIgnore()) {
+                                mapAccumulator.put(key,
+                                        value instanceof Map && !mapping.containsKey(key) ? convertTypeMap((Map) value, config)
+                                                : jsonMapping.convert(value)
                                 );
                             }
                         },

@@ -38,7 +38,6 @@ public class LoadCsvConfig extends CommonLoadImportConfig {
     private Map<String, Map<String, Object>> mapping;
     private Map<String, Mapping> mappings;
 
-    // todo - mettere grosso modo le stesse cose in LoadJson
     public LoadCsvConfig(Map<String, Object> config) {
         super(config);
         if (config == null) {
