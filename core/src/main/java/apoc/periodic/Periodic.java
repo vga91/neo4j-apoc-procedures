@@ -144,12 +144,12 @@ public class Periodic {
     @Description("apoc.periodic.cancel(name) - cancel job with the given name")
     public Stream<JobInfo> cancel(@Name("name") String name) {
         JobInfo info = new JobInfo(name);
-        Future future = pools.getJobList().remove(info);
-        if (future != null) {
-            future.cancel(false);
-            return Stream.of(info.update(future));
-        }
-        return Stream.empty();
+        final Map<JobInfo, Future> jobList = pools.getJobList();
+        return jobList.keySet().stream().filter(future -> future.name.equals(name))
+                .peek(future -> {
+                    final Future remove = jobList.remove(future);
+                    remove.cancel(false);
+                });
     }
 
     @Procedure(mode = Mode.WRITE)
@@ -157,14 +157,7 @@ public class Periodic {
     public Stream<JobInfo> submit(@Name("name") String name, @Name("statement") String statement, @Name(value = "params", defaultValue = "{}") Map<String,Object> config) {
         validateQuery(statement);
         Map<String,Object> params = (Map)config.getOrDefault("params", Collections.emptyMap());
-        JobInfo info = submit(name, () -> {
-            try {
-                db.executeTransactionally(statement, params);
-            } catch(Exception e) {
-                log.warn("in background task via submit", e);
-                throw new RuntimeException(e);
-            }
-        }, log);
+        JobInfo info = submit(name, new Submit(statement, params), log);
         return Stream.of(info);
     }
 
@@ -173,9 +166,7 @@ public class Periodic {
     public Stream<JobInfo> repeat(@Name("name") String name, @Name("statement") String statement, @Name("rate") long rate, @Name(value = "config", defaultValue = "{}") Map<String,Object> config ) {
         validateQuery(statement);
         Map<String,Object> params = (Map)config.getOrDefault("params", Collections.emptyMap());
-        JobInfo info = schedule(name, () -> {
-            db.executeTransactionally(statement, params);
-        },0,rate);
+        JobInfo info = schedule(name, new Repeat(statement, params),0,rate);
         return Stream.of(info);
     }
 
@@ -195,8 +186,8 @@ public class Periodic {
     /**
      * Call from a procedure that gets a <code>@Context GraphDatbaseAPI db;</code> injected and provide that db to the runnable.
      */
-    public <T> JobInfo submit(String name, Runnable task, Log log) {
-        JobInfo info = new JobInfo(name);
+    public <T> JobInfo submit(String name, PeriodicRunnable task, Log log) {
+        JobInfo info = new JobInfo(name, task);
         Future<T> future = pools.getJobList().remove(info);
         if (future != null && !future.isDone()) future.cancel(false);
 
@@ -209,8 +200,8 @@ public class Periodic {
     /**
      * Call from a procedure that gets a <code>@Context GraphDatbaseAPI db;</code> injected and provide that db to the runnable.
      */
-    public JobInfo schedule(String name, Runnable task, long delay, long repeat) {
-        JobInfo info = new JobInfo(name,delay,repeat);
+    public JobInfo schedule(String name, PeriodicRunnable task, long delay, long repeat) {
+        JobInfo info = new JobInfo(name, delay, repeat, task);
         Future future = pools.getJobList().remove(info);
         if (future != null && !future.isDone()) future.cancel(false);
 
@@ -392,6 +383,8 @@ public class Periodic {
 
     public static class JobInfo {
         public final String name;
+        public final String statement;
+        public final Map<String, Object> params;
         public long delay;
         public long rate;
         public boolean done;
@@ -399,10 +392,18 @@ public class Periodic {
 
         public JobInfo(String name) {
             this.name = name;
+            this.statement = null;
+            this.params = null;
         }
 
-        public JobInfo(String name, long delay, long rate) {
+        public JobInfo(String name, PeriodicRunnable runnable) {
             this.name = name;
+            this.statement = runnable.statement;
+            this.params = runnable.params;
+        }
+
+        public JobInfo(String name, long delay, long rate, PeriodicRunnable runnable) {
+            this(name, runnable);
             this.delay = delay;
             this.rate = rate;
         }
@@ -424,24 +425,60 @@ public class Periodic {
         }
     }
 
-    private class Countdown implements Runnable {
+    private class Countdown extends PeriodicRunnable {
         private final String name;
-        private final String statement;
         private final long rate;
         private transient final Log log;
 
         public Countdown(String name, String statement, long rate, Log log) {
+            super(statement, Collections.emptyMap());
             this.name = name;
-            this.statement = statement;
             this.rate = rate;
             this.log = log;
         }
 
         @Override
         public void run() {
-            if (Periodic.this.executeNumericResultStatement(statement, Collections.emptyMap()) > 0) {
+            if (Periodic.this.executeNumericResultStatement(super.statement, Collections.emptyMap()) > 0) {
                 pools.getScheduledExecutorService().schedule(() -> submit(name, this, log), rate, TimeUnit.SECONDS);
             }
+        }
+    }
+    
+    private class Repeat extends PeriodicRunnable {
+        public Repeat(String statement, Map<String, Object> params) {
+            super(statement, params);
+        }
+
+        @Override
+        public void run() {
+            db.executeTransactionally(super.statement, super.params);
+        }
+    }
+    
+    private class Submit extends PeriodicRunnable {
+        public Submit(String statement, Map<String, Object> params) {
+            super(statement, params);
+        }
+
+        @Override
+        public void run() {
+            try {
+                db.executeTransactionally(super.statement, super.params);
+            } catch(Exception e) {
+                log.warn("in background task via submit", e);
+                throw new RuntimeException(e);
+            }
+        }
+    }
+    
+    abstract static class PeriodicRunnable implements Runnable {
+        private final String statement;
+        private final Map<String, Object> params;
+
+        public PeriodicRunnable(String statement, Map<String, Object> params) {
+            this.statement = statement;
+            this.params = params;
         }
     }
 }

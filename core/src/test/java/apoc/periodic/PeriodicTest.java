@@ -63,20 +63,23 @@ public class PeriodicTest {
         // force pre-caching the queryplan
         assertFalse(db.executeTransactionally(callList, Collections.emptyMap(), Result::hasNext));
 
-        testCall(db, "CALL apoc.periodic.submit('foo','create (:Foo)')",
+        final String query = "create (:Foo)";
+        final String name = "foo";
+        testCall(db, "CALL apoc.periodic.submit($name, $query)",
+                map("name", name, "query", query),
                 (row) -> {
-                    assertEquals("foo", row.get("name"));
                     assertEquals(false, row.get("done"));
                     assertEquals(false, row.get("cancelled"));
                     assertEquals(0L, row.get("delay"));
                     assertEquals(0L, row.get("rate"));
+                    assertionCommons("foo", query, map(), row);
                 });
 
         long count = tryReadCount(50, "MATCH (:Foo) RETURN COUNT(*) AS count", 1L);
 
         assertThat(count, equalTo(1L));
 
-        testCall(db, callList, (r) -> assertEquals(true, r.get("done")));
+        testCall(db, callList, row -> assertionCommons("foo", query, map(), row));
     }
 
     @Test
@@ -85,20 +88,24 @@ public class PeriodicTest {
         // force pre-caching the queryplan
         assertFalse(db.executeTransactionally(callList, Collections.emptyMap(), Result::hasNext));
 
-        testCall(db, "CALL apoc.periodic.submit('foo','create (:Foo { id: $id })', { params: {id: '(╯°□°)╯︵ ┻━┻'} })",
+        final String name = "foo";
+        final Map<String, String> params = map("id", "(╯°□°)╯︵ ┻━┻");
+        final String query = "create (:Foo { id: $id })";
+        testCall(db, "CALL apoc.periodic.submit($name, $query, { params: $params })",
+                map("name", name, "query", query, "params", params),
                 (row) -> {
-                    assertEquals("foo", row.get("name"));
                     assertEquals(false, row.get("done"));
                     assertEquals(false, row.get("cancelled"));
                     assertEquals(0L, row.get("delay"));
                     assertEquals(0L, row.get("rate"));
+                    assertionCommons(name, query, params, row);
                 });
 
         long count = tryReadCount(50, "MATCH (:Foo { id: '(╯°□°)╯︵ ┻━┻' }) RETURN COUNT(*) AS count", 1L);
 
         assertThat(count, equalTo(1L));
 
-        testCall(db, callList, (r) -> assertEquals(true, r.get("done")));
+        testCall(db, callList, row -> assertionCommons(name, query, params, row));
     }
 
     @Test
@@ -474,9 +481,10 @@ public class PeriodicTest {
 
         db.executeTransactionally("CREATE (counter:Counter {c: $startValue})", Collections.singletonMap("startValue", startValue));
         String statementToRepeat = "MATCH (counter:Counter) SET counter.c = counter.c - 1 RETURN counter.c as count";
+        final String query = "decrement";
 
-        Map<String, Object> params = map("statement", statementToRepeat, "rate", rate);
-        testResult(db, "CALL apoc.periodic.countdown('decrement', $statement, $rate)", params, r -> {
+        Map<String, Object> params = map("query", query, "statement", statementToRepeat, "rate", rate);
+        testResult(db, "CALL apoc.periodic.countdown($query, $statement, $rate)", params, r -> {
             try {
                 // Number of iterations per rate (in seconds)
                 Thread.sleep(startValue * rate * 1000);
@@ -487,12 +495,24 @@ public class PeriodicTest {
             long count = TestUtil.singleResultFirstColumn(db, "MATCH (counter:Counter) RETURN counter.c as c");
             assertEquals(0L, count);
         });
+
+        testCall(db, "CALL apoc.periodic.list", 
+                row -> assertionCommons(query, statementToRepeat, map(), row));
+        
+        testCall(db, "CALL apoc.periodic.cancel('decrement')", 
+                row -> assertionCommons(query, statementToRepeat, map(), row));
     }
 
     @Test
     public void testRepeatParams() {
-        db.executeTransactionally(
-                "CALL apoc.periodic.repeat('repeat-params', 'MERGE (person:Person {name: $nameValue})', 2, {params: {nameValue: 'John Doe'}} ) YIELD name RETURN name" );
+        String query = "MERGE (person:Person {name: $nameValue})";
+        final Map<String, String> params = map("nameValue", "John Doe");
+        
+        String name = "repeat-params";
+        testCall(db, "CALL apoc.periodic.repeat($name, $query, 2, {params: $params })", 
+                map("name", name, "query", query, "params", params), 
+                row -> assertionCommons(name, query, params, row));
+        
         try {
             Thread.sleep(3000);
         } catch (InterruptedException e) {
@@ -503,6 +523,18 @@ public class PeriodicTest {
                 "MATCH (p:Person {name: 'John Doe'}) RETURN p.name AS name",
                 row -> assertEquals( row.get( "name" ), "John Doe" )
         );
+        
+        testCall(db, "CALL apoc.periodic.list", row -> assertionCommons(name, query, params, row));
+        
+        testCall(db, "CALL apoc.periodic.cancel('repeat-params')", row -> assertionCommons(name, query, params, row));
+        
+        TestUtil.testCallEmpty(db, "CALL apoc.periodic.cancel('repeat-params')", map());
+    }
+    
+    private void assertionCommons(String name, String statement, Map<String, String> params, Map<String, Object> row) {
+        assertEquals(name, row.get("name"));
+        assertEquals(statement, row.get("statement"));
+        assertEquals(params, row.get("params"));
     }
 
     private long tryReadCount(int maxAttempts, String statement, long expected) throws InterruptedException {
