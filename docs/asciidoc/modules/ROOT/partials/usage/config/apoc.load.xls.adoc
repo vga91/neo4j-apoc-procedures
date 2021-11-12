@@ -13,7 +13,7 @@ The procedure support the following config parameters:
 | ignore | List<String> | [] | which columns to ignore
 | nullValues | List<String> | [] | which values to treat as null, e.g. `['na',false]`
 | mapping | Map | {} | per field mapping, entry key is field name, .e.g `{mapping:{'<sheet>':{type:'<type>', dateFormat: '<format>', dateParse: [<formats>]}}}`
-| timezone | String | null | default timezone in case of localtime and localdatetime without this one
+| timezone | String | `db.temporal.timezone` from `neo4j.conf` | default timezone in case of localtime and localdatetime without this one
 |===
 
 `mapping` supports the following values:

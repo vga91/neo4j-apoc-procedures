@@ -20,11 +20,6 @@ import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 import org.neo4j.procedure.UserFunction;
-import org.neo4j.values.storable.DateTimeValue;
-import org.neo4j.values.storable.DateValue;
-import org.neo4j.values.storable.LocalDateTimeValue;
-import org.neo4j.values.storable.LocalTimeValue;
-import org.neo4j.values.storable.TimeValue;
 import org.w3c.dom.CharacterData;
 import org.w3c.dom.Document;
 import org.w3c.dom.NamedNodeMap;
@@ -51,7 +46,6 @@ import java.io.StringReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.Charset;
-import java.time.ZoneId;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -67,14 +61,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
 import static apoc.util.Util.ERROR_BYTES_OR_STRING;
-import static apoc.util.Util.cleanUrl;
-import static javax.xml.stream.XMLStreamConstants.CHARACTERS;
-import static javax.xml.stream.XMLStreamConstants.END_DOCUMENT;
-import static javax.xml.stream.XMLStreamConstants.END_ELEMENT;
-import static javax.xml.stream.XMLStreamConstants.START_DOCUMENT;
-import static javax.xml.stream.XMLStreamConstants.START_ELEMENT;
 
 public class Xml {
 
@@ -109,13 +98,12 @@ public class Xml {
     private Stream<MapResult> xmlXpathToMapResult(@Name("urlOrBinary") Object urlOrBinary, boolean simpleMode, String path, Map<String, Object> config) throws Exception {
         if (config == null) config = Collections.emptyMap();
         LoadXmlConfig xmlConfig = new LoadXmlConfig(config);
-        final boolean failOnError = xmlConfig.isFailOnError();
         try {
-            Map<String, Object> headers = (Map) config.getOrDefault("headers", Collections.emptyMap());
+            Map<String, Object> headers = xmlConfig.getHeaders();
             CountingInputStream is = FileUtils.inputStreamFor(urlOrBinary, headers, null, (String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name()));
-            return parse(is, simpleMode, path, failOnError);
+            return parse(is, simpleMode, path, xmlConfig);
         } catch (Exception e){
-            if(!failOnError)
+            if(!xmlConfig.isFailOnError())
                 return Stream.of(new MapResult(Collections.emptyMap()));
             else
                 throw e;

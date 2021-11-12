@@ -27,6 +27,9 @@ apoc.load.jdbc(jdbc :: STRING?, tableOrSql :: STRING?, params = [] :: LIST? OF A
 |config|MAP?|{}
 |===
 
+== Config parameters
+include::partial$usage/config/apoc.load.jdbc.adoc[]
+
 == Output parameters
 [.procedures, opts=header]
 |===

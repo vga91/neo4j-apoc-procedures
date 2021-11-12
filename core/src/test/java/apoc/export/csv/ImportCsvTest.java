@@ -12,8 +12,6 @@ import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.ResourceIterator;
-import org.neo4j.kernel.impl.core.NodeEntity;
-import org.neo4j.kernel.impl.core.RelationshipEntity;
 import org.neo4j.graphdb.Result;
 import org.neo4j.kernel.impl.core.NodeEntity;
 import org.neo4j.kernel.impl.core.RelationshipEntity;
@@ -39,7 +37,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static java.util.Arrays.asList;
 import static apoc.util.BinaryTestUtil.fileToBinary;
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.MapUtil.map;
@@ -156,7 +153,6 @@ public class ImportCsvTest {
         }
 
         TestUtil.registerProcedure(db, ImportCsv.class);
-        db.executeTransactionally("MATCH (n) DETACH DELETE n");
     }
 
     @Test

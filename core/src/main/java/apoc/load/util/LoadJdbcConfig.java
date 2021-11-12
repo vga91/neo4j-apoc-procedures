@@ -20,7 +20,9 @@ public class LoadJdbcConfig extends CommonLoadImportConfig {
     private final boolean autoCommit;
 
     public LoadJdbcConfig(Map<String,Object> config) {
-        super(config);
+        // to preserve previous behaviour we leverage on java.sql.Timestamp (see Jdbc.ResultSetIterator.convert() method)
+        //  and not on db.temporal.timezone config (as other load procedures) 
+        super(config, null);
         config = config != null ? config : Collections.emptyMap();
         this.credentials = config.containsKey("credentials") ? createCredentials((Map<String, String>) config.get("credentials")) : null;
         this.fetchSize = Util.toLong(config.getOrDefault("fetchSize", 5000L));

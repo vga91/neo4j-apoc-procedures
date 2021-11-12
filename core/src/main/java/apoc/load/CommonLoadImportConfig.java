@@ -2,25 +2,23 @@ package apoc.load;
 
 import apoc.util.CompressionConfig;
 
-import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
+import static apoc.util.DateParseUtil.DB_TEMPORAL_TIMEZONE;
+import static apoc.util.DateParseUtil.getTimezoneIfValid;
 import static java.util.Collections.emptyList;
 
 public class CommonLoadImportConfig extends CompressionConfig {
-    
-    private List<String> ignore;
-    private List<String> nullValues;
-    private Map<String, Map<String, Object>> mapping;
-    private ZoneId zoneId = null;
+    private final List<String> ignore;
+    private final List<String> nullValues;
+    private final Map<String, Map<String, Object>> mapping;
+    private final ZoneId zoneId;
 
     public CommonLoadImportConfig(Map<String, Object> config) {
-//        this(config, ZoneId.systemDefault().getId());
-        this(config, null);
+        this(config, DB_TEMPORAL_TIMEZONE);
     }
     
     public CommonLoadImportConfig(Map<String, Object> config, String zoneId) {
@@ -33,19 +31,6 @@ public class CommonLoadImportConfig extends CompressionConfig {
         ignore = (List<String>) config.getOrDefault("ignore", emptyList());
         nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
         mapping =  (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
-    }
-
-    public static ZoneId getTimezoneIfValid(Map<String, Object> config, String defaultZone) {
-        try {
-            return Optional.ofNullable((String) config.getOrDefault("timezone", defaultZone))
-                    .map(ZoneId::of)
-                    .orElse(null);
-//            return ZoneId.of((String) config.getOrDefault("timezone", defaultZone));
-//            return config.containsKey("timezone") ?
-//                    ZoneId.of(config.get("timezone").toString()) : defaultZone;
-        } catch (DateTimeException e) {
-            throw new IllegalArgumentException(String.format("The timezone field contains an error: %s", e.getMessage()));
-        }
     }
 
     public ZoneId getZoneId(){
