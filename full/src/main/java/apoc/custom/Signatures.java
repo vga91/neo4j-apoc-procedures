@@ -19,6 +19,10 @@ public class Signatures {
     private final String prefix;
 
     public Signatures(String prefix) {
+        // when constructor come from SignatureTest
+        if (prefix != null) {
+            CypherProceduresHandler.checkEnabled();
+        }
         this.prefix = prefix;
     }
 

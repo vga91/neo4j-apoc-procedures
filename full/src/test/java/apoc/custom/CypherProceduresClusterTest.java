@@ -12,8 +12,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.util.TestContainerUtil.testCall;
-import static apoc.util.TestContainerUtil.testCallInReadTransaction;
+import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_ENABLED;
 import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
@@ -27,7 +26,8 @@ public class CypherProceduresClusterTest {
     public static void setupCluster() {
         assumeFalse(isRunningInCI());
         TestUtil.ignoreException(() ->  cluster = TestContainerUtil
-                .createEnterpriseCluster(3, 1, Collections.emptyMap(), MapUtil.stringMap("apoc.custom.procedures.refresh", "100")),
+                .createEnterpriseCluster(3, 1, Collections.emptyMap(), 
+                        MapUtil.stringMap("apoc.custom.procedures.refresh", "100", CUSTOM_PROCEDURES_ENABLED, "true")),
                 Exception.class);
         Assume.assumeNotNull(cluster);
     }

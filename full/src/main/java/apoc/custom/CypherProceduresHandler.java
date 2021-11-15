@@ -88,7 +88,10 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     public static final String FUNCTION = "function";
     public static final String PROCEDURE = "procedure";
     public static final String CUSTOM_PROCEDURES_REFRESH = "apoc.custom.procedures.refresh";
-    public static final String CUSTOM_PROCEDURES_CHECK = "apoc.custom.procedures.check";
+    public static final String CUSTOM_PROCEDURES_ENABLED = "apoc.custom.procedures.enabled";
+    public static final String PROCEDURES_NOT_ENABLED_ERROR = "Custom procedures have not been enabled." +
+            " Set 'apoc.custom.procedures.enabled=true' in your apoc.conf file located in the $NEO4J_HOME/conf/ directory.";
+
     public static final List<FieldSignature> DEFAULT_INPUTS = singletonList(FieldSignature.inputField("params", NTMap, DefaultParameterValue.ntMap(Collections.emptyMap())));
     public static final List<FieldSignature> DEFAULT_MAP_OUTPUT = singletonList(FieldSignature.inputField("row", NTMap));
 
@@ -117,8 +120,9 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     @Override
     public void available() {
+        // I restore procs and function even with apoc.custom.procedures.enabled=false to not create inconsistency between system nodes and apoc.custom.list
         restoreProceduresAndFunctions();
-        if (apocConfig().getBoolean(CUSTOM_PROCEDURES_CHECK, true)) {
+        if (isEnabled()) {
             long refreshInterval = apocConfig().getInt(CUSTOM_PROCEDURES_REFRESH, 60000);
             restoreProceduresHandle = jobScheduler.scheduleRecurring(REFRESH_GROUP, () -> {
                 if (getLastUpdate() > lastUpdate) {
@@ -319,6 +323,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public ProcedureSignature procedureSignature(String name, String mode, List<List<String>> outputs, List<List<String>> inputs, String description) {
+        checkEnabled();
         boolean admin = false; // TODO
         return new ProcedureSignature(qualifiedName(name), inputSignatures(inputs), outputSignatures(outputs),
                 Mode.valueOf(mode.toUpperCase()), admin, null, new String[0], description, null, false, false, true, false
@@ -326,10 +331,21 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public UserFunctionSignature functionSignature(String name, String output, List<List<String>> inputs, String description) {
+        checkEnabled();
         AnyType outType = typeof(output.isEmpty() ? "LIST OF MAP" : output);
         return new UserFunctionSignature(qualifiedName(name), inputSignatures(inputs), outType, null, new String[0], description, "apoc.custom",false);
     }
 
+    private static boolean isEnabled() {
+        return apocConfig().getBoolean(CUSTOM_PROCEDURES_ENABLED, false);
+    }
+
+    public static void checkEnabled() {
+        if (!isEnabled()) {
+            throw new RuntimeException(PROCEDURES_NOT_ENABLED_ERROR);
+        }
+    }
+    
     /**
      *
      * @param signature

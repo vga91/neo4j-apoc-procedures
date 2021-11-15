@@ -20,8 +20,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.ApocConfig.apocConfig;
+import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_ENABLED;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
+import static apoc.custom.CypherProceduresHandler.PROCEDURES_NOT_ENABLED_ERROR;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.*;
 
@@ -40,6 +43,7 @@ public class CypherProceduresTest  {
     @Before
     public void setup() {
         TestUtil.registerProcedure(db, CypherProcedures.class);
+        apocConfig().setProperty(CUSTOM_PROCEDURES_ENABLED, true);
     }
 
     @Test
@@ -509,5 +513,24 @@ public class CypherProceduresTest  {
 
         // when
         TestUtil.singleResultFirstColumn(db, "return custom.answer()");
+    }
+    
+    @Test
+    public void shouldFailIfCustomProcedureConfigNotEnabled() {
+        apocConfig().setProperty(CUSTOM_PROCEDURES_ENABLED, false);
+
+        final List<String> queries = List.of("CALL apoc.custom.asProcedure('disable1','RETURN 42 as answer')",
+                "CALL apoc.custom.asFunction('disable2','RETURN 42','long')",
+                "CALL apoc.custom.declareFunction('disable3() :: STRING','RETURN 42 as answer')",
+                "CALL apoc.custom.declareProcedure('disable4() :: (answer::INT)','RETURN 42 as answer')");
+        
+        queries.forEach(query -> {
+            try {
+                db.executeTransactionally(query);
+                fail("Should fail due to disabled config");
+            } catch (RuntimeException e) {
+                assertTrue(e.getMessage().contains(PROCEDURES_NOT_ENABLED_ERROR));
+            }
+        });
     }
 }

@@ -19,6 +19,8 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.ApocConfig.apocConfig;
+import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_ENABLED;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -40,6 +42,7 @@ public class CypherProceduresStorageTest {
         databaseManagementService = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
+        apocConfig().setProperty(CUSTOM_PROCEDURES_ENABLED, true);
     }
 
     private void restartDb() throws IOException {
