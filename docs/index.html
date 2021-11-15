@@ -2019,7 +2019,7 @@ CALL apoc.generate.simple([2,2,2,2], null, null)</code></pre>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>CALL apoc.trigger.add(name, statement, selector) yield name, statement, installed</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">add a trigger statement under a name, in the statement you can use {createdNodes}, {deletedNodes} etc., the selector is {phase:'before/after/rollback'} returns previous and new trigger information</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">add a trigger statement under a name, in the statement you can use {createdNodes}, {deletedNodes} etc., the selector is {phase:'before/after/rollback/afterAsync'} returns previous and new trigger information</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>CALL apoc.trigger.remove(name) yield name, statement, installed</code></p></td>
@@ -2042,7 +2042,7 @@ CALL apoc.generate.simple([2,2,2,2], null, null)</code></pre>
 <tbody>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>apoc.trigger.nodesByLabel({assignedLabels},'Label')</code></p></td>
-<td class="tableblock halign-left valign-top"><p class="tableblock">function to filter labelEntries by label, to be used within a trigger statement with {assignedLabels} and {removedLabels} {phase:'before/after/rollback'} returns previous and new trigger information</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">function to filter labelEntries by label, to be used within a trigger statement with {assignedLabels} and {removedLabels} {phase:'before/after/rollback/afterAsync'} returns previous and new trigger information</p></td>
 </tr>
 <tr>
 <td class="tableblock halign-left valign-top"><p class="tableblock"><code>apoc.trigger.propertiesByKey({assignedNodeProperties},'key')</code></p></td>

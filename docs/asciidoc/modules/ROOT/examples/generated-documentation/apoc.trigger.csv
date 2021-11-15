@@ -1,7 +1,7 @@
 ¦Qualified Name¦Type¦Release
 |xref::overview/apoc.trigger/apoc.trigger.adoc[apoc.trigger.add icon:book[]]
 
-add a trigger kernelTransaction under a name, in the kernelTransaction you can use \{createdNodes}, \{deletedNodes} etc., the selector is {phase:'before/after/rollback'} returns previous and new trigger information. Takes in an optional configuration.
+add a trigger kernelTransaction under a name, in the kernelTransaction you can use \{createdNodes}, \{deletedNodes} etc., the selector is {phase:'before/after/rollback/afterAsync'} returns previous and new trigger information. Takes in an optional configuration.
 |label:procedure[]
 |label:apoc-core[]
 |xref::overview/apoc.trigger/apoc.trigger.adoc[apoc.trigger.list icon:book[]]
