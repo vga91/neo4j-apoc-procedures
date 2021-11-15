@@ -384,7 +384,7 @@ public class Coll {
         return result.stream().map(ListResult::new);
     }
 
-    private Stream<List<Object>> partitionList(@Name("values") List list, @Name("batchSize") int batchSize) {
+    public static Stream<List<Object>> partitionList(@Name("values") List list, @Name("batchSize") int batchSize) {
         int total = list.size();
         int pages = total % batchSize == 0 ? total/batchSize : total/batchSize + 1;
         return IntStream.range(0, pages).parallel().boxed()

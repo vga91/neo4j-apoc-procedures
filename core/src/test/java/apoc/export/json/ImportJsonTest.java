@@ -65,19 +65,33 @@ public class ImportJsonTest {
     }
 
     @Test
+    public void shouldImportAllJsonWithClearIds() throws Exception {
+        importAllCommons(true, "neo4jImportId", "CALL apoc.import.json($file, $config)");
+    }
+
+    @Test
     public void shouldImportAllJson() throws Exception {
-        db.executeTransactionally("CREATE CONSTRAINT ON (n:User) assert n.neo4jImportId IS UNIQUE");
-        
+        importAllCommons(false, "neo4jImportId", "CALL apoc.import.json($file, null)");
+    }
+
+    @Test
+    public void shouldImportAllJsonWithClearIdsAndCustomId() throws Exception {
+        importAllCommons(true, "mySuperId", "CALL apoc.import.json($file, $config)");
+    }
+
+    private void importAllCommons(boolean isClear, String customId, String query) {
+        db.executeTransactionally(format("CREATE CONSTRAINT ON (n:User) assert n.%s IS UNIQUE", customId));
+
         // given
         String filename = "all.json";
 
         // when
-        TestUtil.testCall(db, "CALL apoc.import.json($file, null)",
-                map("file", filename),
-                (r) -> assertionsAllJsonProgressInfo(r, false)
+        TestUtil.testCall(db, query, 
+                map("file", filename, "config", map("cleanup", isClear, "importIdName", customId)),
+                (r) -> assertionsAllJsonProgressInfo(r, false, isClear)
         );
 
-        assertionsAllJsonDbResult();
+        assertionsAllJsonDbResult(isClear, customId);
     }
 
     @Test
@@ -272,18 +286,26 @@ public class ImportJsonTest {
     }
 
     private void assertionsAllJsonProgressInfo(Map<String, Object> r, boolean isBinary) {
+        assertionsAllJsonProgressInfo(r, isBinary, false);
+    }
+
+    private void assertionsAllJsonProgressInfo(Map<String, Object> r, boolean isBinary, boolean isClear) {
         // then
         Assert.assertEquals(isBinary ? null : "all.json", r.get("file"));
         Assert.assertEquals(isBinary ? "binary" : "file", r.get("source"));
         Assert.assertEquals("json", r.get("format"));
         Assert.assertEquals(3L, r.get("nodes"));
         Assert.assertEquals(1L, r.get("relationships"));
-        Assert.assertEquals(15L, r.get("properties"));
+        Assert.assertEquals(isClear ? 11L : 15L, r.get("properties"));
         Assert.assertEquals(4L, r.get("rows"));
         Assert.assertEquals(true, r.get("done"));
     }
 
     private void assertionsAllJsonDbResult() {
+        assertionsAllJsonDbResult(false, "neo4jImportId");
+    }
+
+    private void assertionsAllJsonDbResult(boolean isClear, String importId) {
         try(Transaction tx = db.beginTx()) {
             final long countNodes = tx.execute("MATCH (n:User) RETURN count(n) AS count")
                     .<Long>columnAs("count")
@@ -300,11 +322,12 @@ public class ImportJsonTest {
                     .next()
                     .getAllProperties();
 
-            Assert.assertEquals(9, props.size());
+            Assert.assertEquals(isClear ? 8 : 9, props.size());
             Assert.assertEquals("wgs-84", props.get("place.crs"));
             Assert.assertEquals(13.1D, props.get("place.latitude"));
             Assert.assertEquals(33.46789D, props.get("place.longitude"));
             Assert.assertFalse(props.containsKey("place"));
+            Assert.assertNotEquals(isClear, props.containsKey(importId));
         }
     }
 }

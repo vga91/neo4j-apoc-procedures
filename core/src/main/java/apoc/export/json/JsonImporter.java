@@ -6,12 +6,12 @@ import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.Schema;
-import org.neo4j.values.storable.CoordinateReferenceSystem;
+import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.PointValue;
-import org.neo4j.values.storable.Values;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -31,10 +31,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static apoc.coll.Coll.partitionList;
+
 public class JsonImporter implements Closeable {
     private static final String UNWIND = "UNWIND $rows AS row ";
     private static final String CREATE_NODE = UNWIND +
-            "CREATE (n%s {%s: row.id}) SET n += row.properties";
+            "CREATE (n%1$s {%2$s: row.id}) SET n += row.properties RETURN n.%2$s as ids";
     private static final String CREATE_RELS = UNWIND +
             "MATCH (s%s {%s: row.start.id}) " +
             "MATCH (e%s {%2$s: row.end.id}) " +
@@ -47,6 +49,7 @@ public class JsonImporter implements Closeable {
     private final int txBatchSize;
     private final GraphDatabaseService db;
     private final Reporter reporter;
+    private final List<String> ids = new ArrayList<>();
 
     private String lastType;
     private List<String> lastLabels;
@@ -168,7 +171,7 @@ public class JsonImporter implements Closeable {
     }
 
     private void updateReporter(String type, Map<String, Object> properties) {
-        final int size = properties.size() + 1; // +1 is for the "neo4jImportId"
+        final int size = properties.size() + (importJsonConfig.getCleanup() ? 0 : 1); // +1 is for the "neo4jImportId"
         switch (type) {
             case "node":
                 reporter.update(1, 0, size);
@@ -321,7 +324,11 @@ public class JsonImporter implements Closeable {
                 throw new IllegalArgumentException("Current type not supported: " + type);
         }
         if (StringUtils.isNotBlank(query)) {
-            db.executeTransactionally(query, Collections.singletonMap("rows", resultList));
+            final Result result = db.executeTransactionally(query, Collections.singletonMap("rows", resultList), r -> r);
+            // add the ids to be used in clear()
+            if (type.equals("node")) {
+                ids.addAll(Iterators.asList(result.columnAs("ids")));
+            }
         }
     }
 
@@ -336,6 +343,7 @@ public class JsonImporter implements Closeable {
     public void close() throws IOException {
         flush();
         reporter.done();
+        clear();
     }
 
     private void flush() {
@@ -345,6 +353,14 @@ public class JsonImporter implements Closeable {
                 results.forEach(resultList -> write(tx, resultList));
             }
             paramList.clear();
+        }
+    }
+
+    public void clear() {
+        if (importJsonConfig.getCleanup()) { 
+            final String cleanQuery = String.format("UNWIND $i as id WITH id MATCH (n) WHERE n.%1$s = id REMOVE n.%1$s", importJsonConfig.getImportIdName());
+            partitionList(ids, importJsonConfig.getTxBatchSize())
+                    .forEach(i -> db.executeTransactionally(cleanQuery, Map.of("i", i )));
         }
     }
 }
