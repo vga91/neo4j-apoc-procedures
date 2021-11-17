@@ -19,6 +19,9 @@ public enum SystemPropertyKeys  {
     selector,
     params,
     paused,
+    
+    // dv
+    data,
 
     // uuid handler
     label,

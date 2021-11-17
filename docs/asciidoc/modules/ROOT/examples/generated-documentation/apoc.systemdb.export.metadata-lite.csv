@@ -1,0 +1,2 @@
+¦signature
+¦apoc.systemdb.export.metadata(config = {} :: MAP?) :: VOID

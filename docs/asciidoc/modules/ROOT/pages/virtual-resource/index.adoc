@@ -156,6 +156,14 @@ CALL apoc.dv.catalog.add("prod-details-by-id", {
 })
 ----
 
+=== Export metadata
+
+[NOTE]
+====
+To import dv catalogs in another database (for example after a `./neo4j-admin backup` and `/neo4j-admin restore`),
+please see the xref::overview/apoc.systemdb/apoc.systemdb.export.metadata.adoc[apoc.systemdb.export.metadata] procedure.
+====
+
 === Querying a Virtualized Resource (CSV)
 
 Identical to the JDBC case, we can query a virtualized CSV resource by name passing only the required parameters:
