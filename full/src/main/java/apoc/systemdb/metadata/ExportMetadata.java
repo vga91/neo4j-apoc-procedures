@@ -32,13 +32,6 @@ public interface ExportMetadata {
             return exportMetadata.export(node);
         }
         
-        public static Type from(String type) {
-            return Stream.of(Type.values())
-                    .filter(t -> t.name().equalsIgnoreCase(type))
-                    .findFirst()
-                    .get();
-        }
-        
         public static Optional<Type> from(Label label) {
             final String name = label.name();
             if (name.equals(SystemLabels.Procedure.name())) {
