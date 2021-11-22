@@ -3,17 +3,15 @@ package apoc.systemdb;
 import apoc.ApocConfig;
 import apoc.Description;
 import apoc.Extended;
-import apoc.SystemLabels;
-import apoc.SystemPropertyKeys;
-import apoc.custom.CypherProceduresHandler;
 import apoc.export.cypher.ExportFileManager;
 import apoc.export.cypher.FileManagerFactory;
+import apoc.export.util.ProgressReporter;
+import apoc.result.ProgressInfo;
 import apoc.result.RowResult;
 import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
 import apoc.systemdb.metadata.ExportMetadata;
 import apoc.util.Util;
-import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -29,8 +27,6 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.io.PrintWriter;
-import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -69,20 +65,22 @@ public class SystemDb {
     
     @Procedure(name = "apoc.systemdb.export.metadata")
     @Description("apoc.systemdb.export.metadata($conf) - export the apoc feature saved in system db (that is: customProcedures, triggers, uuids, and dvCatalogs) in multiple files called <FILE_NAME>.<FEATURE_NAME>.<DB_NAME>.cypher")
-    public void metadata(@Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+    public Stream<ProgressInfo> metadata(@Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
         final SystemDbConfig conf = new SystemDbConfig(config);
         final String fileName = conf.getFileName();
         apocConfig.checkWriteAllowed(null, fileName);
-        
+
+        ProgressInfo progressInfo = new ProgressInfo(fileName, null, "cypher");
+        ProgressReporter progressReporter = new ProgressReporter(null, null, progressInfo);
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName + ".cypher", true);
         withSystemDbTransaction(tx -> {
                     tx.getAllNodes()
                     .stream()
                     .flatMap(node -> StreamSupport.stream(node.getLabels().spliterator(), false)
-                                .map(ExportMetadata.Type::from)
+                                .map(label -> ExportMetadata.Type.from(label, conf))
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
-                                .flatMap(type -> type.export(node))
+                                .flatMap(type -> type.export(node, progressReporter).stream())
                     )
                     .collect(Collectors.groupingBy(Pair::first, Collectors.toList()))
                     .forEach((fileNameSuffix, fileContent) -> {
@@ -95,6 +93,9 @@ public class SystemDb {
                     });
             return null;
         });
+        
+        progressReporter.done();
+        return progressReporter.stream();
     }
 
     @Procedure

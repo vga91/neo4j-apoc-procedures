@@ -2,13 +2,15 @@ package apoc.systemdb.metadata;
 
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
+import apoc.export.util.ProgressReporter;
+import apoc.systemdb.SystemDbConfig;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.internal.helpers.collection.Pair;
 
+import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 public interface ExportMetadata {
     
@@ -25,28 +27,35 @@ public interface ExportMetadata {
             this.exportMetadata = exportMetadata;
         }
         
-        public Stream<Pair<String, String>> export(Node node) {
-            return exportMetadata.export(node);
+        public List<Pair<String, String>> export(Node node, ProgressReporter progressReporter) {
+            return exportMetadata.export(node, progressReporter);
         }
         
-        public static Optional<Type> from(Label label) {
+        public static Optional<Type> from(Label label, SystemDbConfig config) {
             final String name = label.name();
             if (name.equalsIgnoreCase(SystemLabels.Procedure.name())) {
-                return Optional.of(CypherProcedure);
+                return getIfConfigMatch(CypherProcedure, config);
             } else if(name.equalsIgnoreCase(SystemLabels.Function.name())) {
-                return Optional.of(CypherFunction);
+                return getIfConfigMatch(CypherFunction, config);
             } else if(name.equalsIgnoreCase(SystemLabels.ApocTrigger.name())) {
-                return Optional.of(Trigger);
+                return getIfConfigMatch(Trigger, config);
             } else if(name.equalsIgnoreCase(SystemLabels.ApocUuid.name())) {
-                return Optional.of(Uuid);
+                return getIfConfigMatch(Uuid, config);
             } else if(name.equalsIgnoreCase(SystemLabels.DataVirtualizationCatalog.name())) {
-                return Optional.of(DataVirtualizationCatalog);
+                return getIfConfigMatch(DataVirtualizationCatalog, config);
             }
             return Optional.empty();
         }
+
+        
+        private static Optional<Type> getIfConfigMatch(Type cypherProcedure, SystemDbConfig config) {
+            return config.getFeatures().contains(cypherProcedure.name())
+                    ? Optional.of(cypherProcedure)
+                    : Optional.empty();
+        }
     }
 
-    Stream<Pair<String, String>> export(Node node);
+    List<Pair<String, String>> export(Node node, ProgressReporter progressReporter);
     
     default String getFileName(Node node, String prefix) {
         // we create a file featureName.dbName because there could be features coming from different databases

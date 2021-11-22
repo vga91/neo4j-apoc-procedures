@@ -11,7 +11,7 @@ label:procedure[] label:apoc-core[]
 
 [source]
 ----
-apoc.systemdb.export.metadata(config = {} :: MAP?) :: VOID
+apoc.systemdb.export.metadata(config = {} :: MAP?) :: (file :: STRING?, source :: STRING?, format :: STRING?, nodes :: INTEGER?, relationships :: INTEGER?, properties :: INTEGER?, time :: INTEGER?, rows :: INTEGER?, batchSize :: INTEGER?, batches :: INTEGER?, done :: BOOLEAN?, data :: STRING?)
 ----
 
 == Input parameters
@@ -24,6 +24,25 @@ apoc.systemdb.export.metadata(config = {} :: MAP?) :: VOID
 == Config parameters
 include::partial$usage/config/apoc.systemdb.export.metadata.adoc[]
 
+== Output parameters
+[.procedures, opts=header]
+|===
+| Name | Type 
+|file|STRING?
+|source|STRING?
+|format|STRING?
+|nodes|INTEGER?
+|relationships|INTEGER?
+|properties|INTEGER?
+|time|INTEGER?
+|rows|INTEGER?
+|batchSize|INTEGER?
+|batches|INTEGER?
+|done|BOOLEAN?
+|data|STRING?
+|===
+
 [[usage-apoc.systemdb.export.metadata]]
 == Usage Examples
 include::partial$usage/apoc.systemdb.export.metadata.adoc[]
+

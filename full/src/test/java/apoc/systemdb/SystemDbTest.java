@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -105,71 +106,74 @@ public class SystemDbTest {
     
     @Test
     public void testExportMetadata() {
-        final String triggerOne = "CALL apoc.trigger.add('firstTrigger','RETURN $alpha', {phase: \"after\"}, {params: {alpha: 1}});";
-        final String triggerTwo = "CALL apoc.trigger.add('beta','RETURN 1', null, {params:{}});";
+        // We test triggers
+        final String triggerOne = "CALL apoc.trigger.add('firstTrigger', 'RETURN $alpha', {phase:\"after\"}, {params: {alpha:1}});";
+        final String triggerTwo = "CALL apoc.trigger.add('beta', 'RETURN 1', null, {params: {}});";
+        // In this case we paused to test that it will be exported as paused
         final String pauseTrigger = "CALL apoc.trigger.pause('beta');";
-
         db.executeTransactionally(triggerOne);
         db.executeTransactionally(triggerTwo);
         db.executeTransactionally(pauseTrigger);
 
-        final String declareFunction = "CALL apoc.custom.declareFunction('funName(input::NUMBER?)::(INTEGER?)','RETURN $input as answer',false,'');";
+        // We test custom procedures and functions
+        final String declareFunction = "CALL apoc.custom.declareFunction('declareFoo(input :: NUMBER?) :: (INTEGER?)', 'RETURN $input as answer', false, '');";
         db.executeTransactionally(declareFunction);
-        final String declareProcedure = "CALL apoc.custom.declareProcedure('declareBar(one = 2 ::INTEGER?, two = 3 :: INTEGER?) :: (sum :: INTEGER?)', 'RETURN $one + $two as sum', 'READ','');";
+        final String declareProcedure = "CALL apoc.custom.declareProcedure('declareBar(one = 2 :: INTEGER?, two = 3 :: INTEGER?) :: (sum :: INTEGER?)', 'RETURN $one + $two as sum', 'READ', '');";
         db.executeTransactionally(declareProcedure);
 
-        String declareStatementFromFunction = "CALL apoc.custom.declareFunction('funName(input :: NUMBER?) :: (INTEGER?)', 'RETURN $input as answer' , false, '');";
-        String declareStatementFromProcedure = "CALL apoc.custom.declareProcedure('procName(input = 42 :: INTEGER?) :: (answer :: NUMBER?)', 'RETURN $input as answer' , 'READ', 'Procedure that answer to the Ultimate Question of Life, the Universe, and Everything');";
-
+        // We test custom procedures and functions with deprecated syntax
+        // the expected exported cypher queries will leverage the new procedures (declareFunction and declareProcedure) 
         db.executeTransactionally("CALL apoc.custom.asProcedure('procName','RETURN $input as answer','read',[['answer','number']],[['input','int','42']], 'Procedure that answer to the Ultimate Question of Life, the Universe, and Everything');");
-        db.executeTransactionally("CALL apoc.custom.asFunction('funName','RETURN $input as answer','long', [['input','number']], false);");
+        db.executeTransactionally("CALL apoc.custom.asFunction('funName','RETURN $input as answer', 'long', [['input','number']], false);");
+        String declareStatementFromFunction = "CALL apoc.custom.declareFunction('funName(input :: NUMBER?) :: (INTEGER?)', 'RETURN $input as answer', false, '');";
+        String declareStatementFromProcedure = "CALL apoc.custom.declareProcedure('procName(input = 42 :: INTEGER?) :: (answer :: NUMBER?)', 'RETURN $input as answer', 'READ', 'Procedure that answer to the Ultimate Question of Life, the Universe, and Everything');";
 
+        // We test uuid, we also need to export the related constraint (in another file)
         final String constraintForUuid = "CREATE CONSTRAINT IF NOT EXISTS ON (n:Person) ASSERT n.alpha IS UNIQUE;";
         db.executeTransactionally(constraintForUuid);
-        final String uuidStatement = "CALL apoc.uuid.install('Person', {uuidProperty: \"alpha\",addToSetLabels: true});";
+        final String uuidStatement = "CALL apoc.uuid.install('Person', {uuidProperty:\"alpha\",addToSetLabels:true});";
         db.executeTransactionally(uuidStatement);
 
-        final String dvStatement = "CALL apoc.dv.catalog.add('dvName',{name:\"dvName\",url:\"file://myUrl\",desc:\"person's details\",labels:[\"Person\"],query:\"map.name = $name and map.age = $age\",params:[\"$name\",\"$age\"],type:\"CSV\"})";
+        // We test the data virtualization catalog
+        final String dvStatement = "CALL apoc.dv.catalog.add('dvName', {name:\"dvName\",url:\"file://myUrl\",desc:\"person's details\",labels:[\"Person\"],query:\"map.name = $name and map.age = $age\",params:[\"$name\",\"$age\"],type:\"CSV\"})";
         db.executeTransactionally(dvStatement);
 
-        TestUtil.testCallEmpty(db, "CALL apoc.systemdb.export.metadata", Collections.emptyMap());
+        TestUtil.testCall(db, "CALL apoc.systemdb.export.metadata", row -> {
+            assertEquals(8L, row.get("rows"));
+            assertEquals(true, row.get("done"));
+            assertEquals("metadata", row.get("file"));
+        });
         
-        assertEquals(cleanStatement(constraintForUuid), readLines("metadata.Uuid.schema.neo4j.cypher"));
-        assertEquals(cleanStatement(uuidStatement), readLines("metadata.Uuid.neo4j.cypher"));
-        assertEquals(cleanStatement(triggerOne, triggerTwo, pauseTrigger), readLines("metadata.Trigger.neo4j.cypher"));        
-        assertEquals(cleanStatement(declareProcedure, declareStatementFromProcedure), readLines("metadata.CypherProcedure.neo4j.cypher"));
-        assertEquals(cleanStatement(declareFunction, declareStatementFromFunction), readLines("metadata.CypherFunction.neo4j.cypher"));
-        assertEquals(cleanStatement(dvStatement), readLines("metadata.DataVirtualizationCatalog.neo4j.cypher"));
+        assertEquals(Set.of(constraintForUuid), readLines("metadata.Uuid.schema.neo4j.cypher"));
+        assertEquals(Set.of(uuidStatement), readLines("metadata.Uuid.neo4j.cypher"));
+        assertEquals(Set.of(triggerOne, triggerTwo, pauseTrigger), readLines("metadata.Trigger.neo4j.cypher"));
+        assertEquals(Set.of(declareProcedure, declareStatementFromProcedure), readLines("metadata.CypherProcedure.neo4j.cypher"));
+        assertEquals(Set.of(declareFunction, declareStatementFromFunction), readLines("metadata.CypherFunction.neo4j.cypher"));
+        assertEquals(Set.of(dvStatement), readLines("metadata.DataVirtualizationCatalog.neo4j.cypher"));
         
         // -- with config and uuid constrain dropped
         db.executeTransactionally("DROP CONSTRAINT ON (p:Person) ASSERT p.alpha IS UNIQUE");
-        TestUtil.testCallEmpty(db, "CALL apoc.systemdb.export.metadata($config)", 
-                Map.of("config", Map.of(FILENAME_KEY, "custom", FEATURES_KEY, Set.of(ExportMetadata.Type.Uuid.name()))));
+        TestUtil.testCall(db, "CALL apoc.systemdb.export.metadata($config)", 
+                Map.of("config", Map.of(FILENAME_KEY, "custom", FEATURES_KEY, Set.of(ExportMetadata.Type.Uuid.name()))), 
+                row -> {
+                    assertEquals(1L, row.get("rows"));
+                    assertEquals(true, row.get("done"));
+                    assertEquals("custom", row.get("file")); 
+        });
 
         db.executeTransactionally("CALL apoc.uuid.removeAll");
         db.executeTransactionally("CALL apoc.trigger.removeAll");
 
-        assertEquals(cleanStatement(constraintForUuid), readLines("custom.Uuid.schema.neo4j.cypher"));
-        assertEquals(cleanStatement(uuidStatement), readLines("custom.Uuid.neo4j.cypher"));
-    }
-
-    private Set<String> cleanStatement(String ...statements) {
-        return Stream.of(statements)
-                .map(this::statementCleaning)
-                .collect(Collectors.toSet());
+        assertEquals(Set.of(constraintForUuid), readLines("custom.Uuid.schema.neo4j.cypher"));
+        assertEquals(Set.of(uuidStatement), readLines("custom.Uuid.neo4j.cypher"));
     }
 
     private Set<String> readLines(String fileName) {
         try {
-            return FileUtils.readLines(new File(directory, fileName), StandardCharsets.UTF_8).stream()
-                    .map(this::statementCleaning)
-                    .collect(Collectors.toSet());
+            final List<String> fileLines = FileUtils.readLines(new File(directory, fileName), StandardCharsets.UTF_8);
+            return new HashSet<>(fileLines);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-    
-    private String statementCleaning(String string) {
-        return string.replaceAll("\\s*:\\s*", ":").replaceAll("\\s*,\\s*", ",");
     }
 }
