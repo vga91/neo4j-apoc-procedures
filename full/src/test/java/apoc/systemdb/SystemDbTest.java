@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
 import static apoc.systemdb.SystemDbConfig.FEATURES_KEY;
@@ -153,7 +154,7 @@ public class SystemDbTest {
     }
 
     private Set<String> cleanStatement(String ...statements) {
-        return Set.of(statements).stream()
+        return Stream.of(statements)
                 .map(this::statementCleaning)
                 .collect(Collectors.toSet());
     }

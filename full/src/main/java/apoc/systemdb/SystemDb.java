@@ -83,12 +83,11 @@ public class SystemDb {
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
                                 .flatMap(type -> type.export(node))
-                                .map(i -> Pair.of(i.first(), i.other()))
                     )
                     .collect(Collectors.groupingBy(Pair::first, Collectors.toList()))
-                    .forEach((k, v) -> {
-                        try(PrintWriter writer = cypherFileManager.getPrintWriter(k)) {
-                            final String stringStatement = v.stream()
+                    .forEach((fileNameSuffix, fileContent) -> {
+                        try(PrintWriter writer = cypherFileManager.getPrintWriter(fileNameSuffix)) {
+                            final String stringStatement = fileContent.stream()
                                     .map(Pair::other)
                                     .collect(Collectors.joining("\n"));
                             writer.write(stringStatement);
