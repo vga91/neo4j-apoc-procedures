@@ -166,8 +166,6 @@ public class SystemDbTest {
 
         allFeaturesAssertions(procName, funName, declareFunName, declareProcName, triggerNameOne, triggerNameTwo, dvMap);
         
-        
-        
         // -- with config and uuid constrain dropped
         db.executeTransactionally("DROP CONSTRAINT ON (p:Person) ASSERT p.alpha IS UNIQUE");
         TestUtil.testCallEmpty(db, "CALL apoc.systemdb.export.metadata($config)", 
@@ -178,7 +176,7 @@ public class SystemDbTest {
 
         // check features removed
         List.of("CALL apoc.trigger.list", "CALL apoc.uuid.list").forEach(query -> TestUtil.testCallEmpty(db, query, Collections.emptyMap()));
-        
+
         db.executeTransactionally("CALL apoc.cypher.runSchemaFile($file)", Map.of("file", "custom.uuids.schema.neo4j.cypher"));
         db.executeTransactionally("CALL apoc.cypher.runFiles($files)", Map.of("files", List.of("custom.triggers.neo4j.cypher", "custom.uuids.neo4j.cypher")));
         assertionUuidAndTrigger(triggerNameOne, triggerNameTwo);

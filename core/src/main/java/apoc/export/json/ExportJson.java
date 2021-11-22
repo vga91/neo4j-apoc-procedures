@@ -86,7 +86,7 @@ public class ExportJson {
         return exportJson(fileName, source,result,config);
     }
 
-    public Stream<ProgressInfo> exportJson(String fileName, String source, Object data, Map<String,Object> config) throws Exception {
+    private Stream<ProgressInfo> exportJson(String fileName, String source, Object data, Map<String,Object> config) throws Exception {
         ExportConfig exportConfig = new ExportConfig(config);
         apocConfig.checkWriteAllowed(exportConfig, fileName);
         final String format = "json";

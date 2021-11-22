@@ -113,7 +113,7 @@ public class ExportCypher {
         return exportCypher(fileName, source, new DatabaseSubGraph(tx), new ExportConfig(config), true);
     }
 
-    public Stream<DataProgressInfo> exportCypher(@Name("file") String fileName, String source, SubGraph graph, ExportConfig c, boolean onlySchema) throws IOException {
+    private Stream<DataProgressInfo> exportCypher(@Name("file") String fileName, String source, SubGraph graph, ExportConfig c, boolean onlySchema) throws IOException {
         apocConfig.checkWriteAllowed(c, fileName);
 
         ProgressInfo progressInfo = new ProgressInfo(fileName, source, "cypher");
