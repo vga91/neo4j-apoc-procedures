@@ -20,7 +20,7 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterables;
-import org.neo4j.internal.kernel.api.procs.FieldSignature;
+import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.internal.kernel.api.procs.ProcedureCallContext;
 import org.neo4j.internal.kernel.api.security.SecurityContext;
 import org.neo4j.kernel.impl.coreapi.TransactionImpl;
@@ -83,12 +83,15 @@ public class SystemDb {
                                 .filter(Optional::isPresent)
                                 .map(Optional::get)
                                 .flatMap(type -> type.export(node))
-                                .map(AbstractMap.SimpleEntry::new))
-                    .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue,
-                            (e, e1) -> e + "\n" + e1  ))
+                                .map(i -> Pair.of(i.first(), i.other()))
+                    )
+                    .collect(Collectors.groupingBy(Pair::first, Collectors.toList()))
                     .forEach((k, v) -> {
                         try(PrintWriter writer = cypherFileManager.getPrintWriter(k)) {
-                            writer.write(v);
+                            final String stringStatement = v.stream()
+                                    .map(Pair::other)
+                                    .collect(Collectors.joining("\n"));
+                            writer.write(stringStatement);
                         }
                     });
             return null;

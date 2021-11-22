@@ -3,18 +3,16 @@ package apoc.systemdb.metadata;
 import apoc.SystemPropertyKeys;
 import apoc.custom.CypherProceduresHandler;
 import org.neo4j.graphdb.Node;
+import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.internal.kernel.api.procs.FieldSignature;
 
-import java.util.AbstractMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static apoc.systemdb.SystemDbConfig.CUSTOM_PROCEDURES_FUNCTIONS;
 
 public class ExportProcedure implements ExportMetadata {
 
     @Override
-    public Stream export(Node node) {
+    public Stream<Pair<String, String>> export(Node node) {
         final String inputs = getSignature(node, SystemPropertyKeys.inputs.name());
 
         final String outputName = SystemPropertyKeys.output.name();
@@ -28,7 +26,7 @@ public class ExportProcedure implements ExportMetadata {
                 node.getProperty(SystemPropertyKeys.mode.name()),
                 node.getProperty(SystemPropertyKeys.description.name()));
 
-        return Stream.of(new AbstractMap.SimpleEntry<>(getFileName(node, CUSTOM_PROCEDURES_FUNCTIONS), statement));
+        return Stream.of(Pair.of(getFileName(node, Type.CypherProcedure.name()), statement));
     }
 
     
