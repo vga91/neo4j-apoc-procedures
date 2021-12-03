@@ -1,6 +1,7 @@
 package apoc.nodes;
 
 import apoc.create.Create;
+import apoc.cypher.Cypher;
 import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
 import apoc.util.TestUtil;
@@ -35,6 +36,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.neo4j.graphdb.Label.label;
 import static org.neo4j.internal.helpers.collection.Iterators.asSet;
 
@@ -58,7 +60,7 @@ public class NodesTest {
 
     @Before
     public void setUp() throws Exception {
-        TestUtil.registerProcedure(db, Nodes.class, Create.class);
+        TestUtil.registerProcedure(db, Nodes.class, Create.class, Cypher.class);
     }
 
     @Test
@@ -465,6 +467,28 @@ public class NodesTest {
         assertEquals(singletonMap("foo","bar"), TestUtil.singleResultFirstColumn(db,"CREATE (f) WITH f CALL apoc.create.vRelationship(f,'REL',{foo:'bar'},f) YIELD rel RETURN apoc.any.properties(rel) AS props"));
 
         assertNull(TestUtil.singleResultFirstColumn(db,"RETURN apoc.any.properties(null) AS props"));
+    }
+
+    @Test
+    public void testIsDeleted() {
+        TestUtil.testCall(db, "create (n:Node) return apoc.any.isDeleted(n) as deleted", r -> assertEquals(false, r.get("deleted")) );
+        TestUtil.testCall(db, "create (n:Node), (m:Node) return apoc.any.areDeleted([n,m]) as deleted", r -> assertEquals(false, r.get("deleted")) );
+        
+        TestUtil.testCall(db, "create (n:Node) with n delete n with n \n" +
+                "call apoc.do.when(apoc.any.isDeleted(n), 'RETURN 1', 'call apoc.create.setProperty(n, \"nodes\", 1) yield node return node', {n: n}) yield value return value", r -> {
+            assertEquals(Map.of("1", 1L), r.get("value"));
+        });
+        
+        TestUtil.testCall(db, "create (n:Node), (m:Node) with n,m delete n with [n,m] as nodes \n" +
+                "call apoc.do.when(apoc.any.areDeleted(nodes), 'RETURN 1', 'call apoc.create.addLabels(nodes, [\"Label\"]) yield node return node' , {nodes: nodes}) yield value return value", r -> {
+            assertEquals(Map.of("1", 1L), r.get("value"));
+        });
+        
+        try {
+            TestUtil.testCall(db, "RETURN apoc.any.isDeleted('nodes')", r -> fail());
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("entity parameter must be an object of type org.neo4j.graphdb.Entity"));
+        }
     }
 
     @Test

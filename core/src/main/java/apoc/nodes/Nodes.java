@@ -20,6 +20,7 @@ import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.PathExpander;
 import org.neo4j.graphdb.PathExpanderBuilder;
@@ -53,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -505,6 +507,33 @@ public class Nodes {
         return (rel == null) ? null : rel.getType().name();
     }
 
+    @UserFunction("apoc.any.isDeleted")
+    @Description("apoc.any.isDeleted(node/rel) - check if an entity is deleted")
+    public boolean isDeleted(@Name("entity") Object entity) {
+        if (entity instanceof Entity) {
+            final long id = ((Entity) entity).getId();
+            return entity instanceof Node 
+                    ? isDeleted(() -> tx.getNodeById(id))
+                    : isDeleted(() -> tx.getRelationshipById(id));
+        }
+        throw new RuntimeException("entity parameter must be an object of type " + Entity.class.getName());
+    }
+
+    @UserFunction("apoc.any.areDeleted")
+    @Description("apoc.any.areDeleted(nodes/rels) - check if at least on entity into the list is deleted")
+    public boolean areDeleted(@Name("entities") List entities, @Name(value = "node", defaultValue = "true") boolean isNode) {
+        return entities.stream().anyMatch(this::isDeleted);
+    }
+    
+    private boolean isDeleted(Supplier<Entity> function) {
+        try {
+            function.get();
+            return false;
+        } catch (NotFoundException e) {
+            return true;
+        }
+    }
+    
     @UserFunction("apoc.any.properties")
     @Description("returns properties for virtual and real, nodes, rels and maps")
     public Map<String,Object> properties(@Name("thing") Object thing, @Name(value = "keys",defaultValue = "null") List<String> keys) {
