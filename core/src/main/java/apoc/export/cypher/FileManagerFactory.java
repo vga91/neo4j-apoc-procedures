@@ -3,14 +3,12 @@ package apoc.export.cypher;
 import java.io.OutputStream;
 import apoc.export.util.ExportConfig;
 import apoc.util.CompressionAlgo;
-import apoc.util.FileUtils;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Map;
-import java.io.Writer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -53,12 +51,14 @@ public class FileManagerFactory {
             this.writerCache = new ConcurrentHashMap<>();
         }
 
+        @Override
         public PrintWriter getPrintWriter(String type) {
             String newFileName = this.separatedFiles ? normalizeFileName(fileName, type) : normalizeFileName(fileName, null);
             return writerCache.computeIfAbsent(newFileName, (key) -> {
-                OutputStream outputStream = getOutputStream(newFileName);
+                OutputStream outputStream = getOutputStream(newFileName, config);
                 return outputStream == null ? null : new PrintWriter(outputStream);
             });
+        }
 
         @Override
         public StringWriter getStringWriter(String type) {
@@ -100,16 +100,6 @@ public class FileManagerFactory {
         @Override
         public PrintWriter getPrintWriter(String type) {
             if (!this.separatedFiles) {
-        public StringWriter getStringWriter(String type) {
-            return writers.computeIfAbsent(type, (key) -> new StringWriter());
-        }
-
-        @Override
-        public PrintWriter getPrintWriter(String type) {
-            final String compression = config.getCompressionAlgo();
-            if (this.separatedFiles) {
-                return new PrintWriter(getStringWriter(type));
-            } else {
                 switch (type) {
                     case "csv":
                     case "json":
@@ -118,7 +108,6 @@ public class FileManagerFactory {
                     default:
                         type = "cypher";
                 }
-                return new PrintWriter(getStringWriter(type));
             }
             return new PrintWriter(getStringWriter(type));
         }
@@ -129,8 +118,7 @@ public class FileManagerFactory {
         }
 
         @Override
-        public synchronized String drain(String type) {
-            // todo - ma allora questo che fa? - exportCypher
+        public synchronized Object drain(String type) {
             StringWriter writer = writers.get(type);
             if (writer != null) {
                 return Util.getStringOrCompressedData(writer, config);
