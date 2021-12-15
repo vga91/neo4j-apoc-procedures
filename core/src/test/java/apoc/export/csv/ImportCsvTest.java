@@ -66,7 +66,7 @@ public class ImportCsvTest {
                     new AbstractMap.SimpleEntry<>("id-idspaces", ":ID(Person)|name:STRING\n" +
                             "1|John\n" +
                             "2|Jane\n"),
-                    new AbstractMap.SimpleEntry<>("id-idspaces-with-dash", ":ID(Person-Id)|name:STRING\n" +
+                    new AbstractMap.SimpleEntry<>("ididspaces-with-dash and spaces", ":ID(Person-Id)|name:STRING\n" +
                             "1|John\n" +
                             "2|Jane\n"),
                     new AbstractMap.SimpleEntry<>("id", "id:ID|name:STRING\n" +
@@ -190,7 +190,7 @@ public class ImportCsvTest {
                 db,
                 "CALL apoc.import.csv([{fileName: $file, labels: ['Person']}], [], $config)",
                 map(
-                        "file", "file:/id-idspaces-with-dash.csv",
+                        "file", "file:/ididspaces-with-dash and spaces.csv",
                         "config", map("delimiter", '|')
                 ),
                 (r) -> {
@@ -209,7 +209,7 @@ public class ImportCsvTest {
                 db,
                 "CALL apoc.import.csv([{fileName: $file, labels: ['Person']}], [], $config)",
                 map(
-                        "file", "file://id-idspaces-with-dash.csv",
+                        "file", "file://ididspaces-with-dash and spaces.csv",
                         "config", map("delimiter", '|')
                 ),
                 (r) -> {
@@ -226,7 +226,7 @@ public class ImportCsvTest {
     public void testNodesWithIdSpacesWithTripleDash() {
         db.executeTransactionally("CALL apoc.import.csv([{fileName: $file, labels: ['Person']}], [], $config)",
                 map(
-                        "file", "file:///id-idspaces-with-dash.csv",
+                        "file", "file:///ididspaces-with-dash and spaces.csv",
                         "config", map("delimiter", '|')
                 ),
                 Result::resultAsString);

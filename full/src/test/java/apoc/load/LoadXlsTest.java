@@ -34,7 +34,7 @@ import static org.junit.Assert.*;
 
 public class LoadXlsTest {
 
-    private static String loadTest = Thread.currentThread().getContextClassLoader().getResource("load_test.xlsx").getPath();
+    private static String loadTest = Thread.currentThread().getContextClassLoader().getResource("loadtest.xlsx").getPath();
     private static String testDate = Thread.currentThread().getContextClassLoader().getResource("test_date.xlsx").getPath();
     private static String brokenHeader = Thread.currentThread().getContextClassLoader().getResource("brokenHeader.xls").getPath();
     private static String testColumnsAfterZ = Thread.currentThread().getContextClassLoader().getResource("testLoadXlsColumnsAfterZ.xlsx").getPath();

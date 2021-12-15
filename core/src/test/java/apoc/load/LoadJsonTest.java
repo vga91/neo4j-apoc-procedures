@@ -79,7 +79,7 @@ public class LoadJsonTest {
     }
 
     @Test public void testLoadMultiJson() throws Exception {
-		URL url = ClassLoader.getSystemResource("multi.json");
+		URL url = ClassLoader.getSystemResource("multi with spaces.json");
 		testResult(db, "CALL apoc.load.json($url)",map("url",url.toString()), // 'file:map.json' YIELD value RETURN value
                 (result) -> {
                     Map<String, Object> row = result.next();
@@ -90,7 +90,7 @@ public class LoadJsonTest {
                 });
     }
     @Test public void testLoadMultiJsonPaths() throws Exception {
-		URL url = ClassLoader.getSystemResource("multi.json");
+		URL url = ClassLoader.getSystemResource("multi with spaces.json");
 		testResult(db, "CALL apoc.load.json($url,'$')",map("url",url.toString()), // 'file:map.json' YIELD value RETURN value
                 (result) -> {
                     Map<String, Object> row = result.next();

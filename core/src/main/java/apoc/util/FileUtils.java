@@ -17,6 +17,7 @@ import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
 import java.nio.file.NoSuchFileException;
@@ -177,12 +178,17 @@ public class FileUtils {
     }
 
     private static Path resolvePath(String url) throws IOException {
-        Path urlPath = getPath(url);
+        Path urlPath = getPath(url); // todo ... questo url path sembra sbagliato...
+        System.out.println("urlPath.getClass()" + urlPath.getClass());
         final Path resolvedPath;
         if (apocConfig().isImportFolderConfigured() && isImportUsingNeo4jConfig()) {
             Path basePath = Paths.get(apocConfig().getImportDir());
-            urlPath = relativizeIfSamePrefix(urlPath, basePath);
+            System.out.println("apocConfig().getImportDir() " + apocConfig().getImportDir());
+            urlPath = relativizeIfSamePrefix(urlPath, basePath); // todo ... questo url path sembra sbagliato...
             resolvedPath = basePath.resolve(urlPath).toAbsolutePath().normalize();
+            System.out.println("resolvedPath = " + resolvedPath);
+            System.out.println("basePath = " + basePath);
+            System.out.println("----");
             if (!pathStartsWithOther(resolvedPath, basePath)) {
                 throw new IOException(ACCESS_OUTSIDE_DIR_ERROR);
             }
@@ -204,19 +210,135 @@ public class FileUtils {
     private static Path getPath(String url) {
         Path urlPath;
         URL toURL = null;
+        URI uri = null;
         try {
-            final URI uri = URI.create(url.trim());
+            uri = URI.create(url.trim());
+//            uri = URI.create(URLEncoder.encode(url.trim(), "UTF-8"));
+//            uri = new File(url).toURI();
             toURL = uri.toURL();
-            urlPath = Paths.get(uri);
+            return getPath(uri);
         } catch (Exception e) {
+//            uri = URI.create(url.trim());
+//            toURL = uri.toURL();
+
             if (toURL != null) {
-                urlPath = Paths.get(StringUtils.isBlank(toURL.getFile()) ? toURL.getHost() : toURL.getFile());
+                return Paths.get(StringUtils.isBlank(toURL.getFile()) ? toURL.getHost() : toURL.getFile());
+            } 
+//            else {
+
+            if (uri != null) {
+                return getPath(uri);
+            }
+            return Paths.get(url);
+
+
+//            }
+//            toURL = uri.toURL();
+//            if (toURL != null) {
+//                urlPath = Paths.get(StringUtils.isBlank(toURL.getFile()) ? toURL.getHost() : toURL.getFile());
+//            } else {
+//                String path = uri.getPath();
+//                if (path.isEmpty()) {
+//                    path = uri.getHost(); // in case of file://test.csv
+//                }
+//                if (uri.getAuthority() != null) {
+//                    if (path == null) {
+//                        path = uri.getAuthority();
+//                    } else {
+//                        path = new File(uri.getAuthority(), path).getPath();
+//                    }
+//                }
+//                urlPath = Paths.get(path);
+//            }
+        }
+//        return urlPath;
+    }
+
+    private static Path getPath(URI uri) {
+//        Path urlPath;
+        // todo - common
+        String path = uri.getPath();
+        if (path.isEmpty()) {
+            path = uri.getHost(); // in case of file://test.csv
+        }
+        if (uri.getAuthority() != null) {
+            if (path == null) {
+                path = uri.getAuthority();
             } else {
-                urlPath = Paths.get(url);
+                path = new File(uri.getAuthority(), path).getPath();
             }
         }
-        return urlPath;
+        // todo - getAuthority...
+        return Paths.get(path);
+//        return urlPath;
     }
+
+//    private static Path getPath(String url) {
+//        Path urlPath;
+//        URL toURL = null;
+//        URI uri = null;
+//        try {
+//            uri = URI.create(url.trim());
+//            toURL = uri.toURL();
+//
+//            // todo - common
+//            String path = uri.getPath();
+//            if (path.isEmpty()) {
+//                path = uri.getHost(); // in case of file://test.csv
+//            }
+////            if (path == null) {
+////                path = uri.getAuthority();
+////            } else {
+////                System.out.println("FileUtils.getPath");
+////            }
+//            if (uri.getAuthority() != null) {
+//                if (path == null) {
+//                    path = uri.getAuthority();
+//                } else {
+//                    path = new File(uri.getAuthority(), path).getPath();
+//                }
+//            }
+//            // todo - getAuthority...
+//            urlPath = Paths.get(path);
+//        } catch (Exception e) {
+//            if (toURL != null) {
+//                urlPath = Paths.get(StringUtils.isBlank(toURL.getFile()) ? toURL.getHost() : toURL.getFile());
+//            } else {
+//                String path = uri.getPath();
+//                if (path.isEmpty()) {
+//                    path = uri.getHost(); // in case of file://test.csv
+//                }
+//                if (uri.getAuthority() != null) {
+//                    if (path == null) {
+//                        path = uri.getAuthority();
+//                    } else {
+//                        path = new File(uri.getAuthority(), path).getPath();
+//                    }
+//                }
+//                urlPath = Paths.get(path);
+//            }
+//        }
+//        return urlPath;
+//    }
+
+//    private static Path getPath(String url) {
+//        Path urlPath;
+//        URL toURL = null;
+//        try {
+////            final URI uri = new File(url).toURI();
+//            final URI uri = URI.create(url.trim());
+////            final URI uri = URI.create(URLEncoder.encode(url.trim(), "UTF-8"));
+//            toURL = uri.toURL();
+//            urlPath = Paths.get(uri);
+//        } catch (Exception e) {
+//            if (toURL != null) {
+//                urlPath = Paths.get(StringUtils.isBlank(toURL.getFile()) ? toURL.getHost() : toURL.getFile());
+//            } else {
+//                urlPath = Paths.get(url);
+//            }
+//        }
+//        return urlPath;
+//    }
 
     private static boolean pathStartsWithOther(Path resolvedPath, Path basePath) throws IOException {
         try {

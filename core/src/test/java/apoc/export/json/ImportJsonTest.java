@@ -48,13 +48,43 @@ public class ImportJsonTest {
     public void shouldImportAllJson() throws Exception {
         // given
         String filename = "all.json";
+        extracted(filename);
+    }
 
+    @Test
+    public void shouldImportAllJson1() throws Exception {
+        // given
+        String filename = "subDir/all with spaces.json";
+        extracted(filename);
+    }
+    @Test
+    public void shouldImportAllJson11() throws Exception {
+        // given
+        String filename = "file:/subDir/all with spaces.json";
+        extracted(filename);
+    }
+    
+    @Test
+    public void shouldImportAllJson2() throws Exception {
+        // given
+        String filename = "file://subDir/all with spaces.json";
+        extracted(filename);
+    }
+    
+    @Test
+    public void shouldImportAllJson3() throws Exception {
+        // given
+        String filename = "file:///subDir/all with spaces.json";
+        extracted(filename);
+    }
+
+    private void extracted(String filename) {
         // when
         TestUtil.testCall(db, "CALL apoc.import.json($file, null)",
                 map("file", filename),
                 (r) -> {
                     // then
-                    Assert.assertEquals("all.json", r.get("file"));
+                    Assert.assertEquals(filename, r.get("file"));
                     Assert.assertEquals("file", r.get("source"));
                     Assert.assertEquals("json", r.get("format"));
                     Assert.assertEquals(3L, r.get("nodes"));

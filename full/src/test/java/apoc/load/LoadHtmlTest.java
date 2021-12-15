@@ -45,7 +45,7 @@ public class LoadHtmlTest {
 
     private static final String INVALID_PATH = new File("src/test/resources/wikipedia1.html").getName();
     private static final String INVALID_PATH_ABSOLUTE = new File("src/test/resources/wikipedia1.html").getName();
-    private static final String VALID_PATH = new File("src/test/resources/wikipedia.html").toURI().toString();
+    private static final String VALID_PATH = new File("src/test/resources/wiki pedia.html").toURI().toString();
     private static final String INVALID_CHARSET = "notValid";
 
     @Rule
@@ -64,7 +64,7 @@ public class LoadHtmlTest {
     public void testQueryAll(){
         Map<String, Object> query = map("metadata", "meta", "h2", "h2");
 
-        testResult(db, "CALL apoc.load.html($url,$query, $config)", map("url",new File("src/test/resources/wikipedia.html").toURI().toString(), "query", query, "config", Collections.emptyMap()),
+        testResult(db, "CALL apoc.load.html($url,$query, $config)", map("url",new File("src/test/resources/wiki pedia.html").toURI().toString(), "query", query, "config", Collections.emptyMap()),
                 result -> {
                     Map<String, Object> row = result.next();
                     Map<String, Object> value = (Map<String, Object>) row.get("value");
@@ -81,7 +81,7 @@ public class LoadHtmlTest {
     public void testQueryMetadata(){
         Map<String, Object> query = map("metadata", "meta");
 
-        testResult(db, "CALL apoc.load.html($url,$query)", map("url",new File("src/test/resources/wikipedia.html").toURI().toString(), "query", query),
+        testResult(db, "CALL apoc.load.html($url,$query)", map("url",new File("src/test/resources/wiki pedia.html").toURI().toString(), "query", query),
                 result -> {
                     Map<String, Object> row = result.next();
                     assertEquals(map("metadata",asList(RESULT_QUERY_METADATA)).toString().trim(), row.get("value").toString().trim());
@@ -93,7 +93,7 @@ public class LoadHtmlTest {
     public void testQueryH2(){
         Map<String, Object> query = map("h2", "h2");
 
-        testResult(db, "CALL apoc.load.html($url,$query)", map("url",new File("src/test/resources/wikipedia.html").toURI().toString(), "query", query),
+        testResult(db, "CALL apoc.load.html($url,$query)", map("url",new File("src/test/resources/wiki pedia.html").toURI().toString(), "query", query),
                 result -> {
                     Map<String, Object> row = result.next();
                     assertEquals(map("h2",asList(RESULT_QUERY_H2)).toString().trim(), row.get("value").toString().trim());
@@ -106,7 +106,7 @@ public class LoadHtmlTest {
         Map<String, Object> query = map("h2", "h2");
         Map<String, Object> config = map("charset", "UTF-8", "baserUri", "");
 
-        testResult(db, "CALL apoc.load.html($url,$query, $config)", map("url",new File("src/test/resources/wikipedia.html").toURI().toString(), "query", query, "config", config),
+        testResult(db, "CALL apoc.load.html($url,$query, $config)", map("url",new File("src/test/resources/wiki pedia.html").toURI().toString(), "query", query, "config", config),
                 result -> {
                     Map<String, Object> row = result.next();
                     assertEquals(map("h2",asList(RESULT_QUERY_H2)).toString().trim(), row.get("value").toString().trim());
@@ -119,7 +119,7 @@ public class LoadHtmlTest {
         Map<String, Object> query = map("toc", ".toc ul");
         Map<String, Object> config = map("children", true);
 
-        testResult(db, "CALL apoc.load.html($url,$query, $config)", map("url",new File("src/test/resources/wikipedia.html").toURI().toString(), "query", query, "config", config),
+        testResult(db, "CALL apoc.load.html($url,$query, $config)", map("url",new File("src/test/resources/wiki pedia.html").toURI().toString(), "query", query, "config", config),
                 result -> {
                     Map<String, Object> row = result.next();
                     Map<String, Object> value = (Map<String, Object>) row.get("value");
@@ -145,7 +145,7 @@ public class LoadHtmlTest {
         Map<String, Object> query = map("a", "a", "invalid", "invalid", "h6", "h6");
 
         testResult(db, "CALL apoc.load.html($url,$query, {failSilently: 'WITH_LOG'})",
-                map("url", new File("src/test/resources/wikipedia.html").toURI().toString(), "query", query),
+                map("url", new File("src/test/resources/wiki pedia.html").toURI().toString(), "query", query),
                 result -> {
                     Map<String, Object> row = result.next();
                     Map<String, Object> value = (Map<String, Object>) row.get("value");
@@ -164,7 +164,7 @@ public class LoadHtmlTest {
         String expectedH6 = "[{attributes={id=correct}, text=test, tagName=h6}, {attributes={id=childIncorrect}, text=incorrecttest, tagName=h6}]";
 
         testResult(db, "CALL apoc.load.html($url,$query, {failSilently: 'WITH_LIST'})",
-                map("url", new File("src/test/resources/wikipedia.html").toURI().toString(), "query", query),
+                map("url", new File("src/test/resources/wiki pedia.html").toURI().toString(), "query", query),
                 result -> {
                     Map<String, Object> row = result.next();
                     Map<String, Object> value = (Map<String, Object>) row.get("value");
@@ -184,7 +184,7 @@ public class LoadHtmlTest {
         String expectedH6 = "[{children=[], attributes={id=correct}, text=test, tagName=h6}, {children=[], attributes={id=childIncorrect}, text=incorrect, tagName=h6}]";
 
         testResult(db, "CALL apoc.load.html($url,$query, {failSilently: 'WITH_LIST', children: true})",
-                map("url", new File("src/test/resources/wikipedia.html").toURI().toString(), "query", query),
+                map("url", new File("src/test/resources/wiki pedia.html").toURI().toString(), "query", query),
                 result -> {
                     Map<String, Object> row = result.next();
                     Map<String, Object> value = (Map<String, Object>) row.get("value");
@@ -199,7 +199,7 @@ public class LoadHtmlTest {
 
     @Test(expected = QueryExecutionException.class)
     public void testQueryWithoutFailsSilently() {
-        final String url = new File("src/test/resources/wikipedia.html").toURI().toString();
+        final String url = new File("src/test/resources/wiki pedia.html").toURI().toString();
         try {
             Map<String, Object> query = map("a", "a", "h2", "h2");
             testCall(db, "CALL apoc.load.html($url,$query)", map("url", url, "query", query), (r) -> {});

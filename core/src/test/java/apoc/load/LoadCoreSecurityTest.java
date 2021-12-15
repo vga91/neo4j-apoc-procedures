@@ -68,7 +68,7 @@ public class LoadCoreSecurityTest {
         ApocConfig.apocConfig().setProperty(ApocSettings.apoc_import_file_enabled, false);
     }
 
-    private static final Map<String, List<String>> APOC_PROCEDURE_WITH_ARGUMENTS = Map.of(
+    public static final Map<String, List<String>> APOC_PROCEDURE_WITH_ARGUMENTS = Map.of(
             "json", List.of("($fileName, '', {})"),
             "jsonArray", List.of("($fileName, '', {})"),
             "jsonParams", List.of("($fileName, {}, '')"),
@@ -83,7 +83,7 @@ public class LoadCoreSecurityTest {
             "xmlSimple", MalformedURLException.class);
 
 
-    private static Collection<String[]> data() {
+    public static Collection<String[]> data() {
         return APOC_PROCEDURE_WITH_ARGUMENTS.entrySet()
                 .stream()
                 .flatMap(e -> e.getValue().stream().map(arg -> new String[]{e.getKey(), arg}))

@@ -58,8 +58,8 @@ public class LoadFullSecurityTest {
     private static final Map<String, Class<?>> ALLOWED_EXCEPTIONS = Map.of(
             "xls", InvalidFormatException.class);
 
-    private static final Map<String, List<String>> APOC_PROCEDURE_WITH_ARGUMENTS = Map.of(
-            "xls", List.of("($fileName, '', {})"),
+    public static final Map<String, List<String>> APOC_PROCEDURE_WITH_ARGUMENTS = Map.of(
+            "xls", List.of("($fileName, 'Full', {})"),
             "html", List.of("($fileName)"),
             "csv", List.of("($fileName)"),
             "csvParams", List.of("($fileName, {}, '', {})"));

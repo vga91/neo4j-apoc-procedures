@@ -381,6 +381,14 @@ public class XmlTest {
     }
 
     @Test
+    public void testLoadXmlSingleLineSimple1() {
+        testCall(db, "CALL apoc.load.xml('src/test/resources/xml/singleLine.xml', '/', null, true)", //  YIELD value RETURN value
+                (row) -> {
+                    assertEquals(XmlTestUtils.XML_AS_SINGLE_LINE_SIMPLE, row.get("value"));
+                });
+    }
+
+    @Test
     public void testLoadXmlSingleLine() {
         testCall(db, "CALL apoc.load.xml('file:src/test/resources/xml/singleLine.xml')", //  YIELD value RETURN value
                 (row) -> {
