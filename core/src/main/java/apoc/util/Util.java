@@ -32,7 +32,6 @@ import org.neo4j.procedure.TerminationGuard;
 import javax.lang.model.SourceVersion;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
@@ -884,13 +883,15 @@ public class Util {
     }
 
     public static void validateQuery(GraphDatabaseService db, String statement, QueryExecutionType.QueryType... supportedQueryTypes) {
-        final boolean isValid = db.executeTransactionally("EXPLAIN " + statement, Collections.emptyMap(), result ->
-                supportedQueryTypes == null || supportedQueryTypes.length == 0 || Stream.of(supportedQueryTypes)
-                        .anyMatch(sqt -> sqt.equals(result.getQueryExecutionType().queryType())));
-
-        if (!isValid) {
+        if (!isQueryValid(db, statement, supportedQueryTypes)) {
             throw new RuntimeException("Supported query types for the operation are " + Arrays.toString(supportedQueryTypes));
         }
+    }
+
+    public static boolean isQueryValid(GraphDatabaseService db, String statement, QueryExecutionType.QueryType... supportedQueryTypes) {
+        return db.executeTransactionally("EXPLAIN " + statement, Collections.emptyMap(), result ->
+                supportedQueryTypes == null || supportedQueryTypes.length == 0 || Stream.of(supportedQueryTypes)
+                        .anyMatch(sqt -> sqt.equals(result.getQueryExecutionType().queryType())));
     }
 
     /**

@@ -10,6 +10,7 @@ import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
+import org.neo4j.graphdb.schema.Schema;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
@@ -19,14 +20,17 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testCallEmpty;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.map;
 import static org.hamcrest.Matchers.hasEntry;
 import static org.junit.Assert.*;
+import static org.neo4j.driver.internal.util.Iterables.count;
 
 /**
  * @author mh
@@ -52,8 +56,8 @@ public class CypherExtendedTest {
     public void clearDB() {
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
         try (Transaction tx = db.beginTx()) {
-            tx.schema().getIndexes().forEach(IndexDefinition::drop);
             tx.schema().getConstraints().forEach(ConstraintDefinition::drop);
+            tx.schema().getIndexes().forEach(IndexDefinition::drop);
             tx.commit();
         }
     }
@@ -228,32 +232,52 @@ public class CypherExtendedTest {
     }
 
     @Test
-    @Ignore
-    public void testSchemaRunFile() throws Exception {
+    public void testSchemaRunFile() {
+        final int expectedBefore;
+        try (Transaction tx = db.beginTx()) {
+            expectedBefore = count(tx.schema().getIndexes());
+        }
+        
         testResult(db, "CALL apoc.cypher.runSchemaFile('schema.cypher')",
                 r -> {
                     Map<String, Object> row = r.next();
                     Map result = (Map) row.get("result");
                     assertEquals(1L, toLong(result.get("indexesAdded")));
-                });
-    }
-
-    @Test
-    @Ignore
-    public void testSchemaRunFiles() throws Exception {
-        testResult(db, "CALL apoc.cypher.runSchemaFiles(['constraints.cypher', 'drop_constraints.cypher', 'index.cypher'])",
-                r -> {
-                    Map<String, Object> row = r.next();
-                    Map result = (Map) row.get("result");
-                    assertEquals(1L, toLong(result.get("constraintsAdded")));
-                    row = r.next();
-                    result = (Map) row.get("result");
-                    assertEquals(1L, toLong(result.get("constraintsRemoved")));
                     row = r.next();
                     result = (Map) row.get("result");
                     assertEquals(1L, toLong(result.get("indexesAdded")));
-
+                    row = r.next();
+                    result = (Map) row.get("result");
+                    assertEquals(1L, toLong(result.get("indexesAdded")));
+                    row = r.next();
+                    result = (Map) row.get("result");
+                    assertEquals(1L, toLong(result.get("indexesAdded")));
+                    assertFalse(r.hasNext());
                 });
+
+        try (Transaction tx = db.beginTx()) {
+            assertEquals(expectedBefore + 4, count(tx.schema().getIndexes()));
+        }
+    }
+
+    @Test
+    public void testSchemaRunFiles() {
+        final int expectedIdxBefore;
+        final int expectedConsBefore;
+        try (Transaction tx = db.beginTx()) {
+            expectedIdxBefore = count(tx.schema().getIndexes());
+            expectedConsBefore = count(tx.schema().getConstraints());
+        }
+        
+        testCallEmpty(db, "CALL apoc.cypher.runSchemaFiles($files, {statistics: false})",
+                map("files", List.of("constraints.cypher", "drop_constraints.cypher", "schema.cypher")));
+
+        try (Transaction tx = db.beginTx()) {
+            final Schema schema = tx.schema();
+            schema.awaitIndexesOnline(20, TimeUnit.SECONDS);
+            assertEquals(expectedIdxBefore + 6, count(schema.getIndexes()));
+            assertEquals(expectedConsBefore + 2, count(schema.getConstraints()));
+        }
     }
 
     @Test
