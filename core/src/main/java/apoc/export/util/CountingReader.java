@@ -1,6 +1,8 @@
 package apoc.export.util;
 
 import java.io.*;
+import java.util.Collection;
+import java.util.Set;
 
 /**
  * @author mh
@@ -11,6 +13,7 @@ public class CountingReader extends FilterReader implements SizeCounter {
     private final long total;
     private long count=0;
     private long newLines;
+    private Set<Character> invalidChars = Set.of('\uFEFF');
 
     public CountingReader(File file) throws FileNotFoundException {
         super(new BufferedReader(new FileReader(file), BUFFER_SIZE));
@@ -25,10 +28,20 @@ public class CountingReader extends FilterReader implements SizeCounter {
     public int read(char[] cbuf, int off, int len) throws IOException {
         int read = super.read(cbuf, off, len);
         count+=read;
-        for (int i=off;i<off+len;i++) {
-            if (cbuf[i] == '\n') newLines++;
+
+        if (read == -1) {
+            return -1;
         }
-        return read;
+        int validIdx = off - 1;
+        for (int i=off;i<off+read;i++) {
+            if (invalidChars.contains(cbuf[i])) {
+                continue;
+            }
+            validIdx++;
+            cbuf[validIdx] = cbuf[i];
+            if (cbuf[validIdx] == '\n') newLines++;
+        }
+        return validIdx - off + 1;
     }
 
     @Override
@@ -61,5 +74,13 @@ public class CountingReader extends FilterReader implements SizeCounter {
     public long getPercent() {
         if (total <= 0) return 0;
         return count*100 / total;
+    }
+
+    public Set<Character> getInvalidChars() {
+        return invalidChars;
+    }
+
+    public void addInvalidChars(Collection<Character> invalidChars) {
+        this.invalidChars.addAll(invalidChars);
     }
 }
