@@ -108,6 +108,7 @@ public class LoadXls {
             char arraySep = separator(config, "arraySep", DEFAULT_ARRAY_SEP);
             long skip = longValue(config, "skip", 0L);
             boolean hasHeader = booleanValue(config, "header", true);
+            boolean skipNullHeader = booleanValue(config, "skipNullHeader", false);
             long limit = longValue(config, "limit", Long.MAX_VALUE);
 
             List<String> ignore = value(config, "ignore", emptyList());
@@ -122,7 +123,7 @@ public class LoadXls {
             Row firstRow = sheet.getRow(selection.top);
             selection.updateHorizontal(firstRow.getFirstCellNum(), firstRow.getLastCellNum());
 
-            String[] header = getHeader(hasHeader, firstRow,selection, ignore, mappings);
+            String[] header = getHeader(hasHeader, skipNullHeader, firstRow,selection, ignore, mappings);
             boolean checkIgnore = !ignore.isEmpty() || mappings.values().stream().anyMatch( m -> m.ignore);
             return StreamSupport.stream(new XLSSpliterator(sheet, selection, header, url, skip, limit, checkIgnore,mappings, nullValues), false);
         } catch (Exception e) {
@@ -225,15 +226,23 @@ public class LoadXls {
         return strings.toArray(new String[strings.size()]);
     }
 
-    private String[] getHeader(boolean hasHeader, Row header, Selection selection, List<String> ignore, Map<String, Mapping> mapping) throws IOException {
+    private String[] getHeader(boolean hasHeader, boolean skipNullHeader, Row header, Selection selection, List<String> ignore, Map<String, Mapping> mapping) throws IOException {
         if (!hasHeader) return null;
 
         String[] result = new String[selection.right - selection.left];
         for (int i = selection.left; i < selection.right; i++) {
             Cell cell = header.getCell(i);
-            if (cell == null) throw new IllegalStateException("Header at position "+i+" doesn't have a value");
-            String value = cell.getStringCellValue();
-            result[i- selection.left] = ignore.contains(value) || mapping.getOrDefault(value, Mapping.EMPTY).ignore ? null : value;
+            final String s = "Header at position " + i + " doesn't have a value";
+            result[i- selection.left] = Optional.ofNullable(cell)
+                    .map(Cell::getStringCellValue)
+                    .or(() -> {
+                        if (skipNullHeader) {
+                            return Optional.of("");
+                        }
+                        throw new IllegalStateException(s);
+                    })
+                    .filter(value -> !ignore.contains(value) && !mapping.getOrDefault(value, Mapping.EMPTY).ignore)
+                    .orElse(null);
         }
         return result;
     }

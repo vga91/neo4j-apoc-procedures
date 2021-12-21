@@ -77,6 +77,18 @@ public class LoadXlsTest {
 
         assertEquals(2L, (long)query.apply("temp",false));
     }
+    
+    @Test
+    public void testLoadBrokenHeaderWithSkipNullHeaderTrue() throws Exception {
+        testResult(db, "CALL apoc.load.xls($url, 'temp', $config)",
+                map("url", brokenHeader,
+                        "config", map("header", true, "skipNullHeader", true)),
+                (r) -> {
+                    assertRow(r,0L, "A", 1L, "B", 2L, "C", 3L, "D", 4L, "", 5L, "F", 6L);
+                    assertFalse("Should not have another row",r.hasNext());
+                });
+    }
+
     @Test public void testLoadXlsMany() throws Exception {
         testResult(db, "CALL apoc.load.xls($url,'Many',{mapping:{Float:{type:'float'}, Array:{type:'int',array:true,arraySep:';'}}})", map("url",loadTest), // 'file:load_test.xlsx'
                 (r) -> {
