@@ -73,6 +73,7 @@ public class Mapping {
         if (nullValues.contains(value)) return null;
         if (type == Meta.Types.STRING) return value;
 
+        System.out.println("my value = " + apocConfig().getString(db_temporal_timezone.name()));
         final Supplier<ZoneId> timezone = () -> ZoneId.of((String) optionalData.getOrDefault("timezone", apocConfig().getString(db_temporal_timezone.name())));
         switch (type) {
             case POINT:
