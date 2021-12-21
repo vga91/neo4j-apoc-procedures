@@ -1,5 +1,6 @@
 package apoc.gephi;
 
+import apoc.create.Create;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -43,13 +44,24 @@ public class GephiTest {
     @BeforeClass
     public static void setUp() throws Exception {
         assumeTrue(isGephiRunning());
-        registerProcedure(db, Gephi.class);
+        registerProcedure(db, Gephi.class, Create.class);
         db.executeTransactionally("CREATE (:Foo {name:'Foo'})-[:KNOWS{weight:7.2,foo:'foo',bar:3.0,directed:'error',label:'foo'}]->(:Bar {name:'Bar'})");
     }
 
     @Test
     public void testAdd() throws Exception {
-        testCall(db, "MATCH p = (:Foo)-->() WITH p CALL apoc.gephi.add(null,$workspace,p) yield nodes, relationships, format return *",
+        db.executeTransactionally("create (a:Author {country: 'Iceland'})-");
+        
+        testCall(db, "MATCH (a:Author)\n" +
+                        "WITH collect(distinct a.country) as countries\n" +
+                        "WITH [cName in countries | apoc.create.vNode(['Country'],{name:cName})] as countryNodes\n" +
+                        "WITH apoc.map.groupBy(countryNodes,'name') as countries\n" +
+                        "MATCH (a1:Author)-->(p:Paper)<--(a2:Author)\n" +
+                        "WHERE a1.country < a2.country\n" +
+                        "WITH a1.country AS countryName1, a2.country as countryName2, count(distinct p) as numCollabs, countries\n" +
+                        "WITH countries[countryName1] as country1, countries[countryName2] as country2, apoc.create.vRelationship(countries[countryName1], 'COLLABORATED_WITH', {numCollabs: numCollabs}, countries[countryName2]) as rels " +
+                        "WITH [rels, country1, country2] as data " +
+                        "CALL apoc.gephi.add(null,$workspace,data) yield nodes, relationships, format return *",
                 map("workspace", GEPHI_WORKSPACE),
                 r -> {
                     assertEquals(2L, r.get("nodes"));
