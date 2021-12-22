@@ -8,6 +8,8 @@ import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
 import org.neo4j.logging.internal.LogService;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +38,11 @@ public class Pools extends LifecycleAdapter {
     private final GlobalProcedures globalProceduresRegistry;
     private final ApocConfig apocConfig;
 
-    private ExecutorService singleExecutorService;
+    private ThreadFactory threadFactory;
+    private List<ExecutorService> singleExecutorServices = Collections.synchronizedList(new ArrayList<>());
     private ScheduledExecutorService scheduledExecutorService;
     private ExecutorService defaultExecutorService;
+    private int queueSize;
 
     private final Map<Periodic.JobInfo,Future> jobList = new ConcurrentHashMap<>();
 
@@ -58,16 +62,14 @@ public class Pools extends LifecycleAdapter {
 
         int threads = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_POOL_NUM_THREADS, DEFAULT_POOL_THREADS));
 
-        int queueSize = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_QUEUE_SIZE, threads * 5));
+        this.queueSize = Math.max(1, apocConfig.getInt(ApocConfig.APOC_CONFIG_JOBS_QUEUE_SIZE, threads * 5));
 
         // ensure we use daemon threads everywhere
-        ThreadFactory threadFactory = r -> {
+        this.threadFactory = r -> {
             Thread t = Executors.defaultThreadFactory().newThread(r);
             t.setDaemon(true);
             return t;
         };
-        this.singleExecutorService = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(queueSize),
-                threadFactory, new CallerBlocksPolicy());
 
         this.defaultExecutorService = new ThreadPoolExecutor(threads / 2, threads, 30L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(queueSize),
                 threadFactory, new CallerBlocksPolicy());
@@ -87,7 +89,8 @@ public class Pools extends LifecycleAdapter {
 
     @Override
     public void shutdown() throws Exception {
-        Stream.of(singleExecutorService, defaultExecutorService, scheduledExecutorService).forEach( service -> {
+        Stream.concat(singleExecutorServices.stream(), 
+                Stream.of(defaultExecutorService, scheduledExecutorService)).forEach( service -> {
             try {
                 service.shutdown();
                 service.awaitTermination(10, TimeUnit.SECONDS);
@@ -97,8 +100,11 @@ public class Pools extends LifecycleAdapter {
         });
     }
 
-    public ExecutorService getSingleExecutorService() {
-        return singleExecutorService;
+    public synchronized ExecutorService createSingleExecutorService() {
+        final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.SECONDS, new ArrayBlockingQueue<>(queueSize),
+                threadFactory, new CallerBlocksPolicy());
+        singleExecutorServices.add(threadPoolExecutor);
+        return threadPoolExecutor;
     }
 
     public ScheduledExecutorService getScheduledExecutorService() {

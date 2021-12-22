@@ -17,7 +17,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.LockSupport;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.ToLongFunction;
 import java.util.regex.Pattern;
@@ -61,7 +60,10 @@ public class PeriodicUtils {
             Iterator<Map<String, Object>> iterator, BiFunction<Transaction, Map<String, Object>, QueryStatistics> consumer,
             int concurrency, int failedParams) {
 
-        ExecutorService pool = parallel ? pools.getDefaultExecutorService() : pools.getSingleExecutorService();
+        ExecutorService pool = parallel 
+                ? pools.getDefaultExecutorService()
+                : pools.createSingleExecutorService();
+        
         List<Future<Long>> futures = new ArrayList<>(concurrency);
         BatchAndTotalCollector collector = new BatchAndTotalCollector(terminationGuard, failedParams);
         AtomicInteger activeFutures = new AtomicInteger(0);
