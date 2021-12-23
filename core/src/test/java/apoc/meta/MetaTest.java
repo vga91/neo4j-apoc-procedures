@@ -47,6 +47,7 @@ import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static java.util.Arrays.asList;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static org.junit.Assert.assertEquals;
@@ -863,6 +864,31 @@ public class MetaTest {
             assertEquals( 1, records.size() );
             assertEquals( records.get( 0 ).get( "propertyName" ).equals( "c" ), true );
         } );
+    }
+
+    @Test
+    public void testRelTypePropertiesIncludesWithDoubleRel() {
+        db.executeTransactionally( "CREATE (a:A)-[:FIRST {a: 1}]->(b:B), (a)-[:SECOND {b: '2'}]->(c)" );
+
+        final Consumer<Map<String, Object>> assertFirstRel = r -> {
+            assertEquals("a", r.get("propertyName"));
+            assertEquals(":`FIRST`", r.get("relType"));
+            assertEquals(List.of("Long"), r.get("propertyTypes"));
+        };
+        
+        final Consumer<Map<String, Object>> assertSecondRel = r -> {
+            assertEquals("b", r.get("propertyName"));
+            assertEquals(":`SECOND`", r.get("relType"));
+            assertEquals(List.of("String"), r.get("propertyTypes"));
+        };
+
+        testCall( db, "CALL apoc.meta.relTypeProperties({includeRels: ['FIRST']})", assertFirstRel);
+        testCall( db, "CALL apoc.meta.relTypeProperties({excludeRels: ['SECOND']})", assertFirstRel);
+
+        testCall( db, "CALL apoc.meta.relTypeProperties({excludeRels: ['FIRST']})", assertSecondRel);
+        testCall( db, "CALL apoc.meta.relTypeProperties({includeRels: ['SECOND']})", assertSecondRel);
+
+        TestUtil.testCallCount(db, "CALL apoc.meta.relTypeProperties()", emptyMap(), 2);
     }
 
     @Test
