@@ -947,4 +947,9 @@ public class Util {
         final StringBuilder builder = formatProperties(map);
         return "{" + formatToString(builder) + "}";
     }
+
+    public static String toCypherMap(Map<String, Object> map) {
+        final StringBuilder builder = formatProperties(map);
+        return "{" + formatToString(builder) + "}";
+    }
 }
