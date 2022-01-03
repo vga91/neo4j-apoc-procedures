@@ -86,7 +86,7 @@ public class ExportConfig extends CompressionConfig {
     public CypherFormat getCypherFormat() { return cypherFormat; }
 
     public ExportConfig(Map<String,Object> config) {
-        super(config, CompressionAlgo.NONE.name());
+        super(config);
         config = config != null ? config : Collections.emptyMap();
         this.silent = toBoolean(config.getOrDefault("silent",false));
         this.delim = delim(config.getOrDefault("delim", DEFAULT_DELIM).toString());

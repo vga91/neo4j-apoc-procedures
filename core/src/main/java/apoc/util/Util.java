@@ -372,7 +372,7 @@ public class Util {
             }
 
             StreamConnection sc = getStreamConnection(urlAddress, headers, payload);
-            return sc.toCountingInputStream();
+            return sc.toCountingInputStream(compressionAlgo);
         } else if (input instanceof byte[]) {
             return FileUtils.getInputStreamFromBinary((byte[]) input, compressionAlgo);
         } else {

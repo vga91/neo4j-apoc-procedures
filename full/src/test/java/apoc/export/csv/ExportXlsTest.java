@@ -3,7 +3,9 @@ package apoc.export.csv;
 import apoc.ApocSettings;
 import apoc.export.xls.ExportXls;
 import apoc.graph.Graphs;
+import apoc.load.LoadXls;
 import apoc.util.CompressionAlgo;
+import apoc.util.CompressionConfig;
 import apoc.util.TestUtil;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
@@ -28,6 +30,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -47,11 +50,12 @@ public class ExportXlsTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath())
+            .withSetting(ApocSettings.apoc_import_file_enabled, true)
             .withSetting(ApocSettings.apoc_export_file_enabled, true);
 
     @BeforeClass
     public static void setUp() throws Exception {
-        TestUtil.registerProcedure(db, ExportXls.class, Graphs.class);
+        TestUtil.registerProcedure(db, ExportXls.class, LoadXls.class, Graphs.class);
         db.executeTransactionally("CREATE (f:User1:User {name:'foo',age:42,male:true,kids:['a','b','c'],location:point({longitude: 11.8064153, latitude: 48.1716114}),dob:date({ year:1984, month:10, day:11 }), created: datetime()})-[:KNOWS]->(b:User {name:'bar',age:42}),(c:User {age:12})");
         db.executeTransactionally("CREATE (f:Address1:Address {name:'Andrea', city: 'Milano', street:'Via Garibaldi, 7'})-[:NEXT_DELIVERY]->(a:Address {name: 'Bar Sport'}), (b:Address {street: 'via Benni'})");
     }
@@ -75,6 +79,17 @@ public class ExportXlsTest {
                 (r) -> assertResults(fileName, r, "database"));
 
         assertExcelFileForGraph(fileName, algo);
+
+        // check xls through load.xls
+        TestUtil.testResult(db, "CALL apoc.load.xls($file, 'Address', $config)",
+                map("file", fileName, "config", map(CompressionConfig.COMPRESSION, algo.name())),
+                (r) -> {
+                    final Set<Object> actual = Iterators.stream(r.<Map>columnAs("map"))
+                            .map(i -> Optional.ofNullable(i.get("name")).orElse(""))
+                            .collect(Collectors.toSet());
+                    assertEquals(3,actual.size());
+                    assertEquals(Set.of("Andrea", "Bar Sport", ""), actual);
+                });
     }
 
     @Test

@@ -11,19 +11,25 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
+import java.util.List;
 import java.util.Map;
 
 import static apoc.util.BinaryTestUtil.getDecompressedData;
 import static apoc.util.CompressionAlgo.DEFLATE;
 import static apoc.util.CompressionAlgo.FRAMED_SNAPPY;
 import static apoc.util.CompressionAlgo.NONE;
+import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.MapUtil.map;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -41,11 +47,12 @@ public class ExportJsonTest {
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule()
         .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath())
+        .withSetting(ApocSettings.apoc_import_file_enabled, true)
         .withSetting(ApocSettings.apoc_export_file_enabled, true);
 
     @Before
     public void setup() {
-        TestUtil.registerProcedure(db, ExportJson.class, Graphs.class);
+        TestUtil.registerProcedure(db, ExportJson.class, ImportJson.class, Graphs.class);
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12})");
     }
 
@@ -59,6 +66,42 @@ public class ExportJsonTest {
                 }
         );
         assertFileEquals(filename);
+    }
+
+    @Test
+    public void testJsonRoundtrip() {
+        db.executeTransactionally("CREATE CONSTRAINT ON (n:User) assert n.neo4jImportId IS UNIQUE;");
+        String filename = "all.json.gzip";
+        final Map<String, Object> params = map("file", filename, "config", map(COMPRESSION, CompressionAlgo.GZIP.name()));
+        TestUtil.testCall(db, "CALL apoc.export.json.all($file, $config)", params,
+                (r) -> assertResults(filename, r, "database")
+        );
+        
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+
+        TestUtil.testCall(db, "CALL apoc.import.json($file, $config) ", params,
+                r -> assertEquals(3L, r.get("nodes")));
+
+        TestUtil.testResult(db, "MATCH (n) RETURN n order by coalesce(n.name, '')", r -> {
+            final ResourceIterator<Node> iterator = r.columnAs("n");
+            final Node first = iterator.next();
+            assertEquals(12L, first.getProperty("age"));
+            assertFalse(first.hasProperty("name"));
+            assertEquals(List.of(Label.label("User")), first.getLabels());
+            
+            final Node second = iterator.next();
+            assertEquals(42L, second.getProperty("age"));
+            assertEquals("Adam", second.getProperty("name"));
+            assertEquals(List.of(Label.label("User")), second.getLabels());
+            
+            final Node third = iterator.next();
+            assertEquals(42L, third.getProperty("age"));
+            assertEquals("Jim", third.getProperty("name"));
+            assertEquals(List.of(Label.label("User")), third.getLabels());
+            
+            assertFalse(iterator.hasNext());
+        });
+
     }
 
     @Test

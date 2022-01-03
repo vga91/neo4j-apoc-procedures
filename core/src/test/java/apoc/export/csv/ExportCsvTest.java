@@ -5,13 +5,19 @@ import apoc.graph.Graphs;
 import apoc.util.BinaryTestUtil;
 import apoc.util.CompressionAlgo;
 import apoc.meta.Meta;
+import apoc.util.CompressionConfig;
 import apoc.util.TestUtil;
 import apoc.util.Util;
+import apoc.util.Utils;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
+import org.neo4j.internal.helpers.collection.Iterables;
+import org.neo4j.internal.helpers.collection.Iterators;
+import org.neo4j.kernel.impl.core.NodeEntity;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -19,9 +25,11 @@ import java.io.File;
 import java.nio.charset.Charset;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import static apoc.util.BinaryTestUtil.getDecompressedData;
@@ -29,11 +37,13 @@ import static apoc.util.CompressionAlgo.DEFLATE;
 import static apoc.util.CompressionAlgo.GZIP;
 import static apoc.util.CompressionAlgo.NONE;
 import static apoc.util.MapUtil.map;
+import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
@@ -119,11 +129,12 @@ public class ExportCsvTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath())
-            .withSetting(ApocSettings.apoc_export_file_enabled, true);
+            .withSetting(ApocSettings.apoc_export_file_enabled, true)
+            .withSetting(ApocSettings.apoc_import_file_enabled, true);
 
     @BeforeClass
     public static void setUp() throws Exception {
-        TestUtil.registerProcedure(db, ExportCSV.class, Graphs.class, Meta.class);
+        TestUtil.registerProcedure(db, ExportCSV.class, Graphs.class, Meta.class, ImportCsv.class);
         db.executeTransactionally("CREATE (f:User1:User {name:'foo',age:42,male:true,kids:['a','b','c']})-[:KNOWS]->(b:User {name:'bar',age:42}),(c:User {age:12})");
         db.executeTransactionally("CREATE (f:Address1:Address {name:'Andrea', city: 'Milano', street:'Via Garibaldi, 7'})-[:NEXT_DELIVERY]->(a:Address {name: 'Bar Sport'}), (b:Address {street: 'via Benni'})");
     }
@@ -158,6 +169,30 @@ public class ExportCsvTest {
                 map("file", fileName, "config", map("compression", compressionAlgo.name())),
                 (r) -> assertResults(fileName, r, "database"));
         assertEquals(EXPECTED, readFile(fileName, UTF_8, compressionAlgo));
+    }
+    
+    @Test
+    public void testCsvRoundTrip() {
+        db.executeTransactionally("CREATE (f:Roundtrip {name:'foo',age:42,male:true,kids:['a','b','c']}),(b:Roundtrip {name:'bar',age:42}),(c:Roundtrip {age:12})");
+        
+        String fileName = "separatedFiles.csv.gzip";
+        final Map<String, Object> params = map("file", fileName, "query", "MATCH (u:Roundtrip) return u.name as name", 
+                "config", map(CompressionConfig.COMPRESSION, GZIP.name()));
+        TestUtil.testCall(db, "CALL apoc.export.csv.query($query, $file, $config)", params,
+                (r) -> assertEquals(fileName, r.get("file")));
+
+        final String deleteQuery = "MATCH (n:Roundtrip) DETACH DELETE n";
+        db.executeTransactionally(deleteQuery);
+
+        TestUtil.testCall(db, "CALL apoc.import.csv([{fileName: $file, labels: ['Roundtrip']}], [], $config) ", params, 
+                r -> assertEquals(3L, r.get("nodes")));
+
+        TestUtil.testResult(db, "MATCH (n:Roundtrip) return n.name as name", r -> {
+            final Set<String> actual = Iterators.asSet(r.columnAs("name"));
+            assertEquals(Set.of("foo", "bar", ""), actual);
+        });
+
+        db.executeTransactionally(deleteQuery);
     }
 
     @Test

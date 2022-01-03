@@ -4,6 +4,7 @@ import apoc.ApocSettings;
 import apoc.graph.Graphs;
 import apoc.util.BinaryTestUtil;
 import apoc.util.CompressionAlgo;
+import apoc.util.CompressionConfig;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import junit.framework.TestCase;
@@ -18,6 +19,8 @@ import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.ResourceIterator;
+import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.xmlunit.builder.DiffBuilder;
@@ -34,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
@@ -50,6 +54,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
 import static org.neo4j.configuration.GraphDatabaseSettings.TransactionStateMemoryAllocation.OFF_HEAP;
 import static org.neo4j.configuration.SettingValueParsers.BYTES;
+import static org.neo4j.graphdb.Label.label;
 import static org.xmlunit.diff.ElementSelectors.byName;
 
 /**
@@ -340,7 +345,7 @@ public class ExportGraphMLTest {
         });
         TestUtil.testCall(db, "MATCH (bar:BAR)-[knows:KNOWS]->(qwerty:QWERTY) RETURN bar, knows, qwerty", null, (r) -> {
             assertBar(((Node)r.get("bar")));
-            assertEquals(Arrays.asList(Label.label("QWERTY")), ((Node)r.get("qwerty")).getLabels());
+            assertEquals(Arrays.asList(label("QWERTY")), ((Node)r.get("qwerty")).getLabels());
             assertEquals(Util.map("name", "qwerty"), ((Node)r.get("qwerty")).getAllProperties());
             assertEquals("KNOWS", ((Relationship)r.get("knows")).getType().name());
         });
@@ -348,12 +353,12 @@ public class ExportGraphMLTest {
     }
 
     private void assertBar(Node node){
-        assertEquals(Arrays.asList(Label.label("BAR")), node.getLabels());
+        assertEquals(Arrays.asList(label("BAR")), node.getLabels());
         assertEquals(Util.map("name", "bar", "kids", "[a,b,c]"), node.getAllProperties());
     }
 
     private void assertFoo(Node node){
-        assertEquals(Arrays.asList(Label.label("FOO")), node.getLabels());
+        assertEquals(Arrays.asList(label("FOO")), node.getLabels());
         assertEquals(Util.map("name", "foo"), node.getAllProperties());
     }
 
@@ -393,6 +398,41 @@ public class ExportGraphMLTest {
                 map("file", output.getAbsolutePath(), "config", map("compression", algo.name())),
                 (r) -> assertResults(output, r, "database"));
         assertXMLEquals(BinaryTestUtil.readFileToString(output, StandardCharsets.UTF_8, algo), EXPECTED_FALSE);
+    }
+    
+    @Test
+    public void testGraphMlRoundtrip() {
+        final CompressionAlgo algo = CompressionAlgo.NONE;
+        File output = new File(directory, "all.graphml.zz");
+        final Map<String, Object> params = map("file", output.getAbsolutePath(), 
+                "config", map(CompressionConfig.COMPRESSION, algo.name(), "readLabels", true, "useTypes", true));
+        TestUtil.testCall(db, "CALL apoc.export.graphml.all($file, $config)", params, (r) -> assertResults(output, r, "database"));
+
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+
+        TestUtil.testCall(db, "CALL apoc.import.graphml($file, $config) ", params,
+                r -> assertEquals(3L, r.get("nodes")));
+
+        TestUtil.testResult(db, "MATCH (n) RETURN n order by coalesce(n.name, '')", r -> {
+            final ResourceIterator<Node> iterator = r.columnAs("n");
+            final Node first = iterator.next();
+            assertEquals(12L, first.getProperty("age"));
+            assertFalse(first.hasProperty("name"));
+            assertEquals(List.of(label("Bar")), first.getLabels());
+
+            final Node second = iterator.next();
+            assertEquals(42L, second.getProperty("age"));
+            assertEquals("bar", second.getProperty("name"));
+            assertEquals(List.of(label("Bar")), second.getLabels());
+
+            final Node third = iterator.next();
+            assertFalse(third.hasProperty("age"));
+            assertEquals("foo", third.getProperty("name"));
+            assertEquals(Set.of(label("Foo"), label("Foo2"), label("Foo0")), Iterables.asSet(third.getLabels()));
+
+            assertFalse(iterator.hasNext());
+        });
+        
     }
 
     @Test
