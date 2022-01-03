@@ -1,2 +1,0 @@
-¦signature
-¦apoc.merge.relationshipWithStats.eager(startNode :: NODE?, relationshipType :: STRING?, identProps :: MAP?, props :: MAP?, endNode :: NODE?, onMatchProps = {} :: MAP?) :: (stats :: MAP?, rel :: RELATIONSHIP?)

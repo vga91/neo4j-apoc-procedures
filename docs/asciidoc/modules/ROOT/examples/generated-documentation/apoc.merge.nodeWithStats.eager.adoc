@@ -1,5 +1,0 @@
-¦xref::overview/apoc.merge/apoc.merge.nodeWithStats.eager.adoc[apoc.merge.nodeWithStats.eager icon:book[]] +
-
- - same as apoc.merge.node.eager providing queryStatistics into result
-¦label:procedure[]
-¦label:apoc-core[]

@@ -1,5 +1,0 @@
-¦xref::overview/apoc.merge/apoc.merge.relationshipWithStats.eager.adoc[apoc.merge.relationshipWithStats.eager icon:book[]] +
-
- - same as apoc.merge.relationship.eager providing queryStatistics into result
-¦label:procedure[]
-¦label:apoc-core[]
