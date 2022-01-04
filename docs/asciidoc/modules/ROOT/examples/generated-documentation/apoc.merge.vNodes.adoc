@@ -1,5 +1,0 @@
-¦xref::overview/apoc.merge/apoc.merge.vNodes.adoc[apoc.merge.vNodes icon:book[]] +
-
- - merge a virtual node list
-¦label:procedure[]
-¦label:apoc-core[]

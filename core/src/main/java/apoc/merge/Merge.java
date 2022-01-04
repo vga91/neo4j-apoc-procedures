@@ -1,6 +1,5 @@
 package apoc.merge;
 
-import apoc.result.NodeListResult;
 import apoc.result.NodeResult;
 import apoc.result.RelationshipListResult;
 import apoc.result.RelationshipResult;
@@ -18,11 +17,10 @@ import org.neo4j.procedure.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
-import java.util.function.Function;
-import java.util.function.Supplier;
+import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static apoc.util.Util.labelString;
@@ -35,78 +33,100 @@ public class Merge {
     
     @Context
     public Transaction tx;
-    
-    private static final String MERGED = "__is_merged"; 
-    
-    @Procedure(value="apoc.merge.vNodes", mode = Mode.WRITE, eager = true)
-    @Description("apoc.merge.vNodes(nodes, $config) - merge a virtual node list")
-    public Stream<NodeListResult> mergeVNodes(@Name("nodes") List<Node> nodes, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
-        MergeConfig conf = new MergeConfig(config);
 
-        final List<String> mergeKeysList = conf.getMergeKeysList();
-        List<Node> currentList = new ArrayList<>();
-        nodes.forEach(item1 -> {
-            if (!(item1 instanceof VirtualNode)) {
+    @UserAggregationFunction("apoc.merge.vNodes")
+    @Description("apoc.merge.vNodes(nodes,$config) - merge a virtual node list")
+    public MergeVNodes vNodes() {
+        return new MergeVNodes();
+    }
+    
+    @UserAggregationFunction("apoc.merge.vRelationships")
+    @Description("apoc.merge.vRelationships(nodes,$config) - merge a virtual relationship list")
+    public MergeVRels vRelationships() {
+        return new MergeVRels();
+    }
+
+    private static abstract class MergeCommon<T extends Entity> {
+        protected final List<T> result = new ArrayList<>();
+        protected final List<Integer> indexes = new ArrayList<>();
+        protected MergeConfig conf;
+
+        @UserAggregationResult
+        public Object result() {
+            if (!conf.getOnMatch().isEmpty() || !conf.getOnCreate().isEmpty()) {
+                IntStream.range(0, result.size())
+                        .forEach(idx -> {
+                            final T entity = result.get(idx);
+                            if (indexes.contains(idx)) { 
+                                conf.getOnMatch().forEach(entity::setProperty); 
+                            } else { 
+                                conf.getOnCreate().forEach(entity::setProperty); 
+                            }
+                });
+            }
+            return result;
+        }
+        
+        protected boolean haveSameProps(T setItem, T node) {
+            return node.getAllProperties().equals(setItem.getAllProperties());
+        }
+
+        protected void aggregateResults(T entity, IntPredicate predicate) {
+            IntStream.range(0, result.size())
+                    .filter(predicate)
+                    .findFirst()
+                    .ifPresentOrElse(indexes::add, () -> result.add(entity));
+        }
+    }
+
+    public static class MergeVNodes extends MergeCommon<Node> {
+        
+        @UserAggregationUpdate
+        public void update(@Name("nodes") Node node, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+            conf = new MergeConfig(config);
+            final List<String> mergeKeysList = conf.getMergeKeysList();
+
+            if (!(node instanceof VirtualNode)) {
                 throw new RuntimeException(ERROR_NOT_VIRTUAL_NODE);
             }
-            
-            final Set<String> labelsSet = getLabelsSet(mergeKeysList, item1);
-            
-            final Node nodeFound = currentList.stream().filter(setItem ->
-                    getLabelsSet(mergeKeysList, setItem).equals(labelsSet)
-                            && item1.getAllProperties().equals(setItem.getAllProperties())).findAny().orElse(null);
-            if (nodeFound != null) {
-                nodeFound.setProperty(MERGED, true);
-            } else {
-                currentList.add(item1);
-            }
-        });
 
-        setOnMatchAndCreate(conf, currentList);
-        return Stream.of(new NodeListResult(currentList));
+            final Set<String> labelsSet = getLabelsSet(mergeKeysList, node);
+
+            final IntPredicate findEqualsNode = idx -> {
+                final Node setItem = result.get(idx);
+                return getLabelsSet(mergeKeysList, setItem).equals(labelsSet) && haveSameProps(setItem, node);
+            };
+            
+            aggregateResults(node, findEqualsNode);
+        }
+
+        private static Set<String> getLabelsSet(List<String> mergeKeysList, Node item1) {
+            final Iterable<String> labelNames = Iterables.map(Label::name, item1.getLabels());
+            Iterable<String> labels = mergeKeysList.isEmpty() ? labelNames : Iterables.filter(mergeKeysList::contains, labelNames);
+            return Iterables.asSet(labels);
+        }
+
     }
 
-    private Set<String> getLabelsSet(List<String> mergeKeysList, Node item1) {
-        final Iterable<String> labelNames = Iterables.map(Label::name, item1.getLabels());
-        Iterable<String> labels = mergeKeysList.isEmpty() ? labelNames : Iterables.filter(mergeKeysList::contains, labelNames);
-        return Iterables.asSet(labels);
-    }
+    public static class MergeVRels extends MergeCommon<Relationship> {
 
-    @Procedure(value="apoc.merge.vRelationships")
-    @Description("apoc.merge.vRelationships(relationships, $config) - merge a virtual relationship list")
-    public Stream<RelationshipListResult> mergeVRelationships(@Name("relationships") List<Relationship> relationships, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
-        MergeConfig conf = new MergeConfig(config);
-
-        List<Relationship> currentRels = new ArrayList<>();
-        
-        relationships.forEach(rel -> {
+        @UserAggregationUpdate
+        public void update(@Name("relationships") Relationship rel, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+            conf = new MergeConfig(config);
+            
             if (!(rel instanceof VirtualRelationship)) {
                 throw new RuntimeException(ERROR_NOT_VIRTUAL_RELS);
             }
-            final Relationship relFound = currentRels.stream().filter(i -> i.getType().equals(rel.getType()) && i.getAllProperties().equals(rel.getAllProperties())).findAny().orElse(null);
-            if (relFound != null) {
-                relFound.setProperty(MERGED, true);
-            } else {
-                currentRels.add(rel);
-            }
-        });
 
-        setOnMatchAndCreate(conf, currentRels);
-        return Stream.of(new RelationshipListResult(currentRels));
-    }
-    
-    private <T extends Entity> void setOnMatchAndCreate(MergeConfig conf, List<T> list) {
-        if (!conf.getOnMatch().isEmpty() || !conf.getOnCreate().isEmpty()) {
-            list.forEach(entity -> {
-                if (entity.hasProperty(MERGED)) {
-                    conf.getOnMatch().forEach(entity::setProperty);
-                    entity.removeProperty(MERGED);
-                } else {
-                    conf.getOnCreate().forEach(entity::setProperty);
-                }
-            });
+            final IntPredicate findEqualsRel = idx -> {
+                final Relationship setItem = result.get(idx);
+                return setItem.getType().equals(rel.getType()) && haveSameProps(setItem, rel);
+            };
+            
+            aggregateResults(rel, findEqualsRel);
         }
     }
+    
 
     @Procedure(value="apoc.merge.node.eager", mode = Mode.WRITE, eager = true)
     @Description("apoc.merge.node.eager(['Label'], identProps:{key:value, ...}, onCreateProps:{key:value,...}, onMatchProps:{key:value,...}}) - merge nodes eagerly, with dynamic labels, with support for setting properties ON CREATE or ON MATCH")

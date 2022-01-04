@@ -1,5 +1,0 @@
-¦xref::overview/apoc.merge/apoc.merge.vRelationships.adoc[apoc.merge.vRelationships icon:book[]] +
-
- - merge a virtual relationship list
-¦label:procedure[]
-¦label:apoc-core[]

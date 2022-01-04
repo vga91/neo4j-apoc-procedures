@@ -146,7 +146,7 @@ public class MergeTest {
     @Test
     public void testMergeVirtualNodesAndRelsFailsIfNotVirtual() {
         try {
-            testCall(db, "CREATE (n:Real) WITH COLLECT(n) as list CALL apoc.merge.vNodes(list) YIELD nodes RETURN nodes",
+            testCall(db, "CREATE (n:Real) WITH COLLECT(n) as list UNWIND list as node RETURN apoc.merge.vNodes(node) AS nodes",
                     r -> fail("Should fails because is a 'real' node"));
         } catch (Exception e) {
             final Throwable except = ExceptionUtils.getRootCause(e);
@@ -154,7 +154,7 @@ public class MergeTest {
             TestCase.assertTrue(except instanceof RuntimeException);
         }
         try {
-            testCall(db, "CREATE ()-[r:REAL]->() WITH COLLECT(r) as list CALL apoc.merge.vRelationships(list) YIELD relationships RETURN relationships",
+            testCall(db, "CREATE ()-[r:REAL]->() WITH COLLECT(r) as list UNWIND list as rel RETURN apoc.merge.vRelationships(rel) AS rel",
                     r -> fail("Should fails because is a 'real' rel"));
         } catch (Exception e) {
             final Throwable except = ExceptionUtils.getRootCause(e);
@@ -167,8 +167,10 @@ public class MergeTest {
     public void testMergeVirtualNodes() {
         
         testCall(db, "CALL apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
-                        "CALL apoc.create.vNode($labels, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "CALL apoc.merge.vNodes(nodeList, $conf) YIELD nodes RETURN nodes",
+                        "CALL apoc.create.vNode($labels, $propsFirst) YIELD node as nodeTwo \n" +
+                        "CALL apoc.create.vNode($labels, $propsFirst) YIELD node as nodeThree \n" +
+                        "WITH [nodeOne, nodeTwo, nodeThree] as nodeList\n" +
+                        "UNWIND nodeList as node RETURN apoc.merge.vNodes(node, $conf) AS nodes",
                 MapUtil.map("labels", LABELS_V_NODES, "propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 this::assertionsMergeCommon);
@@ -176,8 +178,7 @@ public class MergeTest {
         // same value prop, but different keys
         testCall(db, "CALL apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
                         "CALL apoc.create.vNode($labels, $propsSecond) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "CALL apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "RETURN nodes",
+                        "UNWIND nodeList as node RETURN apoc.merge.vNodes(node, $conf) AS nodes",
                 MapUtil.map("labels", LABELS_V_NODES, "propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "propsSecond", MapUtil.map("a", List.of("b", "c"), "p2", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
@@ -197,8 +198,7 @@ public class MergeTest {
         final List<String> mergeKeysList = List.of("labelOne", "labelTwo");
         testCall(db, "CALL apoc.create.vNode($labels, $propsFirst  ) yield node with node as nodeOne\n" +
                         "CALL apoc.create.vNode($labelsTwo, $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "CALL apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "RETURN nodes",
+                        "UNWIND nodeList as node RETURN apoc.merge.vNodes(node, $conf) AS nodes",
                 MapUtil.map("labels", LABELS_V_NODES, "labelsTwo", List.of("labelOne", "labelTwo", "another", "another2"),
                         "propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("mergeKeysList", mergeKeysList,
@@ -207,8 +207,7 @@ public class MergeTest {
 
         testCall(db, "CALL apoc.create.vNode(['labelOne', 'labelTwo', 'labelThree'], $propsFirst  ) yield node with node as nodeOne\n" +
                         "CALL apoc.create.vNode(['labelOne', 'labelTwo'], $propsFirst) YIELD node as nodeTwo WITH [nodeOne, nodeTwo] as nodeList\n" +
-                        "CALL apoc.merge.vNodes(nodeList, $conf) YIELD nodes \n" +
-                        "RETURN nodes",
+                        "UNWIND nodeList as node RETURN apoc.merge.vNodes(node, $conf) AS nodes",
                 MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 r -> {
@@ -227,8 +226,7 @@ public class MergeTest {
         testCall(db, "CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo\n" +
                         "CALL apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
                         "CALL apoc.create.vRelationship(nodeFrom,'AAA', $propsFirst, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
-                        "CALL apoc.merge.vRelationships(relList, $conf) \n" +
-                        "YIELD relationships RETURN relationships",
+                        "UNWIND relList as rel RETURN apoc.merge.vRelationships(rel, $conf) AS relationships",
                 MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 r -> {
@@ -242,8 +240,7 @@ public class MergeTest {
         testCall(db, "CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo\n" +
                         "CALL apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
                         "CALL apoc.create.vRelationship(nodeFrom,'CCC', $propsFirst, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
-                        "CALL apoc.merge.vRelationships(relList, $conf) \n" +
-                        "YIELD relationships RETURN relationships",
+                        "UNWIND relList as rel RETURN apoc.merge.vRelationships(rel, $conf) AS relationships",
                 MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),
                 r -> {
@@ -259,8 +256,7 @@ public class MergeTest {
         testCall(db, "CREATE (nodeFrom:MyNode {id:0}), (nodeTo:MyNode {id:1}) with nodeFrom, nodeTo\n" +
                         "CALL apoc.create.vRelationship(nodeFrom,'AAA',$propsFirst, nodeTo) YIELD rel WITH rel as relOne, nodeFrom, nodeTo\n" +
                         "CALL apoc.create.vRelationship(nodeFrom,'AAA', $propsSecond, nodeTo) YIELD rel as relTwo  WITH [relOne, relTwo] as relList\n" +
-                        "CALL apoc.merge.vRelationships(relList, $conf) YIELD relationships \n" +
-                        "RETURN relationships",
+                        "UNWIND relList as rel RETURN apoc.merge.vRelationships(rel, $conf) AS relationships",
                 MapUtil.map("propsFirst", MapUtil.map("a", List.of("b", "c"), "p", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "propsSecond", MapUtil.map("a", List.of("b", "c"), "p2", List.of(POINT_VALUE_1, POINT_VALUE_2)),
                         "conf", MapUtil.map("onMatch", MapUtil.map("merged", true), "onCreate", MapUtil.map("created", true))),

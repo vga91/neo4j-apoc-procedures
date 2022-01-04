@@ -1,2 +1,0 @@
-¦signature
-¦apoc.merge.vRelationships(relationships :: LIST? OF RELATIONSHIP?, config = {} :: MAP?) :: (relationships :: LIST? OF RELATIONSHIP?)
