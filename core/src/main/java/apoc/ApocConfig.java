@@ -202,6 +202,8 @@ public class ApocConfig extends LifecycleAdapter {
             System.out.println("db_temporal_timezone.name() --" + db_temporal_timezone.name());
             System.out.println("neo4jConfig.get(db_temporal_timezone) --" + neo4jConfig.get(db_temporal_timezone));
             config.setProperty(db_temporal_timezone.name(), neo4jConfig.get(db_temporal_timezone));
+            System.out.println("config.getString() --" + config.getString(db_temporal_timezone.name()));
+            System.out.println("config.getString1() --" + config.getString("1" + db_temporal_timezone.name()));
 
             initLogging();
         } catch (ConfigurationException e) {

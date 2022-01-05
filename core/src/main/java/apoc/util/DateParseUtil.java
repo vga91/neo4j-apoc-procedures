@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 
 import static apoc.ApocConfig.apocConfig;
 import static apoc.util.Util.getFormat;
@@ -32,9 +33,9 @@ public class DateParseUtil {
     private static Map<Class<? extends TemporalAccessor>, MethodHandle> simpleParseDateMap = new ConcurrentHashMap<>();
     private static String METHOD_NAME = "parse";
 
-    public static ZoneId getTimezoneIfValid(Map<String, Object> config, String defaultZone) {
+    public static Supplier<ZoneId> getTimezoneIfValid(Map<String, Object> config, String defaultZone) {
         try {
-            return Optional.ofNullable((String) config.getOrDefault("timezone", defaultZone))
+            return () -> Optional.ofNullable((String) config.getOrDefault("timezone", defaultZone))
                     .map(ZoneId::of)
                     .orElse(null);
         } catch (DateTimeException e) {

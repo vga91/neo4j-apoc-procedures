@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static apoc.util.DateParseUtil.dateParse;
 import static apoc.util.Util.dateFormat;
@@ -37,14 +38,14 @@ public abstract class AbstractMapping {
     final boolean ignore;
 
     Function<Object, Object> listSupplier = null;
-    ZoneId zoneId;
+    Supplier<ZoneId> zoneId;
     final Map<String, Object> optionalData;
 
-    public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, ZoneId zoneId) {
+    public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, Supplier<ZoneId> zoneId) {
         this(name, mapping, ignore, defaultNullValues, zoneId, false);
     }
     
-    public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, ZoneId zoneId, boolean isTypeNull) {
+    public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, Supplier<ZoneId> zoneId, boolean isTypeNull) {
         if (mapping == null) {
             mapping = Collections.emptyMap();
         }
@@ -131,8 +132,8 @@ public abstract class AbstractMapping {
                         : dateParse(value.toString(), LocalDate.class, dateParse);
             case DATE_TIME:
                 return isParseNull
-                        ? DateTimeValue.parse((String) value, () -> zoneId).asObjectCopy()
-                        : dateParse(value.toString(), ZonedDateTime.class, zoneId, dateParse);
+                        ? DateTimeValue.parse((String) value, zoneId).asObjectCopy()
+                        : dateParse(value.toString(), ZonedDateTime.class, zoneId.get(), dateParse);
             case LOCAL_DATE_TIME:
                 return isParseNull
                         ? LocalDateTimeValue.parse((String) value).asObjectCopy()
@@ -143,8 +144,8 @@ public abstract class AbstractMapping {
                         : dateParse(value.toString(), LocalTime.class, dateParse);
             case TIME:
                 return isParseNull
-                        ? TimeValue.parse((String) value, () -> zoneId).asObjectCopy()
-                        : dateParse(value.toString(), OffsetTime.class, zoneId, dateParse);
+                        ? TimeValue.parse((String) value, zoneId).asObjectCopy()
+                        : dateParse(value.toString(), OffsetTime.class, zoneId.get(), dateParse);
             case DURATION:
                 return DurationValue.parse((String) value).asObjectCopy();
             default:

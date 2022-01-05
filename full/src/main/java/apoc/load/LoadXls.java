@@ -18,6 +18,7 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -110,7 +111,7 @@ public class LoadXls {
 
             List<String> ignore = value(config, "ignore", emptyList());
             List<Object> nullValues = value(config, "nullValues", emptyList());
-            ZoneId zoneId = config.containsKey("timezone") ? ZoneId.of(config.get("timezone").toString()) : null;
+            Supplier<ZoneId> zoneId = config.containsKey("timezone") ? () -> ZoneId.of(config.get("timezone").toString()) : null;
             Map<String, Map<String, Object>> mapping = value(config, "mapping", Collections.emptyMap());
             Map<String, Mapping> mappings = createMapping(mapping, arraySep, ignore, zoneId);
 
@@ -132,7 +133,7 @@ public class LoadXls {
         }
     }
 
-    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore, ZoneId zoneId) {
+    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore, Supplier<ZoneId> zoneId) {
         if (mapping.isEmpty()) return Collections.emptyMap();
         HashMap<String, Mapping> result = new HashMap<>(mapping.size());
         for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
@@ -150,7 +151,7 @@ public class LoadXls {
         final String dateFormat;
         private final Pattern arrayPattern;
 
-        public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, ZoneId zoneId) {
+        public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, Supplier<ZoneId> zoneId) {
             super(name, mapping, ignore, emptyList(), zoneId);
             this.name = mapping.getOrDefault("name", name).toString();
             this.array = (Boolean) mapping.getOrDefault("array", false);

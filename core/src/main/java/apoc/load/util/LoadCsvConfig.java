@@ -71,7 +71,7 @@ public class LoadCsvConfig extends CommonLoadImportConfig {
         HashMap<String, Mapping> result = new HashMap<>(mapping.size());
         for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
             String name = entry.getKey();
-            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name)/*, super.getZoneId()*/));
+            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name), super.getZoneId()));
         }
         return result;
     }

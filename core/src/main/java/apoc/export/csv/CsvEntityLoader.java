@@ -234,7 +234,7 @@ public class CsvEntityLoader {
                                             new AbstractMap.SimpleEntry<>("optionalData", f.getOptionalData())
                                     ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
 
-                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false/*, null*/);
+                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false, null);
                         }
                 )
         );
