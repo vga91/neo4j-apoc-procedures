@@ -563,10 +563,6 @@ public class Xml {
                         for (int i = 0; i < xml.getAttributeCount(); i++) {
                             tag.setProperty(xml.getAttributeLocalName(i), xml.getAttributeValue(i));
                         }
-
-                        if (name.equals("measure")) {
-                            System.out.println("Xml.importToGraph");
-                        }
                         state.updateLast(tag);
                         state.push(new ParentAndChildPair(tag));
                     }
@@ -584,9 +580,6 @@ public class Xml {
                     break;
 
                 case XMLStreamConstants.END_ELEMENT:
-                    if (xml.getName().getLocalPart().equals("measure")) {
-                        System.out.println("Xml.importToGraph");
-                    }
                     final String localPart = xml.getName().getLocalPart();
                     if (currentXmlMapping == null || !currentXmlMapping.isIgnore() || !currentXmlMapping.getName().equals(localPart)) {
                         String charactersForTag = importConfig.getCharactersForTag().get(localPart);

@@ -199,11 +199,7 @@ public class ApocConfig extends LifecycleAdapter {
             
             // todo - evaluate default timezone here [maybe is reusable], otherwise through db.execute('CALL dbms.listConfig()')
             final Setting<ZoneId> db_temporal_timezone = GraphDatabaseSettings.db_temporal_timezone;
-            System.out.println("db_temporal_timezone.name() --" + db_temporal_timezone.name());
-            System.out.println("neo4jConfig.get(db_temporal_timezone) --" + neo4jConfig.get(db_temporal_timezone));
             config.setProperty(db_temporal_timezone.name(), neo4jConfig.get(db_temporal_timezone));
-            System.out.println("config.getString() --" + config.getString(db_temporal_timezone.name()));
-            System.out.println("config.getString1() --" + config.getString("1" + db_temporal_timezone.name()));
 
             initLogging();
         } catch (ConfigurationException e) {

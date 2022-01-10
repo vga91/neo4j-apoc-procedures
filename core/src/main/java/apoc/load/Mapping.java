@@ -14,7 +14,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.apocConfig;
-import static apoc.util.DateParseUtil.DB_TEMPORAL_TIMEZONE;
 import static apoc.util.DateParseUtil.getTimezoneIfValid;
 import static apoc.util.Util.parseCharFromConfig;
 import static java.util.Collections.emptyList;
@@ -37,13 +36,9 @@ public class Mapping extends AbstractMapping {
         this.listSupplier = value -> Arrays.stream(arrayPattern.split((String) value)).map(this::convertType).collect(Collectors.toList());
 
         if (this.zoneId == null) {
-            System.out.println("DB_TEMPORAL_TIMEZONE 1" + DB_TEMPORAL_TIMEZONE);
-            System.out.println("DB_TEMPORAL_TIMEZONE 2" + apocConfig().getString(db_temporal_timezone.name()));
-            System.out.println("DB_TEMPORAL_TIMEZONE 3" + apocConfig().getString("db.temporal.timezone"));
-            System.out.println("DB_TEMPORAL_TIMEZONE 4" + db_temporal_timezone.name());
             // to preserve ImportCsv behavior like neo4j-import-tool
             // we leverage on optionalData, e.g. myProp:time{timezone:+02:00}
-            this.zoneId = getTimezoneIfValid(optionalData, apocConfig().getString("db.temporal.timezone"));
+            this.zoneId = getTimezoneIfValid(optionalData, apocConfig().getString(db_temporal_timezone.name()));
         }
 
         if (this.type == null) {

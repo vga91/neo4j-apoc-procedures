@@ -6,11 +6,11 @@ import java.time.ZoneId;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 
-import static apoc.util.DateParseUtil.DB_TEMPORAL_TIMEZONE;
+import static apoc.ApocConfig.apocConfig;
 import static apoc.util.DateParseUtil.getTimezoneIfValid;
 import static java.util.Collections.emptyList;
+import static org.neo4j.configuration.GraphDatabaseSettings.db_temporal_timezone;
 
 public class CommonLoadImportConfig extends CompressionConfig {
     private final List<String> ignore;
@@ -19,7 +19,7 @@ public class CommonLoadImportConfig extends CompressionConfig {
     private final ZoneId zoneId;
 
     public CommonLoadImportConfig(Map<String, Object> config) {
-        this(config, DB_TEMPORAL_TIMEZONE);
+        this(config, apocConfig().getString(db_temporal_timezone.name()));
     }
     
     public CommonLoadImportConfig(Map<String, Object> config, String zoneId) {

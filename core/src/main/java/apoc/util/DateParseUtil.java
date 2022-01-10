@@ -7,28 +7,19 @@ import java.time.DateTimeException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.OffsetDateTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Supplier;
 
-import static apoc.ApocConfig.apocConfig;
 import static apoc.util.Util.getFormat;
-import static org.neo4j.configuration.GraphDatabaseSettings.db_temporal_timezone;
 
 public class DateParseUtil {
-    public static final String DB_TEMPORAL_TIMEZONE = apocConfig().getString(db_temporal_timezone.name());
-    
     private static Map<Class<? extends TemporalAccessor>, MethodHandle> parseDateMap = new ConcurrentHashMap<>();
     private static Map<Class<? extends TemporalAccessor>, MethodHandle> simpleParseDateMap = new ConcurrentHashMap<>();
     private static String METHOD_NAME = "parse";
