@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 
 public class JsonMapping extends AbstractMapping {
 
-    public JsonMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, Supplier<ZoneId> timezone) {
+    public JsonMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, ZoneId timezone) {
         super(name, mapping, ignore, nullValues, timezone, true);
     }
 

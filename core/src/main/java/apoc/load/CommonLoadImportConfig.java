@@ -16,7 +16,7 @@ public class CommonLoadImportConfig extends CompressionConfig {
     private final List<String> ignore;
     private final List<String> nullValues;
     private final Map<String, Map<String, Object>> mapping;
-    private final Supplier<ZoneId> zoneId;
+    private final ZoneId zoneId;
 
     public CommonLoadImportConfig(Map<String, Object> config) {
         this(config, DB_TEMPORAL_TIMEZONE);
@@ -34,7 +34,7 @@ public class CommonLoadImportConfig extends CompressionConfig {
         mapping =  (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
     }
 
-    public Supplier<ZoneId> getZoneId(){
+    public ZoneId getZoneId(){
         return this.zoneId;
     }
 

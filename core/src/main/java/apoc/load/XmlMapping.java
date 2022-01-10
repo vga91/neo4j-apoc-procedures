@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 public class XmlMapping extends AbstractMapping {
-    public XmlMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> nullValues, Supplier<ZoneId> zoneId) {
+    public XmlMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> nullValues, ZoneId zoneId) {
         super(name, mapping, ignore, nullValues, zoneId);
     }
 

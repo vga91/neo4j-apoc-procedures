@@ -162,7 +162,7 @@ public class Jdbc {
 
     private static class JdbcMapping extends AbstractMapping {
 
-        public JdbcMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, Supplier<ZoneId> timezone) {
+        public JdbcMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, ZoneId timezone) {
             super(name, mapping, ignore, nullValues, timezone);
         }
 
@@ -241,7 +241,7 @@ public class Jdbc {
             if (Types.TIMESTAMP == sqlType) {
                 if (config.getZoneId() != null) {
                     return ((java.sql.Timestamp)value).toInstant()
-                            .atZone(config.getZoneId().get())
+                            .atZone(config.getZoneId())
                             .toOffsetDateTime();
                 } else {
                     return ((java.sql.Timestamp)value).toLocalDateTime();
@@ -250,7 +250,7 @@ public class Jdbc {
             if (Types.TIMESTAMP_WITH_TIMEZONE == sqlType) {
                 if (config.getZoneId() != null) {
                     return ((java.sql.Timestamp)value).toInstant()
-                            .atZone(config.getZoneId().get())
+                            .atZone(config.getZoneId())
                             .toOffsetDateTime();
                 } else {
                     return OffsetDateTime.parse(value.toString());
