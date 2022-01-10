@@ -374,6 +374,32 @@ RETURN file, nodes, relationships, properties, data;
   "
 |===
 
+=== Append file
+
+You can append the procedure result to an existing file putting as a configuration paramenter, `append: true`.
+For example
+
+[source,cypher]
+----
+CALL apoc.export.csv.query("MATCH path = (person:Person)-[:DIRECTED]->(movie)
+      RETURN person.name AS name, person.born AS born,
+             movie.title AS title, movie.tagline AS tagline, movie.released AS released",
+  "movies-directed.csv", 
+  {append: true})
+----
+
+Since the result is appended, you have to be sure that 
+the header columns and the content formatting (quotes, escape characters, etc... ) match.
+
+The above query has a result like this:
+
+[source,csv]
+----
+--- OLD CSV ---
+"Lilly Wachowski","1967","","The Matrix","Welcome to the Real World","1999"
+"Lana Wachowski","1965","","The Matrix","Welcome to the Real World","1999"
+----
+
 When the config `bulkImport` is enable it create a list of file that can be used for Neo4j Bulk Import.
 
 *This config can be used only with `apoc.export.csv.all` and `apoc.export.csv.graph`*

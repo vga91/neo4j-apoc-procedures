@@ -3,6 +3,7 @@ package apoc.util;
 import apoc.ApocConfig;
 import apoc.export.util.CountingInputStream;
 import apoc.export.util.CountingReader;
+import apoc.export.util.ExportConfig;
 import apoc.util.hdfs.HDFSUtils;
 import apoc.util.s3.S3URLConnection;
 import apoc.util.s3.S3UploadUtils;
@@ -86,20 +87,28 @@ public class FileUtils {
             }
         }
 
-        public OutputStream getOutputStream(String fileName) {
+        public OutputStream getOutputStream(String fileName, boolean append) {
             if (fileName == null) return null;
             final OutputStream outputStream;
             try {
                 switch (this) {
                     case s3:
+                        // Currently, it doesn't seem possible to append an S3 Object:
+                        // https://stackoverflow.com/questions/33106248/updating-a-file-in-amazon-s3-bucket
                         outputStream = S3UploadUtils.writeFile(fileName);
                         break;
                     case hdfs:
-                        outputStream = HDFSUtils.writeFile(fileName);
+                        outputStream = HDFSUtils.writeFile(fileName, append);
                         break;
                     default:
                         final Path path = resolvePath(fileName);
-                        outputStream = new FileOutputStream(path.toFile());
+                        final File file = path.toFile();
+                        if (!file.exists() && append) {
+                            throw new RuntimeException(FAILED_APPEND_TO_NON_EXISTENT_FILE);
+                        }
+                        
+                        outputStream = new FileOutputStream(file, append);
+                        outputStream.flush();
                 }
                 return new BufferedOutputStream(outputStream);
             } catch (IOException e) {
@@ -141,6 +150,7 @@ public class FileUtils {
 
     }
 
+    public static final String FAILED_APPEND_TO_NON_EXISTENT_FILE = "Failed to append to non-existent file";
     public static final String ERROR_READ_FROM_FS_NOT_ALLOWED = "Import file %s not enabled, please set " + APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM + "=true in your neo4j.conf";
     public static final String ACCESS_OUTSIDE_DIR_ERROR = "You're providing a directory outside the import directory " +
             "defined into `dbms.directories.import`";
@@ -246,11 +256,11 @@ public class FileUtils {
         return SupportedProtocols.from(fileName) == SupportedProtocols.file;
     }
 
-    public static OutputStream getOutputStream(String fileName) {
+    public static OutputStream getOutputStream(String fileName, boolean append) {
         if (fileName.equals("-")) {
             return null;
         }
-        return SupportedProtocols.from(fileName).getOutputStream(fileName);
+        return SupportedProtocols.from(fileName).getOutputStream(fileName, append);
     }
 
     public static boolean isImportUsingNeo4jConfig() {

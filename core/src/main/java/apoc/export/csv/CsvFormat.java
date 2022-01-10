@@ -115,7 +115,7 @@ public class CsvFormat implements Format {
     public ProgressInfo dump(Result result, ExportFileManager writer, Reporter reporter, ExportConfig config) {
         try (Transaction tx = db.beginTx(); PrintWriter printWriter = writer.getPrintWriter("csv");) {
             CSVWriter out = getCsvWriter(printWriter, config);
-            String[] header = writeResultHeader(result, out);
+            String[] header = writeResultHeader(result, out, config);
 
             String[] data = new String[header.length];
             result.accept((row) -> {
@@ -135,11 +135,13 @@ public class CsvFormat implements Format {
         }
     }
 
-    public String[] writeResultHeader(Result result, CSVWriter out) {
+    public String[] writeResultHeader(Result result, CSVWriter out, ExportConfig config) {
         List<String> columns = result.columns();
         int cols = columns.size();
         String[] header = columns.toArray(new String[cols]);
-        out.writeNext(header, applyQuotesToAll);
+        if (!config.isAppend()) {
+            out.writeNext(header, applyQuotesToAll);
+        }
         return header;
     }
 
@@ -150,7 +152,9 @@ public class CsvFormat implements Format {
         List<String> relHeader = generateHeader(relPropTypes, config.useTypes(), REL_HEADER_FIXED_COLUMNS);
         List<String> header = new ArrayList<>(nodeHeader);
         header.addAll(relHeader);
-        out.writeNext(header.toArray(new String[header.size()]), applyQuotesToAll);
+        if (!config.isAppend()) {
+            out.writeNext(header.toArray(new String[header.size()]), applyQuotesToAll);
+        }
         int cols = header.size();
 
         writeNodes(graph, out, reporter, nodeHeader.subList(NODE_HEADER_FIXED_COLUMNS.length, nodeHeader.size()), cols, config.getBatchSize(), config.getDelim());
@@ -250,17 +254,24 @@ public class CsvFormat implements Format {
     private void writeRow(ExportConfig config, ExportFileManager writer, Set<String> headerNode, List<List<String>> rows, String name) {
         try (PrintWriter pw = writer.getPrintWriter(name);
              CSVWriter csvWriter = getCsvWriter(pw, config)) {
-            if (config.isSeparateHeader()) {
-                try (PrintWriter pwHeader = writer.getPrintWriter("header." + name)) {
-                    CSVWriter csvWriterHeader = getCsvWriter(pwHeader, config);
-                    csvWriterHeader.writeNext(headerNode.toArray(new String[headerNode.size()]), false);
-                }
-            } else {
-                csvWriter.writeNext(headerNode.toArray(new String[headerNode.size()]), false);
-            }
+            writeBulkHeader(config, writer, headerNode, name, csvWriter);
             rows.forEach(row -> csvWriter.writeNext(row.toArray(new String[row.size()]), false));
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private void writeBulkHeader(ExportConfig config, ExportFileManager writer, Set<String> headerNode, String name, CSVWriter csvWriter) {
+        if (config.isAppend()) {
+            return;
+        }
+        if (config.isSeparateHeader()) {
+            try (PrintWriter pwHeader = writer.getPrintWriter("header." + name)) {
+                CSVWriter csvWriterHeader = getCsvWriter(pwHeader, config);
+                csvWriterHeader.writeNext(headerNode.toArray(new String[headerNode.size()]), false);
+            }
+        } else {
+            csvWriter.writeNext(headerNode.toArray(new String[headerNode.size()]), false);
         }
     }
 

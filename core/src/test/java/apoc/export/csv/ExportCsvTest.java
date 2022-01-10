@@ -19,8 +19,10 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
+import java.util.UUID;
 import java.util.function.Consumer;
 
+import static apoc.util.FileUtils.FAILED_APPEND_TO_NON_EXISTENT_FILE;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testResult;
 import static junit.framework.TestCase.assertTrue;
@@ -36,10 +38,11 @@ public class ExportCsvTest {
             "\"{\"\"id\"\":0,\"\"labels\"\":[\"\"User\"\",\"\"User1\"\"],\"\"properties\"\":{\"\"name\"\":\"\"foo\"\",\"\"male\"\":true,\"\"age\"\":42,\"\"kids\"\":[\"\"a\"\",\"\"b\"\",\"\"c\"\"]}}\"%n" +
             "\"{\"\"id\"\":1,\"\"labels\"\":[\"\"User\"\"],\"\"properties\"\":{\"\"name\"\":\"\"bar\"\",\"\"age\"\":42}}\"%n" +
             "\"{\"\"id\"\":2,\"\"labels\"\":[\"\"User\"\"],\"\"properties\"\":{\"\"age\"\":12}}\"%n");
-    private static final String EXPECTED_QUERY = String.format("\"u.age\",\"u.name\",\"u.male\",\"u.kids\",\"labels(u)\"%n" +
-            "\"42\",\"foo\",\"true\",\"[\"\"a\"\",\"\"b\"\",\"\"c\"\"]\",\"[\"\"User1\"\",\"\"User\"\"]\"%n" +
+    private static final String EXPECTED_QUERY_HEADER = String.format("\"u.age\",\"u.name\",\"u.male\",\"u.kids\",\"labels(u)\"%n");
+    private static final String EXPECTED_QUERY_CONTENT = String.format("\"42\",\"foo\",\"true\",\"[\"\"a\"\",\"\"b\"\",\"\"c\"\"]\",\"[\"\"User1\"\",\"\"User\"\"]\"%n" +
             "\"42\",\"bar\",\"\",\"\",\"[\"\"User\"\"]\"%n" +
             "\"12\",\"\",\"\",\"\",\"[\"\"User\"\"]\"%n");
+    private static final String EXPECTED_QUERY = EXPECTED_QUERY_HEADER + EXPECTED_QUERY_CONTENT;
     private static final String EXPECTED_QUERY_WITHOUT_QUOTES = String.format("u.age,u.name,u.male,u.kids,labels(u)%n" +
             "42,foo,true,[\"a\",\"b\",\"c\"],[\"User1\",\"User\"]%n" +
             "42,bar,,,[\"User\"]%n" +
@@ -56,8 +59,8 @@ public class ExportCsvTest {
             "Andrea,Milano,\"Via Garibaldi, 7\",\"[\"Address1\",\"Address\"]\"%n" +
             "Bar Sport,,,\"[\"Address\"]\"%n" +
             ",,via Benni,\"[\"Address\"]\"%n");
-    private static final String EXPECTED = String.format("\"_id\",\"_labels\",\"age\",\"city\",\"kids\",\"male\",\"name\",\"street\",\"_start\",\"_end\",\"_type\"%n" +
-            "\"0\",\":User:User1\",\"42\",\"\",\"[\"\"a\"\",\"\"b\"\",\"\"c\"\"]\",\"true\",\"foo\",\"\",,,%n" +
+    private static final String EXPECTED_HEADER = String.format("\"_id\",\"_labels\",\"age\",\"city\",\"kids\",\"male\",\"name\",\"street\",\"_start\",\"_end\",\"_type\"%n");
+    private static final String EXPECTED_CONTENT = String.format("\"0\",\":User:User1\",\"42\",\"\",\"[\"\"a\"\",\"\"b\"\",\"\"c\"\"]\",\"true\",\"foo\",\"\",,,%n" +
             "\"1\",\":User\",\"42\",\"\",\"\",\"\",\"bar\",\"\",,,%n" +
             "\"2\",\":User\",\"12\",\"\",\"\",\"\",\"\",\"\",,,%n" +
             "\"3\",\":Address:Address1\",\"\",\"Milano\",\"\",\"\",\"Andrea\",\"Via Garibaldi, 7\",,,%n" +
@@ -65,6 +68,7 @@ public class ExportCsvTest {
             "\"5\",\":Address\",\"\",\"\",\"\",\"\",\"\",\"via Benni\",,,%n" +
             ",,,,,,,,\"0\",\"1\",\"KNOWS\"%n" +
             ",,,,,,,,\"3\",\"4\",\"NEXT_DELIVERY\"%n");
+    private static final String EXPECTED = EXPECTED_HEADER + EXPECTED_CONTENT;
 
     private static final String EXP_SAMPLE = "\"_id\",\"_labels\",\"address\",\"age\",\"baz\",\"city\",\"foo\",\"kids\",\"last:Name\",\"male\",\"name\",\"street\",\"_start\",\"_end\",\"_type\",\"one\",\"three\"\n" +
             "\"0\",\":User:User1\",\"\",\"42\",\"\",\"\",\"\",\"[\"\"a\"\",\"\"b\"\",\"\"c\"\"]\",\"\",\"true\",\"foo\",\"\",,,,,\n" +
@@ -141,6 +145,36 @@ public class ExportCsvTest {
         TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileName),
                 (r) -> assertResults(fileName, r, "database"));
         assertEquals(EXPECTED, readFile(fileName));
+    }
+
+    @Test
+    public void testExportAllCsvWithAppend() {
+        String fileName = "all.csv";
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file, null)", map("file", fileName),
+                (r) -> assertResults(fileName, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName));
+        
+        // re-do without append, to check that overwrite file
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileName),
+                (r) -> assertResults(fileName, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName));
+
+        // now with append mode
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file, {append:true})", map("file", fileName),
+                (r) -> assertResults(fileName, r, "database"));
+        assertEquals(EXPECTED_HEADER + EXPECTED_CONTENT + EXPECTED_CONTENT, readFile(fileName));
+    }
+    
+    @Test
+    public void testExportAllCsvWithAppendNonExistentFile() {
+        String fileName = UUID.randomUUID().toString() + ".csv";
+        try {
+            TestUtil.testCall(db, "CALL apoc.export.csv.all($file, {append:true})", map("file", fileName),
+                    r -> fail());
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains(FAILED_APPEND_TO_NON_EXISTENT_FILE));
+        }
+        
     }
 
     @Test
@@ -225,9 +259,18 @@ public class ExportCsvTest {
                     assertTrue("Should get statement",r.get("source").toString().contains("statement: cols(5)"));
                     assertEquals(fileName, r.get("file"));
                     assertEquals("csv", r.get("format"));
-
                 });
         assertEquals(EXPECTED_QUERY, readFile(fileName));
+        
+        TestUtil.testCall(db, "CALL apoc.export.csv.query($query, $file, $config)",
+                map("file", fileName, "query", query, "config", map("append", true)),
+                (r) -> {
+                    assertTrue("Should get statement", r.get("source").toString().contains("statement: cols(5)"));
+                    assertEquals(fileName, r.get("file"));
+                    assertEquals("csv", r.get("format"));
+                });
+        
+        assertEquals(EXPECTED_QUERY_HEADER + EXPECTED_QUERY_CONTENT + EXPECTED_QUERY_CONTENT, readFile(fileName));
     }
 
     @Test

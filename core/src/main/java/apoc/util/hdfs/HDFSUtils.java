@@ -1,7 +1,9 @@
 package apoc.util.hdfs;
 
+import apoc.export.util.ExportConfig;
 import apoc.util.StreamConnection;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -47,10 +49,10 @@ public class HDFSUtils {
 		return readFile(url.toString());
 	}
 	
-	public static OutputStream writeFile(String fileName) throws IOException {
+	public static FSDataOutputStream writeFile(String fileName, boolean append) throws IOException {
 		FileSystem hdfs = getFileSystem(fileName);
 		Path file = getPath(fileName);
-		return hdfs.create(file);
+		return append ? hdfs.append(file) : hdfs.create(file);
 	}
 
 	public static Path getPath(String fileName) {
