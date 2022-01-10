@@ -28,6 +28,7 @@ import static org.junit.Assume.assumeTrue;
 public class CoreExtendedTest {
     @Test
     public void checkForCoreAndExtended() {
+        System.out.println("CoreExtendedTest.checkForCoreAndExtendedTest");
         try {
             Neo4jContainerExtension neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
                     .withNeo4jConfig("dbms.transaction.timeout", "60s")
