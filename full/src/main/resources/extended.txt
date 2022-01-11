@@ -138,6 +138,8 @@ apoc.static.list
 apoc.static.set
 apoc.systemdb.execute
 apoc.systemdb.graph
+apoc.systemdb.create.node
+apoc.systemdb.merge.node
 apoc.ttl.expire
 apoc.ttl.expireIn
 apoc.uuid.install

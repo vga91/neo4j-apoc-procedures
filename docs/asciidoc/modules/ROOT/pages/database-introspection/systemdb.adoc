@@ -19,6 +19,14 @@ and might change within minor release updates.
 ¦Qualified Name¦Type¦Release
 include::example$generated-documentation/apoc.systemdb.graph.adoc[]
 include::example$generated-documentation/apoc.systemdb.execute.adoc[]
+
+¦xref::overview/apoc.systemdb/apoc.systemdb.create.node.adoc[apoc.systemdb.create.node icon:book[]] +
+¦label:procedure[]
+¦label:apoc-full[]
+
+¦xref::overview/apoc.systemdb/apoc.systemdb.merge.node.adoc[apoc.systemdb.execute icon:book[]] +
+¦label:procedure[] 
+¦label:apoc-full[]
 |===
 
 .isType example
@@ -28,3 +36,48 @@ CALL apoc.systemdb.graph() YIELD nodes, relationships RETURN *;
 CALL apoc.systemdb.execute('SHOW DATABASES') YIELD row RETURN row.name as dbName;
 CALL apoc.systemdb.execute(["CREATE USER foo", "GRANT ROLE myRole TO foo"])
 ----
+
+To create a new node (:Sys:Node {alpha: 'beta'}), we can execute:
+
+[source, cypher]
+----
+call apoc.systemdb.create.node(["Sys", "Node"], {alpha: 'beta'})
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| node
+| {"identity": 21, "labels": ["Sys", "Node"], "properties": {"alpha": "beta" } }
+|===
+
+To execute a procedure equivalent to `MERGE (node:Sys:Node {alpha: 'beta'}) ON CREATE SET node.gamma='delta`, 
+we can execute:
+
+[source, cypher]
+----
+CALL apoc.systemdb.merge.node(['Sys', 'Node'], {alpha: 'beta'}, {gamma: 'delta'})
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| node
+| {"identity": 21, "labels": ["Sys", "Node"], "properties": {"alpha": "beta" } }
+|===
+
+
+In the previous case, we create nothing becuase an equivalent node exist.
+Otherwise, executing with this query we receive a new node:
+
+[source, cypher]
+----
+CALL apoc.systemdb.merge.node(['Sys', 'Node'], {alpha: 'anotherOne'}, {gamma: 'delta'})
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| node
+| {"identity": 21, "labels": ["Sys", "Node"], "properties": {"alpha": "anotherOne", "gamma": "delta"} }
+|===

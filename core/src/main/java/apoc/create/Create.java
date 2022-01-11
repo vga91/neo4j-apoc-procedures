@@ -245,7 +245,7 @@ public class Create {
         return new PathResult(virtualPath);
     }
 
-    private <T extends Entity> T setProperties(T pc, Map<String, Object> p) {
+    public static <T extends Entity> T setProperties(T pc, Map<String, Object> p) {
         if (p == null) return pc;
         for (Map.Entry<String, Object> entry : p.entrySet()) {
             setProperty(pc, entry.getKey(), entry.getValue());
@@ -253,7 +253,7 @@ public class Create {
         return pc;
     }
 
-    private <T extends Entity> void setProperty(T pc, String key, Object value) {
+    private static <T extends Entity> void setProperty(T pc, String key, Object value) {
         if (value == null) pc.removeProperty(key);
         else pc.setProperty(key, toPropertyValue(value));
     }
@@ -264,7 +264,7 @@ public class Create {
         return UUID.randomUUID().toString();
     }
 
-    private Object toPropertyValue(Object value) {
+    private static Object toPropertyValue(Object value) {
         if (value instanceof Iterable) {
             Iterable it = (Iterable) value;
             Object first = Iterables.firstOrNull(it);
