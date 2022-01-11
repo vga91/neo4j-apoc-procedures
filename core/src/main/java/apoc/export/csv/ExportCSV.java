@@ -17,6 +17,7 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
@@ -36,6 +37,9 @@ import java.util.stream.Stream;
 public class ExportCSV {
     @Context
     public Transaction tx;
+    
+    @Context
+    public KernelTransaction ktx;
 
     @Context
     public GraphDatabaseService db;
@@ -97,7 +101,7 @@ public class ExportCSV {
     private Stream<ProgressInfo> exportCsv(@Name("file") String fileName, String source, Object data, ExportConfig exportConfig) throws Exception {
         apocConfig.checkWriteAllowed(exportConfig, fileName);
         final String format = "csv";
-        ProgressInfo progressInfo = new ProgressInfo(fileName, source, format);
+        ProgressInfo progressInfo = new ProgressInfo(fileName, source, format, ktx);
         progressInfo.batchSize = exportConfig.getBatchSize();
         ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
         CsvFormat exporter = new CsvFormat(db);

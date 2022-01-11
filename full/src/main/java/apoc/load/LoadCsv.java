@@ -2,6 +2,7 @@ package apoc.load;
 
 import apoc.Extended;
 import apoc.export.util.CountingReader;
+import apoc.export.util.FormatUtils;
 import apoc.load.util.LoadCsvConfig;
 import apoc.util.FileUtils;
 import apoc.util.Util;
@@ -9,6 +10,7 @@ import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
@@ -30,6 +32,9 @@ public class LoadCsv {
 
     @Context
     public GraphDatabaseService db;
+    
+    @Context
+    public KernelTransaction ktx;
 
     @Procedure
     @Description("apoc.load.csv('urlOrBinary',{config}) YIELD lineNo, list, map - load CSV from URL as stream of values,\n config contains any of: {skip:1,limit:5,header:false,sep:'TAB',ignore:['tmp'],nullValues:['na'],arraySep:';',mapping:{years:{type:'int',arraySep:'-',array:false,name:'age',ignore:false}}")
@@ -40,6 +45,7 @@ public class LoadCsv {
     @Procedure
     @Description("apoc.load.csvParams('urlOrBinary', {httpHeader: value}, payload, {config}) YIELD lineNo, list, map - load from CSV URL (e.g. web-api) while sending headers / payload to load CSV from URL as stream of values,\n config contains any of: {skip:1,limit:5,header:false,sep:'TAB',ignore:['tmp'],nullValues:['na'],arraySep:';',mapping:{years:{type:'int',arraySep:'-',array:false,name:'age',ignore:false}}")
     public Stream<CSVResult> csvParams(@Name("urlOrBinary") Object urlOrBinary, @Name("httpHeaders") Map<String, Object> httpHeaders, @Name("payload") String payload, @Name(value = "config", defaultValue = "{}") Map<String, Object> configMap) {
+        // todo - questo non ha progressReporter
         LoadCsvConfig config = new LoadCsvConfig(configMap);
         CountingReader reader = null;
         try {
@@ -74,7 +80,7 @@ public class LoadCsv {
         String[] header = getHeader(csv, config);
         boolean checkIgnore = !config.getIgnore().isEmpty() || config.getMappings().values().stream().anyMatch(m -> m.ignore);
         return StreamSupport.stream(new CSVSpliterator(csv, header, url, config.getSkip(), config.getLimit(),
-                checkIgnore, config.getMappings(), config.getNullValues(), config.getResults(), config.getIgnoreErrors()), false)
+                checkIgnore, config.getMappings(), config.getNullValues(), config.getResults(), config.getIgnoreErrors(), ktx), false)
                 .onClose(() -> closeReaderSafely(reader));
     }
 
@@ -96,6 +102,7 @@ public class LoadCsv {
 
     private static class CSVSpliterator extends Spliterators.AbstractSpliterator<CSVResult> {
         private final CSVReader csv;
+        private final KernelTransaction ktx;
         private final String[] header;
         private final String url;
         private final long limit;
@@ -106,9 +113,10 @@ public class LoadCsv {
         private final boolean ignoreErrors;
         long lineNo;
 
-        public CSVSpliterator(CSVReader csv, String[] header, String url, long skip, long limit, boolean ignore, Map<String, Mapping> mapping, List<String> nullValues, EnumSet<Results> results, boolean ignoreErrors) throws IOException {
+        public CSVSpliterator(CSVReader csv, String[] header, String url, long skip, long limit, boolean ignore, Map<String, Mapping> mapping, List<String> nullValues, EnumSet<Results> results, boolean ignoreErrors, KernelTransaction ktx) throws IOException {
             super(Long.MAX_VALUE, Spliterator.ORDERED);
             this.csv = csv;
+            this.ktx = ktx;
             this.header = header;
             this.url = url;
             this.ignore = ignore;
@@ -130,6 +138,8 @@ public class LoadCsv {
                 if (row != null && lineNo < limit) {
                     action.accept(new CSVResult(header, row, lineNo, ignore,mapping, nullValues,results));
                     lineNo++;
+                    ktx.setStatusDetails(FormatUtils.asListed(Map.of("num. executed", lineNo)));
+                    // todo - questo qua.. Necessario metterlo per forza qua?
                     return true;
                 }
                 return false;

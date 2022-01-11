@@ -17,6 +17,7 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
@@ -32,6 +33,9 @@ import java.util.stream.Stream;
 public class ExportJson {
     @Context
     public Transaction tx;
+
+    @Context
+    public KernelTransaction ktx;
 
     @Context
     public GraphDatabaseService db;
@@ -90,7 +94,7 @@ public class ExportJson {
         ExportConfig exportConfig = new ExportConfig(config);
         apocConfig.checkWriteAllowed(exportConfig, fileName);
         final String format = "json";
-        ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, source, format));
+        ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, source, format, ktx));
         JsonFormat exporter = new JsonFormat(db, getJsonFormat(config));
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, false, exportConfig);
         if (exportConfig.streamStatements()) {

@@ -24,6 +24,13 @@ import static apoc.util.Util.map;
  * @since 23.02.16
  */
 public class FormatUtils {
+    
+    public static String asListed(Map<String, Object> map) {
+        return map.entrySet()
+                .stream()
+                .map(e -> e.getKey() + ": " + e.getValue())
+                .collect(Collectors.joining("\n"));
+    }
 
     public static String formatNumber(Number value) {
         if (value == null) return null;

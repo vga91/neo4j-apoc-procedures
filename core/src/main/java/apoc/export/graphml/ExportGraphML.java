@@ -20,6 +20,7 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterables;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
@@ -45,6 +46,9 @@ public class ExportGraphML {
     public Transaction tx;
 
     @Context
+    public KernelTransaction ktx;
+
+    @Context
     public ApocConfig apocConfig;
 
     @Context
@@ -65,7 +69,7 @@ public class ExportGraphML {
                 file = (String) urlOrBinaryFile;
                 source = "file";
             }
-            ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "graphml"));
+            ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "graphml", ktx));
             XmlGraphMLReader graphMLReader = new XmlGraphMLReader(db, tx).reporter(reporter)
                     .batchSize(exportConfig.getBatchSize())
                     .relType(exportConfig.defaultRelationshipType())
@@ -119,7 +123,7 @@ public class ExportGraphML {
     private Stream<ProgressInfo> exportGraphML(@Name("file") String fileName, String source, SubGraph graph, ExportConfig exportConfig) throws Exception {
         apocConfig.checkWriteAllowed(exportConfig, fileName);
         final String format = "graphml";
-        ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, source, format));
+        ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, source, format, ktx));
         XmlGraphMLWriter exporter = new XmlGraphMLWriter();
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, false, exportConfig);
         final PrintWriter graphMl = cypherFileManager.getPrintWriter(format);

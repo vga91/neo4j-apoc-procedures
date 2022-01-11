@@ -78,6 +78,10 @@ public class PeriodicTest {
 
         testCall(db, callList, (r) -> assertEquals(true, r.get("done")));
     }
+    
+    // --> call dbms.listTransactions
+    // qui sta il statusDetails, ma come lo testo?
+    
 
     @Test
     public void testSubmitStatementWithParams() throws Exception {

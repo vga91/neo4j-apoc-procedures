@@ -1,17 +1,21 @@
 package apoc.result;
 
 import apoc.export.util.ExportConfig;
+import apoc.export.util.FormatUtils;
 import apoc.util.Util;
+import org.neo4j.kernel.api.KernelTransaction;
 
 import java.io.StringWriter;
+import java.util.Map;
 
 /**
  * @author mh
  * @since 22.05.16
  */
 public class ProgressInfo {
-    public static final ProgressInfo EMPTY = new ProgressInfo(null, null, null);
+    public static final ProgressInfo EMPTY = new ProgressInfo(null, null, null, null);
     public final String file;
+    public final KernelTransaction ktx;
     public String source;
     public final String format;
     public long nodes;
@@ -24,10 +28,11 @@ public class ProgressInfo {
     public boolean done;
     public Object data;
 
-    public ProgressInfo(String file, String source, String format) {
+    public ProgressInfo(String file, String source, String format, KernelTransaction ktx) {
         this.file = file;
         this.source = source;
         this.format = format;
+        this.ktx = ktx;
     }
 
     public ProgressInfo(ProgressInfo pi) {
@@ -42,6 +47,7 @@ public class ProgressInfo {
         this.batchSize = pi.batchSize;
         this.batches = pi.batches;
         this.done = pi.done;
+        this.ktx = pi.ktx;
     }
 
     @Override
@@ -53,6 +59,7 @@ public class ProgressInfo {
         this.nodes += nodes;
         this.relationships += relationships;
         this.properties += properties;
+        updateStatus();
         return this;
     }
 
@@ -67,6 +74,7 @@ public class ProgressInfo {
 
     public void nextRow() {
         this.rows++;
+        updateStatus();
     }
 
     public ProgressInfo drain(StringWriter writer, ExportConfig config) {
@@ -74,5 +82,10 @@ public class ProgressInfo {
             this.data = Util.getStringOrCompressedData(writer, config);
         }
         return this;
+    }
+
+    private void updateStatus() {
+        this.ktx.setStatusDetails(FormatUtils.asListed(
+                Map.of("nodes", this.nodes, "relationships", this.relationships, "properties", this.properties, "rows", this.rows)));
     }
 }

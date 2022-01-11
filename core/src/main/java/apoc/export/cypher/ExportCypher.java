@@ -18,6 +18,7 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterables;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
@@ -44,6 +45,9 @@ public class ExportCypher {
 
     @Context
     public Transaction tx;
+
+    @Context
+    public KernelTransaction ktx;
 
     @Context
     public TerminationGuard terminationGuard;
@@ -116,7 +120,7 @@ public class ExportCypher {
     private Stream<DataProgressInfo> exportCypher(@Name("file") String fileName, String source, SubGraph graph, ExportConfig c, boolean onlySchema) throws IOException {
         apocConfig.checkWriteAllowed(c, fileName);
 
-        ProgressInfo progressInfo = new ProgressInfo(fileName, source, "cypher");
+        ProgressInfo progressInfo = new ProgressInfo(fileName, source, "cypher", ktx);
         progressInfo.batchSize = c.getBatchSize();
         ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
         boolean separatedFiles = !onlySchema && c.separateFiles();

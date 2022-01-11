@@ -2,6 +2,7 @@ package apoc.export.util;
 
 import apoc.result.ProgressInfo;
 import org.neo4j.graphdb.QueryStatistics;
+import org.neo4j.kernel.api.KernelTransaction;
 
 import java.io.PrintWriter;
 import java.util.function.Consumer;
@@ -52,7 +53,12 @@ public class ProgressReporter implements Reporter {
         return sizeCounter == null ? 100 : sizeCounter.getPercent();
     }
 
+//    public void update(long nodes, long relationships, long properties) {
+//        // todo - valutare...
+//    }
+
     public void update(long nodes, long relationships, long properties) {
+        // todo - testare qua...
         time = System.currentTimeMillis();
         progressInfo.update(nodes, relationships, properties);
         totalEntities += nodes + relationships;

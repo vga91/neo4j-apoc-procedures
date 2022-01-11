@@ -1,11 +1,13 @@
 package apoc.periodic;
 
 import apoc.Pools;
+import apoc.export.util.FormatUtils;
 import apoc.util.Util;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Pair;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
 
@@ -58,7 +60,7 @@ public class PeriodicUtils {
             GraphDatabaseService db, TerminationGuard terminationGuard, Log log, Pools pools,
             int batchsize, boolean parallel, boolean iterateList, long retries,
             Iterator<Map<String, Object>> iterator, BiFunction<Transaction, Map<String, Object>, QueryStatistics> consumer,
-            int concurrency, int failedParams, String periodicId) {
+            int concurrency, int failedParams, String periodicId, KernelTransaction kernelTx) {
 
         ExecutorService pool = parallel ? pools.getDefaultExecutorService() : pools.getSingleExecutorService();
         List<Future<Long>> futures = new ArrayList<>(concurrency);
@@ -79,7 +81,11 @@ public class PeriodicUtils {
                         iterateList ?
                                 new Periodic.ListExecuteBatch(terminationGuard, collector, batch, consumer) :
                                 new Periodic.OneByOneExecuteBatch(terminationGuard, collector, batch, consumer);
-
+/*
+"total": 100000,
+  "committed": 0,
+  "failed": 100000,
+ */
                 futures.add(Util.inTxFuture(log,
                         pool,
                         db,
@@ -87,6 +93,11 @@ public class PeriodicUtils {
                         retries,
                         retryCount -> collector.incrementRetried(),
                         onComplete -> {
+                    // todo - anche in periodic commit, e forse anche in altri periodic...
+                    
+                    // todo - creare un initStatusDetails..
+                            
+                            kernelTx.setStatusDetails(FormatUtils.asListed(Map.of("successes", collector.getBatches() - collector.getFailedBatches().get(), "errors", collector.getFailedBatches().get())));
                             collector.incrementBatches();
                             executeBatch.release();
                             activeFutures.decrementAndGet();
