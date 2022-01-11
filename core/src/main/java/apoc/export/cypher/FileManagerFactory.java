@@ -1,7 +1,5 @@
 package apoc.export.cypher;
 
-import apoc.export.util.ExportConfig;
-
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -17,17 +15,13 @@ import static apoc.util.FileUtils.getOutputStream;
  */
 public class FileManagerFactory {
     public static ExportFileManager createFileManager(String fileName, boolean separatedFiles) {
-        return createFileManager(fileName, separatedFiles, false);
-    }
-    
-    public static ExportFileManager createFileManager(String fileName, boolean separatedFiles, boolean append) {
         if (fileName == null || "".equals(fileName)) {
             return new StringExportCypherFileManager(separatedFiles);
         }
 
         int indexOfDot = fileName.lastIndexOf(".");
         String fileType = fileName.substring(indexOfDot + 1);
-        return new PhysicalExportFileManager(fileType, fileName, separatedFiles, append);
+        return new PhysicalExportFileManager(fileType, fileName, separatedFiles);
     }
 
     private static class PhysicalExportFileManager implements ExportFileManager {
@@ -35,14 +29,12 @@ public class FileManagerFactory {
         private final String fileName;
         private final String fileType;
         private final boolean separatedFiles;
-        private final boolean append;
         private final Map<String, PrintWriter> writerCache;
 
-        public PhysicalExportFileManager(String fileType, String fileName, boolean separatedFiles, boolean append) {
+        public PhysicalExportFileManager(String fileType, String fileName, boolean separatedFiles) {
             this.fileType = fileType;
             this.fileName = fileName;
             this.separatedFiles = separatedFiles;
-            this.append = append;
             this.writerCache = new ConcurrentHashMap<>();
         }
 
@@ -50,7 +42,7 @@ public class FileManagerFactory {
         public PrintWriter getPrintWriter(String type) {
             String newFileName = this.separatedFiles ? normalizeFileName(fileName, type) : normalizeFileName(fileName, null);
             return writerCache.computeIfAbsent(newFileName, (key) -> {
-                OutputStream outputStream = getOutputStream(newFileName, append);
+                OutputStream outputStream = getOutputStream(newFileName);
                 return outputStream == null ? null : new PrintWriter(outputStream);
             });
         }

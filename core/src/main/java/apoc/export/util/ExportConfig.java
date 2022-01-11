@@ -42,7 +42,6 @@ public class ExportConfig extends CompressionConfig {
     private boolean separateHeader;
     private String arrayDelim;
     private Map<String, Object> optimizations;
-    private boolean append;
 
     public enum OptimizationType {NONE, UNWIND_BATCH, UNWIND_BATCH_PARAMS}
     private OptimizationType optimizationType;
@@ -88,7 +87,6 @@ public class ExportConfig extends CompressionConfig {
         super(config);
         config = config != null ? config : Collections.emptyMap();
         this.silent = toBoolean(config.getOrDefault("silent",false));
-        this.append = toBoolean(config.get("append"));
         this.delim = delim(config.getOrDefault("delim", DEFAULT_DELIM).toString());
         this.arrayDelim = delim(config.getOrDefault("arrayDelim", DEFAULT_ARRAY_DELIM).toString());
         this.useTypes = toBoolean(config.get("useTypes"));
@@ -210,8 +208,5 @@ public class ExportConfig extends CompressionConfig {
     public boolean isSampling() {
         return sampling;
     }
-
-    public boolean isAppend() {
-        return append;
-    }
+    
 }
