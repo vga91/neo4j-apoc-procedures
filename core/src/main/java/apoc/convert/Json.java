@@ -8,6 +8,8 @@ import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.internal.helpers.collection.Iterables;
+import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.procedure.*;
 
 import java.io.IOException;
@@ -143,7 +145,13 @@ public class Json {
 
         Map<Long, Map<String, Object>> maps = new HashMap<>(paths.size() * 100);
 
-        paths.stream().sorted(Comparator.comparingInt(Path::length).reversed()).forEach(path -> {
+        for (Path path : paths) {
+            // to exclude closed paths
+            // so that we are sure not to pick, e.g. with `testToTreeIssue1685`, paths too short and therefore results too shallow
+            final Iterable<Node> iterable = path.nodes();
+            if (Iterables.count(iterable) != Iterables.asSet(iterable).size()) {
+                continue;
+            }
             Iterator<Entity> it = path.iterator();
             while (it.hasNext()) {
                 Node n = (Node) it.next();
@@ -167,7 +175,7 @@ public class Json {
                     }
                 }
             }
-        });
+        }
 
         return paths.stream()
                 .map(Path::startNode)
