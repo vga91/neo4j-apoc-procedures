@@ -26,7 +26,11 @@ import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.export.cypher.ExportCypherTest.ExportCypherResults.*;
 import static apoc.export.util.ExportFormat.*;
+<<<<<<< HEAD
 import static apoc.util.BinaryTestUtil.getDecompressedData;
+=======
+import static apoc.kernel.KernelTestUtils.checkStatusDetails;
+>>>>>>> f28d658d4 (var adds)
 import static apoc.util.Util.map;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.*;
@@ -192,6 +196,13 @@ public class ExportCypherTest {
                 "RETURN *", map("file", fileName, "exportConfig", map("useOptimizations", map("type", "none"), "format", "neo4j-shell")),
                 (r) -> assertResults(fileName, r, "graph"));
         assertEquals(EXPECTED_NEO4J_SHELL, readFile(fileName));
+    }
+    
+    @Test
+    public void testExportWithStatusDetails() {
+        db.executeTransactionally("UNWIND range(0,9999) AS x CREATE (:Status)");
+        checkStatusDetails(db, "CALL apoc.export.cypher.all('status.cypher', {separateFiles:true})", Map.of());
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
     }
 
     // -- Separate files tests -- //

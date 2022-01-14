@@ -5,6 +5,7 @@ import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.kernel.api.KernelTransaction;
 
 import java.io.PrintWriter;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -16,6 +17,7 @@ public class ProgressReporter implements Reporter {
     private final SizeCounter sizeCounter;
     private final PrintWriter out;
     private final long batchSize;
+    public final KernelTransaction ktx;
     long time;
     int counter;
     long totalEntities = 0;
@@ -24,12 +26,15 @@ public class ProgressReporter implements Reporter {
     private final ProgressInfo progressInfo;
     private Consumer<ProgressInfo> consumer;
 
-    public ProgressReporter(SizeCounter sizeCounter, PrintWriter out, ProgressInfo progressInfo) {
+    public ProgressReporter(SizeCounter sizeCounter, PrintWriter out, ProgressInfo progressInfo, KernelTransaction ktx) {
         this.sizeCounter = sizeCounter;
         this.out = out;
         this.time = start;
         this.progressInfo = progressInfo;
         this.batchSize = progressInfo.batchSize;
+        this.ktx = ktx;
+        // init status
+        updateStatus();
     }
 
     public ProgressReporter withConsumer(Consumer<ProgressInfo> consumer) {
@@ -61,11 +66,13 @@ public class ProgressReporter implements Reporter {
         // todo - testare qua...
         time = System.currentTimeMillis();
         progressInfo.update(nodes, relationships, properties);
+        updateStatus();
         totalEntities += nodes + relationships;
         acceptBatch();
     }
 
     public void acceptBatch() {
+        // todo ??
         if (batchSize != -1 && totalEntities / batchSize > lastBatch) {
             updateRunningBatch(progressInfo);
             if (consumer != null) {
@@ -78,6 +85,7 @@ public class ProgressReporter implements Reporter {
         lastBatch = Math.max(totalEntities / batchSize,lastBatch);
         progressInfo.batches = lastBatch;
         this.progressInfo.rows = totalEntities;
+        updateStatus(); // todo - non so se qua serve
         this.progressInfo.updateTime(start);
     }
 
@@ -104,6 +112,7 @@ public class ProgressReporter implements Reporter {
     }
 
     public ProgressInfo getTotal() {
+        // todo ???
         progressInfo.done(start);
         return progressInfo;
     }
@@ -114,8 +123,21 @@ public class ProgressReporter implements Reporter {
 
     public void nextRow() {
         this.progressInfo.nextRow();
+        updateStatus();
         this.totalEntities++;
         acceptBatch();
     }
 
+<<<<<<< HEAD
+=======
+    private void updateStatus() {
+        if (this.ktx != null) {
+            this.ktx.setStatusDetails(FormatUtils.asListed(
+                    Map.of("nodes", this.progressInfo.nodes, 
+                        "relationships", this.progressInfo.relationships, 
+                        "properties", this.progressInfo.properties, 
+                        "rows", this.progressInfo.rows)));
+        }
+    }
+>>>>>>> f28d658d4 (var adds)
 }

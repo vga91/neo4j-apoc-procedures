@@ -51,7 +51,7 @@ public class ImportCsv {
                         source = "file/binary";
                     }
                     final CsvLoaderConfig clc = CsvLoaderConfig.from(config);
-                    final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "csv", ktx));
+                    final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "csv"), ktx);
                     final CsvEntityLoader loader = new CsvEntityLoader(clc, reporter, log);
 
                     final Map<String, Map<String, Long>> idMapping = new HashMap<>();

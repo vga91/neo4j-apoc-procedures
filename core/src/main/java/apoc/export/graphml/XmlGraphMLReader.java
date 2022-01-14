@@ -210,8 +210,14 @@ public class XmlGraphMLReader {
         Map<String, Key> nodeKeys = new HashMap<>();
         Map<String, Key> relKeys = new HashMap<>();
         int count = 0;
+<<<<<<< HEAD
         BatchTransaction tx = new BatchTransaction(db, batchSize * 10, reporter);
         try {
+=======
+        
+        // todo - testare import.graphml con qualcosa di grande... (prendere issue che ho fatto)
+        try (BatchTransaction tx = new BatchTransaction(db, batchSize * 10, reporter)) {
+>>>>>>> f28d658d4 (var adds)
 
             while (reader.hasNext()) {
                 XMLEvent event = (XMLEvent) reader.next();

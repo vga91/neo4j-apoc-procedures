@@ -14,6 +14,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -76,6 +77,9 @@ public class Xml {
 
     @Context
     public Transaction tx;
+
+    @Context
+    public KernelTransaction ktx;
 
     @Context
     public Log log;

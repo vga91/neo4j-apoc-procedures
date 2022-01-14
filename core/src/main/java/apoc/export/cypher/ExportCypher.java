@@ -120,9 +120,9 @@ public class ExportCypher {
     private Stream<DataProgressInfo> exportCypher(@Name("file") String fileName, String source, SubGraph graph, ExportConfig c, boolean onlySchema) throws IOException {
         apocConfig.checkWriteAllowed(c, fileName);
 
-        ProgressInfo progressInfo = new ProgressInfo(fileName, source, "cypher", ktx);
+        ProgressInfo progressInfo = new ProgressInfo(fileName, source, "cypher");
         progressInfo.batchSize = c.getBatchSize();
-        ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
+        ProgressReporter reporter = new ProgressReporter(null, null, progressInfo, ktx);
         boolean separatedFiles = !onlySchema && c.separateFiles();
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, separatedFiles, c);
 
@@ -152,6 +152,7 @@ public class ExportCypher {
     }
 
     public static class DataProgressInfo {
+        // todo - e questo??? sono diversi???
         public final String file;
         public final long batches;
         public String source;

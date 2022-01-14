@@ -89,9 +89,9 @@ public class ExportXls {
              SXSSFWorkbook wb = new SXSSFWorkbook(-1)) {
 
             XlsExportConfig config = new XlsExportConfig(configMap);
-            ProgressInfo progressInfo = new ProgressInfo(fileName, source, "xls", ktx);
+            ProgressInfo progressInfo = new ProgressInfo(fileName, source, "xls");
             progressInfo.batchSize = config.getBatchSize();
-            ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
+            ProgressReporter reporter = new ProgressReporter(null, null, progressInfo, ktx);
 
             Map<Class, CellStyle> styles = buildCellStyles(config, wb);
 

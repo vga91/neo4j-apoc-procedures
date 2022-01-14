@@ -45,7 +45,7 @@ public class ImportJson {
                         file =  (String) urlOrBinaryFile;
                         source = "file";
                     }
-                    ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "json", ktx));
+                    ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "json"), ktx);
 
                     try (final CountingReader reader = FileUtils.readerFor(urlOrBinaryFile, importJsonConfig.getCompressionAlgo());
                          final Scanner scanner = new Scanner(reader).useDelimiter("\n|\r");

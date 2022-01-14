@@ -101,9 +101,9 @@ public class ExportCSV {
     private Stream<ProgressInfo> exportCsv(@Name("file") String fileName, String source, Object data, ExportConfig exportConfig) throws Exception {
         apocConfig.checkWriteAllowed(exportConfig, fileName);
         final String format = "csv";
-        ProgressInfo progressInfo = new ProgressInfo(fileName, source, format, ktx);
+        ProgressInfo progressInfo = new ProgressInfo(fileName, source, format);
         progressInfo.batchSize = exportConfig.getBatchSize();
-        ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
+        ProgressReporter reporter = new ProgressReporter(null, null, progressInfo, ktx);
         CsvFormat exporter = new CsvFormat(db);
 
         ExportFileManager cypherFileManager = FileManagerFactory

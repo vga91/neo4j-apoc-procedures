@@ -1,5 +1,6 @@
 package apoc.periodic;
 
+import apoc.kernel.KernelTestUtils;
 import apoc.util.MapUtil;
 import apoc.util.TestUtil;
 import org.junit.Before;
@@ -14,6 +15,7 @@ import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.schema.Schema;
 import org.neo4j.internal.helpers.collection.Iterators;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.kernel.api.KernelTransactionHandle;
 import org.neo4j.kernel.impl.api.KernelTransactions;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
@@ -281,6 +283,14 @@ public class PeriodicTest {
                 "MATCH (p:Person) where p.lastname is not null return count(p) as count",
                 row -> assertEquals(100L, row.get("count"))
         );
+    }
+    
+    @Test
+    public void testTODO() {
+        db.executeTransactionally("UNWIND range(1,9999) AS x CREATE (:Status:Iterate)");
+//        Runnable runnable = () -> db.executeTransactionally("CALL apoc.periodic.iterate('match (p:Status:Iterate) return p', 'SET p.lastname =p.name REMOVE p.name', {batchSize:10,parallel:true})");
+        KernelTestUtils.checkStatusDetails(db, 
+                "CALL apoc.periodic.iterate('match (p:Status:Iterate) return p', 'SET p.lastname =p.name REMOVE p.name', {batchSize:10,parallel:true})", Map.of(), "cypher runtime=slotted match (p:Status:Iterate)");
     }
 
     @Test

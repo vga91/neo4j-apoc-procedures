@@ -42,11 +42,16 @@ import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.EXPORT_TO_FILE_ERROR;
 import static apoc.ApocConfig.apocConfig;
+<<<<<<< HEAD
 import static apoc.util.BinaryTestUtil.getDecompressedData;
+=======
+import static apoc.kernel.KernelTestUtils.checkStatusDetails;
+>>>>>>> f28d658d4 (var adds)
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -54,7 +59,11 @@ import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 import static org.neo4j.configuration.GraphDatabaseSettings.TransactionStateMemoryAllocation.OFF_HEAP;
 import static org.neo4j.configuration.SettingValueParsers.BYTES;
+<<<<<<< HEAD
 import static org.neo4j.graphdb.Label.label;
+=======
+import static org.neo4j.test.assertion.Assert.assertEventually;
+>>>>>>> f28d658d4 (var adds)
 import static org.xmlunit.diff.ElementSelectors.byName;
 
 /**
@@ -329,6 +338,23 @@ public class ExportGraphMLTest {
                     assertEquals(true, r.get("done"));
                 });
     }
+    
+//    @Test
+//    public void testExportGraphML() {
+////        final String file = ClassLoader.getSystemResource("largeFile.graphml").toString();
+//        db.executeTransactionally("UNWIND range(1,999999) AS x CREATE (:Status:Iterate)");
+//        final Runnable runnable = () -> db.executeTransactionally("MATCH (n:Status:Iterate) WITH collect(n) as nodes CALL apoc.export.graphml.data(nodes, [], 'status.graphml', {})");
+//        checkStatusDetails(db, "MATCH (n:Status:Iterate) WITH collect(n)", runnable);
+//    }
+//    
+//    @Test
+//    public void testImportGraphMLLargeFileTODO() {
+//        final String file = ClassLoader.getSystemResource("largeFile.graphml").toString();
+//        final Runnable runnable = () -> db.executeTransactionally("CALL apoc.import.graphml($file,{readLabels:true})", map("file", file));
+//        checkStatusDetails(db, "CALL apoc.import.graphml", runnable);
+//    }
+
+
 
     @Test
     public void testImportGraphMLWithEdgeWithoutDataKeys() throws Exception {
