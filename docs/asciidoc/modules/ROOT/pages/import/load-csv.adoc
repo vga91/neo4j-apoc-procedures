@@ -152,4 +152,17 @@ RETURN value["list"], value["map"]
 ----
 
 
+For long running procedures, we can use the `statusDetails` field present in `dbms.listTransactions` procedure to check progresses.
+
+[source,cypher]
+----
+CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuery STARTS WITH 'CALL apoc.load.csv' RETURN statusDetails
+----
+
+.Results
+[opts="header"]
+|===
+| file
+| - rows: 1234
+|===
 

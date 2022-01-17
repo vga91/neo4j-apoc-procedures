@@ -15,7 +15,6 @@ import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.neo4j.cypher.export.DatabaseSubGraph;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.*;
-import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
@@ -36,9 +35,6 @@ import static apoc.util.FileUtils.getOutputStream;
 public class ExportXls {
     @Context
     public Transaction tx;
-
-    @Context
-    public KernelTransaction ktx;
 
     @Context
     public GraphDatabaseService db;
@@ -91,7 +87,7 @@ public class ExportXls {
             XlsExportConfig config = new XlsExportConfig(configMap);
             ProgressInfo progressInfo = new ProgressInfo(fileName, source, "xls");
             progressInfo.batchSize = config.getBatchSize();
-            ProgressReporter reporter = new ProgressReporter(null, null, progressInfo, ktx);
+            ProgressReporter reporter = new ProgressReporter(null, null, progressInfo, tx);
 
             Map<Class, CellStyle> styles = buildCellStyles(config, wb);
 

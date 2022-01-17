@@ -215,7 +215,6 @@ public class XmlGraphMLReader {
         try {
 =======
         
-        // todo - testare import.graphml con qualcosa di grande... (prendere issue che ho fatto)
         try (BatchTransaction tx = new BatchTransaction(db, batchSize * 10, reporter)) {
 >>>>>>> f28d658d4 (var adds)
 

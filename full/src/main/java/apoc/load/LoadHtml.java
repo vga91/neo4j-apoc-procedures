@@ -10,7 +10,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.kernel.api.KernelTransaction;
+import org.neo4j.graphdb.Transaction;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -41,7 +41,7 @@ public class LoadHtml {
     public GraphDatabaseService db;
 
     @Context
-    public KernelTransaction ktx;
+    public Transaction tx;
 
     @Context
     public Log log;
@@ -124,7 +124,7 @@ public class LoadHtml {
                 else {
                     if(element.hasText()) result.put("text", element.text());
                 }
-                Util.setKernelStatus(ktx, "rows", rows++);
+                Util.setKernelStatus(tx, "rows", rows++);
                 elementList.add(result);
                 return null;
             });

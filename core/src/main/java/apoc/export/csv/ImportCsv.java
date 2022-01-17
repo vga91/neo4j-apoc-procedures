@@ -5,7 +5,7 @@ import apoc.export.util.ProgressReporter;
 import apoc.result.ProgressInfo;
 import apoc.util.Util;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.kernel.api.KernelTransaction;
+import org.neo4j.graphdb.Transaction;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
@@ -19,7 +19,7 @@ public class ImportCsv {
     public GraphDatabaseService db;
     
     @Context
-    public KernelTransaction ktx;
+    public Transaction tx;
 
     @Context
     public Pools pools;
@@ -51,7 +51,7 @@ public class ImportCsv {
                         source = "file/binary";
                     }
                     final CsvLoaderConfig clc = CsvLoaderConfig.from(config);
-                    final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "csv"), ktx);
+                    final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, source, "csv"), tx);
                     final CsvEntityLoader loader = new CsvEntityLoader(clc, reporter, log);
 
                     final Map<String, Map<String, Long>> idMapping = new HashMap<>();

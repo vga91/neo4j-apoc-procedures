@@ -9,8 +9,6 @@ import apoc.util.Util;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
-import org.neo4j.kernel.api.KernelTransaction;
-import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -29,8 +27,6 @@ import static apoc.util.MapUtil.map;
 // https://marketplace.gephi.org/plugin/graph-streaming/
 @Extended
 public class Gephi {
-    @Context
-    public KernelTransaction ktx;
 
     public static final int WIDTH = 1000;
     public static final int HEIGHT = 1000;
@@ -61,7 +57,6 @@ public class Gephi {
         if (Graphs.extract(data, nodes, rels)) {
             String payload = toGephiStreaming(nodes, rels, weightproperty, propertyNames.toArray(new String[propertyNames.size()]));
             JsonUtil.loadJson(url,map("method","POST","Content-Type","application/json; charset=utf-8"), payload).count();
-            // todo - anche qui?
             return Stream.of(new ProgressInfo(url,"graph","gephi").update(nodes.size(),rels.size(),nodes.size()).done(start));
         }
         return Stream.empty();

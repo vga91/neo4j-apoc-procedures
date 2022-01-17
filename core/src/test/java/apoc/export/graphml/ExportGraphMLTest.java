@@ -338,23 +338,6 @@ public class ExportGraphMLTest {
                     assertEquals(true, r.get("done"));
                 });
     }
-    
-//    @Test
-//    public void testExportGraphML() {
-////        final String file = ClassLoader.getSystemResource("largeFile.graphml").toString();
-//        db.executeTransactionally("UNWIND range(1,999999) AS x CREATE (:Status:Iterate)");
-//        final Runnable runnable = () -> db.executeTransactionally("MATCH (n:Status:Iterate) WITH collect(n) as nodes CALL apoc.export.graphml.data(nodes, [], 'status.graphml', {})");
-//        checkStatusDetails(db, "MATCH (n:Status:Iterate) WITH collect(n)", runnable);
-//    }
-//    
-//    @Test
-//    public void testImportGraphMLLargeFileTODO() {
-//        final String file = ClassLoader.getSystemResource("largeFile.graphml").toString();
-//        final Runnable runnable = () -> db.executeTransactionally("CALL apoc.import.graphml($file,{readLabels:true})", map("file", file));
-//        checkStatusDetails(db, "CALL apoc.import.graphml", runnable);
-//    }
-
-
 
     @Test
     public void testImportGraphMLWithEdgeWithoutDataKeys() throws Exception {

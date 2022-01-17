@@ -15,7 +15,6 @@ import java.util.Map;
 public class ProgressInfo {
     public static final ProgressInfo EMPTY = new ProgressInfo(null, null, null/*, null*/);
     public final String file;
-//    public final KernelTransaction ktx;
     public String source;
     public final String format;
     public long nodes;
@@ -28,11 +27,10 @@ public class ProgressInfo {
     public boolean done;
     public Object data;
 
-    public ProgressInfo(String file, String source, String format/*, KernelTransaction ktx*/) {
+    public ProgressInfo(String file, String source, String format) {
         this.file = file;
         this.source = source;
         this.format = format;
-//        this.ktx = ktx;
     }
 
     public ProgressInfo(ProgressInfo pi) {
@@ -47,7 +45,6 @@ public class ProgressInfo {
         this.batchSize = pi.batchSize;
         this.batches = pi.batches;
         this.done = pi.done;
-//        this.ktx = pi.ktx;
     }
 
     @Override
@@ -59,7 +56,6 @@ public class ProgressInfo {
         this.nodes += nodes;
         this.relationships += relationships;
         this.properties += properties;
-//        updateStatus();
         return this;
     }
 
@@ -74,7 +70,6 @@ public class ProgressInfo {
 
     public void nextRow() {
         this.rows++;
-//        updateStatus();
     }
 
     public ProgressInfo drain(StringWriter writer, ExportConfig config) {

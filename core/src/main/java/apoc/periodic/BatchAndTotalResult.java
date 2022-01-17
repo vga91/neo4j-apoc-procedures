@@ -34,7 +34,6 @@ public class BatchAndTotalResult {
         this.errorMessages = operationErrors;
         this.wasTerminated = wasTerminated;
         this.failedParams = failedParams;
-        // todo - questo qua
         this.batch = Util.map("total",batches,"failed",failedBatches,"committed",batches-failedBatches,"errors",batchErrors);
         this.operations = Util.map("total",total,"failed",failedOperations,"committed", committedOperations,"errors",operationErrors);
         this.updateStatistics = updateStatistics;

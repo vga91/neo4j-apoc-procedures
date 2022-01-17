@@ -7,7 +7,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
@@ -27,7 +26,6 @@ public class PeriodicExtended {
     @Context public Log log;
     @Context public Pools pools;
     @Context public Transaction tx;
-    @Context public KernelTransaction kernelTx;
 
     private void recordError(Map<String, Long> executionErrors, Exception e) {
         String msg = ExceptionUtils.getRootCause(e).getMessage();
@@ -82,7 +80,7 @@ public class PeriodicExtended {
                     PeriodicUtils.iterateAndExecuteBatchedInSeparateThread(
                             db, terminationGuard, log, pools,
                             (int) batchSize, false, false, 0,
-                            result, (tx, params) -> tx.execute(cypherAction, params).getQueryStatistics(), 50, -1, periodicId, kernelTx);
+                            result, (tx, params) -> tx.execute(cypherAction, params).getQueryStatistics(), 50, -1, periodicId,  tx);
                 final Object loopParam = value;
                 allResults = Stream.concat(allResults, oneResult.map(r -> r.inLoop(loopParam)));
             }
@@ -125,7 +123,7 @@ public class PeriodicExtended {
             return PeriodicUtils.iterateAndExecuteBatchedInSeparateThread(
                     db, terminationGuard, log, pools,
                     (int)batchSize, false, false, 0, result,
-                    (tx, p) -> tx.execute(cypherAction, p).getQueryStatistics(), 50, -1, periodicId, kernelTx);
+                    (tx, p) -> tx.execute(cypherAction, p).getQueryStatistics(), 50, -1, periodicId,  tx);
         }
     }
 

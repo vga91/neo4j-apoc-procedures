@@ -35,9 +35,6 @@ public class ExportJson {
     public Transaction tx;
 
     @Context
-    public KernelTransaction ktx;
-
-    @Context
     public GraphDatabaseService db;
 
     @Context
@@ -94,7 +91,7 @@ public class ExportJson {
         ExportConfig exportConfig = new ExportConfig(config);
         apocConfig.checkWriteAllowed(exportConfig, fileName);
         final String format = "json";
-        ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, source, format), ktx);
+        ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(fileName, source, format), tx);
         JsonFormat exporter = new JsonFormat(db, getJsonFormat(config));
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, false, exportConfig);
         if (exportConfig.streamStatements()) {

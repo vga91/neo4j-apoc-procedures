@@ -2,6 +2,7 @@ package apoc.load;
 
 import apoc.ApocConfig;
 import apoc.export.util.CountingInputStream;
+import apoc.export.util.FormatUtils;
 import apoc.generate.config.InvalidConfigException;
 import apoc.result.MapResult;
 import apoc.result.NodeResult;
@@ -14,7 +15,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.kernel.api.KernelTransaction;
+import org.neo4j.kernel.impl.coreapi.TransactionImpl;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -64,6 +65,8 @@ import java.util.stream.Stream;
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
 import static apoc.util.Util.ERROR_BYTES_OR_STRING;
+import static apoc.util.Util.setKernelStatus;
+import static apoc.util.Util.setKernelStatusMap;
 
 public class Xml {
 
@@ -77,9 +80,6 @@ public class Xml {
 
     @Context
     public Transaction tx;
-
-    @Context
-    public KernelTransaction ktx;
 
     @Context
     public Log log;
@@ -244,6 +244,7 @@ public class Xml {
         }
 
         if (!elementMap.isEmpty()) {
+            setKernelStatus(tx, "rows", stack.size());
             stack.addLast(elementMap);
         }
     }
@@ -455,10 +456,13 @@ public class Xml {
         private org.neo4j.graphdb.Node last;
         private org.neo4j.graphdb.Node lastWord;
         private int currentCharacterIndex = 0;
+        private final Map<String, Object> statusDetail = new HashMap<>(Map.of("nodes", 0L, "relationships", 0L, "elements", 0L));
+        private final Transaction tx;
 
-        public ImportState(org.neo4j.graphdb.Node initialNode) {
+        public ImportState(org.neo4j.graphdb.Node initialNode, Transaction tx) {
             this.last = initialNode;
             this.lastWord = initialNode;
+            this.tx = tx;
         }
 
         public void push(ParentAndChildPair parentAndChildPair) {
@@ -484,7 +488,7 @@ public class Xml {
         public boolean isEmpty() {
             return parents.isEmpty();
         }
-
+        
         public void updateLast(org.neo4j.graphdb.Node thisNode) {
             ParentAndChildPair parentAndChildPair = parents.peek();
             final org.neo4j.graphdb.Node parent = parentAndChildPair.getParent();
@@ -497,8 +501,16 @@ public class Xml {
             } else {
                 previousChild.createRelationshipTo(thisNode, RelationshipType.withName("NEXT_SIBLING"));
             }
+            statusDetail.compute("nodes", (a,b) -> (long) b + 1);
+            statusDetail.compute("relationships", (a,b) -> (long) b + 3);
+            setKernelStatusMap(tx, statusDetail);
             parentAndChildPair.setPreviousChild(thisNode);
             last = thisNode;
+        }
+        
+        public void updateNumTags() {
+            statusDetail.compute("elements", (k, v) -> (long) v + 1);
+            setKernelStatusMap(tx, statusDetail);
         }
 
         public void addCurrentCharacterIndex(int length) {
@@ -528,7 +540,7 @@ public class Xml {
         if (urlOrBinary instanceof String) {
             root.setProperty("url", urlOrBinary);
         }
-        ImportState state = new ImportState(root);
+        ImportState state = new ImportState(root, tx);
         state.push(new ParentAndChildPair(root));
 
         while (xml.hasNext()) {
@@ -566,7 +578,6 @@ public class Xml {
                     break;
 
                 case XMLStreamConstants.END_ELEMENT:
-
                     String charactersForTag = importConfig.getCharactersForTag().get(xml.getName().getLocalPart());
                     if (charactersForTag!=null) {
                         createCharactersNode(charactersForTag, state, importConfig);
@@ -575,6 +586,7 @@ public class Xml {
                     if (parent.getPreviousChild()!=null) {
                         parent.getPreviousChild().createRelationshipTo(parent.getParent(), RelationshipType.withName("LAST_CHILD_OF"));
                     }
+                    state.updateNumTags();
                     break;
 
                 case XMLStreamConstants.END_DOCUMENT:

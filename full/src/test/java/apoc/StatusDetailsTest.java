@@ -61,12 +61,8 @@ public class StatusDetailsTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        
-//        db.executeTransactionally("CREATE CONSTRAINT ON (n:Iterate) assert n.neo4jImportId IS UNIQUE");
         db.executeTransactionally("CREATE CONSTRAINT ON (n:Status) assert n.neo4jImportId IS UNIQUE");
         TestUtil.registerProcedure(db, ExportJson.class, ImportJson.class, LoadJson.class, 
-                Xml.class,
-//                LoadHtml.class,
                 ExportCSV.class, ImportCsv.class, LoadCsv.class, 
                 ExportGraphML.class, 
                 ExportCypher.class, CypherExtended.class);
@@ -104,7 +100,6 @@ public class StatusDetailsTest {
                         "CALL apoc.load.json($file)" }
         });
     }
-    
 
     @Parameterized.Parameter(0)
     public String file;
@@ -118,6 +113,7 @@ public class StatusDetailsTest {
     @Parameterized.Parameter(3)
     public String loadQuery;
 
+    
     @Test
     public void testImportExportStatusDetails() {
         checkStatus(exportQuery);

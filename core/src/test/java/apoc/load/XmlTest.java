@@ -85,8 +85,8 @@ public class XmlTest {
     }
     
     @Test
-    public void testMixedContent2() {
-        final String file = ClassLoader.getSystemResource("largeFile.graphml").toString();
+    public void testXmlStatusDetails() {
+        final String file = ClassLoader.getSystemResource("largeFile.xml").toString();
         checkStatusDetails(db, "CALL apoc.load.xml($file)", MapUtil.map("file", file));
     }
 

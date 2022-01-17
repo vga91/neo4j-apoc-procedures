@@ -29,6 +29,7 @@ import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.internal.kernel.api.procs.ProcedureCallContext;
 import org.neo4j.internal.kernel.api.security.SecurityContext;
 import org.neo4j.kernel.api.KernelTransaction;
+import org.neo4j.kernel.impl.coreapi.InternalTransaction;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 import org.neo4j.logging.NullLog;
@@ -96,7 +97,6 @@ import static apoc.ApocConfig.apocConfig;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatProperties;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatToString;
 import static apoc.util.DateFormatUtil.getOrCreate;
-import static apoc.util.MapUtil.map;
 import static java.lang.String.format;
 import static org.eclipse.jetty.util.URIUtil.encodePath;
 
@@ -612,7 +612,6 @@ public class Util {
             T t = f.get();
             return t;
         } catch (Exception e) {
-            // todo ...
             errors.incrementAndGet();
             errorMessages.compute(e.getMessage(),(s, i) -> i == null ? 1 : i + 1);
             return errorValue;
@@ -1005,9 +1004,14 @@ public class Util {
         }
     }
 
-    public static void setKernelStatus(KernelTransaction ktx, Object...data) {
-        Map<String, Object> map = map(data);
+    public static void setKernelStatusMap(Transaction tx, Map<String, Object> map) {
+        final KernelTransaction ktx = ((InternalTransaction) tx).kernelTransaction();
         ktx.setStatusDetails(FormatUtils.asListed(map));
+    }
+
+    public static void setKernelStatus(Transaction tx, Object...data) {
+        Map<String, Object> map = map(data);
+        setKernelStatusMap(tx, map);
     }
 
     public static String toCypherMap(Map<String, Object> map) {

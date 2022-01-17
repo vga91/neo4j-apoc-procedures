@@ -18,7 +18,6 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterables;
-import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
@@ -45,9 +44,6 @@ public class ExportCypher {
 
     @Context
     public Transaction tx;
-
-    @Context
-    public KernelTransaction ktx;
 
     @Context
     public TerminationGuard terminationGuard;
@@ -122,7 +118,7 @@ public class ExportCypher {
 
         ProgressInfo progressInfo = new ProgressInfo(fileName, source, "cypher");
         progressInfo.batchSize = c.getBatchSize();
-        ProgressReporter reporter = new ProgressReporter(null, null, progressInfo, ktx);
+        ProgressReporter reporter = new ProgressReporter(null, null, progressInfo, tx);
         boolean separatedFiles = !onlySchema && c.separateFiles();
         ExportFileManager cypherFileManager = FileManagerFactory.createFileManager(fileName, separatedFiles, c);
 
@@ -152,7 +148,6 @@ public class ExportCypher {
     }
 
     public static class DataProgressInfo {
-        // todo - e questo??? sono diversi???
         public final String file;
         public final long batches;
         public String source;

@@ -13,7 +13,6 @@ import org.neo4j.graphdb.schema.Schema;
 import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.helpers.collection.Pair;
-import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
@@ -28,6 +27,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static apoc.util.Util.merge;
+import static apoc.util.Util.setKernelStatus;
 
 public class Periodic {
     
@@ -44,9 +44,6 @@ public class Periodic {
     @Context public Log log;
     @Context public Pools pools;
     @Context public Transaction tx;
-    
-    @Context
-    public KernelTransaction kernelTx;
 
     @Admin
     @Procedure(mode = Mode.SCHEMA)
@@ -55,7 +52,6 @@ public class Periodic {
 
         iterate("MATCH ()-[r]->() RETURN id(r) as id", "MATCH ()-[r]->() WHERE id(r) = id DELETE r", config);
         iterate("MATCH (n) RETURN id(n) as id", "MATCH (n) WHERE id(n) = id DELETE n", config);
-
         
         if (Util.toBoolean(config.get("dropSchema"))) {
             Schema schema = tx.schema();
@@ -73,10 +69,6 @@ public class Periodic {
     @Procedure(mode = Mode.WRITE)
     @Description("apoc.periodic.commit(statement,params) - runs the given statement in separate transactions until it returns 0")
     public Stream<RundownResult> commit(@Name("statement") String statement, @Name(value = "params", defaultValue = "{}") Map<String,Object> parameters) throws ExecutionException, InterruptedException {
-        // todo - aggiungere cose man mano e creare una util function che stringhifizza
-        // todo --> mettere nella documentazione un esempio per ogni cosa che modifico
-//        kernelTx.setStatusDetails("giusto per prova");
-        
         validateQuery(statement);
         Map<String,Object> params = parameters == null ? Collections.emptyMap() : parameters;
         long total = 0, executions = 0, updates = 0;
@@ -108,6 +100,8 @@ public class Periodic {
                     return 0L;
                 }
             }), commitErrors, failedCommits, 0L);
+            setKernelStatus(tx,
+                    "successes", batches.get() - failedBatches.get(), "errors", failedBatches.get());
             total += updates;
             if (updates > 0) executions++;
             if (log.isDebugEnabled()) {
@@ -296,7 +290,7 @@ public class Periodic {
                         Iterators.count(r); // XXX: consume all results
                         return r.getQueryStatistics();
                     },
-                    concurrency, failedParams, periodicId, kernelTx);
+                    concurrency, failedParams, periodicId, tx);
         }
     }
 

@@ -236,3 +236,22 @@ RETURN;
 | (:Person {name: "Joel Silver", born: "1952"})-[:PRODUCED]->(:Movie {tagline: "Welcome to the Real World", title: "The Matrix", released: "1999"})
 | (:Person {name: "Lana Wachowski", born: "1965"})-[:DIRECTED]->(:Movie {tagline: "Welcome to the Real World", title: "The Matrix", released: "1999"})
 |===
+
+=== Status details
+
+For long running procedures, we can use the `statusDetails` field present in `dbms.listTransactions` procedure to check progresses.
+
+[source,cypher]
+----
+CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuery STARTS WITH 'CALL apoc.import.graphml' RETURN statusDetails
+----
+
+.Results
+[opts="header"]
+|===
+| file
+| - nodes: 1111 +
+- relationships: 12 +
+- properties: 2222 +
+- rows: 1123
+|===

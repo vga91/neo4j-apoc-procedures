@@ -60,11 +60,7 @@ public class PeriodicUtils {
             GraphDatabaseService db, TerminationGuard terminationGuard, Log log, Pools pools,
             int batchsize, boolean parallel, boolean iterateList, long retries,
             Iterator<Map<String, Object>> iterator, BiFunction<Transaction, Map<String, Object>, QueryStatistics> consumer,
-<<<<<<< HEAD
-            int concurrency, int failedParams, String periodicId, KernelTransaction kernelTx) {
-=======
-            int concurrency, int failedParams, KernelTransaction ktx) {
->>>>>>> f28d658d4 (var adds)
+            int concurrency, int failedParams, String periodicId, Transaction tx) {
 
         ExecutorService pool = parallel ? pools.getDefaultExecutorService() : pools.getSingleExecutorService();
         List<Future<Long>> futures = new ArrayList<>(concurrency);
@@ -85,11 +81,7 @@ public class PeriodicUtils {
                         iterateList ?
                                 new Periodic.ListExecuteBatch(terminationGuard, collector, batch, consumer) :
                                 new Periodic.OneByOneExecuteBatch(terminationGuard, collector, batch, consumer);
-/*
-"total": 100000,
-  "committed": 0,
-  "failed": 100000,
- */
+
                 futures.add(Util.inTxFuture(log,
                         pool,
                         db,
@@ -97,11 +89,9 @@ public class PeriodicUtils {
                         retries,
                         retryCount -> collector.incrementRetried(),
                         onComplete -> {
-                    // todo - anche in periodic commit, e forse anche in altri periodic...
-                    
-                    // todo - creare un initStatusDetails..
-                            
-                            ktx.setStatusDetails(FormatUtils.asListed(Map.of("successes", collector.getBatches() - collector.getFailedBatches().get(), "errors", collector.getFailedBatches().get())));
+                            Util.setKernelStatus(tx, 
+                                    "successes", collector.getBatches() - collector.getFailedBatches().get(), 
+                                    "errors", collector.getFailedBatches().get());
                             collector.incrementBatches();
                             executeBatch.release();
                             activeFutures.decrementAndGet();

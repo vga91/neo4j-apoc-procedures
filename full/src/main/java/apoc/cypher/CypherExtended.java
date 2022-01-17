@@ -12,7 +12,6 @@ import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterators;
-import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -45,6 +44,7 @@ import java.util.stream.StreamSupport;
 import static apoc.util.MapUtil.map;
 import static apoc.util.Util.param;
 import static apoc.util.Util.quote;
+import static apoc.util.Util.setKernelStatusMap;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.singletonList;
@@ -64,9 +64,6 @@ public class CypherExtended {
 
     @Context
     public Transaction tx;
-
-    @Context
-    public KernelTransaction ktx;
 
     @Context
     public GraphDatabaseService db;
@@ -181,7 +178,6 @@ public class CypherExtended {
                     });
                 }
             }
-            // todo - here...
         }
     }
 
@@ -198,7 +194,7 @@ public class CypherExtended {
             if (isSchemaOperation(stmt)) {
                 Util.inTx(db, pools, txInThread -> {
                     try (Result result = txInThread.execute(stmt, params)) {
-                        return consumeResult(result, queue, addStatistics, timeout, update); // todo
+                        return consumeResult(result, queue, addStatistics, timeout, update);
                     }
                 });
             }
@@ -223,10 +219,8 @@ public class CypherExtended {
                                 Map.Entry::getKey,
                                 Map.Entry::getValue,
                                 (v1, v2) -> (long) v1 + (long) v2));
-                ktx.setStatusDetails(FormatUtils.asListed(update));
-            //.entrySet().stream().collect(Collectors.toSet())
+                setKernelStatusMap(tx, update);
                 queue.put(new RowResult(-1, resultMap));
-                // todo - here
             }
             return row;
         } catch (InterruptedException e) {
@@ -351,7 +345,7 @@ public class CypherExtended {
                 .map((List<Object> partition) -> {
                     try (Transaction transaction = db.beginTx();
                          Result result = transaction.execute(statement, parallelParams(params, "_", partition))) {
-                        return consumeResult(result, queue, false, timeout, Map.of());
+                        return consumeResult(result, queue, false, timeout, Collections.emptyMap());
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }}

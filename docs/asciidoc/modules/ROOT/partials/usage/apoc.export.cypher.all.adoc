@@ -277,3 +277,23 @@ And if we click `Paste in editor`, the contents of the file will appear in the q
 image::export-cypher-plain-editor.png[title="Neo4j Browser query editor with the contents of `all-plain.cypher`", width="800px"]
 
 We can then press the play button next in the editor and the data will be imported.
+
+
+==== Status details
+
+For long running procedures, we can use the `statusDetails` field present in `dbms.listTransactions` procedure to check progresses.
+
+[source,cypher]
+----
+CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuery STARTS WITH 'CALL apoc.export.cypher' RETURN statusDetails
+----
+
+.Results
+[opts="header"]
+|===
+| file
+| - nodes: 1111 +
+- relationships: 12 +
+- properties: 2222 +
+- rows: 1123
+|===

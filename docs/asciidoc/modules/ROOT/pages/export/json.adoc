@@ -433,6 +433,22 @@ The contents of `knows-with-node-properties.json` are shown below:
 include::example$data/exportJSON/writeNodeProperties.json[leveloffset]
 ----
 
+For long running procedures, we can use the `statusDetails` field present in `dbms.listTransactions` procedure to check progresses.
+
+[source,cypher]
+----
+CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuery STARTS WITH 'CALL apoc.export.json' RETURN statusDetails
+----
+
+.Results
+[opts="header"]
+|===
+| file
+| - nodes: 1111 +
+- relationships: 12 +
+- properties: 2222 +
+- rows: 1123
+|===
 
 [NOTE]
 ====

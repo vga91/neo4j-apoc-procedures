@@ -144,7 +144,6 @@ public class CypherExtendedTest {
     }
 
     @Test
-<<<<<<< HEAD
     public void testRunFileWithAutoTransaction() {
         final int expectedCount = 2000;
         testCall(db, "CALL apoc.cypher.runFile('in_transaction.cypher')",
@@ -156,11 +155,12 @@ public class CypherExtendedTest {
                 });
 
         testCallCount(db, "MATCH (n:AutoTransaction) RETURN n", Collections.emptyMap(), expectedCount);
-=======
+    }
+
+    @Test
     public void testImportExportStatusDetails() {
             checkStatusDetails(db, "CALL apoc.cypher.runFile('status.nodes.cypher', {statistics: true})", 
                     Map.of(), "CALL apoc.cypher.runFile");
->>>>>>> f28d658d4 (var adds)
     }
     
     @Test

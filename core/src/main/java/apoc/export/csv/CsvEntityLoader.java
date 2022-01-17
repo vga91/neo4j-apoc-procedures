@@ -198,7 +198,6 @@ public class CsvEntityLoader {
                     lineNo.getAndIncrement();
 
                     final EnumSet<Results> results = EnumSet.of(Results.map);
-                    // todo - e qua??? a sto punto ci metto pure il lineNo anche qua??
                     final CSVResult result = new CSVResult(
                             loadCsvCompatibleHeader, line, lineNo.get(), false, mapping, Collections.emptyList(), results
                     );

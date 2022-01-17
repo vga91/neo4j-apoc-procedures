@@ -80,10 +80,6 @@ public class PeriodicTest {
 
         testCall(db, callList, (r) -> assertEquals(true, r.get("done")));
     }
-    
-    // --> call dbms.listTransactions
-    // qui sta il statusDetails, ma come lo testo?
-    
 
     @Test
     public void testSubmitStatementWithParams() throws Exception {
@@ -286,11 +282,24 @@ public class PeriodicTest {
     }
     
     @Test
-    public void testTODO() {
-        db.executeTransactionally("UNWIND range(1,9999) AS x CREATE (:Status:Iterate)");
-//        Runnable runnable = () -> db.executeTransactionally("CALL apoc.periodic.iterate('match (p:Status:Iterate) return p', 'SET p.lastname =p.name REMOVE p.name', {batchSize:10,parallel:true})");
+    public void testStatusDetailsPeriodicIterate() {
+        db.executeTransactionally("UNWIND range(1,9999) AS x CREATE (:StatusIterate)");
         KernelTestUtils.checkStatusDetails(db, 
-                "CALL apoc.periodic.iterate('match (p:Status:Iterate) return p', 'SET p.lastname =p.name REMOVE p.name', {batchSize:10,parallel:true})", Map.of(), "cypher runtime=slotted match (p:Status:Iterate)");
+                "CALL apoc.periodic.iterate('match (p:StatusIterate) return p', 'SET p.lastname =p.name REMOVE p.name', {batchSize:10,parallel:true})", 
+                Collections.emptyMap(), 
+                "cypher runtime=slotted match (p:StatusIterate)");
+        db.executeTransactionally("MATCH (s:StatusIterate) DELETE s");
+    }
+    
+    @Test
+    public void testStatusDetailsPeriodicCommit() {
+        db.executeTransactionally("UNWIND range(1,9999) AS x CREATE (:StatusIterate)");
+
+        String query = "MATCH (p:StatusIterate) WHERE NOT p:Processed WITH p LIMIT 200 SET p:Processed RETURN count(*)";
+        KernelTestUtils.checkStatusDetails(db, 
+                "CALL apoc.periodic.commit($query, {})", 
+                map("query", query));
+        db.executeTransactionally("MATCH (s:StatusIterate) DELETE s");
     }
 
     @Test
