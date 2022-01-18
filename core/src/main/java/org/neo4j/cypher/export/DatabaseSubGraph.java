@@ -7,19 +7,24 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
+import org.neo4j.internal.kernel.api.TokenRead;
+import org.neo4j.kernel.api.KernelTransaction;
+import org.neo4j.kernel.impl.coreapi.InternalTransaction;
 
 import java.util.Iterator;
+import java.util.Optional;
 
-import static apoc.export.cypher.formatter.CypherFormatterUtils.cypherNode;
-import static apoc.util.Util.quote;
+import static org.neo4j.internal.kernel.api.TokenRead.ANY_LABEL;
 
 public class DatabaseSubGraph implements SubGraph
 {
     private final Transaction transaction;
+    private final KernelTransaction kernelTransaction;
 
     public DatabaseSubGraph( Transaction transaction )
     {
         this.transaction = transaction;
+        this.kernelTransaction = ((InternalTransaction) transaction).kernelTransaction();
     }
 
     public static SubGraph from( Transaction transaction )
@@ -84,19 +89,27 @@ public class DatabaseSubGraph implements SubGraph
 
     @Override
     public long countsForRelationship(Label start, RelationshipType type, Label end) {
-        String startNode = cypherNode(start);
-        String endNode = cypherNode(end);
-        String relationship = String.format("[r:%s]", quote(type.name()));
-        return transaction.execute(String.format("MATCH %s-%s->%s RETURN count(r) AS count", startNode, relationship, endNode))
-                .<Long>columnAs("count")
-                .next();
+        final TokenRead tokenRead = kernelTransaction.tokenRead();
+        final int startId = getLabelId(start, tokenRead);
+        final int relId = tokenRead.relationshipType(type.name());
+        final int endId = getLabelId(end, tokenRead);
+        
+        return kernelTransaction.dataRead()
+                .countsForRelationship(startId, relId, endId);
+    }
+
+    private Integer getLabelId(Label start, TokenRead tokenRead) {
+        return Optional.ofNullable(start)
+                .map(Label::name)
+                .map(tokenRead::nodeLabel)
+                .orElse(ANY_LABEL);
     }
 
     @Override
     public long countsForNode(Label label) {
-        return transaction.execute(String.format("MATCH (n:%s) RETURN count(n) AS count", quote(label.name())))
-                .<Long>columnAs("count")
-                .next();
+        final int labelId = kernelTransaction.tokenRead().nodeLabel(label.name());
+        return kernelTransaction.dataRead()
+                .countsForNode(labelId);
     }
 
     @Override
