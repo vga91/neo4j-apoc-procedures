@@ -193,3 +193,46 @@ In the above csv:
 
 - the first row has two values that do not specify an explicit timezone. The value for `date1` will use the `Europe/Stockholm` time zone that was specified for that field in the header. The value for `date2` will use the configured default time zone of the database.
 - in the second row, both `date1` and `date2` set the time zone explicitly to be `Europe/Berlin`. This overrides the header definition for date1, as well as the configured default time zone of the database.
+
+=== Round trip CSV
+
+We can use the `apoc.export.csv.*` and the `apoc.import.csv` procedures to export and import data in another db.
+For example, with this dataset:
+
+[source,cypher]
+----
+CREATE (n:SuperNode {one: datetime(), two: 123})-[:REL_TYPE {relProp: point({x: 1, y: 1, z: 1})}]->(m:AnotherNode), 
+(m)-[:ANOTHER_REL]->(:SuperNode:Foo:Bar {foo: 'bar'})
+----
+
+we can execute, with `bulkImport` mode:
+
+[source,cypher]
+----
+CALL apoc.export.csv.all('roundtrip.csv',
+{importToolArrays: true, quotes: 'always', bulkImport: true, separateHeader: false})
+----
+
+This will create 5 files, 3 for nodes (`roundtrip.nodes.SuperNode.csv`, `roundtrip.nodes.AnotherNode.csv`, `roundtrip.nodes.SuperNode.Foo.Bar.csv`)
+and 2 for relationships (`roundtrip.relationships.ANOTHER_REL.csv`, `roundtrip.relationships.REL_TYPE.csv`).
+
+Therefore, we can execute, in another db:
+
+[source,cypher]
+----
+CALL apoc.import.csv(
+  [
+    {fileName: 'roundtrip.nodes.SuperNode.csv'},
+    {fileName: 'roundtrip.nodes.AnotherNode.csv'},
+    {fileName: 'roundtrip.nodes.SuperNode.Foo.Bar.csv'}
+  ], 
+  [
+    {fileName: 'roundtrip.relationships.ANOTHER_REL.csv'},
+    {fileName: 'roundtrip.relationships.REL_TYPE.csv'}
+  ], 
+{})
+----
+
+Note that it's not necessary specify `labels` key in files maps, but only `fileName`, because node files have `:LABEL` field and relationship files have `:TYPE` field, similarly to https://neo4j.com/docs/operations-manual/current/tools/neo4j-admin/neo4j-admin-import/#import-tool-header-format-nodes[Neo4j Import Tool]
+
+The above query will recreate the initial dataset.

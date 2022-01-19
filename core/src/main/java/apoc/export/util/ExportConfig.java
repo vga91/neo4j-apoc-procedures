@@ -99,7 +99,10 @@ public class ExportConfig extends CompressionConfig {
         this.caption = convertCaption(config.getOrDefault("caption", asList("name", "title", "label", "id")));
         this.nodesOfRelationships = toBoolean(config.get("nodesOfRelationships"));
         this.bulkImport = toBoolean(config.get("bulkImport"));
-        this.importToolArrays = toBoolean(config.getOrDefault("importToolArrays", false));
+        
+        // with bulkImport by default we want to export list in CSVs which can be used neo4j-import import, 
+        // that is without square brackets and with array delimiter. Otherwise will be used OBJECT_MAPPER.writeValueAsString() method
+        this.importToolArrays = toBoolean(config.getOrDefault("importToolArrays", this.bulkImport));
         this.separateHeader = toBoolean(config.get("separateHeader"));
         this.format = ExportFormat.fromString((String) config.getOrDefault("format", "cypher-shell"));
         this.cypherFormat = CypherFormat.fromString((String) config.getOrDefault("cypherFormat", "create"));
@@ -125,12 +128,16 @@ public class ExportConfig extends CompressionConfig {
         if (!OptimizationType.NONE.equals(this.optimizationType) && this.unwindBatchSize > this.batchSize) {
             throw new RuntimeException("`unwindBatchSize` must be <= `batchSize`, but got [unwindBatchSize:" + unwindBatchSize + ", batchSize:" + batchSize + "]");
         }
+        if (this.delim.equals(this.arrayDelim)) {
+            throw new RuntimeException(String.format("Both delim and arrayDelim are `%s`. These configs must be different", delim));
+        }
     }
 
     private void exportQuotes(Map<String, Object> config)
     {
         try {
-            this.quotes = (String) config.getOrDefault("quotes", DEFAULT_QUOTES);
+            // bulkImport with NONE_QUOTES not to break change
+            this.quotes = (String) config.getOrDefault("quotes", bulkImport ? NONE_QUOTES : DEFAULT_QUOTES);
 
             if ( !quotes.equals(ALWAYS_QUOTES) && !quotes.equals(NONE_QUOTES) && !quotes.equals(IF_NEEDED_QUUOTES) ) {
                 throw new RuntimeException("The string value of the field quote is not valid");
@@ -219,5 +226,9 @@ public class ExportConfig extends CompressionConfig {
     
     public boolean ifNotExists() {
         return ifNotExists;
+    }
+
+    public void setQuotes(String quotes) {
+        this.quotes = quotes;
     }
 }

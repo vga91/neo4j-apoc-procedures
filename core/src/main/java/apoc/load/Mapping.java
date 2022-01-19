@@ -75,6 +75,8 @@ public class Mapping {
 
         final Supplier<ZoneId> timezone = () -> ZoneId.of((String) optionalData.getOrDefault("timezone", apocConfig().getString(db_temporal_timezone.name())));
         switch (type) {
+            case BYTE:
+                return Util.toInteger(value).byteValue();
             case POINT:
                 return Util.toPoint(Util.fromJson(value, Map.class), optionalData);
             case LOCAL_DATE_TIME:
@@ -91,12 +93,21 @@ public class Mapping {
                 return DateValue.parse(value).asObjectCopy();
             case DURATION:
                 return DurationValue.parse(value);
-            case INTEGER: return Util.toLong(value);
-            case FLOAT: return Util.toDouble(value);
-            case BOOLEAN: return Util.toBoolean(value);
-            case NULL: return null;
-            case LIST: return Arrays.stream(arrayPattern.split(value)).map(this::convertType).collect(Collectors.toList());
-            default: return value;
+            case LONG:
+            case SHORT:
+            case INTEGER: 
+                return Util.toLong(value);
+            case FLOAT: 
+            case DOUBLE:
+                return Util.toDouble(value);
+            case BOOLEAN: 
+                return Util.toBoolean(value);
+            case NULL: 
+                return null;
+            case LIST: 
+                return Arrays.stream(arrayPattern.split(value)).map(this::convertType).collect(Collectors.toList());
+            default:
+                return value;
         }
     }
 }

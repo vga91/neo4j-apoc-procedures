@@ -4,7 +4,7 @@ import apoc.convert.Convert;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -27,6 +27,7 @@ import static apoc.util.Util.map;
  * @since 23.02.16
  */
 public class FormatUtils {
+    public enum PointMode { NO_QUOTE, QUOTE, AS_JSON }
 
     public static String formatNumber(Number value) {
         if (value == null) return null;
@@ -61,10 +62,10 @@ public class FormatUtils {
         throw new RuntimeException("Invalid graph element "+pc);
     }
 
-    public static String toString(Object value, boolean importToolArrays, String arrayDelimiter) {
+    public static String toString(Object value, boolean importToolArrays, String arrayDelimiter, PointMode pointMode) {
         if (value == null) return "";
         if (value instanceof Path) {
-            return toString(StreamSupport.stream(((Path)value).spliterator(),false).map(FormatUtils::toMap).collect(Collectors.toList()));
+            return toString(StreamSupport.stream(((Path)value).spliterator(),false).map(FormatUtils::toMap).collect(Collectors.toList()), importToolArrays, arrayDelimiter, pointMode);
         }
         if (value instanceof Entity) {
             return Util.toJson(toMap((Entity) value)); // todo id, label, type ?
@@ -76,7 +77,7 @@ public class FormatUtils {
                         ? Arrays.stream(Convert.getObjects(value))
                         : StreamSupport.stream(((Iterable) value).spliterator(), false);
 
-                return (String) stream.map(item -> toString(item, true, arrayDelimiter))
+                return (String) stream.map(item -> toString(item, true, arrayDelimiter, pointMode))
                         .collect(Collectors.joining(arrayDelimiter));
             }
             return Util.toJson(value);
@@ -88,23 +89,32 @@ public class FormatUtils {
             return formatNumber((Number)value);
         }
         if (value instanceof Point) {
-            return formatPoint((Point) value);
+            return formatPoint((Point) value, pointMode);
         }
         return value.toString();
     }
 
     public static String toString(Object value) {
-        return toString(value, false, null);
+        return toString(value, false, null, PointMode.AS_JSON);
     }
 
-    public static String formatPoint(Point value) {
-        try {
-            return JsonUtil.OBJECT_MAPPER.writeValueAsString(value);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+    public static String formatPoint(Point value, PointMode pointMode) {
+        String replacement = StringUtils.EMPTY;
+        switch (pointMode) {
+            case QUOTE:
+                replacement = String.valueOf(ExportConfig.QUOTECHAR);
+            case NO_QUOTE:
+                // leverage on PointValue.toString() which return point({x: NUM, y: NUM, z: NUM}) without double quotes on x,y,z
+                return value.toString().replace("point(", replacement)
+                        .replace(")", replacement);
+            default:
+                try {
+                    return JsonUtil.OBJECT_MAPPER.writeValueAsString(value);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
         }
     }
-
     public static List<String> getLabelsSorted(Node node) {
         return getLabelsAsStream(node).collect(Collectors.toList());
     }

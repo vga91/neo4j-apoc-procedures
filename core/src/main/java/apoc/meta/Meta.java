@@ -96,9 +96,13 @@ public class    Meta {
         public static final Map<String, List<String>> relConstraints = new HashMap<>(20);;
         public static final Map<String, List<String>> nodeConstraints = new HashMap<>(20);;
     }
+    
 
     public enum Types {
-        INTEGER,FLOAT,STRING,BOOLEAN,RELATIONSHIP,NODE,PATH,NULL,ANY,MAP,LIST,POINT,DATE,DATE_TIME,LOCAL_TIME,LOCAL_DATE_TIME,TIME,DURATION;
+        // prop types can be Byte[], Integer, Float, String, Boolean, Point, Date, Time, LocalTime, DateTime, LocalDateTime, and Duration
+        // but, since this class is also used for Mapping.java (to map the header of apoc.import.csv)
+        // for consistency with neo4j-admin import tool, we can have also an header with 'short', 'long' and 'double'
+        DOUBLE,SHORT,INTEGER,LONG,FLOAT,STRING,BOOLEAN,RELATIONSHIP,NODE,PATH,NULL,ANY,MAP,LIST,POINT,DATE,DATE_TIME,LOCAL_TIME,LOCAL_DATE_TIME,TIME,DURATION,BYTE;
 
         private String typeOfList = "ANY";
 

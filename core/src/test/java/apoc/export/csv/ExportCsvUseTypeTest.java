@@ -3,95 +3,79 @@ package apoc.export.csv;
 import apoc.ApocSettings;
 import apoc.graph.Graphs;
 import apoc.util.TestUtil;
-import apoc.util.Util;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
-import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
+import org.neo4j.values.storable.DateValue;
+import org.neo4j.values.storable.DurationValue;
+import org.neo4j.values.storable.PointValue;
 
-import static apoc.export.csv.ExportCsvTest.assertResults;
-import static apoc.export.csv.ExportCsvTest.readFile;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.util.HashMap;
+import java.util.Map;
+
 import static apoc.util.MapUtil.map;
-import static apoc.util.TestUtil.testCall;
-import static org.junit.Assert.assertEquals;
+import static org.neo4j.graphdb.Label.label;
 
 
 // Created to not affect ExportCsvTest results
 public class ExportCsvUseTypeTest {
+    protected static final long EXPECTED_NODES = 3L;
+    protected static final long EXPECTED_RELS = 2L;
+    protected static final long EXPECTED_PROPS = 18L;
+    protected static final String ANOTHER_NODE = "AnotherNode";
 
-    private static final long EXPECTED_NODES = 2L;
-    private static final long EXPECTED_RELS = 1L;
-    private static final long EXPECTED_PROPS = 17L;
+    protected static final Map<String, Object> SUPER_NODE_PROPS = Map.of("one", ZonedDateTime.of(2018, 5, 10, 10, 30, 0,0, ZoneId.of("Europe/Berlin")),
+            "two", OffsetTime.of(12, 2, 33, 0, ZoneOffset.of(GraphDatabaseSettings.db_temporal_timezone.defaultValue().getId())),
+            "three", LocalTime.of(17, 58, 30),
+            "four", LocalDateTime.of(2021, 6, 8, 0, 0, 0),
+            "five", DateValue.parse("2020").asObjectCopy(),
+            "six", DurationValue.parse("P14DT16H12M"),
+            "seven", "2020");
+    
+    protected static final Map<String, Object> ANOTHER_NODE_PROPS = new HashMap<>(Map.of(
+            "alpha", (short) 12,
+            "beta", "qwerty".getBytes(),
+            "gamma", 'A',
+            "epsilon", 1,
+            "zeta", 1.1F,
+            "eta", 133L,
+            "theta", 10.1D,
+            "iota", "bar e \" bar",
+            "kappa", new String[] {"un", "deux", "trois"}
+    ));
+    protected static final Map<String, Object> REL_PROPS = Map.of("rel", PointValue.parse("{x: 56.7, y: 12.78, crs: 'cartesian'}"));
+
 
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, ExportCsvTest.directory.toPath().toAbsolutePath())
+            .withSetting(ApocSettings.apoc_import_file_enabled, true)
             .withSetting(ApocSettings.apoc_export_file_enabled, true);
 
 
     @BeforeClass
     public static void setUp() {
-        TestUtil.registerProcedure(db, ExportCSV.class, Graphs.class);
-        db.executeTransactionally("CREATE (n:SuperNode { one: datetime('2018-05-10T10:30[Europe/Berlin]'), two: time('18:02:33'), three: localtime('17:58:30'), \n" +
-                "four: localdatetime('2021-06-08'), five: date('2020'), six: duration({months: 5, days: 1.5}), seven : '2020'}) \n" +
-                "WITH n CREATE (n)-[:REL_TYPE {rel: point({x: 56.7, y: 12.78, crs: 'cartesian'})}]->(m:AnotherNode)");
+        TestUtil.registerProcedure(db, ExportCSV.class, Graphs.class, ImportCsv.class);
         
+        db.executeTransactionally("CREATE (n:SuperNode $superNodeProps)-[:REL_TYPE $relProps]->(m:AnotherNode), \n" +
+                "(m)-[:ANOTHER_REL]->(:SuperNode:Foo:Bar {foo: 'bar'})", 
+                map("superNodeProps", SUPER_NODE_PROPS, "anotherNodProps", ANOTHER_NODE_PROPS, "relProps", REL_PROPS));
+
         try(Transaction tx = db.beginTx()) {
-            final Node node = tx.findNodes(Label.label("AnotherNode")).next();
-            // force property type
-            node.setProperty("alpha", (short) 1);
-            node.setProperty("beta", "qwerty".getBytes());
-            node.setProperty("gamma", 'A');
-            node.setProperty("epsilon", 1);
-            node.setProperty("zeta", 1.1F);
-            node.setProperty("eta", 1L);
-            node.setProperty("theta", 10.1D);
-            node.setProperty("iota", "bar");
-            node.setProperty("kappa", new String[] {"un", "deux", "trois"});
+            final Node node = tx.findNodes(label(ANOTHER_NODE)).next();
+            // force property types
+            ANOTHER_NODE_PROPS.forEach(node::setProperty);
             tx.commit();
         }
-    }
-
-    @Test
-    public void testExportCsvAll() {
-        String fileName = "manyTypes.csv";
-        testCall(db, "CALL apoc.export.csv.all($file, {useTypes: true, quotes: 'none', importToolArrays: true})", map("file", fileName),
-                (r) -> assertResults(fileName, r, "database", EXPECTED_NODES, EXPECTED_RELS, EXPECTED_PROPS));
-        final String expected = Util.readResourceFile(fileName);
-        assertEquals(expected, readFile(fileName));
-
-        // -- streaming mode
-        String statement = "CALL apoc.export.csv.all(null, {stream:true, useTypes: true, quotes: 'none', importToolArrays: true})";
-        testCall(db, statement, (r) -> assertEquals(expected, r.get("data")));
-    }
-
-    @Test
-    public void testExportCsvGraph() {
-        String fileName = "manyTypes.csv";
-        testCall(db, "CALL apoc.graph.fromDB('test',{}) yield graph " +
-                        "CALL apoc.export.csv.graph(graph, $file,{useTypes: true, quotes: 'none', importToolArrays: true}) " +
-                        "YIELD nodes, relationships, properties, file, source,format, time " +
-                        "RETURN *", map("file", fileName),
-                (r) -> assertResults(fileName, r, "graph", EXPECTED_NODES, EXPECTED_RELS, EXPECTED_PROPS));
-        final String expected = Util.readResourceFile(fileName);
-        assertEquals(expected, readFile(fileName));
-    }
-
-    @Test
-    public void testExportCsvGraphWithoutImportToolArrays() {
-        String fileName = "manyTypesWithArrayLegacy.csv";
-        testCall(db, "CALL apoc.export.csv.all($file, {useTypes: true, quotes: 'none'})", map("file", fileName),
-                (r) -> assertResults(fileName, r, "database", EXPECTED_NODES, EXPECTED_RELS, EXPECTED_PROPS));
-        final String expected = Util.readResourceFile(fileName);
-        assertEquals(expected, readFile(fileName));
-
-        // -- streaming mode
-        String statement = "CALL apoc.export.csv.all(null, {stream:true, useTypes: true, quotes: 'none'})";
-        testCall(db, statement, (r) -> assertEquals(expected, r.get("data")));
     }
 }

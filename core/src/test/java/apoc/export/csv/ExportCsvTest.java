@@ -5,8 +5,10 @@ import apoc.graph.Graphs;
 import apoc.meta.Meta;
 import apoc.util.TestUtil;
 import apoc.util.Util;
+import org.apache.commons.lang.exception.ExceptionUtils;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.graphdb.Result;
@@ -455,11 +457,22 @@ public class ExportCsvTest {
                 (r) -> {
                     String data = (String) r.get("data");
                     Map<String, Object> place = Util.fromJson(data.split(System.lineSeparator())[1], Map.class);
-                    assertEquals(12.78D, (double) place.get("latitude"), 0);
-                    assertEquals(56.7D, (double) place.get("longitude"), 0);
-                    assertEquals(1.1D, (double) place.get("height"), 0);
+                    assertEquals(12.78D, (double) place.get("y"), 0);
+                    assertEquals(56.7D, (double) place.get("x"), 0);
+                    assertEquals(1.1D, (double) place.get("z"), 0);
                 });
         db.executeTransactionally("MATCH (n:Position) DETACH DELETE n");
+    }
+    
+    @Test(expected = RuntimeException.class)
+    public void testFailsIfDelimAndArrayDelimAreEquals() {
+        try {
+            TestUtil.testCall(db, "CALL apoc.export.csv.all('fails.csv' ,{delim: ';'})", (r) -> {});
+        } catch (RuntimeException e) {
+            Throwable except = ExceptionUtils.getRootCause(e);
+            assertEquals("Both delim and arrayDelim are `;`. These configs must be different", except.getMessage());
+            throw e;
+        }
     }
 
     private Consumer<Result> getAndCheckStreamingMetadataQueryMatchAddress(StringBuilder sb)

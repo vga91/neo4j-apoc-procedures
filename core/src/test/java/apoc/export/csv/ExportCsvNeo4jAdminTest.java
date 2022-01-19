@@ -30,7 +30,7 @@ public class ExportCsvNeo4jAdminTest {
             .format(":ID;born_3D:point;localtime:localtime;time:time;localDateTime:localdatetime;duration:duration;dateTime:datetime;born_2D:point;date:date;:LABEL%n");
 
     private static final String EXPECTED_NEO4J_ADMIN_IMPORT_TYPES_NODE = String
-            .format("6;{crs:wgs-84-3d,latitude:12.78,longitude:56.7,height:100.0};12:50:35.556;12:50:35.556+01:00;2018-10-30T19:32:24;P5M1DT12H;2018-10-30T12:50:35.556+01:00;{crs:cartesian,x:2.3,y:4.5};2018-10-30;Types%n");
+            .format("6;\"{x: 56.7, y: 12.78, z: 100.0, crs: 'wgs-84-3d'}\";12:50:35.556;12:50:35.556+01:00;2018-10-30T19:32:24;P5M1DT12H;2018-10-30T12:50:35.556+01:00;\"{x: 2.3, y: 4.5, crs: 'cartesian'}\";2018-10-30;Types%n");
 
     private static final String EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_NODE_ADDRESS = String
             .format(":ID;name;street;:LABEL%n");
@@ -55,7 +55,7 @@ public class ExportCsvNeo4jAdminTest {
                     "5;;via Benni;Address%n");
 
     private static final String EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS1 = String
-            .format("3;Via Garibaldi, 7;Andrea;Milano;\"Address1;Address\"%n");
+            .format("3;Via Garibaldi, 7;Andrea;Milano;Address1.Address%n");
 
     private static final String EXPECTED_NEO4J_ADMIN_IMPORT_NODE_ADDRESS1_IMPORT_TOOL_ARRAY =
             "3;Via Garibaldi, 7;Andrea;Milano;Address1-Address\n";
@@ -65,7 +65,7 @@ public class ExportCsvNeo4jAdminTest {
                     "2;;12;User%n");
 
     private static final String EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER1 = String
-            .format("0;foo;42;true;[a,b,c];\"User1;User\"%n");
+            .format("0;foo;42;true;[\"a\",\"b\",\"c\"];User1.User%n");
 
     private static final String EXPECTED_NEO4J_ADMIN_IMPORT_NODE_USER1_IMPORT_TOOL_ARRAY =
             ":ID;name;age:long;male:boolean;kids:string[];:LABEL\n" +
@@ -102,8 +102,9 @@ public class ExportCsvNeo4jAdminTest {
         String fileName = "query_nodes.csv";
         File dir = new File(directory, fileName);
 
-        TestUtil.testCall(db, "CALL apoc.export.csv.all($fileName,{bulkImport: true, separateHeader: true, delim: ';'})",
-                map("fileName", fileName), r -> {
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($fileName, $config)",
+                map("fileName", fileName, 
+                        "config", map("importToolArrays", false, "bulkImport", true, "arrayDelim", ".", "separateHeader", true, "delim", ';')), r -> {
                     assertEquals(20000L, r.get("batchSize"));
                     assertEquals(1L, r.get("batches"));
                     assertEquals(7L, r.get("nodes"));
@@ -135,7 +136,7 @@ public class ExportCsvNeo4jAdminTest {
     @Test
     public void testExportGraphNeo4jAdminCsv() throws Exception {
         String query = "CALL apoc.graph.fromDB('test',{}) yield graph " +
-                "CALL apoc.export.csv.graph(graph, $fileName,{bulkImport: true, delim: ';'}) " +
+                "CALL apoc.export.csv.graph(graph, $fileName,{importToolArrays: false, bulkImport: true, delim: ';', arrayDelim: '.'}) " +
                 "YIELD nodes, relationships, properties, file, source,format, time " +
                 "RETURN *";
         assertionsExportGraphNeo4jAdmin(query, false);
@@ -144,7 +145,7 @@ public class ExportCsvNeo4jAdminTest {
     @Test
     public void testExportCypherWithIdFieldWithisImportToolArrays() {
         String query = "CALL apoc.graph.fromDB('test',{}) yield graph " +
-                "CALL apoc.export.csv.graph(graph, $fileName, {bulkImport: true, delim: ';', importToolArrays: true, arrayDelim: '-' }) " +
+                "CALL apoc.export.csv.graph(graph, $fileName, {bulkImport: true, delim: ';', arrayDelim: '.', importToolArrays: true, arrayDelim: '-' }) " +
                 "YIELD nodes, relationships, properties, file, source, format, time " +
                 "RETURN *";
         assertionsExportGraphNeo4jAdmin(query, true);

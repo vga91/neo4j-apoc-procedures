@@ -376,6 +376,50 @@ _id:id,_labels:label,propList
 
 This consideration is also valid with `{bulkImport: true}`.
 
+=== Round trip CSV
+
+We can use the `apoc.export.csv.*` and the `apoc.import.csv` procedures to export and import data in another db.
+For example, with this dataset:
+
+[source,cypher]
+----
+CREATE (n:SuperNode $superNodeProps)-[:REL_TYPE $relProps]->(m:AnotherNode), 
+(m)-[:ANOTHER_REL]->(:SuperNode:Foo:Bar {foo: 'bar'})
+----
+
+we can execute, with `bulkImport` mode:
+
+[source,cypher]
+----
+CALL apoc.export.csv.all('rountrip.csv',
+{importToolArrays: true, quotes: 'always', bulkImport: true, separateHeader: false})
+----
+
+This will create 5 files, 3 for nodes (`roundtrip.nodes.SuperNode.csv`, `roundtrip.nodes.AnotherNode.csv`, `roundtrip.nodes.SuperNode.Foo.Bar.csv`) 
+and 2 for relationships (`roundtrip.relationships.ANOTHER_REL.csv`, `roundtrip.relationships.REL_TYPE.csv`).
+
+Therefore, we can execute, in another db:
+
+[source,cypher]
+----
+CALL apoc.import.csv(
+  [
+    {fileName: 'roundtrip.nodes.SuperNode.csv'},
+    {fileName: 'roundtrip.nodes.AnotherNode.csv'},
+    {fileName: 'rroundtrip.nodes.SuperNode.Foo.Bar.csv'}
+  ], 
+  [
+    {fileName: 'roundtrip.relationships.ANOTHER_REL.csv'},
+    {fileName: 'roundtrip.relationships.REL_TYPE.csv'},
+  ], 
+{})
+----
+
+Note that it's not necessary specify `labels` key in files maps, but only `fileName`, because node files have `:LABEL` field and relationship files have `:TYPE` field, similarly to https://neo4j.com/docs/operations-manual/current/tools/neo4j-admin/neo4j-admin-import/#import-tool-header-format-nodes[Neo4j Import Tool]
+
+The above query will recreate the initial dataset.
+
+
 [[export-cypher-query-csv]]
 === Export results of Cypher query to CSV
 

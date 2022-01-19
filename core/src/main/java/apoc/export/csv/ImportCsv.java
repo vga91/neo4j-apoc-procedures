@@ -8,6 +8,7 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +54,8 @@ public class ImportCsv {
                     final Map<String, Map<String, Long>> idMapping = new HashMap<>();
                     for (Map<String, Object> node : nodes) {
                         final Object data = node.getOrDefault("fileName", node.get("data"));
-                        final List<String> labels = (List<String>) node.get("labels");
+                        // default emptyList() to avoid NullPointer if import without `labels` key
+                        final List<String> labels = (List<String>) node.getOrDefault("labels", Collections.emptyList());
                         loader.loadNodes(data, labels, db, idMapping);
                     }
 

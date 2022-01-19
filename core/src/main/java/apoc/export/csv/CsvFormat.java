@@ -33,10 +33,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static apoc.export.util.BulkImportUtil.formatHeader;
+import static apoc.export.util.FormatUtils.PointMode.NO_QUOTE;
+import static apoc.export.util.FormatUtils.PointMode.QUOTE;
 import static apoc.export.util.MetaInformation.collectPropTypesForNodes;
 import static apoc.export.util.MetaInformation.collectPropTypesForRelationships;
 import static apoc.export.util.MetaInformation.getLabelsString;
@@ -124,7 +125,7 @@ public class CsvFormat implements Format {
                 for (int col = 0; col < header.length; col++) {
                     String key = header[col];
                     Object value = row.get(key);
-                    data[col] = FormatUtils.toString(value, config.isImportToolArrays(), config.getArrayDelim());
+                    data[col] = FormatUtils.toString(value, config.isImportToolArrays(), config.getArrayDelim(), NO_QUOTE);
                     reporter.update(value instanceof Node ? 1: 0,value instanceof Relationship ? 1: 0 , value instanceof Entity ? 0 : 1);
                 }
                 out.writeNext(data, applyQuotesToAll);
@@ -187,7 +188,7 @@ public class CsvFormat implements Format {
                                 return joinLabels(entrySet.getKey(), config.getArrayDelim());
                             }
                             String prop = s.split(":")[0];
-                            return "".equals(prop) ? String.valueOf(n.getId()) : cleanPoint(FormatUtils.toString(n.getProperty(prop, ""), isImportToolArrays, config.getArrayDelim()));
+                            return "".equals(prop) ? String.valueOf(n.getId()) : FormatUtils.toString(n.getProperty(prop, ""), isImportToolArrays, config.getArrayDelim(), config.isQuotes().equals(ExportConfig.NONE_QUOTES) ? QUOTE : NO_QUOTE );
                         }).collect(Collectors.toList());
                     })
                     .collect(Collectors.toList());
@@ -216,20 +217,14 @@ public class CsvFormat implements Format {
                                     return entrySet.getKey().name();
                                 default:
                                     String prop = s.split(":")[0];
-                                    return "".equals(prop) ? String.valueOf(r.getId()) : cleanPoint(FormatUtils.toString(r.getProperty(prop, ""), isImportToolArrays, config.getArrayDelim()));
+                                    return "".equals(prop) ? String.valueOf(r.getId()) 
+                                            : FormatUtils.toString(r.getProperty(prop, ""), isImportToolArrays, config.getArrayDelim(), config.isQuotes().equals(ExportConfig.NONE_QUOTES) ? QUOTE : NO_QUOTE );
                             }
                         }).collect(Collectors.toList());
                     })
                     .collect(Collectors.toList());
             writeRow(config, writer, headerRel, rows, "relationships." + entrySet.getKey().name());
         });
-    }
-
-    private String cleanPoint(String point) {
-        point = point.replace(",\"z\":null", "");
-        point = point.replace(",\"heigth\":null", "");
-        point = point.replace("\"", "");
-        return point;
     }
 
     private Set<String> generateHeaderNodeBulkImport(Map.Entry<Iterable<Label>, List<Node>> entrySet, boolean isImportToolArrays) {
@@ -316,7 +311,7 @@ public class CsvFormat implements Format {
     private void collectProps(Collection<String> fields, Entity pc, Reporter reporter, String[] row, int offset, ExportConfig config) {
         for (String field : fields) {
             if (pc.hasProperty(field)) {
-                row[offset] = FormatUtils.toString(pc.getProperty(field), config.isImportToolArrays(), config.getArrayDelim());
+                row[offset] = FormatUtils.toString(pc.getProperty(field), config.isImportToolArrays(), config.getArrayDelim(), NO_QUOTE);
                 reporter.update(0,0,1);
             }
             else {
