@@ -73,7 +73,7 @@ public class PeriodicExtended {
             }
 
             String periodicId = UUID.randomUUID().toString();
-            log.info("starting batched operation using iteration `%s` in separate thread with id: `%s`", cypherIterate, periodicId);
+            log.info("Starting batched operation using iteration `%s` in separate thread with id: `%s`", cypherIterate, periodicId);
             try (Result result = tx.execute(cypherIterate)) {
                 Stream<BatchAndTotalResult> oneResult =
                     PeriodicUtils.iterateAndExecuteBatchedInSeparateThread(
@@ -117,7 +117,7 @@ public class PeriodicExtended {
         validateQueries(fieldStatement);
 
         String periodicId = UUID.randomUUID().toString();
-        log.info("starting batched operation using iteration `%s` in separate thread", cypherIterate);
+        log.info("Starting batched operation using iteration `%s` in separate thread with id: `%s`", cypherIterate, periodicId);
         try (Result result = tx.execute(cypherIterate)) {
             return PeriodicUtils.iterateAndExecuteBatchedInSeparateThread(
                     db, terminationGuard, log, pools,
