@@ -1,6 +1,7 @@
 package apoc.export.util;
 
 import apoc.export.cypher.formatter.CypherFormat;
+import apoc.util.CompressionAlgo;
 import apoc.util.CompressionConfig;
 import apoc.util.Util;
 
