@@ -87,8 +87,7 @@ public class LoadJsonTest {
     
     @Test public void testLoadJson() throws Exception {
 		URL url = ClassLoader.getSystemResource("map.json");
-		testCall(db, "CALL apoc.load.json($url)",
-                map("url",url.toString()), // 'file:map.json' YIELD value RETURN value
+        testCall(db, "CALL apoc.load.json($url)",map("url",url.toString()), // 'file:map.json' YIELD value RETURN value
                 (row) -> {
                     assertEquals(map("foo",asList(1L,2L,3L)), row.get("value"));
                 });

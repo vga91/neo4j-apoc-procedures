@@ -2,13 +2,10 @@ package apoc.load;
 
 import apoc.ApocConfig;
 import apoc.export.util.CountingInputStream;
-import apoc.generate.config.InvalidConfigException;
 import apoc.result.MapResult;
 import apoc.result.NodeResult;
 import apoc.util.CompressionAlgo;
-import apoc.util.CompressionConfig;
 import apoc.util.FileUtils;
-import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.RelationshipType;
@@ -290,8 +287,7 @@ public class Xml {
         // If the text is valid ...
         if (!StringUtils.isEmpty(text.toString())) {
             final String type = (String) elementMap.get("_type");
-            final Map<String, Map<String, Object>> mapping = config.getMapping();
-            final XmlMapping xmlMapping = new XmlMapping(type, mapping.get(type), config.getIgnore().contains(type), config.getNullValues(), config.getZoneId());
+            final XmlMapping xmlMapping = new XmlMapping(type, config);
             if (xmlMapping.isIgnore()) {
                 elementMap.put("ignore", true);
             } else {
@@ -383,77 +379,6 @@ public class Xml {
         public int hashCode() {
             return parent.hashCode();
         }
-    }
-
-    private static class XmlImportConfig extends CommonLoadImportConfig{
-
-        private boolean connectCharacters;
-        private Pattern delimiter;
-        private Label label = Label.label("XmlCharacters");
-        private RelationshipType relType = RelationshipType.withName("NE");
-        private Map<String, String> charactersForTag = new HashMap<>();
-        final private boolean filterLeadingWhitespace;
-
-        public XmlImportConfig(Map<String, Object> config) {
-            super(config);
-            if (config == null) {
-                config = Collections.emptyMap();
-            }
-            connectCharacters = BooleanUtils.toBoolean((Boolean) config.get("connectCharacters"));
-            filterLeadingWhitespace = BooleanUtils.toBoolean((Boolean) config.get("filterLeadingWhitespace"));
-
-            String _delimiter = (String) config.get("delimiter");
-            if (_delimiter != null) {
-                connectCharacters = true;
-            }
-            delimiter = Pattern.compile(_delimiter == null ? "\\s" : _delimiter);
-
-            String _label = (String) config.get("label");
-            if (_label != null) {
-                label = Label.label(_label);
-                connectCharacters = true;
-            }
-
-            String _relType = (String) config.get("relType");
-            if (_relType != null) {
-                relType = RelationshipType.withName(_relType);
-                connectCharacters = true;
-            }
-
-            Map<String,String> _charactersForTag = (Map<String, String>) config.get("charactersForTag");
-            if (_charactersForTag !=null) {
-                charactersForTag = _charactersForTag;
-            }
-
-            if (config.containsKey("createNextWordRelationships")) {
-                throw new InvalidConfigException("usage of `createNextWordRelationships` is no longer allowed. Use `{relType:'NEXT_WORD', label:'XmlWord'}` instead.");
-            }
-        }
-
-        public Pattern getDelimiter() {
-            return delimiter;
-        }
-
-        public Label getLabel() {
-            return label;
-        }
-
-        public RelationshipType getRelType() {
-            return relType;
-        }
-
-        public boolean isConnectCharacters() {
-            return connectCharacters;
-        }
-
-        public Map<String, String> getCharactersForTag() {
-            return charactersForTag;
-        }
-
-        public boolean isFilterLeadingWhitespace() {
-            return filterLeadingWhitespace;
-        }
-
     }
 
     private static class ImportState {
@@ -556,7 +481,7 @@ public class Xml {
                 case XMLStreamConstants.START_ELEMENT:
                     final QName qName = xml.getName();
                     final String name = qName.getLocalPart();
-                    currentXmlMapping = new XmlMapping(name, importConfig.getMapping().get(name), importConfig.getIgnore().contains(name), importConfig.getNullValues(), importConfig.getZoneId());
+                    currentXmlMapping = new XmlMapping(name, importConfig);
                     if (!currentXmlMapping.isIgnore()) {
                         final org.neo4j.graphdb.Node tag = tx.createNode(Label.label("XmlTag"));
                         tag.setProperty("_name", name);

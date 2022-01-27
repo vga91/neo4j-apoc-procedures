@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 public class XmlMapping extends AbstractMapping {
-    public XmlMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> nullValues, ZoneId zoneId) {
-        super(name, mapping, ignore, nullValues, zoneId);
+    public XmlMapping(String name, LoadImportConfig config) {
+        super(name, config);
     }
 
     public Object convert(Object value) {

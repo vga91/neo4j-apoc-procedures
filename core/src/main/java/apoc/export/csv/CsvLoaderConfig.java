@@ -1,10 +1,15 @@
 package apoc.export.csv;
 
+import apoc.load.CsvMapping;
+import apoc.load.LoadImportConfig;
 import apoc.util.CompressionAlgo;
-import apoc.util.CompressionConfig;
 
-import java.nio.charset.Charset;
+import java.util.AbstractMap;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -12,7 +17,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * Config class to store the configuration for loading the CSV file. Names and defaults are based on the import tool's
  * <a href="https://neo4j.com/docs/operations-manual/current/tools/neo4j-admin/neo4j-admin-import/#import-tool-options/">command line options</a>.
  */
-public class CsvLoaderConfig extends CompressionConfig {
+public class CsvLoaderConfig extends LoadImportConfig<List<CsvHeaderField>> {
 
     public static final String DELIMITER = "delimiter";
     private static final String ARRAY_DELIMITER = "arrayDelimiter";
@@ -41,7 +46,7 @@ public class CsvLoaderConfig extends CompressionConfig {
     private final boolean ignoreDuplicateNodes;
     private final boolean ignoreBlankString;
 
-    private CsvLoaderConfig(Builder builder) {
+    public CsvLoaderConfig(Builder builder) {
         super(Map.of(COMPRESSION, builder.compressionAlgo, CHARSET, builder.charset));
         this.delimiter = builder.delimiter;
         this.arrayDelimiter = builder.arrayDelimiter;
@@ -122,6 +127,28 @@ public class CsvLoaderConfig extends CompressionConfig {
         builder.charset((String) config.getOrDefault(CHARSET, UTF_8.name()));
         
         return builder.build();
+    }
+
+    @Override
+    public Map<String, CsvMapping> createMapping(List<CsvHeaderField> fields) {
+        return fields.stream().collect(
+                Collectors.toMap(
+                        CsvHeaderField::getName,
+                        f -> {
+                            final Stream<AbstractMap.SimpleEntry<String, Object>> simpleEntryStream = f.getOptionalData().entrySet().stream()
+                                    .flatMap(i -> Stream.of(new AbstractMap.SimpleEntry<>(i.getKey(), i.getValue())));
+                            
+                            final Map<String, Object> currMapping = Stream.concat(
+                                        Stream.of(new AbstractMap.SimpleEntry<>("type", f.getType()), new AbstractMap.SimpleEntry<>("array", f.isArray())), 
+                                        simpleEntryStream)
+                                    .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
+
+                            // I put the header data into mapping field
+                            this.getMapping().put(f.getName(), currMapping);
+                            return new CsvMapping(f.getName(), this);
+                        }
+                )
+        );
     }
 
     /**

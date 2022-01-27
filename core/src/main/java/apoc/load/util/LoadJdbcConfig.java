@@ -1,6 +1,6 @@
 package apoc.load.util;
 
-import apoc.load.CommonLoadImportConfig;
+import apoc.load.LoadImportConfig;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 
@@ -11,7 +11,7 @@ import java.util.Map;
  * @author ab-Larus
  * @since 03-10-18
  */
-public class LoadJdbcConfig extends CommonLoadImportConfig {
+public class LoadJdbcConfig extends LoadImportConfig {
 
     private Credentials credentials;
 
@@ -27,6 +27,12 @@ public class LoadJdbcConfig extends CommonLoadImportConfig {
         this.credentials = config.containsKey("credentials") ? createCredentials((Map<String, String>) config.get("credentials")) : null;
         this.fetchSize = Util.toLong(config.getOrDefault("fetchSize", 5000L));
         this.autoCommit = Util.toBoolean(config.getOrDefault("autoCommit", false));
+    }
+
+    @Override
+    public Object createMapping(Object input) {
+        // mapping not necessary
+        return null; 
     }
 
     public Credentials getCredentials() {

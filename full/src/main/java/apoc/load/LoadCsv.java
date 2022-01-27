@@ -84,10 +84,10 @@ public class LoadCsv {
         List<String> ignore = config.getIgnore();
         if (ignore.isEmpty()) return headers;
 
-        Map<String, Mapping> mappings = config.getMappings();
+        Map<String, CsvMapping> mappings = config.getMappings();
         for (int i = 0; i < headers.length; i++) {
             String header = headers[i];
-            if (ignore.contains(header) || mappings.getOrDefault(header, Mapping.EMPTY).ignore) {
+            if (ignore.contains(header) || mappings.getOrDefault(header, CsvMapping.EMPTY).ignore) {
                 headers[i] = null;
             }
         }
@@ -100,13 +100,13 @@ public class LoadCsv {
         private final String url;
         private final long limit;
         private final boolean ignore;
-        private final Map<String, Mapping> mapping;
+        private final Map<String, CsvMapping> mapping;
         private final List<String> nullValues;
         private final EnumSet<Results> results;
         private final boolean ignoreErrors;
         long lineNo;
 
-        public CSVSpliterator(CSVReader csv, String[] header, String url, long skip, long limit, boolean ignore, Map<String, Mapping> mapping, List<String> nullValues, EnumSet<Results> results, boolean ignoreErrors) throws IOException {
+        public CSVSpliterator(CSVReader csv, String[] header, String url, long skip, long limit, boolean ignore, Map<String, CsvMapping> mapping, List<String> nullValues, EnumSet<Results> results, boolean ignoreErrors) throws IOException {
             super(Long.MAX_VALUE, Spliterator.ORDERED);
             this.csv = csv;
             this.header = header;

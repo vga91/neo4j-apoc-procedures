@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static apoc.util.CompressionConfig.COMPRESSION;
 
 public class LoadJson {
 
@@ -74,41 +73,19 @@ public class LoadJson {
         Stream<Object> stream = JsonUtil.loadJson(urlOrKeyOrBinary,headers,payload, path, failOnError, compressionAlgo, pathOptions);
         return stream.flatMap((value) -> {
             if (value instanceof Map) {
-                return Stream.of(new MapResult(convertTypeMap((Map) value, jsonConfig)));
+                return Stream.of(new MapResult(jsonConfig.createMapping((Map) value)));
             }
             if (value instanceof List) {
                 if (((List)value).isEmpty()) return Stream.empty();
                 if (((List) value).get(0) instanceof Map)
-                    return ((List) value).stream().map((v) -> new MapResult(convertTypeMap((Map) v, jsonConfig)));
-                return Stream.of(new MapResult(convertTypeMap(Collections.singletonMap("result",value), jsonConfig)));
+                    return ((List<Map>) value).stream().map((v) -> new MapResult(jsonConfig.createMapping(v)));
+                return Stream.of(new MapResult(jsonConfig.createMapping(Collections.singletonMap("result",value))));
             }
             if(!failOnError)
                 throw new RuntimeException("Incompatible Type " + (value == null ? "null" : value.getClass()));
             else
                 return Stream.of(new MapResult(Collections.emptyMap()));
         });
-    }
-
-    private static Map<String, Object> convertTypeMap(Map<String, Object> mapValue, LoadJsonConfig config) {
-        if (mapValue == null) {
-            return null;
-        }
-        return mapValue.entrySet()
-                .stream()
-                .collect(HashMap::new,
-                        (mapAccumulator, entry) -> {
-                            final Map<String, Map<String, Object>> mapping = config.getMapping();
-                            final String key = entry.getKey();
-                            final Object value = entry.getValue();
-                            final JsonMapping jsonMapping = new JsonMapping(key, mapping.get(key), config.getIgnore().contains(key), config.getNullValues(), config.getZoneId());
-                            if (!jsonMapping.isIgnore()) {
-                                mapAccumulator.put(key,
-                                        value instanceof Map && !mapping.containsKey(key) ? convertTypeMap((Map) value, config)
-                                                : jsonMapping.convert(value)
-                                );
-                            }
-                        },
-                        HashMap::putAll);
     }
     
 }

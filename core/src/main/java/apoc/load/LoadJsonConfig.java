@@ -1,10 +1,11 @@
 package apoc.load;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class LoadJsonConfig extends CommonLoadImportConfig {
+public class LoadJsonConfig extends LoadImportConfig<Map<String, Object>> {
     
     private final boolean failOnError;
     private final List<String> pathOptions;
@@ -18,6 +19,28 @@ public class LoadJsonConfig extends CommonLoadImportConfig {
         pathOptions = (List<String>) config.get("pathOptions");
     }
 
+    @Override
+    public Map<String, Object> createMapping(Map<String, Object> mapValue) {
+        return mapValue == null 
+                ? null
+                : mapValue.entrySet()
+                .stream()
+                .collect(HashMap::new,
+                        (mapAccumulator, entry) -> {
+                            final Map<String, Map<String, Object>> mapping = this.getMapping();
+                            final String key = entry.getKey();
+                            final Object value = entry.getValue();
+                            final JsonMapping jsonMapping = new JsonMapping(key, mapping.get(key), this.getIgnore().contains(key), this.getNullValues(), this.getZoneId());
+                            if (!jsonMapping.isIgnore()) {
+                                mapAccumulator.put(key,
+                                        value instanceof Map && !mapping.containsKey(key) ? createMapping((Map) value)
+                                                : jsonMapping.convert(value)
+                                );
+                            }
+                        },
+                        HashMap::putAll);
+    }
+    
     public boolean isFailOnError() {
         return failOnError;
     }

@@ -1,14 +1,12 @@
 package apoc.load;
 
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class JsonMapping extends AbstractMapping {
 
-    public JsonMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, ZoneId timezone) {
+    public JsonMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, String timezone) {
         super(name, mapping, ignore, nullValues, timezone, true);
     }
 

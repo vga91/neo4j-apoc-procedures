@@ -15,7 +15,7 @@ public class CSVResult {
     public Map<String, Object> map;
     public Map<String, String> stringMap;
 
-    public CSVResult(String[] header, String[] list, long lineNo, boolean ignore, Map<String, Mapping> mapping, List<String> nullValues, EnumSet<Results> results) {
+    public CSVResult(String[] header, String[] list, long lineNo, boolean ignore, Map<String, CsvMapping> mapping, List<String> nullValues, EnumSet<Results> results) {
         this.lineNo = lineNo;
         removeNullValues(list, nullValues);
 
@@ -36,13 +36,13 @@ public class CSVResult {
         }
     }
 
-    private List<Object> createList(String[] header, String[] list, boolean ignore, Map<String, Mapping> mappings, boolean convert) {
+    private List<Object> createList(String[] header, String[] list, boolean ignore, Map<String, CsvMapping> mappings, boolean convert) {
         if (!ignore && mappings.isEmpty()) return asList((Object[]) list);
         ArrayList<Object> result = new ArrayList<>(list.length);
         for (int i = 0; i < header.length; i++) {
             String name = header[i];
             if (name == null) continue;
-            Mapping mapping = mappings.get(name);
+            CsvMapping mapping = mappings.get(name);
             if (mapping != null) {
                 if (mapping.ignore) continue;
                 result.add(convert ? mapping.convert(list[i]) : list[i]);
@@ -53,13 +53,13 @@ public class CSVResult {
         return result;
     }
 
-    private Map<String, Object> createMap(String[] header, String[] list, boolean ignore, Map<String, Mapping> mappings, boolean convert) {
+    private Map<String, Object> createMap(String[] header, String[] list, boolean ignore, Map<String, CsvMapping> mappings, boolean convert) {
         if (header == null) return null;
         Map<String, Object> map = new LinkedHashMap<>(header.length, 1f);
         for (int i = 0; i < header.length; i++) {
             String name = header[i];
             if (ignore && name == null) continue;
-            Mapping mapping = mappings.get(name);
+            CsvMapping mapping = mappings.get(name);
             if (mapping == null) {
                 map.put(name, list[i]);
             } else {

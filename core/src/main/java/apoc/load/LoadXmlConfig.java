@@ -3,7 +3,7 @@ package apoc.load;
 import java.util.Collections;
 import java.util.Map;
 
-public class LoadXmlConfig extends CommonLoadImportConfig {
+public class LoadXmlConfig extends LoadImportConfig {
     
     private boolean failOnError;
     private Map<String, Object> headers;
@@ -15,6 +15,11 @@ public class LoadXmlConfig extends CommonLoadImportConfig {
         }
         failOnError = (boolean) config.getOrDefault("failOnError", true);
         headers = (Map) config.getOrDefault( "headers", Collections.emptyMap() );;
+    }
+
+    @Override
+    public Object createMapping(Object input) {
+        return null;
     }
 
     public boolean isFailOnError() {

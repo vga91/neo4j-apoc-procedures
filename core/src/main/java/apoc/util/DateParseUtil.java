@@ -24,16 +24,6 @@ public class DateParseUtil {
     private static Map<Class<? extends TemporalAccessor>, MethodHandle> simpleParseDateMap = new ConcurrentHashMap<>();
     private static String METHOD_NAME = "parse";
 
-    public static ZoneId getTimezoneIfValid(Map<String, Object> config, String defaultZone) {
-        try {
-            return Optional.ofNullable((String) config.getOrDefault("timezone", defaultZone))
-                    .map(ZoneId::of)
-                    .orElse(null);
-        } catch (DateTimeException e) {
-            throw new IllegalArgumentException(String.format("The timezone field contains an error: %s", e.getMessage()));
-        }
-    }
-
     public static TemporalAccessor dateParse(String value, Class<? extends TemporalAccessor> date, String...formats) {
         return dateParse(value, date, null, formats);
     }

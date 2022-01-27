@@ -2,9 +2,7 @@ package apoc.load;
 
 import apoc.Extended;
 import apoc.export.util.CountingInputStream;
-import apoc.meta.Meta;
 import apoc.util.FileUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.ss.usermodel.*;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.procedure.Context;
@@ -18,14 +16,10 @@ import java.time.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
-import static apoc.util.DateParseUtil.dateParse;
 import static apoc.util.Util.*;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -100,20 +94,11 @@ public class LoadXls {
     @Procedure("apoc.load.xls")
     @Description("apoc.load.xls('url','selector',{config}) YIELD lineNo, list, map - load XLS fom URL as stream of row values,\n config contains any of: {skip:1,limit:5,header:false,ignore:['tmp'],arraySep:';',mapping:{years:{type:'int',arraySep:'-',array:false,name:'age',ignore:false, dateFormat:'iso_date', dateParse:['dd-MM-yyyy']}}")
     public Stream<XLSResult> xls(@Name("url") String url, @Name("selector") String selector, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
-        boolean failOnError = booleanValue(config, "failOnError", true);
+        LoadXlsConfig xlsConfig = new LoadXlsConfig(config);
+
         try (CountingInputStream stream = FileUtils.inputStreamFor(url, null, null, null)) {
             Selection selection = new Selection(selector);
-
-            char arraySep = separator(config, "arraySep", DEFAULT_ARRAY_SEP);
-            long skip = longValue(config, "skip", 0L);
-            boolean hasHeader = booleanValue(config, "header", true);
-            long limit = longValue(config, "limit", Long.MAX_VALUE);
-
-            List<String> ignore = value(config, "ignore", emptyList());
-            List<Object> nullValues = value(config, "nullValues", emptyList());
-            ZoneId zoneId = config.containsKey("timezone") ? ZoneId.of(config.get("timezone").toString()) : null;
-            Map<String, Map<String, Object>> mapping = value(config, "mapping", Collections.emptyMap());
-            Map<String, Mapping> mappings = createMapping(mapping, arraySep, ignore, zoneId);
+            Map<String, XlsMapping> mappings = xlsConfig.createMapping(null);
 
             Workbook workbook = WorkbookFactory.create(stream);
             Sheet sheet = workbook.getSheet(selection.sheet);
@@ -122,61 +107,18 @@ public class LoadXls {
             Row firstRow = sheet.getRow(selection.top);
             selection.updateHorizontal(firstRow.getFirstCellNum(), firstRow.getLastCellNum());
 
-            String[] header = getHeader(hasHeader, firstRow,selection, ignore, mappings);
-            boolean checkIgnore = !ignore.isEmpty() || mappings.values().stream().anyMatch( m -> m.ignore);
-            return StreamSupport.stream(new XLSSpliterator(sheet, selection, header, url, skip, limit, checkIgnore,mappings, nullValues), false);
+            String[] header = getHeader(xlsConfig.hasHeader(), firstRow,selection, xlsConfig.getIgnore(), mappings);
+            boolean checkIgnore = !xlsConfig.getIgnore().isEmpty() || mappings.values().stream().anyMatch( m -> m.ignore);
+            return StreamSupport.stream(new XLSSpliterator(sheet, selection, header, url, xlsConfig.getSkip(), xlsConfig.getLimit(), checkIgnore,mappings, xlsConfig.getNullValues()), false);
         } catch (Exception e) {
-            if(!failOnError)
+            if(!xlsConfig.isFailOnError())
                 return Stream.of(new  XLSResult(new String[0], new Object[0], 0, true, Collections.emptyMap(), emptyList()));
             else
                 throw new RuntimeException("Can't read XLS from URL " + cleanUrl(url), e);
         }
     }
 
-    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore, ZoneId zoneId) {
-        if (mapping.isEmpty()) return Collections.emptyMap();
-        HashMap<String, Mapping> result = new HashMap<>(mapping.size());
-        for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
-            String name = entry.getKey();
-            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name), zoneId));
-        }
-        return result;
-    }
-
-    static class Mapping extends AbstractMapping {
-        public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), DEFAULT_ARRAY_SEP, false, null);
-        final String name;
-        final boolean array;
-        final char arraySep;
-        final String dateFormat;
-        private final Pattern arrayPattern;
-
-        public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, ZoneId zoneId) {
-            super(name, mapping, ignore, emptyList(), zoneId);
-            this.name = mapping.getOrDefault("name", name).toString();
-            this.array = (Boolean) mapping.getOrDefault("array", false);
-            this.arraySep = separator(mapping.getOrDefault("arraySep", arraySep).toString(),DEFAULT_ARRAY_SEP);
-            this.arrayPattern = Pattern.compile(String.valueOf(this.arraySep), Pattern.LITERAL);
-            this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
-            this.listSupplier = value -> Arrays.stream(arrayPattern.split((String) value)).map(this::commonConvertType).collect(Collectors.toList());
-        }
-
-        public Object convert(Object value) {
-            return array ? convertArray(value) : commonConvertType(value);
-        }
-
-        private Object convertArray(Object value) {
-            if (value == null) return emptyList();
-            String[] values = arrayPattern.split(value.toString());
-            List<Object> result = new ArrayList<>(values.length);
-            for (String v : values) {
-                result.add(commonConvertType(v));
-            }
-            return result;
-        }
-    }
-
-    private String[] getHeader(boolean hasHeader, Row header, Selection selection, List<String> ignore, Map<String, Mapping> mapping) throws IOException {
+    private String[] getHeader(boolean hasHeader, Row header, Selection selection, List<String> ignore, Map<String, XlsMapping> mapping) throws IOException {
         if (!hasHeader) return null;
 
         String[] result = new String[selection.right - selection.left];
@@ -184,41 +126,9 @@ public class LoadXls {
             Cell cell = header.getCell(i);
             if (cell == null) throw new IllegalStateException("Header at position "+i+" doesn't have a value");
             String value = cell.getStringCellValue();
-            result[i- selection.left] = ignore.contains(value) || mapping.getOrDefault(value, Mapping.EMPTY).ignore ? null : value;
+            result[i- selection.left] = ignore.contains(value) || mapping.getOrDefault(value, XlsMapping.EMPTY).ignore ? null : value;
         }
         return result;
-    }
-
-    private boolean booleanValue(Map<String, Object> config, String key, boolean defaultValue) {
-        if (config == null || !config.containsKey(key)) return defaultValue;
-        Object value = config.get(key);
-        if (value instanceof Boolean) return ((Boolean) value);
-        return Boolean.parseBoolean(value.toString());
-    }
-
-    private long longValue(Map<String, Object> config, String key, long defaultValue) {
-        if (config == null || !config.containsKey(key)) return defaultValue;
-        Object value = config.get(key);
-        if (value instanceof Number) return ((Number) value).longValue();
-        return Long.parseLong(value.toString());
-    }
-
-    private <T> T value(Map<String, Object> config, String key, T defaultValue) {
-        if (config == null || !config.containsKey(key)) return defaultValue;
-        return (T) config.get(key);
-    }
-
-    private char separator(Map<String, Object> config, String key, char defaultValue) {
-        if (config == null) return defaultValue;
-        Object value = config.get(key);
-        if (value == null) return defaultValue;
-        return separator(value.toString(), defaultValue);
-    }
-
-    private static char separator(String separator, char defaultSep) {
-        if (separator==null) return defaultSep;
-        if ("TAB".equalsIgnoreCase(separator)) return '\t';
-        return separator.charAt(0);
     }
 
     private static Object[] extract(Row row, Selection selection) {
@@ -262,7 +172,7 @@ public class LoadXls {
         public List<Object> list;
         public Map<String, Object> map;
 
-        public XLSResult(String[] header, Object[] list, long lineNo, boolean ignore, Map<String, Mapping> mapping, List<Object> nullValues) {
+        public XLSResult(String[] header, Object[] list, long lineNo, boolean ignore, Map<String, XlsMapping> mapping, List<Object> nullValues) {
             this.lineNo = lineNo;
             removeNullValues(list, nullValues);
 
@@ -277,13 +187,13 @@ public class LoadXls {
             }
         }
 
-        private List<Object> createList(String[] header, Object[] list, boolean ignore, Map<String, Mapping> mappings) {
+        private List<Object> createList(String[] header, Object[] list, boolean ignore, Map<String, XlsMapping> mappings) {
             if (!ignore && mappings.isEmpty()) return asList((Object[]) list);
             ArrayList<Object> result = new ArrayList<>(list.length);
             for (int i = 0; i < header.length; i++) {
                 String name = header[i];
                 if (name == null) continue;
-                Mapping mapping = mappings.get(name);
+                XlsMapping mapping = mappings.get(name);
                 if (mapping != null) {
                     if (mapping.ignore) continue;
                     result.add(mapping.convert(list[i]));
@@ -294,13 +204,13 @@ public class LoadXls {
             return result;
         }
 
-        private Map<String, Object> createMap(String[] header, Object[] list, boolean ignore, Map<String, Mapping> mappings) {
+        private Map<String, Object> createMap(String[] header, Object[] list, boolean ignore, Map<String, XlsMapping> mappings) {
             if (header == null) return null;
             Map<String, Object> map = new LinkedHashMap<>(header.length, 1f);
             for (int i = 0; i < header.length; i++) {
                 String name = header[i];
                 if (ignore && name == null) continue;
-                Mapping mapping = mappings.get(name);
+                XlsMapping mapping = mappings.get(name);
                 if (mapping == null) {
                     map.put(name, list[i]);
                 } else {
@@ -319,12 +229,12 @@ public class LoadXls {
         private final String url;
         private final long limit;
         private final boolean ignore;
-        private final Map<String, Mapping> mapping;
+        private final Map<String, XlsMapping> mapping;
         private final List<Object> nullValues;
         private final long skip;
         long lineNo;
 
-        public XLSSpliterator(Sheet sheet, Selection selection, String[] header, String url, long skip, long limit, boolean ignore, Map<String, Mapping> mapping, List<Object> nullValues) throws IOException {
+        public XLSSpliterator(Sheet sheet, Selection selection, String[] header, String url, long skip, long limit, boolean ignore, Map<String, XlsMapping> mapping, List<Object> nullValues) throws IOException {
             super(Long.MAX_VALUE, Spliterator.ORDERED);
             this.sheet = sheet;
             this.selection = selection;

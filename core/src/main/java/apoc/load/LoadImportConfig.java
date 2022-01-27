@@ -2,39 +2,41 @@ package apoc.load;
 
 import apoc.util.CompressionConfig;
 
-import java.time.ZoneId;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static apoc.ApocConfig.apocConfig;
-import static apoc.util.DateParseUtil.getTimezoneIfValid;
 import static java.util.Collections.emptyList;
 import static org.neo4j.configuration.GraphDatabaseSettings.db_temporal_timezone;
 
-public class CommonLoadImportConfig extends CompressionConfig {
+public abstract class LoadImportConfig<I> extends CompressionConfig {
+    public static final String TIMEZONE_KEY = "timezone";
+    public static final String IGNORE_KEY = "ignore";
+    public static final String NULL_VALUES_KEY = "nullValues";
+    
     private final List<String> ignore;
     private final List<String> nullValues;
     private final Map<String, Map<String, Object>> mapping;
-    private final ZoneId zoneId;
+    protected final String zoneId;
 
-    public CommonLoadImportConfig(Map<String, Object> config) {
+    public LoadImportConfig(Map<String, Object> config) {
         this(config, apocConfig().getString(db_temporal_timezone.name()));
     }
     
-    public CommonLoadImportConfig(Map<String, Object> config, String zoneId) {
+    public LoadImportConfig(Map<String, Object> config, String zoneId) {
         super(config);
         if (config == null) {
             config = Collections.emptyMap();
         }
-        this.zoneId = getTimezoneIfValid(config, zoneId);
-        
+        this.zoneId = (String) config.getOrDefault("timezone", zoneId);
         ignore = (List<String>) config.getOrDefault("ignore", emptyList());
         nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
-        mapping =  (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
+        mapping =  (Map<String, Map<String, Object>>) config.getOrDefault("mapping", new HashMap<>());
     }
 
-    public ZoneId getZoneId(){
+    public String getZoneId(){
         return this.zoneId;
     }
 
@@ -49,4 +51,6 @@ public class CommonLoadImportConfig extends CompressionConfig {
     public Map<String, Map<String, Object>> getMapping() {
         return mapping;
     }
+
+    public abstract Object createMapping(I input);
 }

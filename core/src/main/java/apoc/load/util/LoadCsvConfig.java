@@ -1,7 +1,7 @@
 package apoc.load.util;
 
-import apoc.load.CommonLoadImportConfig;
-import apoc.load.Mapping;
+import apoc.load.LoadImportConfig;
+import apoc.load.CsvMapping;
 import apoc.util.Util;
 
 import java.util.*;
@@ -10,7 +10,7 @@ import static apoc.util.Util.parseCharFromConfig;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 
-public class LoadCsvConfig extends CommonLoadImportConfig {
+public class LoadCsvConfig extends LoadImportConfig {
 
     public static final char DEFAULT_ARRAY_SEP = ';';
     public static final char DEFAULT_SEP = ',';
@@ -35,7 +35,7 @@ public class LoadCsvConfig extends CommonLoadImportConfig {
     private List<String> ignore;
     private List<String> nullValues;
     private Map<String, Map<String, Object>> mapping;
-    private Map<String, Mapping> mappings;
+    private Map<String, CsvMapping> mappings;
 
     public LoadCsvConfig(Map<String, Object> config) {
         super(config);
@@ -63,15 +63,16 @@ public class LoadCsvConfig extends CommonLoadImportConfig {
         ignore = (List<String>) config.getOrDefault("ignore", emptyList());
         nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
         mapping = (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
-        mappings = createMapping(mapping, arraySep, ignore);
+        mappings = createMapping(null);
     }
 
-    private Map<String, Mapping> createMapping(Map<String, Map<String, Object>> mapping, char arraySep, List<String> ignore) {
+    @Override
+    public Map<String, CsvMapping> createMapping(Object ignored) {
         if (mapping.isEmpty()) return Collections.emptyMap();
-        HashMap<String, Mapping> result = new HashMap<>(mapping.size());
+        HashMap<String, CsvMapping> result = new HashMap<>(mapping.size());
         for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
             String name = entry.getKey();
-            result.put(name, new Mapping(name, entry.getValue(), arraySep, ignore.contains(name), getZoneId()));
+            result.put(name, new CsvMapping(name, this));
         }
         return result;
     }
@@ -112,11 +113,7 @@ public class LoadCsvConfig extends CommonLoadImportConfig {
         return nullValues;
     }
 
-    public Map<String, Map<String, Object>> getMapping() {
-        return mapping;
-    }
-
-    public Map<String, Mapping> getMappings() {
+    public Map<String, CsvMapping> getMappings() {
         return mappings;
     }
 

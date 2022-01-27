@@ -4,7 +4,7 @@ import apoc.export.util.BatchTransaction;
 import apoc.export.util.CountingReader;
 import apoc.export.util.ProgressReporter;
 import apoc.load.CSVResult;
-import apoc.load.Mapping;
+import apoc.load.CsvMapping;
 import apoc.load.util.Results;
 import apoc.util.FileUtils;
 import com.opencsv.CSVReader;
@@ -65,7 +65,7 @@ public class CsvEntityLoader {
             idMapping.putIfAbsent(idSpace, new HashMap<>());
             final Map<String, Long> idspaceIdMapping = idMapping.get(idSpace);
 
-            final Map<String, Mapping> mapping = getMapping(fields);
+            final Map<String, CsvMapping> mapping = clc.createMapping(fields);
 
             final CSVReader csv = new CSVReader(reader, clc.getDelimiter(), clc.getQuotationCharacter());
 
@@ -170,7 +170,7 @@ public class CsvEntityLoader {
                     .filter(field -> !CsvLoaderConstants.END_ID_FIELD.equals(field.getType()))
                     .collect(Collectors.toList());
 
-            final Map<String, Mapping> mapping = getMapping(fields);
+            final Map<String, CsvMapping> mapping = clc.createMapping(fields);
 
             final CSVReader csv = new CSVReader(reader, clc.getDelimiter());
             final String[] loadCsvCompatibleHeader = fields.stream().map(f -> f.getName()).toArray(String[]::new);
@@ -220,24 +220,6 @@ public class CsvEntityLoader {
                 }
             }
         }
-    }
-
-    private Map<String, Mapping> getMapping(List<CsvHeaderField> fields) {
-        return fields.stream().collect(
-                Collectors.toMap(
-                        CsvHeaderField::getName,
-                        f -> {
-                            final Map<String, Object> mappingMap = Collections
-                                    .unmodifiableMap(Stream.of(
-                                            new AbstractMap.SimpleEntry<>("type", f.getType()),
-                                            new AbstractMap.SimpleEntry<>("array", f.isArray()),
-                                            new AbstractMap.SimpleEntry<>("optionalData", f.getOptionalData())
-                                    ).collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue)));
-
-                            return new Mapping(f.getName(), mappingMap, clc.getArrayDelimiter(), false, null);
-                        }
-                )
-        );
     }
 
     private static String readFirstLine(CountingReader reader) throws IOException {

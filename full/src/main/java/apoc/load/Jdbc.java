@@ -162,8 +162,8 @@ public class Jdbc {
 
     private static class JdbcMapping extends AbstractMapping {
 
-        public JdbcMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, ZoneId timezone) {
-            super(name, mapping, ignore, nullValues, timezone);
+        public JdbcMapping(String name, LoadJdbcConfig config) {
+            super(name, config);
         }
 
         protected Object convert(Object value) {
@@ -217,7 +217,7 @@ public class Jdbc {
                 Map<String, Object> row = new LinkedHashMap<>(columns.length);
                 for (int col = 1; col < columns.length; col++) {
                     final String columnName = columns[col];
-                    final JdbcMapping colMapping = new JdbcMapping(columnName, config.getMapping().getOrDefault(columnName, Collections.emptyMap()), config.getIgnore().contains(columnName), config.getNullValues(), config.getZoneId());
+                    final JdbcMapping colMapping = new JdbcMapping(columnName, config);
                     if (!colMapping.isIgnore()) {
                         row.put(columnName, convert(rs.getObject(col), rs.getMetaData().getColumnType(col), colMapping));
                     }
@@ -241,7 +241,7 @@ public class Jdbc {
             if (Types.TIMESTAMP == sqlType) {
                 if (config.getZoneId() != null) {
                     return ((java.sql.Timestamp)value).toInstant()
-                            .atZone(config.getZoneId())
+                            .atZone(ZoneId.of(config.getZoneId()))
                             .toOffsetDateTime();
                 } else {
                     return ((java.sql.Timestamp)value).toLocalDateTime();
@@ -250,7 +250,7 @@ public class Jdbc {
             if (Types.TIMESTAMP_WITH_TIMEZONE == sqlType) {
                 if (config.getZoneId() != null) {
                     return ((java.sql.Timestamp)value).toInstant()
-                            .atZone(config.getZoneId())
+                            .atZone(ZoneId.of(config.getZoneId()))
                             .toOffsetDateTime();
                 } else {
                     return OffsetDateTime.parse(value.toString());

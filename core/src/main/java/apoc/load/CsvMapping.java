@@ -1,45 +1,37 @@
 package apoc.load;
 
+import apoc.export.csv.CsvLoaderConfig;
 import apoc.load.util.LoadCsvConfig;
 import apoc.meta.Meta;
 
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static apoc.ApocConfig.apocConfig;
-import static apoc.util.DateParseUtil.getTimezoneIfValid;
 import static apoc.util.Util.parseCharFromConfig;
-import static java.util.Collections.emptyList;
-import static org.neo4j.configuration.GraphDatabaseSettings.db_temporal_timezone;
 
 
-public class Mapping extends AbstractMapping {
-    public static final Mapping EMPTY = new Mapping("", Collections.emptyMap(), LoadCsvConfig.DEFAULT_ARRAY_SEP, false, null);
+public class CsvMapping extends AbstractMapping {
+    public static final CsvMapping EMPTY = new CsvMapping("", new LoadCsvConfig(null));
     final boolean array;
 
-    final char arraySep;
+    char arraySep;
     private final Pattern arrayPattern;
 
-    public Mapping(String name, Map<String, Object> mapping, char arraySep, boolean ignore, ZoneId zoneId) {
-        super(name, mapping, ignore, emptyList(), zoneId);
+    public CsvMapping(String name, LoadImportConfig config) {
+        super(name, config);
+        final Map<String, Object> mapping = (Map<String, Object>) config.getMapping().getOrDefault(name, Collections.emptyMap());
         this.array = (Boolean) mapping.getOrDefault("array", false);
-        this.arraySep = parseCharFromConfig(mapping, "arraySep", arraySep);
+        this.arraySep = config instanceof LoadCsvConfig 
+                ? parseCharFromConfig(mapping, "arraySep", ((LoadCsvConfig) config).getArraySep())
+                : parseCharFromConfig(mapping, "arraySep", ((CsvLoaderConfig) config).getArrayDelimiter());
         this.arrayPattern = Pattern.compile(String.valueOf(this.arraySep), Pattern.LITERAL);
 
         this.listSupplier = value -> Arrays.stream(arrayPattern.split((String) value)).map(this::convertType).collect(Collectors.toList());
-
-        if (this.zoneId == null) {
-            // to preserve ImportCsv behavior like neo4j-import-tool
-            // we leverage on optionalData, e.g. myProp:time{timezone:+02:00}
-            this.zoneId = getTimezoneIfValid(optionalData, apocConfig().getString(db_temporal_timezone.name()));
-        }
 
         if (this.type == null) {
             // Call this out to the user explicitly because deep inside of LoadCSV and others you will get
