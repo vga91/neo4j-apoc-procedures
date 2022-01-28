@@ -28,13 +28,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -306,7 +310,7 @@ public class CypherExtended {
 
     @Procedure
     @Description("apoc.cypher.mapParallel(fragment, params, list-to-parallelize) yield value - executes fragment in parallel batches with the list segments being assigned to _")
-    public Stream<MapResult> mapParallel(@Name("fragment") String fragment, @Name("params") Map<String, Object> params, @Name("list") List<Object> data) {
+    public Stream<MapResult> mapParallel(@Name("fragment") String fragment, @Name(value= "params") Map<String, Object> params, @Name("list") List<Object> data) {
         final String statement = withParamsAndIterator(fragment, params.keySet(), "_");
         tx.execute("EXPLAIN " + statement).close();
         return Util.partitionSubList(data, PARTITIONS,null)
@@ -314,27 +318,67 @@ public class CypherExtended {
                         new ArrayList<>(partition.size())).stream())
                 .map(MapResult::new);
     }
+    
+    @Procedure(mode = WRITE)
+    @Description("apoc.cypher.unionParallel")
+    public Stream<MapResult> unionParallel(@Name("fragment") List<String> fragments, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+        CypherConfig conf = new CypherConfig(config);
+
+        // validate queries with EXPLAIN and check columns name returned
+        Set<Set<String>> allCols = fragments.stream()
+                .map(query -> db.executeTransactionally("EXPLAIN " + query, Collections.emptyMap(), r -> Set.copyOf(r.columns())))
+                .collect(Collectors.toSet());
+
+        // if columns different and config false
+        if (conf.isSameColumns() && allCols.size() > 1) {
+            throw new RuntimeException("All queries must have the same column names");
+        }
+        
+        BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(100000);
+        final long timeout = conf.getTimeout();
+        final Callable<Object> callable = () -> {
+            fragments.parallelStream()
+                    .forEach(partition -> {
+                        try (Transaction transaction = db.beginTx();
+                             Result result = transaction.execute(partition, conf.getParams())) {
+                            consumeResult(result, queue, conf.isStatistics(), timeout);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+            queue.put(RowResult.TOMBSTONE);
+            return null;
+        };
+        return getMapResultStream((int) timeout, queue, callable);
+    }
+    
+    
     @Procedure
     @Description("apoc.cypher.mapParallel2(fragment, params, list-to-parallelize) yield value - executes fragment in parallel batches with the list segments being assigned to _")
     public Stream<MapResult> mapParallel2(@Name("fragment") String fragment, @Name("params") Map<String, Object> params, @Name("list") List<Object> data, @Name("partitions") long partitions,@Name(value = "timeout",defaultValue = "10") long timeout) {
         final String statement = withParamsAndIterator(fragment, params.keySet(), "_");
         tx.execute("EXPLAIN " + statement).close();
-        BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(100000);
         Stream<List<Object>> parallelPartitions = Util.partitionSubList(data, (int)(partitions <= 0 ? PARTITIONS : partitions), null);
-        Util.inFuture(pools, () -> {
+        BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(100000);
+        final Callable<Long> callable = () -> {
             long total = parallelPartitions
-                .map((List<Object> partition) -> {
-                    try (Transaction transaction = db.beginTx();
-                         Result result = transaction.execute(statement, parallelParams(params, "_", partition))) {
-                        return consumeResult(result, queue, false, timeout);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }}
-                ).count();
+                    .map((List<Object> partition) -> {
+                        try (Transaction transaction = db.beginTx();
+                             Result result = transaction.execute(statement, parallelParams(params, "_", partition))) {
+                            return consumeResult(result, queue, false, timeout);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }}
+                    ).count();
             queue.put(RowResult.TOMBSTONE);
             return total;
-        });
-        return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, (int)timeout),true).map((rowResult) -> new MapResult(rowResult.result));
+        };
+        return getMapResultStream((int) timeout, queue, callable);
+    }
+
+    private <T> Stream<MapResult> getMapResultStream(int timeout, BlockingQueue<RowResult> queue, Callable<T> longCallable) {
+        Util.inFuture(pools, longCallable);
+        return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, timeout),true).map((rowResult) -> new MapResult(rowResult.result));
     }
 
     public Map<String, Object> parallelParams(@Name("params") Map<String, Object> params, String key, List<Object> partition) {

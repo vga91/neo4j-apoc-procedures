@@ -7,6 +7,9 @@ import apoc.util.Utils;
 import org.junit.*;
 import org.junit.rules.ExpectedException;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.driver.internal.util.Iterables;
+import org.neo4j.graphdb.QueryStatistics;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
@@ -19,10 +22,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testFail;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.map;
 import static org.hamcrest.Matchers.hasEntry;
@@ -170,6 +176,66 @@ public class CypherExtendedTest {
                     "RETURN  p2.title as title\", {}, pages, 1) yield value\n" +
                     "RETURN value.title limit 5", 
                 r -> assertEquals(5, Iterators.count(r)));
+    }
+
+    @Test
+    public void testUnionParallel() {
+        db.executeTransactionally("CREATE (:NodeUnion {col1: 'Aldo', col2: 'one'}), (:NodeUnion {col1: 'Aldo', col2: 'two'}), " +
+                "(:NodeUnion {col1: 'Giovanni', col2: 'three'}), (:NodeUnion {col1: 'Giovanni', col2: 'four'}), " +
+                "(:NodeUnion {col1: 'Giacomo', col2: 'five'})");
+        
+        // different columns
+        List<String> listDifferentCols = List.of("match (a:NodeUnion {col1:'Aldo'}) RETURN a.col2 as colOne", "MATCH (b:NodeUnion {col1:'Giovanni'}) RETURN b.col2 as colTwo");
+        try {
+            testCall(db, "CALL apoc.cypher.unionParallel($list)", map("list", listDifferentCols), r -> fail());
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("All queries must have the same column names"));
+        }
+
+        // different columns but sameColumns config false
+        testResult(db, "CALL apoc.cypher.unionParallel($list, {sameColumns: false})",
+                map("list", listDifferentCols),
+                row -> {
+                    final Set<Map<String, Object>> actual = Iterators.asSet(row.columnAs("value"));
+                    final Set<Object> expected = Set.of(map("colTwo", "three"), map("colOne", "one"), map("colOne", "two"), map("colTwo", "four"));
+                    assertEquals(expected, actual);
+                });
+        
+        // "classic" UNION
+        final List<String> names = List.of("Aldo", "Giovanni", "Giacomo");
+        final List<String> listUnion = names.stream()
+                .map(name -> "MATCH (a:NodeUnion {col1:'" + name + "'}) SET a.rand = rand() RETURN a.col2 as col2, a.col1 as col1")
+                .collect(Collectors.toList());
+        
+        testResult(db, "CALL apoc.cypher.unionParallel($list)",
+                map("list", listUnion),
+                row -> {
+                    final Set<Map<String, Object>> actual = Iterators.asSet(row.columnAs("value"));
+                    final Set<Object> expected = Set.of(
+                            map("col2", "one", "col1", "Aldo"), 
+                            map("col2", "two", "col1", "Aldo"), 
+                            map("col2", "three", "col1", "Giovanni"), 
+                            map("col2", "four", "col1", "Giovanni"),
+                            map("col2", "five", "col1", "Giacomo"));
+                    assertEquals(expected, actual);
+                });
+        
+        // with query statistics
+        testResult(db, "CALL apoc.cypher.unionParallel($list, {statistics: true})",
+                map("list", listUnion),
+                row -> {
+                    final List<Map<String, Object>> value = Iterators.asList(row.columnAs("value"));
+                    assertEquals(8, value.size());
+                    value.forEach(item -> {
+                        if (item.containsKey("col1")) {
+                            assertTrue(names.contains(item.get("col1")));
+                        } else {
+                            assertTrue(List.of(1, 2).contains(item.get("propertiesSet")));
+                        }
+                    });
+                });
+        
+        db.executeTransactionally("MATCH (n:NodeUnion) DETACH DELETE n");
     }
     
     

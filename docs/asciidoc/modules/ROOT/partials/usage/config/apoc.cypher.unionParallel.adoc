@@ -1,0 +1,11 @@
+The procedure support the following config parameters:
+
+.Config parameters
+[opts=header]
+|===
+| name | type | default | description
+| params | Map<String, Object> | EmptyMap | The optional params
+| sameColumns | boolean | false | If true, all queries must return the same columns 
+| statistics | boolean | false | To add query statistics to result
+| timeout | long | 10 | The queries timeout
+|===
