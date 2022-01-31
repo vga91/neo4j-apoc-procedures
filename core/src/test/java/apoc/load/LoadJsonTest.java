@@ -80,6 +80,23 @@ public class LoadJsonTest {
                 });
     }
 
+    @Test
+    public void testLoadJsonWithBigInt() throws Exception {
+        URL url = ClassLoader.getSystemResource("bigInt.json");
+        final String stringNum = "18446744062065078016";
+        testCall(db, "CALL apoc.load.json($url)",
+                map("url",url.toString()),
+                (row) -> {
+                    final Map<String, Object> value = (Map<String, Object>) row.get("value");
+                    final Map<String, Object> map = map("foo", stringNum, 
+                            "bar", stringNum,
+                            "baa", "189769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+                            "baz", 18446744062065078L,
+                            "another", 18446.75D);
+                    assertEquals(map, value);
+                });
+    }
+
     @Test public void testLoadJsonFromBlockedIpRange() throws Exception {
         var protocols = List.of("https", "http", "ftp");
 

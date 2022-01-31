@@ -5,9 +5,12 @@ import apoc.export.util.PointSerializer;
 import apoc.export.util.TemporalSerializer;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
@@ -21,6 +24,8 @@ import org.neo4j.values.storable.DurationValue;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.time.temporal.Temporal;
 import java.util.EnumSet;
 import java.util.List;
@@ -34,6 +39,34 @@ import java.util.stream.StreamSupport;
  * @since 04.05.16
  */
 public class JsonUtil {
+    
+    public final static class CustomNumberSerializer extends UntypedObjectDeserializer.Vanilla {
+        @Override
+        public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+
+            if (p.hasToken(JsonToken.VALUE_NUMBER_FLOAT)) {
+                final BigDecimal bigDecimal = p.getDecimalValue();
+                double doubleValue = bigDecimal.doubleValue();
+                final boolean fitsScale = doubleValue != Double.POSITIVE_INFINITY
+                        && doubleValue != Double.NEGATIVE_INFINITY
+                        && bigDecimal.compareTo(BigDecimal.valueOf(doubleValue)) == 0;
+                return fitsScale
+                        ? doubleValue
+                        : bigDecimal.toPlainString();
+            }
+
+            if (p.hasToken(JsonToken.VALUE_NUMBER_INT)) {
+                BigInteger bigInteger = p.getBigIntegerValue();
+                final long longValue = bigInteger.longValue();
+                final boolean fitsScale = bigInteger.compareTo(BigInteger.valueOf(longValue)) == 0;
+                return fitsScale
+                        ? longValue
+                        : bigInteger.toString();
+            }
+            return super.deserialize(p, ctxt);
+        }
+    }
+    
     private final static Option[] defaultJsonPathOptions = { Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS };
     
     public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -49,6 +82,7 @@ public class JsonUtil {
         OBJECT_MAPPER.enable(DeserializationFeature.USE_LONG_FOR_INTS);
         SimpleModule module = new SimpleModule("Neo4jApocSerializer");
         module.addSerializer(Point.class, new PointSerializer());
+        module.addDeserializer(Object.class, new CustomNumberSerializer());
         module.addSerializer(Temporal.class, new TemporalSerializer());
         module.addSerializer(DurationValue.class, new DurationValueSerializer());
         OBJECT_MAPPER.registerModule(module);
