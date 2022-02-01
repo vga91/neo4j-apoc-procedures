@@ -19,4 +19,6 @@ public class XmlMapping extends AbstractMapping {
         }
         return commonConvertType(value);
     }
+    
+    // todo - evaluate if might be worth using a convertArray() like CsvMapping
 }

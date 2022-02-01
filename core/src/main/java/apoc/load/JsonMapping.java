@@ -6,8 +6,8 @@ import java.util.stream.Collectors;
 
 public class JsonMapping extends AbstractMapping {
 
-    public JsonMapping(String name, Map<String, Object> mapping, boolean ignore, List<String> nullValues, String timezone) {
-        super(name, mapping, ignore, nullValues, timezone, true);
+    public JsonMapping(String name, LoadImportConfig config) {
+        super(name, config);
     }
 
     public Object convert(Object value) {
@@ -15,6 +15,8 @@ public class JsonMapping extends AbstractMapping {
     }
 
     private Object convertList(List<Object> value) {
-        return value.stream().map(this::commonConvertType).collect(Collectors.toList());
+        return value.stream()
+                .map(this::commonConvertType)
+                .collect(Collectors.toList());
     }
 }

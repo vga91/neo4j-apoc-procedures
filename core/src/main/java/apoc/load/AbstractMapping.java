@@ -20,12 +20,14 @@ import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAccessor;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 import static apoc.load.LoadImportConfig.IGNORE_KEY;
 import static apoc.load.LoadImportConfig.NULL_VALUES_KEY;
@@ -34,17 +36,14 @@ import static apoc.util.DateParseUtil.dateParse;
 import static apoc.util.Util.dateFormat;
 
 public abstract class AbstractMapping {
-    
     final String name;
     final Collection<String> nullValues;
     final Meta.Types type;
     final String dateFormat;
     final String[] dateParse;
     final boolean ignore;
-
-    Function<Object, Object> listSupplier = null;
-    ZoneId zoneId;
     final Map<String, Object> mapping;
+    final ZoneId zoneId;
 
     public AbstractMapping(String name, LoadImportConfig config) {
         Map<String, Object> mapping = (Map<String, Object>) config.getMapping().get(name);
@@ -55,28 +54,27 @@ public abstract class AbstractMapping {
         this.name = mapping.getOrDefault("name", name).toString();
         this.ignore = (boolean) mapping.getOrDefault(IGNORE_KEY, config.getIgnore().contains(name));
         this.nullValues = (Collection<String>) mapping.getOrDefault(NULL_VALUES_KEY, config.getNullValues());
-        this.type = Meta.Types.from((String) mapping.get("type"));
+        this.type = config instanceof LoadJsonConfig && !mapping.containsKey("type")
+                ? null
+                : Meta.Types.from((String) mapping.get("type"));
         this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
         this.dateParse = convertFormat(mapping.get("dateParse"));
         this.zoneId = getTimezoneIfValid(mapping, config.getZoneId());
     }
     
-    public AbstractMapping(String name, Map<String, Object> mapping, boolean ignore, Collection<String> defaultNullValues, String zoneId, boolean isTypeNull) {
-        if (mapping == null) {
-            mapping = Collections.emptyMap();
+    abstract protected Object convert(Object input);
+
+    protected Object convertArray(Object value, Pattern arrayPattern, Function<String, Object> convertFunction) {
+        if (value == null) {
+            return Collections.emptyList();
         }
-        this.mapping = mapping;
-        this.name = mapping.getOrDefault("name", name).toString();
-        this.ignore = (boolean) mapping.getOrDefault("ignore", ignore);
-        this.nullValues = (Collection<String>) mapping.getOrDefault("nullValues", defaultNullValues);
-        this.type = isTypeNull && !mapping.containsKey("type") 
-                ? null 
-                : Meta.Types.from(mapping.getOrDefault("type", Meta.Types.STRING.name()).toString());
-        this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
-        this.dateParse = convertFormat(mapping.get("dateParse"));
+        String[] values = arrayPattern.split(value.toString());
+        List<Object> result = new ArrayList<>(values.length);
+        for (String v : values) {
+            result.add(convertFunction.apply(v));
+        }
+        return result;
     }
-    
-    abstract protected <I> I convert(I input);
 
     public String getName() {
         return name;
@@ -111,6 +109,7 @@ public abstract class AbstractMapping {
         if (type == null) {
             return value;
         }
+        // true if we don't pass a specified pattern into config map to parse a date
         final boolean isParseNull = dateParse == null;
         switch (type) {
             case POINT:
@@ -136,8 +135,6 @@ public abstract class AbstractMapping {
                 return Util.toBoolean(value);
             case NULL:
                 return null;
-            case LIST:
-                return listSupplier == null ? null : listSupplier.apply(value);
             case DATE:
                 // in case of parse null, we leverage Neo4j parsing, to handle e.g. '2018-05-10T10:30[Europe/Berlin]', otherwise we use dateParse
                 return isParseNull

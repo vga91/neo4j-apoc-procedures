@@ -4,13 +4,9 @@ import apoc.export.csv.CsvLoaderConfig;
 import apoc.load.util.LoadCsvConfig;
 import apoc.meta.Meta;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import static apoc.util.Util.parseCharFromConfig;
 
@@ -31,8 +27,6 @@ public class CsvMapping extends AbstractMapping {
                 : parseCharFromConfig(mapping, "arraySep", ((CsvLoaderConfig) config).getArrayDelimiter());
         this.arrayPattern = Pattern.compile(String.valueOf(this.arraySep), Pattern.LITERAL);
 
-        this.listSupplier = value -> Arrays.stream(arrayPattern.split((String) value)).map(this::convertType).collect(Collectors.toList());
-
         if (this.type == null) {
             // Call this out to the user explicitly because deep inside of LoadCSV and others you will get
             // NPEs that are hard to spot if this is allowed to go through.
@@ -43,16 +37,9 @@ public class CsvMapping extends AbstractMapping {
 
     public Object convert(Object value) {
         final String stringValue = (String) value;
-        return array ? convertArray(stringValue) : convertType(stringValue);
-    }
-
-    private Object convertArray(String value) {
-        String[] values = arrayPattern.split(value);
-        List<Object> result = new ArrayList<>(values.length);
-        for (String v : values) {
-            result.add(convertType(v));
-        }
-        return result;
+        return array 
+                ? convertArray(stringValue, arrayPattern, this::convertType) 
+                : convertType(stringValue);
     }
 
     private Object convertType(String value) {

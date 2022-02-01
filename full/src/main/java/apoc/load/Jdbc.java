@@ -169,6 +169,8 @@ public class Jdbc {
         protected Object convert(Object value) {
             return super.commonConvertType(value);
         }
+        
+        // todo - evaluate if might be worth using a convertArray() like CsvMapping
     }
 
     private static class ResultSetIterator implements Iterator<Map<String, Object>> {

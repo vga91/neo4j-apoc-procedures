@@ -30,7 +30,7 @@ public class LoadJsonConfig extends LoadImportConfig<Map<String, Object>> {
                             final Map<String, Map<String, Object>> mapping = this.getMapping();
                             final String key = entry.getKey();
                             final Object value = entry.getValue();
-                            final JsonMapping jsonMapping = new JsonMapping(key, mapping.get(key), this.getIgnore().contains(key), this.getNullValues(), this.getZoneId());
+                            final JsonMapping jsonMapping = new JsonMapping(key, this);
                             if (!jsonMapping.isIgnore()) {
                                 mapAccumulator.put(key,
                                         value instanceof Map && !mapping.containsKey(key) ? createMapping((Map) value)
