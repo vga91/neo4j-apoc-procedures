@@ -126,8 +126,8 @@ public class PeriodicTest {
         String callList = "CALL apoc.periodic.list()";
         assertFalse(db.executeTransactionally(callList, Collections.emptyMap(), Result::hasNext));
 
-        testCall(db, "CALL apoc.periodic.repeat('repeatAtTime','create (:Brazorf)', $time)",
-                map("time", LocalTime.now().plusSeconds(10)),
+        testCall(db, "CALL apoc.periodic.repeat('repeatAtTime','create (:Brazorf)', time($timeAsString))",
+                map("timeAsString", LocalTime.now().plusSeconds(10).toString()),
                 (row) -> {
                     assertEquals("repeatAtTime", row.get("name"));
                     assertEquals(false, row.get("done"));

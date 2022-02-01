@@ -193,7 +193,7 @@ public class Periodic {
         Temporal now = isTime
                 ? LocalTime.now()
                 : LocalDateTime.now();
-        
+         
         final long secPerDay = DateUtils.MILLIS_PER_DAY / 1000L;
         long delay = now.until(atTime, ChronoUnit.SECONDS);
         if (isTime && delay < 0) {
