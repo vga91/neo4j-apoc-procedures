@@ -81,19 +81,19 @@ public class LoadJsonTest {
     }
 
     @Test
-    public void testLoadJsonWithBigInt() throws Exception {
+    public void testLoadJsonWithBigInt() {
         URL url = ClassLoader.getSystemResource("bigInt.json");
         final String stringNum = "18446744062065078016";
         testCall(db, "CALL apoc.load.json($url)",
-                map("url",url.toString()),
+                map("url", url.toString()),
                 (row) -> {
-                    final Map<String, Object> value = (Map<String, Object>) row.get("value");
-                    final Map<String, Object> map = map("foo", stringNum, 
+                    final Map<String, Object> actual = (Map<String, Object>) row.get("value");
+                    final Map<String, Object> expected = map("foo", stringNum, 
                             "bar", stringNum,
                             "baa", "189769313486231570000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
                             "baz", 18446744062065078L,
-                            "another", 18446.75D);
-                    assertEquals(map, value);
+                            "another", 18446.75);
+                    assertEquals(expected, actual);
                 });
     }
 
