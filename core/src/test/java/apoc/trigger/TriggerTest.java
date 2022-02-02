@@ -25,6 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
+import static org.neo4j.test.assertion.Assert.assertEventually;
 
 /**
  * @author mh
@@ -60,6 +61,26 @@ public class TriggerTest {
     }
 
     @Test
+    public void testIssue1258() {
+        db.executeTransactionally("CREATE (a:Resource {name: 'foo'})-[rel:TYPE1]->(s:Selector {name: 'sel'}) WITH a, s CREATE (s)-[rel2:TYPE2]->(k:KVP {key: 'foo', value: 'bar'})");
+        // using the apoc.rel.endNode(rel) would throw a TransactionException
+        String beforeStatement = "UNWIND $deletedRelationships AS rel MATCH (l:KVP) WHERE apoc.rel.endNodeId(rel) = id(l) DETACH DELETE l";
+        String afterStatement = "UNWIND $deletedRelationships AS rel MATCH (s:Selector) WHERE apoc.rel.endNodeId(rel) = id(s) DETACH DELETE s";
+        
+        db.executeTransactionally("CALL apoc.trigger.add('before', $statement, {phase: 'afterAsync'})", 
+                map("statement", beforeStatement));
+        
+        db.executeTransactionally("CALL apoc.trigger.add('after', $statement, {phase: 'afterAsync'})", 
+                map("statement", afterStatement));
+
+        db.executeTransactionally("MATCH (a:Resource {name: 'foo'}) DETACH DELETE a");
+        
+        assertEventually(() -> db.executeTransactionally("MATCH (n:KVP) RETURN n", Collections.emptyMap(), 
+                r -> !r.hasNext()), 
+                value -> value, 10L, TimeUnit.SECONDS);
+    }
+
+    @Test
     public void testRemoveNode() throws Exception {
         db.executeTransactionally("CREATE (:Counter {count:0})");
         db.executeTransactionally("CREATE (f:Foo)");
@@ -74,12 +95,12 @@ public class TriggerTest {
     public void testIssue1152()  {
         final Long id = db.executeTransactionally("CREATE (n:To:Delete {prop1: 'val1', prop2: 'val2'}) RETURN id(n) as id", Collections.emptyMap(),
                 r -> r.<Long>columnAs("id").next());
+        String statement = "UNWIND $deletedNodes as deletedNode CREATE (r:Report {id: id(deletedNode)}) WITH r, deletedNode " +
+                "CALL apoc.create.addLabels(r, apoc.node.labels(deletedNode)) yield node with node, deletedNode " +
+                "set node+=apoc.any.properties(deletedNode)";
 
         // we check that we can execute write operation (through virtualNode functions)
-        db.executeTransactionally("call apoc.trigger.add('ugone', " +
-                "\"UNWIND $deletedNodes as deletedNode CREATE (r:Report {id: id(deletedNode)}) WITH r, deletedNode " +
-                "CALL apoc.create.addLabels(r, apoc.node.labels(deletedNode)) yield node with node, deletedNode " +
-                "set node+=apoc.any.properties(deletedNode)\" ,{phase:'before'})");
+        db.executeTransactionally("call apoc.trigger.add('ajeje', $statement , {phase:'before'})", map("statement", statement));
         db.executeTransactionally("MATCH (f:To:Delete) DELETE f");
 
         TestUtil.testCall(db, "MATCH (n:Report:To:Delete) RETURN n", (row) -> {
@@ -288,7 +309,7 @@ public class TriggerTest {
         db.executeTransactionally("MATCH (a:A {name: \"A\"})-[:R1]->(z:Z {name: \"Z\"})\n" +
                 "MERGE (a)-[:R2]->(z)");
 
-        org.neo4j.test.assertion.Assert.assertEventually(() ->
+        assertEventually(() ->
             db.executeTransactionally("MATCH ()-[r:R1]->() RETURN r", Map.of(),
                     result -> (boolean) result.<Relationship>columnAs("r").next()
                             .getProperty("triggerAfterAsync", false))
@@ -304,7 +325,7 @@ public class TriggerTest {
         db.executeTransactionally("MATCH (a:A {name: \"A\"})-[r:R2]->(z:Z {name: \"Z\"})\n" +
                 "DELETE r");
 
-        org.neo4j.test.assertion.Assert.assertEventually(() ->
+        assertEventually(() ->
                         db.executeTransactionally("MATCH ()-[r:R1]->() RETURN r", Map.of(),
                                 result -> {
                                     final Relationship r = result.<Relationship>columnAs("r").next();
@@ -323,7 +344,7 @@ public class TriggerTest {
         db.executeTransactionally("MATCH (a:A {name: \"A\"})-[r:R2]->(z:Z {name: \"Z\"})\n" +
                 "DELETE r");
 
-        org.neo4j.test.assertion.Assert.assertEventually(() ->
+        assertEventually(() ->
                         db.executeTransactionally("MATCH (a:AA) RETURN a", Map.of(),
                                 result -> {
                                     final Node r = result.<Node>columnAs("a").next();

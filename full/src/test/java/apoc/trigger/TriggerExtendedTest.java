@@ -10,10 +10,12 @@ import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static apoc.ApocSettings.apoc_trigger_enabled;
 import static org.junit.Assert.assertEquals;
+import static org.neo4j.test.assertion.Assert.assertEventually;
 
 /**
  * @author mh
@@ -78,6 +80,24 @@ public class TriggerExtendedTest {
         org.neo4j.test.assertion.Assert.assertEventually(() -> db.executeTransactionally("MATCH p = ()-[r:GENERATED]->() RETURN count(p) AS count",
                 Collections.emptyMap(), (r) -> r.<Long>columnAs("count").next()),
                 (value) -> value == 2L, 30, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testIssue1258WithSetStatement() {
+        db.executeTransactionally("CREATE (a:SetNode {name: 'foo'}), (:InnerSetNode {alpha: 0})");
+        String beforeStatement = "UNWIND $createdNodes AS node MATCH (s:SetNode) SET s.alpha = node.alpha";
+        String afterStatement = "UNWIND apoc.trigger.nodesByLabel($assignedNodeProperties,'SetNode') AS n MATCH (l:InnerSetNode) SET l.alpha = n.alpha + 1";
+        
+        db.executeTransactionally("CALL apoc.trigger.add('before', $statement, {phase: 'afterAsync'})",
+                Map.of("statement", beforeStatement));
+        db.executeTransactionally("CALL apoc.trigger.add('after', $statement, {phase: 'afterAsync'})",
+                Map.of("statement", afterStatement));
+
+        db.executeTransactionally("CREATE (a:NewTriggerNode {alpha: 1})");
+
+        assertEventually(() -> db.executeTransactionally("MATCH (n:InnerSetNode) RETURN n.alpha as prop", Collections.emptyMap(),
+                result -> result.columnAs("prop").next()),
+                value -> value.equals(2L), 10L, TimeUnit.SECONDS);
     }
 
 }

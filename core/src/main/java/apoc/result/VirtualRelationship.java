@@ -71,8 +71,19 @@ public class VirtualRelationship implements Relationship {
     }
 
     @Override
+    public long getStartNodeId() {
+        return startNode.getId();
+    }
+
+    @Override
     public Node getEndNode() {
         return endNode;
+    }
+
+
+    @Override
+    public long getEndNodeId() {
+        return endNode.getId();
     }
 
     @Override

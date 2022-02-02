@@ -349,7 +349,8 @@ to create a node `Report` with the same properties (plus the id and rel-type as 
 [NOTE]
 ====
 To retrieve information about nodes and relations, we leverage on xref::virtual/virtual-nodes-rels.adoc[virtual nodes and relationships],
-so (except for internal entity `id`), you can use `apoc.any.properties`, `apoc.rel.type` and `apoc.node.labels` to get entity info. 
+so (except for internal entity `id`), you can use `apoc.any.properties`, `apoc.rel.type` and `apoc.node.labels` to get entity info.
+Moreover, you can use  `apoc.rel.startNodeId` and  `apoc.rel.endNodeId` to execute a cascade delete trigger.
 ====
 
 For example, with a node `(:To:Delete {prop1: 'val1', prop2: 'val2'})` we can execute:
@@ -372,6 +373,36 @@ WITH r, deletedRelset r+=apoc.any.properties(deletedRel)" ,
 {phase:'before'})
 ----
 to create a node `Report` with the same properties (plus the id and rel-type as additional properties).
+
+
+.Cascade trigger
+
+Given this data set:
+[source,cypher]
+----
+CREATE (a:Resource {name: 'foo'})-[rel:TYPE1]->(s:Selector {name: 'sel'}) WITH a, s CREATE (s)-[rel2:TYPE2]->(k:KVP {key: 'foo', value: 'bar'})
+----
+
+you may want to execute 2 consecutive trigger to delete `[rel:TYPE1]` before (with a "standard" delete query) and `[rel:TYPE2]` after (inside a trigger).
+In this case we can't use the `before` phase, 
+because currently executing a query in `before` phase is not triggered, that is a new transaction will not be created.
+Instead, we can use the `afterAsync` phase, with the help of `apoc.rel.endNodeId` function, therefore we can do:
+
+[source,cypher]
+----
+CALL apoc.trigger.add('before', 'UNWIND $deletedRelationships AS rel MATCH (l:KVP) WHERE apoc.rel.endNodeId(rel) = id(l) DETACH DELETE l', {phase: 'afterAsync'});
+CALL apoc.trigger.add('after', 'UNWIND $deletedRelationships AS rel MATCH (s:Selector) WHERE apoc.rel.endNodeId(rel) = id(s) DETACH DELETE s', {phase: 'afterAsync'})
+----
+
+With the above triggers, executing this query:
+[source,cypher]
+----
+MATCH (a:Resource {name: 'foo'}) DETACH DELETE a
+----
+
+will delete the node `:KVP` because of `after` trigger.
+
+
 
 .Other examples
 [source,cypher]

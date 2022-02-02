@@ -79,10 +79,10 @@ public class TriggerMetadata {
         List<Relationship> createdRelationships = Convert.convertToList(txData.createdRelationships());
         List<Node> deletedNodes = rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedNodes()), txData) : Convert.convertToList(txData.deletedNodes());
         List<Relationship> deletedRelationships = rebindDeleted ? rebindDeleted(Convert.convertToList(txData.deletedRelationships()), txData) : Convert.convertToList(txData.deletedRelationships());
-        Map<String, List<Node>> removedLabels = aggregateLabels(txData.removedLabels());
-        Map<String, List<Node>> assignedLabels = aggregateLabels(txData.assignedLabels());
-        final Map<String, List<PropertyEntryContainer<Node>>> removedNodeProperties = aggregatePropertyKeys(txData.removedNodeProperties(), true);
-        final Map<String, List<PropertyEntryContainer<Relationship>>> removedRelationshipProperties = aggregatePropertyKeys(txData.removedRelationshipProperties(), true);
+        Map<String, List<Node>> removedLabels = aggregateLabels(txData.removedLabels(), rebindDeleted, txData);
+        Map<String, List<Node>> assignedLabels = aggregateLabels(txData.assignedLabels(), false, txData);
+        final Map<String, List<PropertyEntryContainer<Node>>> removedNodeProperties = aggregatePropertyKeys(txData.removedNodeProperties(), true, rebindDeleted, txData);
+        final Map<String, List<PropertyEntryContainer<Relationship>>> removedRelationshipProperties = aggregatePropertyKeys(txData.removedRelationshipProperties(), true, rebindDeleted, txData);
         final Map<String, List<PropertyEntryContainer<Node>>> assignedNodeProperties = aggregatePropertyKeys(txData.assignedNodeProperties(), false);
         final Map<String, List<PropertyEntryContainer<Relationship>>> assignedRelationshipProperties = aggregatePropertyKeys(txData.assignedRelationshipProperties(), false);
         return new TriggerMetadata(txId, commitTime, createdNodes, createdRelationships, deletedNodes, deletedRelationships,
@@ -92,20 +92,7 @@ public class TriggerMetadata {
 
     private static <T extends Entity> List<T> rebindDeleted(List<T> entities, TransactionData txData) {
         return (List<T>) entities.stream()
-                .map(e -> { 
-                    if (e instanceof Node) {
-                        Node node = (Node) e;
-                        final Label[] labels = Iterables.stream(Iterables.filter(label -> label.node().equals(node), txData.removedLabels()))
-                                .map(LabelEntry::label)
-                                .toArray(Label[]::new);
-                        final Map<String, Object> props = getProps(txData.removedNodeProperties(), node);
-                        return new VirtualNode(node.getId(), labels, props);
-                    } else {
-                        Relationship rel = (Relationship) e;
-                        final Map<String, Object> props = getProps(txData.removedRelationshipProperties(), rel);
-                        return new VirtualRelationship(rel.getId(), rel.getStartNode(), rel.getEndNode(), rel.getType(), props);
-                    }
-                })
+                .map(e -> getVirtualEntity(txData, e))
                 .collect(Collectors.toList());
     }
 
@@ -167,18 +154,34 @@ public class TriggerMetadata {
                 "metaData", metaData);
     }
 
-    private static Map<String, List<Node>> aggregateLabels(Iterable<LabelEntry> labelEntries) {
+    private static Map<String, List<Node>> aggregateLabels(Iterable<LabelEntry> labelEntries, boolean rebindDeleted, TransactionData txData) {
         if (!labelEntries.iterator().hasNext()) return Collections.emptyMap();
         Map<String, List<Node>> result = new HashMap<>();
         for (LabelEntry entry : labelEntries) {
             result.compute(entry.label().name(),
                     (k, v) -> {
                         if (v == null) v = new ArrayList<>(100);
-                        v.add(entry.node());
+                        final Node node = entry.node();
+                        v.add(rebindDeleted ? (Node) getVirtualEntity(txData, node) : node);
                         return v;
                     });
         }
         return result;
+    }
+    
+    private static <T extends Entity> Entity getVirtualEntity(TransactionData txData, T e) {
+        if (e instanceof Node) {
+            Node node = (Node) e;
+            final Label[] labels = Iterables.stream(Iterables.filter(label -> label.node().equals(node), txData.removedLabels()))
+                    .map(LabelEntry::label)
+                    .toArray(Label[]::new);
+            final Map<String, Object> props = getProps(txData.removedNodeProperties(), node);
+            return new VirtualNode(node.getId(), labels, props);
+        } else {
+            Relationship rel = (Relationship) e;
+            final Map<String, Object> props = getProps(txData.removedRelationshipProperties(), rel);
+            return new VirtualRelationship(rel.getId(), rel.getStartNode(), rel.getEndNode(), rel.getType(), props);
+        }
     }
 
     private static class PropertyEntryContainer<T extends Entity> {
@@ -208,13 +211,19 @@ public class TriggerMetadata {
     }
 
     private static <T extends Entity> Map<String, List<PropertyEntryContainer<T>>> aggregatePropertyKeys(Iterable<PropertyEntry<T>> entries, boolean removed) {
+        return aggregatePropertyKeys(entries, removed, false, null);
+    }
+
+    private static <T extends Entity> Map<String, List<PropertyEntryContainer<T>>> aggregatePropertyKeys(Iterable<PropertyEntry<T>> entries, boolean removed, boolean rebindDeleted, TransactionData txData) {
         if (!entries.iterator().hasNext()) return Collections.emptyMap();
         Map<String,List<PropertyEntryContainer<T>>> result = new HashMap<>();
         for (PropertyEntry<T> entry : entries) {
             result.compute(entry.key(),
                     (k, v) -> {
                         if (v == null) v = new ArrayList<>(100);
-                        v.add(new PropertyEntryContainer<>(k, entry.entity(), entry.previouslyCommittedValue(), removed ? null : entry.value()));
+                        final T entity = entry.entity();
+                        final T entityRebound = rebindDeleted ? (T) getVirtualEntity(txData, entity) : entity;
+                        v.add(new PropertyEntryContainer<>(k, entityRebound, entry.previouslyCommittedValue(), removed ? null : entry.value()));
                         return v;
                     });
         }

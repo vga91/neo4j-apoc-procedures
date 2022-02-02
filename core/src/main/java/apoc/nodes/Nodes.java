@@ -493,10 +493,23 @@ public class Nodes {
         return (rel == null) ? null : rel.getStartNode();
     }
 
+    @UserFunction("apoc.rel.startNodeId")
+    @Description("apoc.rel.startNodeId(rel) - returns start node id for (virtual) relationships")
+    public Long startNodeId(@Name("rel") Relationship rel) {
+        return rel == null ? null : rel.getStartNodeId();
+    }
+    
     @UserFunction("apoc.rel.endNode")
     @Description("returns endNode for (virtual) relationships")
     public Node endNode(@Name("rel") Relationship rel) {
         return (rel == null) ? null : rel.getEndNode();
+    }
+
+
+    @UserFunction("apoc.rel.endNodeId")
+    @Description("apoc.rel.endNodeId(rel) - returns end node id for (virtual) relationships")
+    public Long endNodeId(@Name("rel") Relationship rel) {
+        return rel == null ? null : rel.getEndNodeId();
     }
 
     @UserFunction("apoc.rel.type")

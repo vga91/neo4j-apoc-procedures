@@ -2832,6 +2832,11 @@ apoc.refactor.setType(rel, 'NEW-TYPE') change relationship-type
 returns endNode for (virtual) relationships
 |label:function[]
 |label:apoc-core[]
+|xref::overview/apoc.rel/apoc.rel.endNodeId.adoc[apoc.rel.endNodeId icon:book[]]
+
+apoc.rel.endNodeId(rel) - returns end node id for (virtual) relationships
+|label:function[]
+|label:apoc-core[]
 |xref::overview/apoc.rel/apoc.rel.id.adoc[apoc.rel.id icon:book[]]
 
 returns id for (virtual) relationships
@@ -2840,6 +2845,11 @@ returns id for (virtual) relationships
 |xref::overview/apoc.rel/apoc.rel.startNode.adoc[apoc.rel.startNode icon:book[]]
 
 returns startNode for (virtual) relationships
+|label:function[]
+|label:apoc-core[]
+|xref::overview/apoc.rel/apoc.rel.startNodeId.adoc[apoc.rel.startNodeId icon:book[]]
+
+apoc.rel.startNodeId(rel) - returns start node id for (virtual) relationships
 |label:function[]
 |label:apoc-core[]
 |xref::overview/apoc.rel/apoc.rel.type.adoc[apoc.rel.type icon:book[]]
