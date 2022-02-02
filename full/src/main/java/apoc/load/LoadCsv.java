@@ -2,9 +2,9 @@ package apoc.load;
 
 import apoc.Extended;
 import apoc.export.util.CountingReader;
-import apoc.export.util.FormatUtils;
 import apoc.load.util.LoadCsvConfig;
 import apoc.util.FileUtils;
+import apoc.util.JsonUtil;
 import apoc.util.Util;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -25,7 +25,7 @@ import java.util.stream.StreamSupport;
 import apoc.load.util.Results;
 import static apoc.util.FileUtils.closeReaderSafely;
 import static apoc.util.Util.cleanUrl;
-import static apoc.util.Util.setKernelStatus;
+import static apoc.util.Util.setKernelStatusMap;
 import static java.util.Collections.emptyList;
 
 @Extended
@@ -136,9 +136,10 @@ public class LoadCsv {
             try {
                 String[] row = csv.readNext();
                 if (row != null && lineNo < limit) {
-                    action.accept(new CSVResult(header, row, lineNo, ignore,mapping, nullValues,results));
+                    final CSVResult result = new CSVResult(header, row, lineNo, ignore, mapping, nullValues, results);
+                    action.accept(result);
                     lineNo++;
-                    setKernelStatus(tx, "rows", lineNo);
+                    setKernelStatusMap(tx, JsonUtil.convertToMap(result));
                     return true;
                 }
                 return false;

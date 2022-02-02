@@ -80,12 +80,11 @@ public class LoadJson {
         AtomicInteger rows = new AtomicInteger();
         return stream.flatMap((value) -> {
             if (value instanceof Map) {
-                if (tx != null) {
-                    setKernelStatus(tx, "rows", rows.incrementAndGet());
-                }
+                setKernelStatus(tx, "rows", rows.incrementAndGet());
                 return Stream.of(new MapResult((Map) value));
             }
             if (value instanceof List) {
+                setKernelStatus(tx, "rows", rows.incrementAndGet());
                 if (((List)value).isEmpty()) return Stream.empty();
                 if (((List) value).get(0) instanceof Map)
                     return ((List) value).stream().map((v) -> new MapResult((Map) v));

@@ -153,6 +153,7 @@ RETURN value["list"], value["map"]
 
 
 For long running procedures, we can use the `statusDetails` field present in `dbms.listTransactions` procedure to check progresses.
+This will return the last executed csv result.
 
 [source,cypher]
 ----
@@ -163,6 +164,10 @@ CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuer
 [opts="header"]
 |===
 | file
-| - rows: 1234
+| - lineNo: 217 +
+  - list: [217, :Status, , , ] +
+  - strings: [] +
+  - map: {_id=217, _labels=:Status, _start=, _end=, _type=} +
+  - stringMap: {}
 |===
 

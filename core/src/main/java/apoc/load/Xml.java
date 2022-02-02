@@ -65,7 +65,7 @@ import java.util.stream.Stream;
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
 import static apoc.util.Util.ERROR_BYTES_OR_STRING;
-import static apoc.util.Util.setKernelStatus;
+import static apoc.util.Util.map;
 import static apoc.util.Util.setKernelStatusMap;
 
 public class Xml {
@@ -244,7 +244,9 @@ public class Xml {
         }
 
         if (!elementMap.isEmpty()) {
-            setKernelStatus(tx, "rows", stack.size());
+            final Map<String, Object> statusMap = map("curr. element", stack.size());
+            statusMap.putAll(elementMap);
+            setKernelStatusMap(tx, statusMap);
             stack.addLast(elementMap);
         }
     }
@@ -456,7 +458,7 @@ public class Xml {
         private org.neo4j.graphdb.Node last;
         private org.neo4j.graphdb.Node lastWord;
         private int currentCharacterIndex = 0;
-        private final Map<String, Object> statusDetail = new HashMap<>(Map.of("nodes", 0L, "relationships", 0L, "elements", 0L));
+        private final Map<String, Long> statusDetail = new HashMap<>();
         private final Transaction tx;
 
         public ImportState(org.neo4j.graphdb.Node initialNode, Transaction tx) {
@@ -501,15 +503,15 @@ public class Xml {
             } else {
                 previousChild.createRelationshipTo(thisNode, RelationshipType.withName("NEXT_SIBLING"));
             }
-            statusDetail.compute("nodes", (a,b) -> (long) b + 1);
-            statusDetail.compute("relationships", (a,b) -> (long) b + 3);
+            statusDetail.merge("nodes", 1L, Long::sum);
+            statusDetail.merge("relationships", 1L, Long::sum);
             setKernelStatusMap(tx, statusDetail);
             parentAndChildPair.setPreviousChild(thisNode);
             last = thisNode;
         }
         
         public void updateNumTags() {
-            statusDetail.compute("elements", (k, v) -> (long) v + 1);
+            statusDetail.merge("elements", 1L, Long::sum);
             setKernelStatusMap(tx, statusDetail);
         }
 

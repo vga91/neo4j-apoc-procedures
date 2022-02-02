@@ -87,7 +87,7 @@ public class XmlTest {
     @Test
     public void testXmlStatusDetails() {
         final String file = ClassLoader.getSystemResource("largeFile.xml").toString();
-        checkStatusDetails(db, "CALL apoc.load.xml($file)", MapUtil.map("file", file));
+        checkStatusDetails(db, "CALL apoc.import.xml($file)", MapUtil.map("file", file));
     }
 
     @Test

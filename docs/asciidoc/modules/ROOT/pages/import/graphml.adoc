@@ -250,8 +250,16 @@ CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuer
 [opts="header"]
 |===
 | file
-| - nodes: 1111 +
-- relationships: 12 +
-- properties: 2222 +
-- rows: 1123
+| - file: status.graphml +
+- source: database: nodes(40000), rels(0) +
+- format: csv +
+- nodes: 0 +
+- relationships: 0 +
+- properties: 0 +
+- time: 0 +
+- rows: 0 +
+- batchSize: 20000 +
+- batches: 0 +
+- done: false +
+- data: null
 |===

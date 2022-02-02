@@ -1004,9 +1004,12 @@ public class Util {
         }
     }
 
-    public static void setKernelStatusMap(Transaction tx, Map<String, Object> map) {
-        final KernelTransaction ktx = ((InternalTransaction) tx).kernelTransaction();
-        ktx.setStatusDetails(FormatUtils.asListed(map));
+    public static <T> void setKernelStatusMap(Transaction tx, Map<String, T> map) {
+        // we don't write anything if transaction is not an InternalTransaction
+        if (tx instanceof InternalTransaction) {
+            final KernelTransaction ktx = ((InternalTransaction) tx).kernelTransaction();
+            ktx.setStatusDetails(FormatUtils.asListed(map));
+        }
     }
 
     public static void setKernelStatus(Transaction tx, Object...data) {

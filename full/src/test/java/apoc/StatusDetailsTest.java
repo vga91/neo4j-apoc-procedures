@@ -9,7 +9,6 @@ import apoc.export.json.ExportJson;
 import apoc.export.json.ImportJson;
 import apoc.load.LoadCsv;
 import apoc.load.LoadJson;
-import apoc.load.Xml;
 import apoc.util.TestUtil;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -29,7 +28,6 @@ import java.util.Collection;
 import java.util.Map;
 
 import static apoc.kernel.KernelTestUtils.checkStatusDetails;
-import static apoc.util.MapUtil.map;
 import static org.neo4j.configuration.GraphDatabaseSettings.TransactionStateMemoryAllocation.OFF_HEAP;
 import static org.neo4j.configuration.SettingValueParsers.BYTES;
 
@@ -121,9 +119,9 @@ public class StatusDetailsTest {
         checkStatus(loadQuery);
     }
 
-    private void checkStatus(String exportQuery) {
-        if (exportQuery != null) {
-            checkStatusDetails(db, exportQuery, Map.of("file", file));
+    private void checkStatus(String query) {
+        if (query != null) {
+            checkStatusDetails(db, query, Map.of("file", file));
         }
     }
 }

@@ -129,7 +129,11 @@ public class JsonUtil {
             throw new RuntimeException("Can't convert " + json + " to "+type.getSimpleName()+" with path "+path, e);
         }
     }
-
+    
+    public static Map<String, Object> convertToMap(Object value) {
+        return OBJECT_MAPPER.convertValue(value, Map.class);
+    }
+    
     public static String writeValueAsString(Object json) {
         try {
             return OBJECT_MAPPER.writeValueAsString(json);

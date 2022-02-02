@@ -1,19 +1,13 @@
 package apoc.result;
 
-import apoc.export.util.ExportConfig;
-import apoc.export.util.FormatUtils;
-import apoc.util.Util;
-import org.neo4j.kernel.api.KernelTransaction;
-
 import java.io.StringWriter;
-import java.util.Map;
 
 /**
  * @author mh
  * @since 22.05.16
  */
 public class ProgressInfo {
-    public static final ProgressInfo EMPTY = new ProgressInfo(null, null, null/*, null*/);
+    public static final ProgressInfo EMPTY = new ProgressInfo(null, null, null);
     public final String file;
     public String source;
     public final String format;

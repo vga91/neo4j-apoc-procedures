@@ -5,10 +5,12 @@ import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Transaction;
 
 import java.io.PrintWriter;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static apoc.util.Util.setKernelStatus;
+import static apoc.util.JsonUtil.OBJECT_MAPPER;
+import static apoc.util.Util.setKernelStatusMap;
 
 /**
  * @author mh
@@ -126,11 +128,7 @@ public class ProgressReporter implements Reporter {
 =======
     private void updateStatus() {
         if (this.tx != null) {
-            setKernelStatus(tx,
-                    "nodes", this.progressInfo.nodes,
-                    "relationships", this.progressInfo.relationships,
-                    "properties", this.progressInfo.properties,
-                    "rows", this.progressInfo.rows);
+            setKernelStatusMap(tx, OBJECT_MAPPER.convertValue(this.progressInfo, Map.class));
         }
     }
 >>>>>>> f28d658d4 (var adds)
