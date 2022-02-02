@@ -339,7 +339,7 @@ public class ConvertJsonTest {
                     List<Object> actedInList = (List<Object>) root.get("acted_in");
                     assertEquals(7, actedInList.size());
                     List<Object> innerList = (List) ((Map<String, Object>) actedInList.get(1)).get("acted_in");
-                    assertEquals(5, ((Map<String, Object>) innerList.get(0)).size());
+                    assertEquals(6, ((Map<String, Object>) innerList.get(0)).size());
                 });
     }
     
@@ -365,7 +365,7 @@ public class ConvertJsonTest {
                         "WITH path, [r IN relationships(path) | r.order] AS orders\n" +
                         "ORDER BY orders\n" +
                         "WITH COLLECT(path) AS paths\n" +
-                        "CALL apoc.convert.toTree(paths) YIELD value AS tree\n" +
+                        "CALL apoc.convert.toTree(paths, true, {preventSort: true}) YIELD value AS tree\n" +
                         "RETURN tree",
                 (row) -> {
                     Map tree = (Map) row.get("tree");
