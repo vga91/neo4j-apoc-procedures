@@ -21,6 +21,7 @@ import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.internal.kernel.api.procs.ProcedureCallContext;
 import org.neo4j.internal.kernel.api.security.SecurityContext;
+import org.neo4j.kernel.api.procedure.SystemProcedure;
 import org.neo4j.kernel.impl.coreapi.TransactionImpl;
 import org.neo4j.procedure.Admin;
 import org.neo4j.procedure.Context;
@@ -64,6 +65,7 @@ public class SystemDb {
         }
     }
 
+    @SystemProcedure
     @Admin
     @Procedure(name = "apoc.systemdb.export.metadata")
     @Description("apoc.systemdb.export.metadata($conf) - export the apoc feature saved in system db (that is: customProcedures, triggers, uuids, and dvCatalogs) in multiple files called <FILE_NAME>.<FEATURE_NAME>.<DB_NAME>.cypher")
@@ -99,7 +101,8 @@ public class SystemDb {
         progressReporter.done();
         return progressReporter.stream();
     }
-
+    
+    @SystemProcedure
     @Procedure
     public Stream<NodesAndRelationshipsResult> graph() {
         Util.checkAdmin(securityContext, callContext,"apoc.systemdb.graph");
@@ -120,6 +123,7 @@ public class SystemDb {
         });
     }
 
+    @SystemProcedure
     @Procedure
     public Stream<RowResult> execute(@Name("DDL commands, either a string or a list of strings") Object ddlStringOrList, @Name(value="params", defaultValue = "{}") Map<String ,Object> params) {
         Util.checkAdmin(securityContext, callContext, "apoc.systemdb.execute");

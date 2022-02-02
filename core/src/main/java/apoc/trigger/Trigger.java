@@ -2,6 +2,7 @@ package apoc.trigger;
 
 import apoc.util.Util;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.kernel.api.procedure.SystemProcedure;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
@@ -49,6 +50,7 @@ public class Trigger {
 
     @Context public TriggerHandler triggerHandler;
 
+    @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("add a trigger kernelTransaction under a name, in the kernelTransaction you can use {createdNodes}, {deletedNodes} etc., the selector is {phase:'before/after/rollback/afterAsync'} returns previous and new trigger information. Takes in an optional configuration.")
     public Stream<TriggerInfo> add(@Name("name") String name, @Name("kernelTransaction") String statement, @Name(value = "selector"/*, defaultValue = "{}"*/)  Map<String,Object> selector, @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
@@ -63,6 +65,7 @@ public class Trigger {
         return Stream.of(new TriggerInfo(name,statement,selector, params,true, false));
     }
 
+    @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("remove previously added trigger, returns trigger information")
     public Stream<TriggerInfo> remove(@Name("name")String name) {
@@ -73,6 +76,7 @@ public class Trigger {
         return Stream.of(new TriggerInfo(name,(String)removed.get("statement"), (Map<String, Object>) removed.get("selector"), (Map<String, Object>) removed.get("params"),false, false));
     }
 
+    @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("removes all previously added trigger, returns trigger information")
     public Stream<TriggerInfo> removeAll() {
@@ -109,6 +113,7 @@ public class Trigger {
                 );
     }
 
+    @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.trigger.pause(name) | it pauses the trigger")
     public Stream<TriggerInfo> pause(@Name("name")String name) {
@@ -120,6 +125,7 @@ public class Trigger {
                 (Map<String,Object>) paused.get("params"),true, true));
     }
 
+    @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.trigger.resume(name) | it resumes the paused trigger")
     public Stream<TriggerInfo> resume(@Name("name")String name) {

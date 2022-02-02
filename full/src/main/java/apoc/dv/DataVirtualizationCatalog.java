@@ -11,6 +11,7 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Pair;
+import org.neo4j.kernel.api.procedure.SystemProcedure;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -36,6 +37,7 @@ public class DataVirtualizationCatalog {
     @Context
     public ApocConfig apocConfig;
 
+    @SystemProcedure
     @Procedure(name = "apoc.dv.catalog.add", mode = Mode.WRITE)
     @Description("Add a virtualized resource configuration")
     public Stream<VirtualizedResource.VirtualizedResourceDTO> add(
@@ -45,6 +47,7 @@ public class DataVirtualizationCatalog {
                 .map(VirtualizedResource::toDTO);
     }
 
+    @SystemProcedure
     @Procedure(name = "apoc.dv.catalog.remove", mode = Mode.WRITE)
     @Description("Remove a virtualized resource config by name")
     public Stream<VirtualizedResource.VirtualizedResourceDTO> remove(@Name("name") String name) {
@@ -53,6 +56,7 @@ public class DataVirtualizationCatalog {
                 .map(VirtualizedResource::toDTO);
     }
 
+    @SystemProcedure
     @Procedure(name = "apoc.dv.catalog.list", mode = Mode.READ)
     @Description("List all virtualized resource configuration")
     public Stream<VirtualizedResource.VirtualizedResourceDTO> list() {
@@ -60,6 +64,7 @@ public class DataVirtualizationCatalog {
                 .map(VirtualizedResource::toDTO);
     }
 
+    @SystemProcedure
     @Procedure(name = "apoc.dv.query", mode = Mode.READ)
     @Description("Query a virtualized resource by name and return virtual nodes")
     public Stream<NodeResult> query(@Name("name") String name,
@@ -73,6 +78,7 @@ public class DataVirtualizationCatalog {
                 .map(NodeResult::new);
     }
 
+    @SystemProcedure
     @Procedure(name = "apoc.dv.queryAndLink", mode = Mode.READ)
     @Description("Query a virtualized resource by name and return virtual nodes linked using virtual rels to the node passed as first param")
     public Stream<PathResult> queryAndLink(@Name("node") Node node,

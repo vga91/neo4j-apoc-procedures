@@ -8,6 +8,7 @@ import org.neo4j.internal.kernel.api.procs.UserFunctionSignature;
 import org.neo4j.internal.kernel.api.procs.FieldSignature;
 import org.neo4j.internal.kernel.api.procs.Neo4jTypes;
 import org.neo4j.kernel.api.KernelTransaction;
+import org.neo4j.kernel.api.procedure.SystemProcedure;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
@@ -49,6 +50,7 @@ public class CypherProcedures {
      * allow to register proper return columns
      * allow to register mode
      */
+    @SystemProcedure
     @Procedure(value = "apoc.custom.asProcedure",mode = Mode.WRITE)
     @Description("apoc.custom.asProcedure(name, statement, mode, outputs, inputs, description) - register a custom cypher procedure")
     public void asProcedure(@Name("name") String name, @Name("statement") String statement,
@@ -61,6 +63,7 @@ public class CypherProcedures {
         cypherProceduresHandler.storeProcedure(signature, statement);
     }
 
+    @SystemProcedure
     @Procedure(value = "apoc.custom.declareProcedure", mode = Mode.WRITE)
     @Description("apoc.custom.declareProcedure(signature, statement, mode, description) - register a custom cypher procedure")
     public void declareProcedure(@Name("signature") String signature, @Name("statement") String statement,
@@ -74,7 +77,7 @@ public class CypherProcedures {
         cypherProceduresHandler.storeProcedure(procedureSignature, statement);
     }
 
-
+    @SystemProcedure
     @Procedure(value = "apoc.custom.asFunction",mode = Mode.WRITE)
     @Description("apoc.custom.asFunction(name, statement, outputs, inputs, forceSingle, description) - register a custom cypher function")
     public void asFunction(@Name("name") String name, @Name("statement") String statement,
@@ -86,6 +89,7 @@ public class CypherProcedures {
         cypherProceduresHandler.storeFunction(signature, statement, forceSingle);
     }
 
+    @SystemProcedure
     @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE)
     @Description("apoc.custom.declareFunction(signature, statement, forceSingle, description) - register a custom cypher function")
     public void asFunction(@Name("signature") String signature, @Name("statement") String statement,
@@ -131,6 +135,7 @@ public class CypherProcedures {
         });
     }
 
+    @SystemProcedure
     @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE)
     @Description("apoc.custom.removeProcedure(name) - remove the targeted custom procedure")
     public void removeProcedure(@Name("name") String name) {
@@ -138,7 +143,7 @@ public class CypherProcedures {
         cypherProceduresHandler.removeProcedure(name);
     }
 
-
+    @SystemProcedure
     @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE)
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
     public void removeFunction(@Name("name") String name) {

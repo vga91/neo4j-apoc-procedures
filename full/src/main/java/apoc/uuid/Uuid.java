@@ -5,6 +5,7 @@ import apoc.Pools;
 import apoc.util.Util;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.kernel.api.procedure.SystemProcedure;
 import org.neo4j.procedure.*;
 
 import java.util.Collections;
@@ -26,6 +27,7 @@ public class Uuid {
     @Context
     public Transaction tx;
 
+    @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.uuid.install(label, {addToExistingNodes: true/false, uuidProperty: 'uuid'}) yield label, installed, properties, batchComputationResult | it will add the uuid transaction handler\n" +
             "for the provided `label` and `uuidProperty`, in case the UUID handler is already present it will be replaced by the new one")
@@ -48,6 +50,7 @@ public class Uuid {
                 addToExistingNodesResult));
     }
 
+    @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.uuid.remove(label) yield label, installed, properties | remove previously added uuid handler and returns uuid information. All the existing uuid properties are left as-is")
     public Stream<UuidInfo> remove(@Name("label") String label) {
@@ -59,6 +62,7 @@ public class Uuid {
                 Map.of("uuidProperty", removed.getUuidProperty(), "addToSetLabels", removed.isAddToSetLabels())));
     }
 
+    @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.uuid.removeAll() yield label, installed, properties | it removes all previously added uuid handlers and returns uuids information. All the existing uuid properties are left as-is")
     public Stream<UuidInfo> removeAll() {
