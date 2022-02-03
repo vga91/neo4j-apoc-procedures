@@ -10,17 +10,11 @@ import java.util.Map;
 
 import static apoc.load.LoadHtml.getElements;
 
-public class SelectElement implements LoadHtmlFunctions.LoadElementInterface {
-    private final String query;
-
-    public SelectElement(String query) {
-        this.query = query;
-    }
+public class SelectElement implements HtmlResultInterface {
 
     @Override
-    public List<Map<String, Object>> get(Document document, Map<String, Object> config, List<String> errorList, Log log) {
-
-        final Elements select = document.select(query);
+    public List<Map<String, Object>> getResult(Document document, String selector, Map<String, Object> config, List<String> errorList, Log log) {
+        final Elements select = document.select(selector);
         return getElements(select, config, errorList, log);
     }
 }

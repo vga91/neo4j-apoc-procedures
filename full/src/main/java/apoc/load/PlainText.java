@@ -16,28 +16,18 @@ import java.util.Map;
 
 import static apoc.load.LoadHtml.withError;
 
-public class PlainText implements LoadHtmlFunctions.LoadElementInterface {
-    
-    private final String query;
-
-    public PlainText(String query) {
-        this.query = query;
-    }
+public class PlainText implements HtmlResultInterface {
 
     @Override
-    public String get(Document document, Map<String, Object> config, List<String> errorList, Log log) {
+    public String getResult(Document document, String selector, Map<String, Object> config, List<String> errorList, Log log) {
         LoadHtml.FailSilently failConfig = LoadHtml.FailSilently.valueOf((String) config.getOrDefault("failSilently", "FALSE"));
-        if (query == null) {
-            return getResult(config, errorList, log, failConfig, document);
-        } else {
-            StringBuilder plainText = new StringBuilder();
-            Elements elements = document.select(query);
-            for (Element element : elements) {
-                final String result = getResult(config, errorList, log, failConfig, element);
-                plainText.append(result);
-            }
-            return plainText.toString();
+        StringBuilder plainText = new StringBuilder();
+        Elements elements = document.select(selector);
+        for (Element element : elements) {
+            final String result = getResult(config, errorList, log, failConfig, element);
+            plainText.append(result);
         }
+        return plainText.toString();
     }
 
     private String getResult(Map<String, Object> config, List<String> errorList, Log log, LoadHtml.FailSilently failConfig, Element element) {

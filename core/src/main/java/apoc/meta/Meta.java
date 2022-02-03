@@ -98,7 +98,7 @@ public class Meta {
 
         private String typeOfList = "ANY";
 
-        public static Map<Class<?>, Class<?>> primitivesMapping = new HashMap(){{
+        private static Map<Class<?>, Class<?>> primitivesMapping = new HashMap(){{
             put(double.class, Double.class);
             put(float.class, Float.class);
             put(int.class, Integer.class);

@@ -37,15 +37,19 @@ public class LoadHtml {
     @Context
     public Log log;
 
+    @Procedure
+    @Description("apoc.load.htmlPlainText('urlOrHtml',{name: jquery, name2: jquery}, config) YIELD value - Load Html page and return the result as a Map")
+    public Stream<MapResult> htmlPlainText(@Name("urlOrHtml") String urlOrHtml, @Name(value = "query",defaultValue = "{}") Map<String, String> query, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        return readHtmlPage(urlOrHtml, query, config, HtmlResultInterface.Type.PLAIN_TEXT);
+    }
 
     @Procedure
     @Description("apoc.load.html('urlOrHtml',{name: jquery, name2: jquery}, config) YIELD value - Load Html page and return the result as a Map")
-    public Stream<MapResult> html(@Name("urlOrHtml") String urlOrHtml, @Name(value = "query",defaultValue = "{}") Map<String, Object> query, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
-        return readHtmlPage(urlOrHtml, query, config);
+    public Stream<MapResult> html(@Name("urlOrHtml") String urlOrHtml, @Name(value = "query",defaultValue = "{}") Map<String, String> query, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        return readHtmlPage(urlOrHtml, query, config, HtmlResultInterface.Type.DEFAULT);
     }
 
-    private Stream<MapResult> readHtmlPage(String url, Map<String, Object> query, Map<String, Object> config) {
-        
+    private Stream<MapResult> readHtmlPage(String url, Map<String, String> query, Map<String, Object> config, HtmlResultInterface.Type type) {
         String charset = config.getOrDefault("charset", "UTF-8").toString();
         try {
             // baseUri is used to resolve relative paths
@@ -61,9 +65,8 @@ public class LoadHtml {
             List<String> errorList = new ArrayList<>();
 
             query.keySet().forEach(key -> {
-                final Object value = query.get(key);
-                final Object value1 = LoadHtmlFunctions.from(value).get(document, config, errorList, log);
-                output.put(key, value1);
+                final Object value = type.get().getResult(document, query.get(key), config, errorList, log);
+                output.put(key, value);
             });
             if (!errorList.isEmpty()) {
                 output.put(KEY_ERROR, errorList);
