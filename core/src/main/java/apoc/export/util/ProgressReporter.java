@@ -1,6 +1,7 @@
 package apoc.export.util;
 
 import apoc.result.ProgressInfo;
+import apoc.util.JsonUtil;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Transaction;
 
@@ -128,7 +129,7 @@ public class ProgressReporter implements Reporter {
 =======
     private void updateStatus() {
         if (this.tx != null) {
-            setKernelStatusMap(tx, OBJECT_MAPPER.convertValue(this.progressInfo, Map.class));
+            setKernelStatusMap(tx, JsonUtil.convertToMap(this.progressInfo));
         }
     }
 >>>>>>> f28d658d4 (var adds)
