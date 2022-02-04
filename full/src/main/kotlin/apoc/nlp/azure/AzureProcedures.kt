@@ -15,6 +15,7 @@ import org.neo4j.procedure.*
 import java.util.stream.Stream
 
 class AzureProcedures {
+    
     @Context
     @JvmField
     var log: Log? = null
