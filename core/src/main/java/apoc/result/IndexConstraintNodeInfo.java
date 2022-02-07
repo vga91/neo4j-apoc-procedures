@@ -5,13 +5,9 @@ import java.util.List;
 /**
  * Created by alberto.delazzari on 04/07/17.
  */
-public class IndexConstraintNodeInfo {
-
-    public final String name;
+public class IndexConstraintNodeInfo extends IndexConstraintEntityInfo {
 
     public final Object label;
-
-    public final List<String> properties;
 
     public final String status;
 
@@ -41,9 +37,8 @@ public class IndexConstraintNodeInfo {
      * @param userDescription
      */
     public IndexConstraintNodeInfo(String name, Object label, List<String> properties, String status, String type, String failure, float populationProgress, long size, double valuesSelectivity, String userDescription) {
-        this.name = name;
+        super(name, properties);
         this.label = label;
-        this.properties = properties;
         this.status = status;
         this.type = type;
         this.failure = failure;
