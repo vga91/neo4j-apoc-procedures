@@ -49,7 +49,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 
 	@Override
 	public String statementForIndex(String label, Iterable<String> keys, boolean ifNotExists) {
-		return String.format("CREATE INDEX%s FOR (node:%s) ON (%s);" + StringUtils.LF;, 
+		return String.format("CREATE INDEX%s FOR (node:%s) ON (%s);" + StringUtils.LF, 
 				getIfNotExists(ifNotExists),
 				Util.quote(label),
 				getPropertiesQuoted(keys));

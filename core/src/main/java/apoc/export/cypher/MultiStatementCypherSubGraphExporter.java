@@ -243,11 +243,6 @@ public class MultiStatementCypherSubGraphExporter {
     private List<IndexDefinition> exportConstraints() {
         return StreamSupport.stream(graph.getIndexes().spliterator(), false)
                 .filter(index -> index.isConstraintIndex())
-                .map(index -> {
-                    String label = Iterables.single(index.getLabels()).name();
-                    Iterable<String> props = index.getPropertyKeys();
-                    return this.cypherFormat.statementForConstraint(label, props, exportConfig.ifNotExists());
-                })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }

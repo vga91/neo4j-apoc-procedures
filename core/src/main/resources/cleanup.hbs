@@ -5,6 +5,6 @@
         {{commit~}}
     {{~/forLoop~}}
     {{~begin~}}
-    {{~{statementConstraintUnique @root.exportConfig.cypherFormat.formatter true}~}}
+    {{~{statementConstraintUnique @root.exportConfig.cypherFormat.formatter true @root.exportConfig.ifNotExists}~}}
     {{commit~}}
 {{/gt}}

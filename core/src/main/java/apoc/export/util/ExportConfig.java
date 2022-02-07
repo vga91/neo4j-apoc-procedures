@@ -211,7 +211,8 @@ public class ExportConfig extends CompressionConfig {
         return sampling;
     }
     
-    public boolean ifNotExists() {
+    // changed in "isIfNotExists" to be recognized by handlebars
+    public boolean isIfNotExists() {
         return ifNotExists;
     }
 }

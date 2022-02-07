@@ -108,7 +108,6 @@ public enum TemplateCypherHelpers implements Helper<Object> {
         }
     },
 
-
     statementNode {
         @Override
         public Object apply(final Object value, final Options options) {
@@ -134,15 +133,17 @@ public enum TemplateCypherHelpers implements Helper<Object> {
             final IndexDefinition constraint = (IndexDefinition) value;
             final Iterable<String> props = constraint.getPropertyKeys();
             final String label = Iterables.single(constraint.getLabels()).name();
-            return ((CypherFormatter) options.param(0)).statementForConstraint(label, props);
+            return ((CypherFormatter) options.param(0)).statementForConstraint(label, props, options.param(1));
         }
     },
 
     statementConstraintUnique {
         @Override
         public Object apply(final Object value, final Options options) {
-            String statement = ((CypherFormatter) value).statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP));
-            if (options.param(0, false)) {
+            final boolean isDrop = options.param(0, false);
+            String statement = ((CypherFormatter) value).statementForConstraint(
+                    UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), isDrop ? false : options.param(1));
+            if (isDrop) {
                 statement = statement.replaceAll("^CREATE", "DROP");
             }
             return statement;
@@ -168,7 +169,7 @@ public enum TemplateCypherHelpers implements Helper<Object> {
         @Override
         public Object apply(final Object value, final Options options) {
             String tokenName = ((List<String>) options.param(0)).get(0);
-            return ((CypherFormatter) value).statementForIndex(tokenName, options.param(1));
+            return ((CypherFormatter) value).statementForIndex(tokenName, options.param(1), options.param(2));
         }
     },
 
