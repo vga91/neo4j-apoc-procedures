@@ -92,10 +92,11 @@ public class TriggerMetadata {
 
     private static <T extends Entity> List<T> rebindDeleted(List<T> entities, TransactionData txData) {
         return (List<T>) entities.stream()
-                .map(e -> { 
+                .map(e -> {
                     if (e instanceof Node) {
                         Node node = (Node) e;
-                        final Label[] labels = Iterables.stream(Iterables.filter(label -> label.node().equals(node), txData.removedLabels()))
+                        final Label[] labels = Iterables.stream(txData.removedLabels())
+                                .filter(label -> label.node().equals(node))
                                 .map(LabelEntry::label)
                                 .toArray(Label[]::new);
                         final Map<String, Object> props = getProps(txData.removedNodeProperties(), node);
@@ -109,8 +110,9 @@ public class TriggerMetadata {
                 .collect(Collectors.toList());
     }
 
-    private static <T extends Entity> Map<String, Object> getProps(Iterable<PropertyEntry<T>> i, T e) {
-        return Iterables.stream(Iterables.filter(label -> label.entity().equals(e), i))
+    private static <T extends Entity> Map<String, Object> getProps(Iterable<PropertyEntry<T>> propertyEntries, T entity) {
+        return Iterables.stream(propertyEntries)
+                .filter(label -> label.entity().equals(entity))
                 .collect(Collectors.toMap(PropertyEntry::key, PropertyEntry::previouslyCommittedValue));
     }
 
