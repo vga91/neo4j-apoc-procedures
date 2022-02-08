@@ -1,7 +1,5 @@
 package apoc.trigger;
 
-import apoc.create.Create;
-import apoc.nodes.Nodes;
 import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
@@ -16,14 +14,12 @@ import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static apoc.ApocSettings.apoc_trigger_enabled;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 
 /**
@@ -34,7 +30,6 @@ public class TriggerTest {
 
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule()
-            .withSetting(procedure_unrestricted, List.of("apoc.*"))
             .withSetting(apoc_trigger_enabled, true);  // need to use settings here, apocConfig().setProperty in `setUp` is too late
 
     private long start;
@@ -42,7 +37,7 @@ public class TriggerTest {
     @Before
     public void setUp() throws Exception {
         start = System.currentTimeMillis();
-        TestUtil.registerProcedure(db, Trigger.class, Nodes.class, Create.class);
+        TestUtil.registerProcedure(db, Trigger.class);
     }
 
     @Test
@@ -71,52 +66,13 @@ public class TriggerTest {
     }
 
     @Test
-    public void testIssue1152()  {
-        final Long id = db.executeTransactionally("CREATE (n:To:Delete {prop1: 'val1', prop2: 'val2'}) RETURN id(n) as id", Collections.emptyMap(), 
-                r -> r.<Long>columnAs("id").next());
-        
-        // we check that we can execute write operation (through virtualNode functions)
-        db.executeTransactionally("call apoc.trigger.add('ugone', " +
-                "\"UNWIND $deletedNodes as deletedNode CREATE (r:Report {id: id(deletedNode)}) WITH r, deletedNode " +
-                "CALL apoc.create.addLabels(r, apoc.node.labels(deletedNode)) yield node with node, deletedNode " +
-                "set node+=apoc.any.properties(deletedNode)\" ,{phase:'before'})");
-        db.executeTransactionally("MATCH (f:To:Delete) DELETE f");
-        
-        TestUtil.testCall(db, "MATCH (n:Report:To:Delete) RETURN n", (row) -> {
-            final Node n = (Node) row.get("n");
-            assertEquals("val1", n.getProperty("prop1"));
-            assertEquals("val2", n.getProperty("prop2"));
-            assertEquals(id, n.getProperty("id"));
-        });
-    }
-
-    @Test
     public void testIssue2247() {
         db.executeTransactionally("CREATE (n:ToBeDeleted)");
         db.executeTransactionally("CALL apoc.trigger.add('myTrig', 'RETURN 1', {phase: 'afterAsync'})");
-        
-        db.executeTransactionally("MATCH (n:ToBeDeleted) DELETE n");
-        
-        db.executeTransactionally("CALL apoc.trigger.remove('myTrig')");
-    }
 
-    @Test
-    public void testDeletedRelationshipWithBefore()  {
-        final Long id = db.executeTransactionally("CREATE (:Start)-[r:MY_TYPE {prop1: 'val1', prop2: 'val2'}]->(:End) RETURN id(r) as id", Collections.emptyMap(), 
-                r -> r.<Long>columnAs("id").next());
-        
-        db.executeTransactionally("call apoc.trigger.add('ugone', " +
-                "\"UNWIND $deletedRelationships as deletedRel CREATE (r:Report {id: id(deletedRel), type: apoc.rel.type(deletedRel)}) WITH r, deletedRel " +
-                "set r+=apoc.any.properties(deletedRel)\" ,{phase:'before'})");
-        db.executeTransactionally("MATCH (:Start)-[r:MY_TYPE]->(:End) DELETE r");
-        
-        TestUtil.testCall(db, "MATCH (n:Report) RETURN n", (row) -> {
-            final Node n = (Node) row.get("n");
-            assertEquals("MY_TYPE", n.getProperty("type"));
-            assertEquals("val1", n.getProperty("prop1"));
-            assertEquals("val2", n.getProperty("prop2"));
-            assertEquals(id, n.getProperty("id"));
-        });
+        db.executeTransactionally("MATCH (n:ToBeDeleted) DELETE n");
+
+        db.executeTransactionally("CALL apoc.trigger.remove('myTrig')");
     }
 
     @Test
