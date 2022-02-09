@@ -1,10 +1,13 @@
 package apoc.load;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.util.Collections;
 import java.util.Map;
 
 
 public class CsvMapping extends BaseMapping {
+    public static final CsvMapping EMPTY = new CsvMapping(StringUtils.EMPTY, LoadImportConfig.EMPTY);
 
     public CsvMapping(String name, LoadImportConfig config) {
         super(name, config);

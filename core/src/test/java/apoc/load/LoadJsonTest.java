@@ -123,10 +123,6 @@ public class LoadJsonTest {
                 (row) -> assertEquals(map("result",asList("1", "2", "3")), row.get("value")));
     }
     
-    // todo - test con array specifico (stesso file mapMultiType.json) per far vedere che non si separa anche una stringa tipo aa;ee;ii
-    
-    // todo - aggiungere nella documentazione che array: true può essere anche generico, come arraySep
-    
     @Test
     public void testLoadJsonWithArraySepInMapping() {
 		String url = ClassLoader.getSystemResource("mapMultiType.json").toString();

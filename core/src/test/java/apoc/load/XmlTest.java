@@ -19,7 +19,6 @@ import org.xml.sax.SAXParseException;
 
 import java.io.File;
 import java.nio.charset.Charset;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;

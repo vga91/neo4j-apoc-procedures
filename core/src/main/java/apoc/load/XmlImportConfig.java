@@ -54,6 +54,11 @@ public class XmlImportConfig extends LoadImportConfig {
             throw new InvalidConfigException("usage of `createNextWordRelationships` is no longer allowed. Use `{relType:'NEXT_WORD', label:'XmlWord'}` instead.");
         }
     }
+    
+    @Override
+    public Object createMapping(Object input) {
+        return null;
+    }
 
     public Pattern getDelimiter() {
         return delimiter;

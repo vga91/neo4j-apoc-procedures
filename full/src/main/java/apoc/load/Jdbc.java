@@ -230,7 +230,7 @@ public class Jdbc {
             if (Types.TIMESTAMP == sqlType) {
                 if (config.getZoneId() != null) {
                     return ((java.sql.Timestamp)value).toInstant()
-                            .atZone(ZoneId.of(config.getZoneId()))
+                            .atZone(config.getZoneId())
                             .toOffsetDateTime();
                 } else {
                     return ((java.sql.Timestamp)value).toLocalDateTime();
@@ -239,7 +239,7 @@ public class Jdbc {
             if (Types.TIMESTAMP_WITH_TIMEZONE == sqlType) {
                 if (config.getZoneId() != null) {
                     return ((java.sql.Timestamp)value).toInstant()
-                            .atZone(ZoneId.of(config.getZoneId()))
+                            .atZone(config.getZoneId())
                             .toOffsetDateTime();
                 } else {
                     return OffsetDateTime.parse(value.toString());

@@ -38,7 +38,6 @@ public class CsvLoaderConfig extends LoadImportConfig<List<CsvHeaderField>> {
     private static boolean IGNORE_BLANK_STRING_DEFAULT = false;
 
     private final char delimiter;
-    private final char arrayDelimiter;
     private final char quotationCharacter;
     private final boolean stringIds;
     private final int skipLines;
@@ -47,10 +46,9 @@ public class CsvLoaderConfig extends LoadImportConfig<List<CsvHeaderField>> {
     private final boolean ignoreBlankString;
 
     private CsvLoaderConfig(Builder builder) {
-        // change key from "arrayDelimiter" to "arraySep" to handle all Mapping in the same way
-        super(Map.of(COMPRESSION, builder.compressionAlgo, CHARSET, builder.charset, "arraySep", builder.arrayDelimiter));
+        // change key from "arrayDelimiter" to ARRAY_SEP_KEY to handle all Mapping in the same way
+        super(Map.of(COMPRESSION, builder.compressionAlgo, CHARSET, builder.charset, LoadImportConfig.ARRAY_SEP_KEY, builder.arrayDelimiter));
         this.delimiter = builder.delimiter;
-        this.arrayDelimiter = builder.arrayDelimiter;
         this.quotationCharacter = builder.quotationCharacter;
         this.stringIds = builder.stringIds;
         this.skipLines = builder.skipLines;

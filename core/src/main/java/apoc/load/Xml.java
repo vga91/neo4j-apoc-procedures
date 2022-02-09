@@ -58,6 +58,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static apoc.load.LoadImportConfig.IGNORE_KEY;
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
 import static apoc.util.Util.ERROR_BYTES_OR_STRING;
@@ -237,7 +238,7 @@ public class Xml {
             }
         }
 
-        if (!elementMap.isEmpty() && !elementMap.containsKey("ignore")) {
+        if (!elementMap.isEmpty() && !elementMap.containsKey(IGNORE_KEY)) {
             stack.addLast(elementMap);
         }
     }
@@ -289,7 +290,7 @@ public class Xml {
             final String type = (String) elementMap.get("_type");
             final XmlMapping xmlMapping = new XmlMapping(type, config);
             if (xmlMapping.isIgnore()) {
-                elementMap.put("ignore", true);
+                elementMap.put(IGNORE_KEY, true);
             } else {
                 text = xmlMapping.convert(text);
                 

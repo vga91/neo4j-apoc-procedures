@@ -5,14 +5,13 @@ import apoc.load.CsvMapping;
 import apoc.util.Util;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static apoc.util.Util.parseCharFromConfig;
 import static java.util.Arrays.asList;
-import static java.util.Collections.emptyList;
 
 public class LoadCsvConfig extends LoadImportConfig {
 
-    public static final char DEFAULT_ARRAY_SEP = ';';
     public static final char DEFAULT_SEP = ',';
     public static final char DEFAULT_QUOTE_CHAR = '"';
     // this is the same value as ICSVParser.DEFAULT_ESCAPE_CHARACTER
@@ -31,9 +30,6 @@ public class LoadCsvConfig extends LoadImportConfig {
 
     private EnumSet<Results> results;
 
-    private List<String> ignore;
-    private List<String> nullValues;
-    private Map<String, Map<String, Object>> mapping;
     private Map<String, CsvMapping> mappings;
 
     public LoadCsvConfig(Map<String, Object> config) {
@@ -58,21 +54,14 @@ public class LoadCsvConfig extends LoadImportConfig {
             results.add(Results.valueOf(result));
         }
 
-        ignore = (List<String>) config.getOrDefault("ignore", emptyList());
-        nullValues = (List<String>) config.getOrDefault("nullValues", emptyList());
-        mapping = (Map<String, Map<String, Object>>) config.getOrDefault("mapping", Collections.emptyMap());
         mappings = createMapping(null);
     }
 
     @Override
     public Map<String, CsvMapping> createMapping(Object ignored) {
-        if (mapping.isEmpty()) return Collections.emptyMap();
-        HashMap<String, CsvMapping> result = new HashMap<>(mapping.size());
-        for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
-            String name = entry.getKey();
-            result.put(name, new CsvMapping(name, this));
-        }
-        return result;
+        return (Map<String, CsvMapping>) this.mapping.keySet()
+                .stream()
+                .collect(Collectors.toMap((k) -> k, (k) -> new CsvMapping((String) k, this)));
     }
 
     public char getSeparator() {
@@ -97,14 +86,6 @@ public class LoadCsvConfig extends LoadImportConfig {
 
     public EnumSet<Results> getResults() {
         return results;
-    }
-
-    public List<String> getIgnore() {
-        return ignore;
-    }
-
-    public List<String> getNullValues() {
-        return nullValues;
     }
 
     public Map<String, CsvMapping> getMappings() {

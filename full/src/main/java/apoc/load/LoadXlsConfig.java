@@ -5,6 +5,7 @@ import apoc.util.Util;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static apoc.load.LoadXls.DEFAULT_ARRAY_SEP;
 import static apoc.util.Util.parseCharFromConfig;
@@ -49,13 +50,8 @@ public class LoadXlsConfig extends LoadImportConfig {
     
     @Override
     public Map<String, BaseMapping> createMapping(Object ignored) {
-        final Map<String, Map<String, Object>> mapping = getMapping();
-        if (mapping.isEmpty()) return Collections.emptyMap();
-        HashMap<String, BaseMapping> result = new HashMap<>(mapping.size());
-        for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
-            String name = entry.getKey();
-            result.put(name, new BaseMapping(name, this));
-        }
-        return result;
+        return (Map<String, BaseMapping>) this.mapping.keySet()
+                .stream()
+                .collect(Collectors.toMap((k) -> k, (k) -> new BaseMapping((String) k, this)));
     }
 }

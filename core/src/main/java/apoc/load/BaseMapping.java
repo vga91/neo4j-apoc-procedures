@@ -1,6 +1,5 @@
 package apoc.load;
 
-import apoc.load.util.LoadCsvConfig;
 import apoc.meta.Meta;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
@@ -12,7 +11,6 @@ import org.neo4j.values.storable.LocalTimeValue;
 import org.neo4j.values.storable.TimeValue;
 
 import java.math.BigDecimal;
-import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -25,19 +23,16 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static apoc.load.LoadImportConfig.IGNORE_KEY;
-import static apoc.load.LoadImportConfig.NULL_VALUES_KEY;
-import static apoc.load.LoadImportConfig.TIMEZONE_KEY;
 import static apoc.util.DateParseUtil.dateParse;
 import static apoc.util.Util.dateFormat;
 import static apoc.util.Util.parseCharFromConfig;
 
 public class BaseMapping {
     public static final BaseMapping EMPTY = new BaseMapping(StringUtils.EMPTY, LoadImportConfig.EMPTY);
+    private static final String TYPE_KEY = "type";
 
     protected final String name;
     protected final Collection<String> nullValues;
@@ -57,17 +52,17 @@ public class BaseMapping {
         }
         this.mapping = mapping;
         this.name = mapping.getOrDefault("name", name).toString();
-        this.ignore = (boolean) mapping.getOrDefault(IGNORE_KEY, config.getIgnore().contains(name));
-        this.nullValues = (Collection<String>) mapping.getOrDefault(NULL_VALUES_KEY, config.getNullValues());
-        this.type = config instanceof LoadJsonConfig && !mapping.containsKey("type")
+        this.ignore = (boolean) mapping.getOrDefault(LoadImportConfig.IGNORE_KEY, config.getIgnore().contains(name));
+        this.nullValues = (Collection<String>) mapping.getOrDefault(LoadImportConfig.NULL_VALUES_KEY, config.getNullValues());
+        this.type = config instanceof LoadJsonConfig && !mapping.containsKey(TYPE_KEY)
                 ? null
-                : Meta.Types.from((String) mapping.get("type"));
+                : Meta.Types.from((String) mapping.get(TYPE_KEY));
         this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
         this.dateParse = convertFormat(mapping.get("dateParse"));
-        this.zoneId = getTimezoneIfValid(mapping, config.getZoneId());
+        this.zoneId = LoadImportConfig.getTimezoneIfValid(mapping, config.getZoneId());
 
-        this.array = Util.toBoolean(mapping.getOrDefault("array", config.isArray()));
-        char arraySep = parseCharFromConfig(mapping, "arraySep", config.getArraySep());
+        this.array = Util.toBoolean(mapping.getOrDefault(LoadImportConfig.ARRAY_KEY, config.isArray()));
+        char arraySep = parseCharFromConfig(mapping, LoadImportConfig.ARRAY_SEP_KEY, config.getArraySep());
         this.arrayPattern = Pattern.compile(String.valueOf(arraySep), Pattern.LITERAL);
     }
     
@@ -171,18 +166,8 @@ public class BaseMapping {
                 return value;
         }
     }
-
-    private ZoneId getTimezoneIfValid(Map<String, Object> config, String defaultZone) {
-        try {
-            return Optional.ofNullable((String) config.getOrDefault(TIMEZONE_KEY, defaultZone))
-                    .map(ZoneId::of)
-                    .orElse(null);
-        } catch (DateTimeException e) {
-            throw new IllegalArgumentException(String.format("The timezone field contains an error: %s", e.getMessage()));
-        }
-    }
     
-    // getters
+    // -- getters
     
     public String getName() {
         return name;

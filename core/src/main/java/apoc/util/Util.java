@@ -807,6 +807,10 @@ public class Util {
     }
 
     public static char parseCharFromConfig(Map<String, Object> config, String key, char defaultValue) {
+        // with apoc.import.csv the array separator is handled via CsvLoaderConfig, so it's already a char
+        if (config.get(key) instanceof Character) {
+            return (char) config.get(key);
+        }
         String separator = (String) config.getOrDefault(key, "");
         if (separator == null || separator.isEmpty()) {
             return defaultValue;
