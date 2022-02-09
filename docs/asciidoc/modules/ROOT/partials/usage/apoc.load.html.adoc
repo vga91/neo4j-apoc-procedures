@@ -339,3 +339,7 @@ CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuer
 | file
 | - rows: 1234
 |===
+
+The result of `CALL dbms.listTransactions()` will be like below:
+
+image::apoc.statusDetails.png[width=800]

@@ -551,3 +551,7 @@ CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuer
 - key: born +
 - _text: 1951
 |===
+
+The result of `CALL dbms.listTransactions()` will be like below:
+
+image::apoc.statusDetails.png[width=800]

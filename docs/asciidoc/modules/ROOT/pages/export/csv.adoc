@@ -413,6 +413,12 @@ CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuer
 - data: null
 |===
 
+The result of `CALL dbms.listTransactions()` will be like below:
+
+image::apoc.statusDetails.png[width=800]
+
+
+
 // end::export.csv[]
 
 * Nodes file are construct with the name of the input file append with `.nodes.[LABEL_NAME].csv`

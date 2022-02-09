@@ -74,3 +74,7 @@ CALL dbms.listTransactions() yield statusDetails, currentQuery WHERE currentQuer
 - properties: 2222 +
 - rows: 1123
 |===
+
+The result of `CALL dbms.listTransactions()` will be like below:
+
+image::apoc.statusDetails.png[width=800]
