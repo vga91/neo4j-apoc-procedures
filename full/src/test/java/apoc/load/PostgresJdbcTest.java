@@ -12,6 +12,7 @@ import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 import java.sql.SQLException;
+import java.util.Map;
 
 import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.TestUtil.testCall;
@@ -53,7 +54,7 @@ public class PostgresJdbcTest extends AbstractJdbcTest {
         testCall(db, "CALL apoc.load.jdbc($url,'PERSON',[], $config)", Util.map("url", postgress.getJdbcUrl(),
                 "config", Util.map("schema", "test",
                         "credentials", Util.map("user", postgress.getUsername(), "password", postgress.getPassword()))),
-                (row) -> assertResult(row));
+                (row) -> assertPostgresRes(row, false));
     }
 
     @Test
@@ -62,7 +63,7 @@ public class PostgresJdbcTest extends AbstractJdbcTest {
                 "config", Util.map("schema", "test",
                         "credentials", Util.map("user", postgress.getUsername(), "password", postgress.getPassword()),
                         "mapping", Util.map("SMALL_NUM", Util.map("type", "int"), "BIG_NUM", Util.map("type", "int")))),
-                (row) -> assertResult(row, true, false));
+                (row) -> assertPostgresRes(row, true));
     }
 
     @Test
@@ -70,7 +71,7 @@ public class PostgresJdbcTest extends AbstractJdbcTest {
         testCall(db, "CALL apoc.load.jdbc($url,'SELECT * FROM PERSON',[], $config)", Util.map("url", postgress.getJdbcUrl(),
                 "config", Util.map("schema", "test",
                         "credentials", Util.map("user", postgress.getUsername(), "password", postgress.getPassword()))),
-                (row) -> assertResult(row));
+                (row) -> assertPostgresRes(row, false));
     }
 
     @Test
@@ -88,7 +89,11 @@ public class PostgresJdbcTest extends AbstractJdbcTest {
                 Util.map("url", postgress.getJdbcUrl(),
                         "config", Util.map("schema", "test",
                                 "credentials", Util.map("user", postgress.getUsername(), "password", postgress.getPassword()))),
-                (row) -> assertResult(row));
+                (row) -> assertPostgresRes(row, false));
     }
-    
+
+    private void assertPostgresRes(Map<String, Object> row, boolean isConverted) {
+        assertResult(row, isConverted, false, true);
+    }
+
 }

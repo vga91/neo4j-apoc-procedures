@@ -2,6 +2,7 @@
 <catalog>
     <book id="bk101">
         <price>44.95</price>
+        <arrayNums>1;2;3</arrayNums>
         <ignored>1234.5</ignored>
         <priceString>6789</priceString>
         <nada>nothingHere</nada>

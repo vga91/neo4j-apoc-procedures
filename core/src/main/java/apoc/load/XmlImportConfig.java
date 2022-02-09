@@ -55,11 +55,6 @@ public class XmlImportConfig extends LoadImportConfig {
         }
     }
 
-    @Override
-    public Object createMapping(Object input) {
-        return null;
-    }
-
     public Pattern getDelimiter() {
         return delimiter;
     }

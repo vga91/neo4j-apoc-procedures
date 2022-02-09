@@ -46,8 +46,9 @@ public class CsvLoaderConfig extends LoadImportConfig<List<CsvHeaderField>> {
     private final boolean ignoreDuplicateNodes;
     private final boolean ignoreBlankString;
 
-    public CsvLoaderConfig(Builder builder) {
-        super(Map.of(COMPRESSION, builder.compressionAlgo, CHARSET, builder.charset));
+    private CsvLoaderConfig(Builder builder) {
+        // change key from "arrayDelimiter" to "arraySep" to handle all Mapping in the same way
+        super(Map.of(COMPRESSION, builder.compressionAlgo, CHARSET, builder.charset, "arraySep", builder.arrayDelimiter));
         this.delimiter = builder.delimiter;
         this.arrayDelimiter = builder.arrayDelimiter;
         this.quotationCharacter = builder.quotationCharacter;
@@ -60,10 +61,6 @@ public class CsvLoaderConfig extends LoadImportConfig<List<CsvHeaderField>> {
 
     public char getDelimiter() {
         return delimiter;
-    }
-
-    public char getArrayDelimiter() {
-        return arrayDelimiter;
     }
 
     public char getQuotationCharacter() {

@@ -30,11 +30,7 @@ public class LoadXlsConfig extends LoadImportConfig {
         limit = Util.toLong(config.getOrDefault("limit", Long.MAX_VALUE));
         failOnError = Util.toBoolean(config.getOrDefault( "failOnError", true));
     }
-
-    public char getArraySep() {
-        return arraySep;
-    }
-
+    
     public long getSkip() {
         return skip;
     }
@@ -52,13 +48,13 @@ public class LoadXlsConfig extends LoadImportConfig {
     }
     
     @Override
-    public Map<String, XlsMapping> createMapping(Object ignored) {
+    public Map<String, BaseMapping> createMapping(Object ignored) {
         final Map<String, Map<String, Object>> mapping = getMapping();
         if (mapping.isEmpty()) return Collections.emptyMap();
-        HashMap<String, XlsMapping> result = new HashMap<>(mapping.size());
+        HashMap<String, BaseMapping> result = new HashMap<>(mapping.size());
         for (Map.Entry<String, Map<String, Object>> entry : mapping.entrySet()) {
             String name = entry.getKey();
-            result.put(name, new XlsMapping(name, this));
+            result.put(name, new BaseMapping(name, this));
         }
         return result;
     }

@@ -98,7 +98,7 @@ public class LoadXls {
 
         try (CountingInputStream stream = FileUtils.inputStreamFor(url, null, null, null)) {
             Selection selection = new Selection(selector);
-            Map<String, XlsMapping> mappings = xlsConfig.createMapping(null);
+            Map<String, BaseMapping> mappings = xlsConfig.createMapping(null);
 
             Workbook workbook = WorkbookFactory.create(stream);
             Sheet sheet = workbook.getSheet(selection.sheet);
@@ -118,7 +118,7 @@ public class LoadXls {
         }
     }
 
-    private String[] getHeader(boolean hasHeader, Row header, Selection selection, List<String> ignore, Map<String, XlsMapping> mapping) throws IOException {
+    private String[] getHeader(boolean hasHeader, Row header, Selection selection, List<String> ignore, Map<String, BaseMapping> mapping) throws IOException {
         if (!hasHeader) return null;
 
         String[] result = new String[selection.right - selection.left];
@@ -126,7 +126,7 @@ public class LoadXls {
             Cell cell = header.getCell(i);
             if (cell == null) throw new IllegalStateException("Header at position "+i+" doesn't have a value");
             String value = cell.getStringCellValue();
-            result[i- selection.left] = ignore.contains(value) || mapping.getOrDefault(value, XlsMapping.EMPTY).ignore ? null : value;
+            result[i- selection.left] = ignore.contains(value) || mapping.getOrDefault(value, BaseMapping.EMPTY).ignore ? null : value;
         }
         return result;
     }
@@ -172,7 +172,7 @@ public class LoadXls {
         public List<Object> list;
         public Map<String, Object> map;
 
-        public XLSResult(String[] header, Object[] list, long lineNo, boolean ignore, Map<String, XlsMapping> mapping, List<Object> nullValues) {
+        public XLSResult(String[] header, Object[] list, long lineNo, boolean ignore, Map<String, BaseMapping> mapping, List<Object> nullValues) {
             this.lineNo = lineNo;
             removeNullValues(list, nullValues);
 
@@ -187,13 +187,13 @@ public class LoadXls {
             }
         }
 
-        private List<Object> createList(String[] header, Object[] list, boolean ignore, Map<String, XlsMapping> mappings) {
+        private List<Object> createList(String[] header, Object[] list, boolean ignore, Map<String, BaseMapping> mappings) {
             if (!ignore && mappings.isEmpty()) return asList((Object[]) list);
             ArrayList<Object> result = new ArrayList<>(list.length);
             for (int i = 0; i < header.length; i++) {
                 String name = header[i];
                 if (name == null) continue;
-                XlsMapping mapping = mappings.get(name);
+                BaseMapping mapping = mappings.get(name);
                 if (mapping != null) {
                     if (mapping.ignore) continue;
                     result.add(mapping.convert(list[i]));
@@ -204,13 +204,13 @@ public class LoadXls {
             return result;
         }
 
-        private Map<String, Object> createMap(String[] header, Object[] list, boolean ignore, Map<String, XlsMapping> mappings) {
+        private Map<String, Object> createMap(String[] header, Object[] list, boolean ignore, Map<String, BaseMapping> mappings) {
             if (header == null) return null;
             Map<String, Object> map = new LinkedHashMap<>(header.length, 1f);
             for (int i = 0; i < header.length; i++) {
                 String name = header[i];
                 if (ignore && name == null) continue;
-                XlsMapping mapping = mappings.get(name);
+                BaseMapping mapping = mappings.get(name);
                 if (mapping == null) {
                     map.put(name, list[i]);
                 } else {
@@ -229,12 +229,12 @@ public class LoadXls {
         private final String url;
         private final long limit;
         private final boolean ignore;
-        private final Map<String, XlsMapping> mapping;
+        private final Map<String, BaseMapping> mapping;
         private final List<Object> nullValues;
         private final long skip;
         long lineNo;
 
-        public XLSSpliterator(Sheet sheet, Selection selection, String[] header, String url, long skip, long limit, boolean ignore, Map<String, XlsMapping> mapping, List<Object> nullValues) throws IOException {
+        public XLSSpliterator(Sheet sheet, Selection selection, String[] header, String url, long skip, long limit, boolean ignore, Map<String, BaseMapping> mapping, List<Object> nullValues) throws IOException {
             super(Long.MAX_VALUE, Spliterator.ORDERED);
             this.sheet = sheet;
             this.selection = selection;

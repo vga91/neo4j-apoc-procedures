@@ -101,6 +101,7 @@ public class XmlTest {
         testResult(db, "call apoc.load.xml('file:src/test/resources/xml/multiType.xml', '/catalog/book/*', $config)",
                 map("config", map("mapping", map(
                         "price", map("type", "float"),
+                        "arrayNums", map("type", "int", "array", true),
                         "ignored", map("ignore", true),
                         "publish_date_time", map("type", "localdatetime", "dateParse", List.of("yyyy-MM-dd HH:mm"))),
                         "nullValues", List.of("nada", "nothing")
@@ -113,6 +114,9 @@ public class XmlTest {
                         switch ((String) tag.get("_type")) {
                             case "price":
                                 assertEquals(44.95D, text);
+                                break;
+                            case "arrayNums":
+                                assertEquals(asList(1L, 2L, 3L), text);
                                 break;
                             case "priceString":
                                 assertEquals("6789", text);
@@ -128,14 +132,6 @@ public class XmlTest {
                                 fail("Should not match other tags");
                         }
                     });
-                });
-    }
-
-    @Test
-    public void testLoadXmlXpathWithMapping() {
-        testResult(db, "CALL apoc.load.xml('file:src/test/resources/xml/books.xml', '/catalog/book[genre=\"Computer\"]') yield value as result",
-                (r) -> {
-
                 });
     }
 
@@ -286,7 +282,7 @@ public class XmlTest {
     }
 
     @Test
-    public void testLoadXmlWithNextWordRelsWithNewConfigOptions1() {
+    public void testLoadXmlWithMapping() {
         testCall(db, "call apoc.xml.import('file:src/test/resources/xml/humboldt_soemmering01_1791.TEI-P5-shortened.xml', " +
                         "{label: 'XmlWord', ignore: ['measure'], mapping: {date: {type: 'datetime'}}}) yield node",
                 row -> assertNotNull(row.get("node")));

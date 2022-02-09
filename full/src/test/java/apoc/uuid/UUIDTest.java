@@ -34,7 +34,7 @@ public class UUIDTest {
             .withSetting(GraphDatabaseSettings.auth_enabled, true)
             .withSetting(ApocSettings.apoc_uuid_enabled, true);
 
-    private static final String UUID_TEST_REGEXP = "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+    public static final String UUID_TEST_REGEXP = "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 
     @Before
     public void setUp() throws Exception {

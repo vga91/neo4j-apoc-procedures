@@ -20,6 +20,9 @@ import org.neo4j.values.storable.Values;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -71,17 +74,27 @@ public class LoadJsonTest {
     }
 
     @Test 
-    public void testLoadJsonWithPoint() throws Exception {
+    public void testLoadJsonWithMultiTypeMapping() {
         URL url = ClassLoader.getSystemResource("point.json");
+        
+        final Map<String, Object> mapping = map("pointKey", map("type", "point"), 
+                "myLocalDate", map("type", "date", "dateParse", List.of("dd MM yyyy")),
+                "myTimeDate", map("type", "datetime", "dateParse", List.of("dd MM yyyy - HH:mm XXX")));
+        
+        final Map<String, Object> config = map("ignore", List.of("unused"),
+                "nullValues", List.of("asNull"),
+                "mapping", mapping);
         testCall(db, "CALL apoc.load.json($url, '', $config)",
-                map("url",url.toString(),
-                        "config", map( "ignore", List.of("unused"),
-                                "nullValues", List.of("asNull"),
-                                "mapping", map("pointKey", map("type", "point")))),
-                (row) -> assertEquals(map("foo", map("baz", 1L, 
+                map("url", url.toString(), "config", config),
+                (row) -> {
+                    final Object actual = row.get("value");
+                    final Map<String, Object> foo = map("baz", 1L,
+                            "myLocalDate", LocalDate.of(1991, 12, 12),
+                            "myTimeDate", ZonedDateTime.of(1991, 12, 12, 15, 52, 0, 0, ZoneOffset.of("+01:00")),
                             "asNull", null,
-                            "pointKey", List.of(Values.pointValue(CoordinateReferenceSystem.WGS84, 13.1, 33.46789)))), 
-                        row.get("value")));
+                            "pointKey", List.of(Values.pointValue(CoordinateReferenceSystem.WGS84, 13.1, 33.46789)));
+                    assertEquals(map("foo", foo), actual);
+                });
     }
     
     @Test public void testLoadJson() throws Exception {
@@ -110,13 +123,47 @@ public class LoadJsonTest {
                 (row) -> assertEquals(map("result",asList("1", "2", "3")), row.get("value")));
     }
     
-    @Test 
-    public void testLoadJsonWithMapping2() {
-		URL url = ClassLoader.getSystemResource("map.json");
-		testCall(db, "CALL apoc.load.json($url, '', $config)",
-                map("url",url.toString(), "config", map("mapping", map("foo", map("type", "string")))),
+    // todo - test con array specifico (stesso file mapMultiType.json) per far vedere che non si separa anche una stringa tipo aa;ee;ii
+    
+    // todo - aggiungere nella documentazione che array: true può essere anche generico, come arraySep
+    
+    @Test
+    public void testLoadJsonWithArraySepInMapping() {
+		String url = ClassLoader.getSystemResource("mapMultiType.json").toString();
+		
+		// with array: true specified in config, generic
+        final Map<String, Object> mapping = map("list", map("array", false, "type", "string"),
+                "arrayOne", map("arraySep", "!"),
+                "arrayTwo", map("arraySep", "-", "type", "int"));
+        
+        final Map<String, Object> config1 = map("array", true, "arraySep", "_", "mapping", mapping);
+        
+        final List<String> listOfThree = asList("alpha", "beta", "gamma");
+        testCall(db, "CALL apoc.load.json($url, '', $config)", map("url", url, "config", config1), 
                 (row) -> {
-                    assertEquals(map("foo", asList("1","2","3")), row.get("value"));
+                    final Map<String, Object> expected = map("list", asList("1", "2", "3"),
+                            "arrayOne", listOfThree,
+                            "arrayTwo", asList(1L, 2L, 3L),
+                            "arrayThree", listOfThree,
+                            "arrayInList", asList(listOfThree, asList("delta", "epsilon")));
+                    assertEquals(expected, row.get("value"));
+                });
+
+        // with array: true specified in mapping, specific
+        final Map<String, Object> mapping2 = map("list", map( "type", "string"),
+                "arrayOne", map("array", true, "arraySep", "!"),
+                "arrayTwo", map("array", true, "arraySep", "-", "type", "int"));
+        
+        final Map<String, Object> config = map("arraySep", "_", "mapping", mapping2);
+
+        testCall(db, "CALL apoc.load.json($url, '', $config)", map("url", url, "config", config),
+                (row) -> {
+                    final Map<String, Object> expected = map("list", asList("1", "2", "3"),
+                            "arrayOne", listOfThree,
+                            "arrayTwo", List.of(1L, 2L, 3L),
+                            "arrayThree", "alpha_beta_gamma",
+                            "arrayInList", List.of("alpha_beta_gamma", "delta_epsilon"));
+                    assertEquals(expected, row.get("value"));
                 });
     }
 

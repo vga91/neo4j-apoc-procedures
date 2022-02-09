@@ -21,17 +21,18 @@ public class LoadJsonConfig extends LoadImportConfig<Map<String, Object>> {
 
     @Override
     public Map<String, Object> createMapping(Map<String, Object> mapValue) {
-        return mapValue == null 
-                ? null
-                : mapValue.entrySet()
+        if (mapValue == null) {
+            return null;
+        }
+        return mapValue.entrySet()
                 .stream()
                 .collect(HashMap::new,
                         (mapAccumulator, entry) -> {
                             final Map<String, Map<String, Object>> mapping = this.getMapping();
                             final String key = entry.getKey();
                             final Object value = entry.getValue();
-                            final JsonMapping jsonMapping = new JsonMapping(key, this);
-                            if (!jsonMapping.isIgnore()) {
+                            final BaseMapping jsonMapping = new BaseMapping(key, this);
+                            if (!jsonMapping.ignore) {
                                 mapAccumulator.put(key,
                                         value instanceof Map && !mapping.containsKey(key) ? createMapping((Map) value)
                                                 : jsonMapping.convert(value)

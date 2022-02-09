@@ -11,6 +11,7 @@ The procedure support the following config parameters:
 | quoteChar | String | '"' | the char to use for quoted elements
 | escapeChar | String | '\' | the char to use for escape elements. Use `"NONE"` if you don't want to use any characters
 | arraySep | String |  ';' | array separator
+| array | boolean |  false | to handle the value as an array
 | ignore | List<String> | [] | which columns to ignore
 | nullValues | List<String> | [] | which values to treat as null, e.g. `['na',false]`
 | mapping | Map | {} | per field mapping, entry key is field name, .e.g `{years:{....}` see below
@@ -19,10 +20,17 @@ See the xref::overview/apoc.load/apoc.load.csv.adoc#_binary_file[Binary file exa
 | timezone | String | `db.temporal.timezone` from `neo4j.conf` | default timezone in case of localtime and localdatetime without this one
 |===
 
-`mapping` supports the following values:
+where `mapping` supports the following values:
 
-* `name: <nameField>` - field name
-* `<type>` - type of the conversion requested (`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NULL`, `LIST`, `DATE`, `DATE_TIME`, `LOCAL_DATE`, `LOCAL_DATE_TIME`, `LOCAL_TIME`, `TIME`, `POINT`)
-* `dateFormat: <format>` - convert the Date into String
-* `dateParse: [<formats>]` - convert the String into Date
-* `ignore: <boolean>` - column to ignore  (if true)
+.Mapping parameters
+[opts=header]
+|===
+| name | type | default | description
+| type | string | type of the conversion requested (`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NULL`, `LIST`, `DATE`, `DATE_TIME`, `LOCAL_DATE`, `LOCAL_DATE_TIME`, `LOCAL_TIME`, `TIME`, `POINT`)
+| dateFormat | <format>` | null | convert the Date into String
+| dateParse | [<formats>]` | null | convert the String into Date
+| ignore | boolean | true if is included in `ignore` config parameter (see table above), otherwise false | column to ignore  (if true)
+| array` | boolean | value of `array` config parameter (see table above) | to handle the value as an array
+| arraySep` | String | the value of `arraySep` config parameter (see table above) | the array separator of the value, in case `array` is true 
+|===
+

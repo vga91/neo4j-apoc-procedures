@@ -20,7 +20,6 @@ public class LoadCsvConfig extends LoadImportConfig {
 
     private final boolean ignoreErrors;
     private char separator;
-    private char arraySep;
     private char quoteChar;
     private char escapeChar;
     private long skip;
@@ -44,7 +43,6 @@ public class LoadCsvConfig extends LoadImportConfig {
         }
         ignoreErrors = Util.toBoolean(config.getOrDefault("ignoreErrors", false));
         separator = parseCharFromConfig(config, "sep", DEFAULT_SEP);
-        arraySep = parseCharFromConfig(config, "arraySep", DEFAULT_ARRAY_SEP);
         quoteChar = parseCharFromConfig(config,"quoteChar", DEFAULT_QUOTE_CHAR);
         escapeChar = parseCharFromConfig(config,"escapeChar", DEFAULT_ESCAPE_CHAR);
         long skip = (long) config.getOrDefault("skip", 0L);
@@ -79,10 +77,6 @@ public class LoadCsvConfig extends LoadImportConfig {
 
     public char getSeparator() {
         return separator;
-    }
-
-    public char getArraySep() {
-        return arraySep;
     }
 
     public long getSkip() {

@@ -12,7 +12,9 @@ The procedure support the following config parameters:
 | arraySep | String |  ';' | array separator
 | ignore | List<String> | [] | which columns to ignore
 | nullValues | List<String> | [] | which values to treat as null, e.g. `['na',false]`
-| mapping | Map | {} | per field mapping, entry key is field name, .e.g `{mapping:{'<sheet>':{type:'<type>', dateFormat: '<format>', dateParse: [<formats>]}}}`
+| arraySep | String |  ';' | array separator of the value, in case `array` is true
+| array | boolean |  false | to handle the value as an array
+| mapping | Map | {} | per field mapping, entry key is field name, .e.g `{mapping:{'<sheet>':{type:'<type>', dateFormat: '<format>', dateParse: [<formats>], ignore: <ignore>, array: <array>, arraySep: <arraySep> }}}`
 | timezone | String | `db.temporal.timezone` from `neo4j.conf` | default timezone in case of localtime and localdatetime without this one
 |===
 
@@ -22,3 +24,6 @@ The procedure support the following config parameters:
 * `<type>` - type of the conversion requested (`STRING`, `INTEGER`, `FLOAT`, `BOOLEAN`, `NULL`, `LIST`, `DATE`, `DATE_TIME`, `LOCAL_DATE`, `LOCAL_DATE_TIME`, `LOCAL_TIME`, `TIME`, `POINT`)
 * `dateFormat: <format>` - convert the Date into String (only String is allowed)
 * `dateParse: [<formats>]` - convert the String into Date (Array of strings are allowed)
+* `<ignore> - column to ignore. Is a boolean value. By default is false, or true if is included in `ignore` config parameter (see table above)
+* `<array>` -to handle the value as an array. Is a boolean value. By default is the value of `array` config parameter (see table above)
+* `<arraySep>` - the array separator of the value, in case `array` is true. By default is the value of `arraySep` config parameter (see table above)

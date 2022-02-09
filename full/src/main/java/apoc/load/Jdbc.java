@@ -17,7 +17,6 @@ import java.time.OffsetDateTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -160,18 +159,6 @@ public class Jdbc {
         }
     }
 
-    private static class JdbcMapping extends AbstractMapping {
-
-        public JdbcMapping(String name, LoadJdbcConfig config) {
-            super(name, config);
-        }
-
-        protected Object convert(Object value) {
-            return super.commonConvertType(value);
-        }
-        
-        // todo - evaluate if might be worth using a convertArray() like CsvMapping
-    }
 
     private static class ResultSetIterator implements Iterator<Map<String, Object>> {
         private final Log log;
@@ -219,7 +206,7 @@ public class Jdbc {
                 Map<String, Object> row = new LinkedHashMap<>(columns.length);
                 for (int col = 1; col < columns.length; col++) {
                     final String columnName = columns[col];
-                    final JdbcMapping colMapping = new JdbcMapping(columnName, config);
+                    final BaseMapping colMapping = new BaseMapping(columnName, config);
                     if (!colMapping.isIgnore()) {
                         row.put(columnName, convert(rs.getObject(col), rs.getMetaData().getColumnType(col), colMapping));
                     }
@@ -232,7 +219,7 @@ public class Jdbc {
             }
         }
 
-        private Object convert(Object value, int sqlType, JdbcMapping colMapping) {
+        private Object convert(Object value, int sqlType, BaseMapping colMapping) {
             if (value == null) return null;
             if (Types.TIME == sqlType) {
                 return ((java.sql.Time)value).toLocalTime();
@@ -260,9 +247,6 @@ public class Jdbc {
             }
             if (Types.DATE == sqlType) {
                 return ((java.sql.Date)value).toLocalDate();
-            }
-            if (value instanceof UUID) {
-                return value.toString();
             }
             return colMapping.convert(value);
         }

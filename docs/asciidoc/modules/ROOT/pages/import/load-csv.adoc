@@ -88,10 +88,10 @@ Besides the file you can pass in a config map:
 |===
 | name | default | description
 | type | none | 'int', 'string' etc.
-| array | false | indicates if field is an array
-| arraySep | ';' | separator for array
+| array | value of `array` config parameter (see table above) | indicates if field is an array
+| arraySep | the value of `arraySep` config parameter (see table above) | separator for array
 | name | none | rename field
-| ignore | false | ignore/remove this field
+| ignore | true if is included in `ignore` config parameter (see table above), otherwise false | ignore/remove this field
 | nullValues | [] | which values to treat as null, e.g. `['na',false]`
 |===
 

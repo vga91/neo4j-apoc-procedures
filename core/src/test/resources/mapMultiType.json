@@ -1,0 +1,7 @@
+{
+  "list": [1,2,3],
+  "arrayOne": "alpha!beta!gamma",
+  "arrayTwo": "1-2-3",
+  "arrayThree": "alpha_beta_gamma",
+  "arrayInList": ["alpha_beta_gamma", "delta_epsilon"]
+}

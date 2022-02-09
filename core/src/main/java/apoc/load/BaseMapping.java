@@ -1,7 +1,7 @@
 package apoc.load;
 
+import apoc.load.util.LoadCsvConfig;
 import apoc.meta.Meta;
-import apoc.util.MappingUtil;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.values.storable.DateTimeValue;
@@ -26,26 +26,31 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static apoc.load.LoadImportConfig.IGNORE_KEY;
 import static apoc.load.LoadImportConfig.NULL_VALUES_KEY;
 import static apoc.load.LoadImportConfig.TIMEZONE_KEY;
 import static apoc.util.DateParseUtil.dateParse;
 import static apoc.util.Util.dateFormat;
+import static apoc.util.Util.parseCharFromConfig;
 
-public abstract class AbstractMapping {
-    final String name;
-    final Collection<String> nullValues;
-    final Meta.Types type;
-    final String dateFormat;
-    final String[] dateParse;
-    final boolean ignore;
-    final Map<String, Object> mapping;
-    final ZoneId zoneId;
+public class BaseMapping {
+    public static final BaseMapping EMPTY = new BaseMapping(StringUtils.EMPTY, LoadImportConfig.EMPTY);
 
-    public AbstractMapping(String name, LoadImportConfig config) {
+    protected final String name;
+    protected final Collection<String> nullValues;
+    protected final Meta.Types type;
+    protected final String dateFormat;
+    protected final String[] dateParse;
+    protected final boolean ignore;
+    protected final Map<String, Object> mapping;
+    protected final ZoneId zoneId;
+    protected final boolean array;
+    protected final Pattern arrayPattern;
+
+    public BaseMapping(String name, LoadImportConfig config) {
         Map<String, Object> mapping = (Map<String, Object>) config.getMapping().get(name);
         if (mapping == null) {
             mapping = Collections.emptyMap();
@@ -60,52 +65,56 @@ public abstract class AbstractMapping {
         this.dateFormat = mapping.getOrDefault("dateFormat", StringUtils.EMPTY).toString();
         this.dateParse = convertFormat(mapping.get("dateParse"));
         this.zoneId = getTimezoneIfValid(mapping, config.getZoneId());
+
+        this.array = Util.toBoolean(mapping.getOrDefault("array", config.isArray()));
+        char arraySep = parseCharFromConfig(mapping, "arraySep", config.getArraySep());
+        this.arrayPattern = Pattern.compile(String.valueOf(arraySep), Pattern.LITERAL);
     }
     
-    abstract protected Object convert(Object input);
-
-    protected Object convertArray(Object value, Pattern arrayPattern, Function<String, Object> convertFunction) {
+    protected Object convertArray(Object value) {
         if (value == null) {
             return Collections.emptyList();
         }
         String[] values = arrayPattern.split(value.toString());
         List<Object> result = new ArrayList<>(values.length);
         for (String v : values) {
-            result.add(convertFunction.apply(v));
+            result.add(convertItem(v));
         }
         return result;
     }
-
-    public String getName() {
-        return name;
-    }
-
-    public Meta.Types getType() {
-        return type;
-    }
-
-    public boolean isIgnore() {
-        return ignore;
-    }
-
-    public String getDateFormat() {
-        return dateFormat;
-    }
-
-    public String[] getDateParse() {
-        return dateParse;
-    }
-
+    
     private static String[] convertFormat(Object value) {
         if (value == null) return null;
-        if (!(value instanceof List)) throw new RuntimeException("Only array of Strings are allowed!");
+        if (!(value instanceof List)) {
+            throw new RuntimeException("Only array of Strings are allowed!");
+        }
         List<String> strings = (List<String>) value;
         return strings.toArray(new String[strings.size()]);
     }
 
-    public Object commonConvertType(Object value) {
-        if (nullValues.contains(name) || value == null) return null;
+    private Object convertList(List<Object> value) {
+        return value.stream()
+                .map(this::convert)
+                .collect(Collectors.toList());
+    }
+
+    public Object convert(Object value) {
+        // in case e.g. of a json with { "property": [1,2,3] }
+        if (value instanceof List) {
+            return convertList((List) value);
+        }
+        // in case of config and/or mapping with {array:true}
+        if (array) {
+            return convertArray(value);
+        }
+        return convertItem(value);
+    }
+
+    public Object convertItem(Object value) {
         
+        if (nullValues.contains(name) || value == null) {
+            return null;
+        }
         if (type == null) {
             return value;
         }
@@ -127,10 +136,10 @@ public abstract class AbstractMapping {
                 return value.toString();
             case INTEGER:
                 // to handle BigInteger and BigDecimal (jdbc)
-                return MappingUtil.toLongOrString(value);
+                return Util.toLongOrString(value);
             case FLOAT:
                 // to handle BigInteger and BigDecimal (jdbc)
-                return MappingUtil.toDoubleOrString(value);
+                return Util.toDoubleOrString(value);
             case BOOLEAN:
                 return Util.toBoolean(value);
             case NULL:
@@ -172,4 +181,47 @@ public abstract class AbstractMapping {
             throw new IllegalArgumentException(String.format("The timezone field contains an error: %s", e.getMessage()));
         }
     }
+    
+    // getters
+    
+    public String getName() {
+        return name;
+    }
+
+    public Meta.Types getType() {
+        return type;
+    }
+
+    public boolean isIgnore() {
+        return ignore;
+    }
+
+    public String getDateFormat() {
+        return dateFormat;
+    }
+
+    public String[] getDateParse() {
+        return dateParse;
+    }
+
+    public Collection<String> getNullValues() {
+        return nullValues;
+    }
+
+    public Map<String, Object> getMapping() {
+        return mapping;
+    }
+
+    public ZoneId getZoneId() {
+        return zoneId;
+    }
+
+    public boolean isArray() {
+        return array;
+    }
+
+    public Pattern getArrayPattern() {
+        return arrayPattern;
+    }
+
 }
