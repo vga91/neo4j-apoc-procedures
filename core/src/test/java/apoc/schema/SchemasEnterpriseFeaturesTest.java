@@ -417,6 +417,59 @@ public class SchemasEnterpriseFeaturesTest {
         });
     }
 
+    @Test
+    public void testCompareIndexesAndConstraintsRelEnterprise() {
+        session.writeTransaction(tx -> {
+            tx.run("CREATE CONSTRAINT foo_bar ON (f:Foo) ASSERT (f.bar,f.foo) IS NODE KEY");
+            tx.run("CREATE CONSTRAINT bar_foobar ON (bar:Bar) ASSERT exists(bar.foobar)");
+            tx.run("CREATE INDEX FOR (n:Person) ON (n.surname)");
+            tx.run("CALL db.index.fulltext.createNodeIndex('fullSecondIdx', ['Person', 'Another'], ['weightProp'])");
+//            
+//            tx.run("CREATE CONSTRAINT like_day ON ()-[like:LIKED]-() ASSERT exists(like.day)");
+//            tx.run("CALL db.index.fulltext.createRelationshipIndex('fullIdxRel', ['TYPE_1', 'TYPE_2'], ['alpha', 'beta'])");
+//            tx.run("CREATE INDEX rel_index_name FOR ()-[r:KNOWS]-() ON (r.since)");
+            tx.commit();
+            return null;
+        });
+
+        testResult(session, "CALL apoc.schema.node.compareIndexesAndConstraints()", (res) -> {
+            Map<String, Object> row = res.next();
+            assertEquals(Map.of(":KNOWS(since)", List.of("since")), row.get("onlyIdxProps"));
+            assertEquals("Another", row.get("label"));
+            assertEquals(Collections.emptyMap(), row.get("onlyConstraintsProps"));
+            assertEquals(Collections.emptyList(), row.get("commonProps"));
+            row = res.next();
+            assertEquals(Map.of(":Movie(name)", List.of("name")), row.get("onlyIdxProps"));
+            assertEquals("Movie", row.get("label"));
+            assertEquals(Collections.emptyMap(), row.get("onlyConstraintsProps"));
+            assertEquals(Collections.emptyList(), row.get("commonProps"));
+            assertFalse(res.hasNext());
+        });
+        testResult(session, "CALL apoc.schema.relationship.compareIndexesAndConstraints()", (res) -> {
+            Map<String, Object> row = res.next();
+            assertEquals("Another", row.get("label"));
+            assertEquals(Map.of(":KNOWS(since)", List.of("since")), row.get("onlyIdxProps"));
+            assertEquals(Collections.emptyMap(), row.get("onlyConstraintsProps"));
+            assertEquals(Collections.emptyList(), row.get("commonProps"));
+            row = res.next();
+            assertEquals("Movie", row.get("label"));
+            assertEquals(Map.of(":Movie(name)", List.of("name")), row.get("onlyIdxProps"));
+            assertEquals(Collections.emptyMap(), row.get("onlyConstraintsProps"));
+            assertEquals(Collections.emptyList(), row.get("commonProps"));
+            assertFalse(res.hasNext());
+        });
+
+        session.writeTransaction(tx -> {
+            tx.run("DROP CONSTRAINT ON ()-[like:LIKED]-() ASSERT exists(like.day)");
+            tx.run("DROP CONSTRAINT ON (bar:Bar) ASSERT exists(bar.foobar)");
+            tx.run("DROP CONSTRAINT ON ()-[like:LIKED]-() ASSERT exists(like.day)");
+            tx.run("DROP CONSTRAINT ON (bar:Bar) ASSERT exists(bar.foobar)");
+            tx.commit();
+            return null;
+        });
+        
+    }
+
     private List<String> expectedKeys(String... keys){
         return asList(keys);
     }

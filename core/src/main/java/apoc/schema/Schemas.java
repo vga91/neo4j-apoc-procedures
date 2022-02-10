@@ -37,8 +37,6 @@ import org.neo4j.procedure.Procedure;
 import org.neo4j.procedure.UserFunction;
 import org.neo4j.token.api.TokenConstants;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,6 +45,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -95,64 +94,82 @@ public class Schemas {
 
     @Procedure(value = "apoc.schema.node.compareIndexesAndConstraints", mode = Mode.SCHEMA)
     @Description("CALL apoc.schema.node.compareIndexesAndConstraints([config]) - to compare constraint and indexes")
-    public Stream<CompareIdxToCons> compareIndexesAndConstraints(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
+    public Stream<CompareIdxToConsNodes> compareIndexesAndConstraints(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
         return indexesAndConstraintsForNode(config,
-                getStreamStreamStreamBiFunction(IndexConstraintNodeInfo.class));
+                getStreamStreamStreamBiFunction(CompareIdxToConsNodes.class));
     }
 
-    private <T extends IndexConstraintEntityInfo, R extends CompareIdxToCons> BiFunction<Stream<T>, Stream<T>, Stream<R>> getStreamStreamStreamBiFunction(Class<T> clazz) {
+    @Procedure(value = "apoc.schema.relationship.compareIndexesAndConstraints", mode = Mode.SCHEMA)
+    @Description("CALL apoc.schema.relationship.compareIndexesAndConstraints([config]) - to compare constraint and indexes")
+    public Stream<CompareIdxToConsRels> compareIndexesAndConstraintsForRelationships(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
+        return indexesAndConstraintsForRelationships(config, getStreamStreamStreamBiFunction(CompareIdxToConsRels.class));
+    }
+
+    private <T extends IndexConstraintEntityInfo, R extends CompareIdxToCons> BiFunction<Stream<T>, Stream<T>, Stream<R>> getStreamStreamStreamBiFunction(Class<R> clazz) {
         return (constraintNodeInfoStream, indexNodeInfoStream) -> {
-            final List<T> collect = constraintNodeInfoStream.collect(Collectors.toList());
-            final List<T> collect1 = indexNodeInfoStream.collect(Collectors.toList());
+            final List<T> constraints = constraintNodeInfoStream.collect(Collectors.toList());
+            final List<T> indexes = indexNodeInfoStream.collect(Collectors.toList());
 
             Map<String, R> map = new TreeMap<>();
-//                    Map<String, Set<String>> commonProps = new HashMap<>();
-//                    Map<String, Map<String, List>> onlyIdxProps = new HashMap<>();
-            collect1.forEach(i -> {
-                final Object labelOrType = i instanceof IndexConstraintNodeInfo 
-                        ? ((IndexConstraintNodeInfo) i).label 
-                        : ((IndexConstraintRelationshipInfo) i).type;
+
+            indexes.forEach(i -> {
+                final Object labelOrType = getInfoLabelOrType(i);
                 if (labelOrType instanceof String) {
-                    extracted(collect, getCompute(map, (String) labelOrType, clazz), i/*, (String) label, onlyIdxProps*/);
+                    addCommonAndOnlyIdProps(constraints, addObjectIfAbsent(map, (String) labelOrType, clazz), i/*, (String) label, onlyIdxProps*/);
                 }
                 if (labelOrType instanceof List) {
                     final List<String> label1 = (List<String>) labelOrType;
                     label1.forEach(lbl -> {
-                        extracted(collect, getCompute(map, lbl, clazz), i);
+                        addCommonAndOnlyIdProps(constraints, addObjectIfAbsent(map, lbl, clazz), i);
                     });
                 }
             });
 
-            collect.forEach(i -> {
-                    // todo - common
-                    final Object labelOrType = i instanceof IndexConstraintNodeInfo
-                            ? ((IndexConstraintNodeInfo) i).label
-                            : ((IndexConstraintRelationshipInfo) i).type;
-                        getCompute(map, (String) labelOrType, clazz).putOnlyConstraintsProps(i.properties, i.name);
-                    }
-            );
+            constraints.forEach(i -> {
+                final Object labelOrType = getInfoLabelOrType(i);
+                addObjectIfAbsent(map, (String) labelOrType, clazz).putOnlyConstraintsProps(i.properties, i.name);
+            });
 
             return map.values().stream();
         };
     }
 
-    private <T extends CompareIdxToCons> T getCompute(Map<String, T> map, String label, Class<T> clazz) {
-        
-        return map.compute(label, 
-                (k, v) -> {
-                    if (v == null) {
-//                        return clazz.isInstance(CompareIdxToConsNodes.class) 
-                                return clazz.getDeclaredConstructor() new CompareIdxToConsNodes(label);
-//                                : (T) new CompareIdxToConsRels(label);
-                    }
-                    return v;
-                });
+    private <T extends IndexConstraintEntityInfo> Object getInfoLabelOrType(T i) {
+        return i instanceof IndexConstraintNodeInfo
+                ? ((IndexConstraintNodeInfo) i).label
+                : ((IndexConstraintRelationshipInfo) i).type;
     }
 
-    @Procedure(value = "apoc.schema.relationship.compareIndexesAndConstraints", mode = Mode.SCHEMA)
-    @Description("CALL apoc.schema.relationship.compareIndexesAndConstraints([config]) - to compare constraint and indexes")
-    public Stream<CompareIdxToCons> compareIndexesAndConstraintsForRelationships(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
-        return indexesAndConstraintsForRelationships(config, getStreamStreamStreamBiFunction(IndexConstraintRelationshipInfo.class));
+    private <T extends CompareIdxToCons> T addObjectIfAbsent(Map<String, T> map, String label, Class<T> clazz) {
+        
+        return map.compute(label,
+                (k, v) -> Objects.requireNonNullElseGet(v, () -> {
+                    try {
+                        return clazz.getConstructor(String.class).newInstance(label);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }));
+    }
+    
+    private <T> void addCommonAndOnlyIdProps(List<T> constraints, CompareIdxToCons compareIdxToCons, IndexConstraintEntityInfo i) {
+        final String compareLabelOrType = compareIdxToCons.getLabelOrType();
+
+        final List<String> props = i.properties;
+        if (i instanceof IndexConstraintNodeInfo && ((IndexConstraintNodeInfo) i).type.equals("UNIQUENESS")) {
+            compareIdxToCons.addCommonProps(props);
+        } else {
+            constraints.stream().filter(cons -> {
+                final Object infoLabelOrType = getInfoLabelOrType(i);
+                return infoLabelOrType.equals(compareLabelOrType);
+            }).findFirst()
+                    .ifPresentOrElse(pres -> {
+                        compareIdxToCons.addCommonProps(props);
+                        constraints.remove(pres);
+                    }, 
+                    () -> compareIdxToCons.putOnlyIdxProps(props, i.name)
+                    );
+        }
     }
 
     @UserFunction(value = "apoc.schema.node.indexExists")
@@ -391,7 +408,7 @@ public class Schemas {
         return indexesAndConstraintsForNode(config, 
                 (constraintNodeInfoStream, indexNodeInfoStream) -> Stream.of(constraintNodeInfoStream, indexNodeInfoStream).flatMap(e -> e));
     }
-    
+
     private <T> T indexesAndConstraintsForNode(Map<String,Object> config, BiFunction<Stream<IndexConstraintNodeInfo>, Stream<IndexConstraintNodeInfo>, T> function) {
 
         SchemaConfig schemaConfig = new SchemaConfig(config);
@@ -450,10 +467,6 @@ public class Schemas {
                         .collect(Collectors.toList());
             }
             
-            // todo .. forse se parto da qua... con un bel Function<A,B>..
-//            System.out.println("Schemas.indexesAndConstraintsForNode");
-//            
-//
             Stream<IndexConstraintNodeInfo> constraintNodeInfoStream = StreamSupport.stream(constraintsIterator.spliterator(), false)
                     .filter(constraintDescriptor -> constraintDescriptor.type().equals(org.neo4j.internal.schema.ConstraintType.EXISTS))
                     .map(constraintDescriptor -> this.nodeInfoFromConstraintDescriptor(constraintDescriptor, tokenRead))
@@ -462,79 +475,9 @@ public class Schemas {
             Stream<IndexConstraintNodeInfo> indexNodeInfoStream = StreamSupport.stream(indexesIterator.spliterator(), false)
                     .map(indexDescriptor -> this.nodeInfoFromIndexDefinition(indexDescriptor, schemaRead, tokenRead))
                     .sorted(Comparator.comparing(i -> i.label.toString()));
-//            
-//            
+            
             return function.apply(constraintNodeInfoStream, indexNodeInfoStream);
-//            
-//            
-//////            indexNodeInfoStream.takeWhile()
-////
-//
-//
-//            System.out.println("Schemas.indexesAndConstraintsForNode");
-//            return constraintNodeInfoStream1.flatMap(e -> e);
         }
-    }
-
-    private <T> void extracted(List<T> collect, CompareIdxToCons compareIdxToCons, IndexConstraintEntityInfo i/*, String label, Map<String, List> onlyIdxProps*/) {
-        final String label1 = compareIdxToCons.getLabelOrType(); // todo - interfaccia che ritorna String label o String type...
-
-        final List<String> props = i.properties;
-        if (i instanceof IndexConstraintNodeInfo && ((IndexConstraintNodeInfo) i).type.equals("UNIQUENESS")) {
-            compareIdxToCons.addCommonProps(props);
-        } else {
-            collect.stream().filter(cons -> {
-                // todo - common
-                final Object labelOrType = i instanceof IndexConstraintNodeInfo
-                        ? ((IndexConstraintNodeInfo) i).label
-                        : ((IndexConstraintRelationshipInfo) i).type;
-                return labelOrType.equals(label1);
-            }).findFirst()
-                    .ifPresentOrElse(pres -> {
-                        compareIdxToCons.addCommonProps(props);
-                        collect.remove(pres);
-                        }, 
-//                        () -> compareIdxToCons.putOnlyIdxProps(i.name, (k,v) -> {
-//                            if (v == null) {
-//                                return i.properties;
-//                            }
-//                            v.addAll(i.properties);
-//                            return v; 
-//                        })
-                        () -> compareIdxToCons.putOnlyIdxProps(props, i.name)
-                    );
-        }
-
-//        final Optional<Boolean> uniqueness = Optional.of(i.type.equals("UNIQUENESS") /*|| collect.stream().anyMatch(cons -> cons.label.equals(label1))*/);
-//        uniqueness
-//                .ifPresentOrElse(present -> {
-//                    commonProps.addAll(i.properties);
-////                    if (present instanceof IndexConstraintNodeInfo) {
-////                        collect.remove(present);
-////                    }  
-//                },
-//                () -> {
-//                    collect.stream().filter(cons -> cons.label.equals(label1)).findFirst()
-//                            .ifPresentOrElse(pres -> {
-//                                        commonProps.addAll(i.properties);
-//                                        collect.remove(pres);
-//                            },
-//                            () -> onlyIdxProps.compute(label, (k,v) -> {
-//                                        if (v == null) {
-//                                            return i.properties;
-//                                        }
-//                                        v.addAll(i.properties);
-//                                        return v;
-//                                    }
-//                                    )
-//                    );
-//                });
-//        if (first.) {
-//            commonProps.addAll(i.properties);
-//            
-//        } else {
-//            
-//        }
     }
 
     private List<IndexDescriptor> getIndexesFromSchema(Iterator<IndexDescriptor> allIndex, Predicate<IndexDescriptor> indexDescriptorPredicate) {

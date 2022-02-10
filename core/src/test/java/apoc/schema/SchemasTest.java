@@ -681,7 +681,7 @@ public class SchemasTest {
             assertTrue(((List)row.get("properties")).isEmpty());
         });
     }
-    // https://github.com/neo4j-contrib/neo4j-apoc-procedures/issues/1383
+
     @Test
     public void testCompareIndexesAndConstraints() {
         db.executeTransactionally("CREATE INDEX FOR (n:Person) ON (n.surname)");
@@ -713,10 +713,24 @@ public class SchemasTest {
     public void testCompareIndexesAndConstraintsRel() {
         db.executeTransactionally("CALL db.index.fulltext.createRelationshipIndex('fullIdxRel', ['TYPE_1', 'TYPE_2'], ['alpha', 'beta'])");
         db.executeTransactionally("CREATE INDEX rel_index_name FOR ()-[r:KNOWS]-() ON (r.since)");
-//        db.executeTransactionally("CREATE INDEX FOR (n:Movie) ON (n.name)");
 
-        testCall(db, "CALL apoc.schema.compareIndexesAndConstraints()", (row) -> {
-            System.out.println("SchemasTest.testCompareIndexesAndConstraints"); 
+        testResult(db, "CALL apoc.schema.relationship.compareIndexesAndConstraints()", (res) -> {
+            Map<String, Object> row = res.next();
+            assertEquals("KNOWS", row.get("type"));
+            assertEquals(Map.of(":KNOWS(since)", List.of("since")), row.get("onlyIdxProps"));
+            assertEquals(Collections.emptyMap(), row.get("onlyConstraintsProps"));
+            assertEquals(Collections.emptyList(), row.get("commonProps"));
+            row = res.next();
+            assertEquals("TYPE_1", row.get("type"));
+            assertEquals(Map.of(":[TYPE_1, TYPE_2],(alpha,beta)", List.of("alpha", "beta")), row.get("onlyIdxProps"));
+            assertEquals(Collections.emptyMap(), row.get("onlyConstraintsProps"));
+            assertEquals(Collections.emptyList(), row.get("commonProps"));
+            row = res.next();
+            assertEquals(Map.of(":[TYPE_1, TYPE_2],(alpha,beta)", List.of("alpha", "beta")), row.get("onlyIdxProps"));
+            assertEquals("TYPE_2", row.get("type"));
+            assertEquals(Collections.emptyMap(), row.get("onlyConstraintsProps"));
+            assertEquals(Collections.emptyList(), row.get("commonProps"));
+            assertFalse(res.hasNext());
         });
     }
 

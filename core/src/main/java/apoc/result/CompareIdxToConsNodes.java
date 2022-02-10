@@ -7,8 +7,12 @@ public class CompareIdxToConsNodes extends CompareIdxToCons {
     public String label;
 
     public CompareIdxToConsNodes(String label) {
-        super(label);
+        super();
         this.label = label;
+    }
+
+    public String getLabel() {
+        return label;
     }
 
     @Override

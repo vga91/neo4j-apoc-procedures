@@ -12,7 +12,7 @@ public abstract class CompareIdxToCons {
     public Map<String, Object> onlyIdxProps;
     public Map<String, Object> onlyConstraintsProps;
 
-    public CompareIdxToCons(String labelOrType) {
+    public CompareIdxToCons() {
         this.commonProps = new ArrayList<>();
         this.onlyIdxProps = new HashMap<>();
         this.onlyConstraintsProps = new HashMap<>();
@@ -29,24 +29,8 @@ public abstract class CompareIdxToCons {
                 .collect(Collectors.toList());
     }
 
-    public Map<String, Object> getOnlyIdxProps() {
-        return onlyIdxProps;
-    }
-
-    public void setOnlyIdxProps(Map<String, Object> onlyIdxProps) {
-        this.onlyIdxProps = onlyIdxProps;
-    }
-
     public void putOnlyIdxProps(List<String> properties, String name) {
         this.onlyIdxProps.put(name, properties);
-    }
-
-    public Map<String, Object> getOnlyConstraintsProps() {
-        return onlyConstraintsProps;
-    }
-
-    public void setOnlyConstraintsProps(Map<String, Object> onlyConstraintsProps) {
-        this.onlyConstraintsProps = onlyConstraintsProps;
     }
 
     public void putOnlyConstraintsProps(List<String> properties, String name) {
