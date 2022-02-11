@@ -20,6 +20,7 @@ import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.schema.IndexType;
 import org.neo4j.graphdb.schema.Schema;
 import org.neo4j.internal.helpers.collection.Iterables;
+import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.kernel.api.InternalIndexState;
 import org.neo4j.internal.kernel.api.SchemaRead;
 import org.neo4j.internal.kernel.api.TokenRead;
@@ -96,26 +97,26 @@ public class Schemas {
     @Description("CALL apoc.schema.node.compareIndexesAndConstraints([config]) - to compare constraint and indexes")
     public Stream<CompareIdxToConsNodes> compareIndexesAndConstraints(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
         return indexesAndConstraintsForNode(config,
-                getStreamStreamStreamBiFunction(CompareIdxToConsNodes.class));
+                compareConstraintIdxFunction(CompareIdxToConsNodes.class));
     }
 
     @Procedure(value = "apoc.schema.relationship.compareIndexesAndConstraints", mode = Mode.SCHEMA)
     @Description("CALL apoc.schema.relationship.compareIndexesAndConstraints([config]) - to compare constraint and indexes")
     public Stream<CompareIdxToConsRels> compareIndexesAndConstraintsForRelationships(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
-        return indexesAndConstraintsForRelationships(config, getStreamStreamStreamBiFunction(CompareIdxToConsRels.class));
+        return indexesAndConstraintsForRelationships(config, compareConstraintIdxFunction(CompareIdxToConsRels.class));
     }
 
-    private <T extends IndexConstraintEntityInfo, R extends CompareIdxToCons> BiFunction<Stream<T>, Stream<T>, Stream<R>> getStreamStreamStreamBiFunction(Class<R> clazz) {
+    private <T extends IndexConstraintEntityInfo, R extends CompareIdxToCons> BiFunction<Stream<T>, Stream<T>, Stream<R>> compareConstraintIdxFunction(Class<R> clazz) {
         return (constraintNodeInfoStream, indexNodeInfoStream) -> {
             final List<T> constraints = constraintNodeInfoStream.collect(Collectors.toList());
             final List<T> indexes = indexNodeInfoStream.collect(Collectors.toList());
 
             Map<String, R> map = new TreeMap<>();
-
+            
             indexes.forEach(i -> {
                 final Object labelOrType = getInfoLabelOrType(i);
                 if (labelOrType instanceof String) {
-                    addCommonAndOnlyIdProps(constraints, addObjectIfAbsent(map, (String) labelOrType, clazz), i/*, (String) label, onlyIdxProps*/);
+                    addCommonAndOnlyIdProps(constraints, addObjectIfAbsent(map, (String) labelOrType, clazz), i);
                 }
                 if (labelOrType instanceof List) {
                     final List<String> label1 = (List<String>) labelOrType;
@@ -152,16 +153,15 @@ public class Schemas {
                 }));
     }
     
-    private <T> void addCommonAndOnlyIdProps(List<T> constraints, CompareIdxToCons compareIdxToCons, IndexConstraintEntityInfo i) {
-        final String compareLabelOrType = compareIdxToCons.getLabelOrType();
-
+    private <T extends IndexConstraintEntityInfo> void addCommonAndOnlyIdProps(List<T> constraints, CompareIdxToCons compareIdxToCons, IndexConstraintEntityInfo i) {
         final List<String> props = i.properties;
         if (i instanceof IndexConstraintNodeInfo && ((IndexConstraintNodeInfo) i).type.equals("UNIQUENESS")) {
             compareIdxToCons.addCommonProps(props);
         } else {
             constraints.stream().filter(cons -> {
-                final Object infoLabelOrType = getInfoLabelOrType(i);
-                return infoLabelOrType.equals(compareLabelOrType);
+                final Object idxLabelOrType = getInfoLabelOrType(i);
+                final Object constraintLabelOrType = getInfoLabelOrType(cons);
+                return idxLabelOrType.equals(constraintLabelOrType);
             }).findFirst()
                     .ifPresentOrElse(pres -> {
                         compareIdxToCons.addCommonProps(props);
@@ -466,7 +466,7 @@ public class Schemas {
                         })
                         .collect(Collectors.toList());
             }
-            
+
             Stream<IndexConstraintNodeInfo> constraintNodeInfoStream = StreamSupport.stream(constraintsIterator.spliterator(), false)
                     .filter(constraintDescriptor -> constraintDescriptor.type().equals(org.neo4j.internal.schema.ConstraintType.EXISTS))
                     .map(constraintDescriptor -> this.nodeInfoFromConstraintDescriptor(constraintDescriptor, tokenRead))
