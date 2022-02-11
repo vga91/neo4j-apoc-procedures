@@ -65,44 +65,9 @@ public class TravelingSalesmanTest {
                     .map(i -> i.getProperty("name"))
                     .collect(Collectors.toList());
             assertTrue(distance < 3000000);
-            
-            System.out.println("TravelingSalesmanTest.testTravelingSalesman");
-            
+            // 2543615.3847388593
         });
 //        final double v = new TravelingSalesman2.SimulatedAnnealing().simulateAnnealing(10, 1000, 0.9);
-        System.out.println("TravelingSalesmanTest.testTravelingSalesman");
     }
 
-
-//    @Test
-//    public void testTravelingSalesman() throws Exception {
-//        final City[] cities = List.of(/*new City("zero", 1.00D, 1.01D),
-//                new City("uno", 1D, 1.1D),*/
-//                new City("due", 1D, 1.2D),
-//                new City("tre", 1D, 1.3D),
-//                new City("quattro", 1D, 1.4D)
-//        ).toArray(new City[0]);
-//
-//        final TravellingSalesmanSolver travellingSalesmanSolver = new TravellingSalesmanSolver(cities, 5D);
-//        final City[] cityList = travellingSalesmanSolver.getCityList();
-//
-//        final TravellingSalesmanSolver travellingSalesmanSolver2 = new TravellingSalesmanSolver(cities, 1D);
-//        final City[] cityList2 = travellingSalesmanSolver.getCityList();
-//        System.out.println("TravelingSalesmanTest.testTravelingSalesman");
-//
-////        List list = asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-////        assertEquals(1, Util.partitionSubList(list,0).count());
-////        assertEquals(1,Util.partitionSubList(list,1).count());
-////        assertEquals(2,Util.partitionSubList(list,2).count());
-////        assertEquals(3,Util.partitionSubList(list,3).count());
-////        assertEquals(4,Util.partitionSubList(list,4).count());
-////        assertEquals(5,Util.partitionSubList(list,5).count());
-////        assertEquals(5,Util.partitionSubList(list,6).count());
-////        assertEquals(5,Util.partitionSubList(list,7).count());
-////        assertEquals(5,Util.partitionSubList(list,8).count());
-////        assertEquals(5,Util.partitionSubList(list,9).count());
-////        assertEquals(10,Util.partitionSubList(list,10).count());
-////        assertEquals(10,Util.partitionSubList(list,11).count());
-////        assertEquals(10,Util.partitionSubList(list,20).count());
-//    }
 }
