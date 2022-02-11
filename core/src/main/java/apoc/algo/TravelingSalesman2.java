@@ -20,8 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -29,7 +27,7 @@ import java.util.stream.Stream;
 import static org.neo4j.graphdb.RelationshipType.withName;
 
 public class TravelingSalesman2 {
-    public static class DistancePathResult { // TODO: derive from PathResult when access to derived properties is fixed for yield
+    public static class DistancePathResult {
         public Path path;
         public double distance;
 
@@ -44,12 +42,18 @@ public class TravelingSalesman2 {
         private final Double coolingFactor;
         private final Double startingTemperature;
         private final Double endTemperature;
+        private final String latitudeProp;
+        private final String longitudeProp;
+        private final String relName;
 
         public TravelingSalesmanConfig(Map<String, Object> config) {
             if (config == null) config = Collections.emptyMap();
-            this.coolingFactor = Util.toDouble(config.getOrDefault("coolingFactor", "MD5"));
-            this.startingTemperature = Util.toDouble(config.getOrDefault("startingTemperature", "MD5"));
-            this.endTemperature = Util.toDouble(config.getOrDefault("endTemperature", "MD5"));
+            this.coolingFactor = Util.toDouble(config.getOrDefault("coolingFactor", 0.995));
+            this.startingTemperature = Util.toDouble(config.getOrDefault("startingTemperature", 100000));
+            this.endTemperature = Util.toDouble(config.getOrDefault("endTemperature", 0.1));
+            this.latitudeProp = (String) config.getOrDefault("latitudeProp", "latitude");
+            this.longitudeProp = (String) config.getOrDefault("longitudeProp", "longitude");
+            this.relName = (String) config.getOrDefault("relName", "CONNECT_TO");
         }
 
         public Double getCoolingFactor() {
@@ -63,6 +67,18 @@ public class TravelingSalesman2 {
         public Double getEndTemperature() {
             return endTemperature;
         }
+
+        public String getLatitudeProp() {
+            return latitudeProp;
+        }
+
+        public String getLongitudeProp() {
+            return longitudeProp;
+        }
+
+        public String getRelName() {
+            return relName;
+        }
     }
 
 
@@ -73,37 +89,24 @@ public class TravelingSalesman2 {
     public Transaction tx;
 
     @Procedure("apoc.algo.traveling")
-    @Description("apoc.algo.traveling(nodes,  ...) - todo")
+    @Description("apoc.algo.traveling(nodes,  $config) - traveling salesman via simulated annealing")
     public Stream<DistancePathResult> travelSalesman(
             @Name("startNode") List<Node> nodes,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         TravelingSalesmanConfig conf = new TravelingSalesmanConfig(config);
-        // todo - configs in un oggetto..
-        final Double coolingFactor = conf.getCoolingFactor();
-        if (coolingFactor < 1) {
-            throw new RuntimeException("todo");
-        }
-        final Double endTemperature = conf.getEndTemperature();
-        final Double startingTemperature = conf.getStartingTemperature();
-        if (coolingFactor < 0 || endTemperature < 0 || startingTemperature < 0) {
-            throw new RuntimeException("todo");
-        }
-        return Stream.of(new SimulatedAnnealing().simulateAnnealing(nodes, "lat", "lon", startingTemperature, endTemperature, coolingFactor));
-
-//        PathFinder<WeightedPath> algo = GraphAlgoFactory.aStar(
-//                new BasicEvaluationContext(tx, db),
-//                buildPathExpander(relTypesAndDirs),
-//                CommonEvaluators.doubleCostEvaluator(weightPropertyName),
-//                CommonEvaluators.geoEstimateEvaluator(latPropertyName, lonPropertyName));
-//        return WeightedPathResult.streamWeightedPathResult(startNode, endNode, algo);
+        return Stream.of(new SimulatedAnnealing(nodes).simulateAnnealing(conf));
     }
     
     public static class SimulatedAnnealing {
 
-        private List<Node> currentTravel = new ArrayList<>();
+        private List<Node> currentTravel;
+
         private List<Node> newTravel = new ArrayList<>();
-        
         private EstimateEvaluator<Double> evaluator;
+
+        public SimulatedAnnealing(List<Node> currentTravel) {
+            this.currentTravel = currentTravel;
+        }
 
         public void swapCities() {
             int a = generateRandomIndex();
@@ -132,56 +135,45 @@ public class TravelingSalesman2 {
                     }).sum();
         }
 
-//        private static Travel travel = new Travel(10);
+        public DistancePathResult simulateAnnealing(TravelingSalesmanConfig config) {
+            final double coolingFactor = config.getCoolingFactor();
+            if (coolingFactor > 1) {
+                throw new RuntimeException("coolingFactor must be less than 1");
+            }
+            final double endTemperature = config.getEndTemperature();
+            final double startingTemperature = config.getStartingTemperature();
+            if (coolingFactor < 0 || endTemperature < 0 || startingTemperature < 0) {
+                throw new RuntimeException("coolingFactor, endTemperature amd startingTemperature must be positive");
+            }
+            
+            evaluator = CommonEvaluators.geoEstimateEvaluator(config.getLatitudeProp(), config.getLongitudeProp());
 
-        public DistancePathResult simulateAnnealing(List<Node> nodes, String latPropertyName, String lonPropertyName, double startingTemperature, double endingTemperature, double coolingRate) {
-            currentTravel = nodes;
-            evaluator = CommonEvaluators.geoEstimateEvaluator(latPropertyName, lonPropertyName);
-
-            double temp = startingTemperature;
-//            travel.generateInitialTravel();
+            double temperature = config.getStartingTemperature();
             double bestDistance = getDistance(currentTravel);
-//            double bestDistance = travel.getDistance();
-            System.out.println("Initial distance of travel: " + bestDistance);
-//            List<Node> bestSolution = travel; // todo - nel path mettere una relazione virtuale customizzabile...
-//            List<Node> currentSolution = bestSolution;
-
-            while (temp > endingTemperature) {
+            
+            while (temperature > config.getEndTemperature()) {
                 swapCities();
-
-
+                
                 // Get energy of solutions
                 double currentDistance = getDistance(currentTravel);
                 double newDistance = getDistance(newTravel);
-
-
-                
                 
                 // Decide if we should accept the neighbour
-                double ap = Math.exp((currentDistance - newDistance) / temp);
-                if (ap > Math.random()) {
-//                if (Utility.acceptanceProbability(currentDistance, newDistance, temp) > rand) {
-//                    revertSwap();
-//                    currentTravel = newTravel;
-                    System.out.println("ap = " + ap);
+                if (Math.exp((currentDistance - newDistance) / temperature) > Math.random()) {
                     revertSwap();
 //                    currentSolution = new Tour(newSolution.getTour());
                 }
                 
                 // Keep track of the best solution found
                 if (getDistance(currentTravel) < bestDistance) {
-//                if (currentSolution.getTotalDistance() < best.getTotalDistance()) {
-//                    best = new Tour(currentSolution.getTour());
-                    System.out.println("ap1 = " + ap);
                     bestDistance = currentDistance;
                 }
 
-                // decrement temp via coolingRate
-                temp *= coolingRate;
+                // decrement temp via coolingFactor
+                temperature *= config.getCoolingFactor();
             }
 
             final int size = currentTravel.size();
-            
             
             final VirtualNode node = VirtualNode.from(currentTravel.get(0));
             final VirtualPath virtualPath = new VirtualPath(node);
@@ -192,21 +184,10 @@ public class TravelingSalesman2 {
                     .forEach(idx -> {
                         final VirtualNode start = idx == 0 ? node : VirtualNode.from(currentTravel.get(idx));
                         VirtualNode end = VirtualNode.from(currentTravel.get(idx + 1));
-                        final VirtualRelationship vRel = new VirtualRelationship(start, end,  withName("TEST"));
+                        final VirtualRelationship vRel = new VirtualRelationship(start, end,  withName(config.getRelName()));
                         virtualPath.addRel(vRel);
                     });
-
-            // 2728553.0653759595
-            // 2604145.385010691
-            System.out.println(bestDistance);
             return new DistancePathResult(virtualPath, bestDistance);
-//            travels.forEach(i -> {
-//                if (i > 0) {
-//                    
-//                }
-//            });
-//            return travels;
-//            return bestDistance;
         }
 
     }

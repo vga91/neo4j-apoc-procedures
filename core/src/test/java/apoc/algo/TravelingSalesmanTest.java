@@ -58,7 +58,7 @@ public class TravelingSalesmanTest {
         db.executeTransactionally(SETUP_GEO);
         // path -> {VirtualPath@12018} "(3)-[TEST,-1]->(4)-[TEST,-2]->(1)-[TEST,-3]->(2)"
         TestUtil.testCall(db, "MATCH (n:City) with collect(n) as nodes " +
-                "call apoc.algo.traveling(nodes, {}) yield path, distance return path, distance", Map.of(), r -> {
+                "call apoc.algo.traveling(nodes, {latitudeProp: 'lat', longitudeProp: 'lon'}) yield path, distance return path, distance", Map.of(), r -> {
             Path path = (Path) r.get("path");
             double distance = (double) r.get("distance");
             final List<Object> name = Iterables.stream(path.nodes())
