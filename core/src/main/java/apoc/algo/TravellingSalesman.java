@@ -6,14 +6,8 @@ import apoc.result.VirtualRelationship;
 import apoc.util.Util;
 import org.neo4j.graphalgo.CommonEvaluators;
 import org.neo4j.graphalgo.EstimateEvaluator;
-import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
-import org.neo4j.graphdb.Transaction;
-import org.neo4j.procedure.Context;
-import org.neo4j.procedure.Description;
-import org.neo4j.procedure.Name;
-import org.neo4j.procedure.Procedure;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,28 +15,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static org.neo4j.graphdb.RelationshipType.withName;
 
-public class TravelingSalesman {
+public class TravellingSalesman {
     
-    @Context
-    public GraphDatabaseService db;
-
-    @Context
-    public Transaction tx;
-
-    @Procedure("apoc.algo.travelSalesman")
-    @Description("apoc.algo.travelSalesman(nodes,  $config) - resolve traveling salesman problem via simulated annealing algo")
-    public Stream<DistancePathResult> travelSalesman(@Name("startNode") List<Node> nodes, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        if (nodes.isEmpty()) {
-            throw new RuntimeException("The nodes parameter must have at least 3 nodes");
-        }
-        TravelingSalesmanConfig conf = new TravelingSalesmanConfig(config);
-        return Stream.of(SimulatedAnnealing.simulateAnnealing(nodes, conf));
-    }
-
     public static class Tour {
         private final List<Node> travel;
         private final EstimateEvaluator<Double> evaluator;
@@ -79,9 +56,9 @@ public class TravelingSalesman {
         }
     }
     
-    public static class SimulatedAnnealing {
+    public static class Algo {
 
-        public static DistancePathResult simulateAnnealing(List<Node> cities, TravelingSalesmanConfig config) {
+        public static Result simulateAnnealing(List<Node> cities, Config config) {
             final double coolingFactor = config.getCoolingFactor();
             if (coolingFactor > 1) {
                 throw new RuntimeException("coolingFactor must be less than 1");
@@ -135,21 +112,21 @@ public class TravelingSalesman {
                         virtualPath.addRel(vRel);
                     });
             
-            return new DistancePathResult(virtualPath, best.getDistance());
+            return new Result(virtualPath, best.getDistance());
         }
     }
 
-    public static class DistancePathResult {
+    public static class Result {
         public Path path;
         public double distance;
 
-        public DistancePathResult(Path path, double distance) {
+        public Result(Path path, double distance) {
             this.path = path;
             this.distance = distance;
         }
     }
 
-    private static class TravelingSalesmanConfig {
+    public static class Config {
 
         private final Double coolingFactor;
         private final Double startTemperature;
@@ -158,7 +135,7 @@ public class TravelingSalesman {
         private final String longitudeProp;
         private final String relName;
 
-        public TravelingSalesmanConfig(Map<String, Object> config) {
+        public Config(Map<String, Object> config) {
             if (config == null) config = Collections.emptyMap();
             this.coolingFactor = Util.toDouble(config.getOrDefault("coolingFactor", 0.995));
             this.startTemperature = Util.toDouble(config.getOrDefault("startTemperature", 100000));
