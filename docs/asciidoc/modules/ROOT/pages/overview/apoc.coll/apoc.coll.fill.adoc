@@ -14,15 +14,15 @@ apoc.coll.fill(item, count) - returns a list with the given count of items
 
 [source]
 ----
-apoc.coll.fill(item :: STRING?, count :: INTEGER?) :: (LIST? OF ANY?)
+apoc.coll.fill(item = null :: ANY?, count = 0 :: INTEGER?) :: (LIST? OF ANY?)
 ----
 
 == Input parameters
 [.procedures, opts=header]
 |===
 | Name | Type | Default 
-|item|STRING?|null
-|count|INTEGER?|null
+|item|ANY?|null
+|count|INTEGER?|0
 |===
 
 [[usage-apoc.coll.fill]]

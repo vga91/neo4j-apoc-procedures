@@ -896,6 +896,12 @@ public class CollTest {
                 (row) -> {
                     assertEquals(asList("abc","abc"), row.next().get("value"));
                 });
+        
+        testCall(db, "RETURN apoc.coll.fill(5,3) as value",
+                (row) -> assertEquals(asList(5L,5L,5L), row.get("value")));
+        
+        testCall(db, "RETURN apoc.coll.fill() as value",
+                (row) -> assertEquals(Collections.emptyList(), row.get("value")));
     }
 
     @Test

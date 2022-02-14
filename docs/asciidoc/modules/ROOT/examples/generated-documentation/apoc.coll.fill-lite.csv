@@ -1,2 +1,2 @@
 ¦signature
-¦apoc.coll.fill(item :: STRING?, count :: INTEGER?) :: (LIST? OF ANY?)
+¦apoc.coll.fill(item = null :: ANY?, count = 0 :: INTEGER?) :: (LIST? OF ANY?)

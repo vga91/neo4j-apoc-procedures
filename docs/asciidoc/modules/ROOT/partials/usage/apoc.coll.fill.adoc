@@ -11,3 +11,17 @@ RETURN apoc.coll.fill('abc', 2) as output;
 | Output
 | ["abc", "abc"]
 |===
+
+The following returns a list containing a lists of 3 element with the contents 5, as a long:
+
+[source,cypher]
+----
+RETURN apoc.coll.fill(5,3) as output;
+----
+
+.Results
+[opts="header",cols="1"]
+|===
+| Output
+| [5,5,5]
+|===
