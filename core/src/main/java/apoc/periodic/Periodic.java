@@ -272,7 +272,11 @@ public class Periodic {
         Map<String,Object> params = (Map<String, Object>) config.getOrDefault("params", Collections.emptyMap());
 
         try (Result result = tx.execute(slottedRuntime(cypherIterate),params)) {
-            Pair<String,Boolean> prepared = PeriodicUtils.prepareInnerStatement(cypherAction, batchMode, result.columns(), "_batch");
+            final List<String> columns = result.columns();
+            if (Util.toBoolean(config.get("rebind"))) {
+                cypherAction = Util.withMapping(columns.stream(), (c) ->  "apoc.any.rebind(" + Util.quote(c) + ") AS " + Util.quote(c)) + cypherAction;
+            }
+            Pair<String,Boolean> prepared = PeriodicUtils.prepareInnerStatement(cypherAction, batchMode, columns, "_batch");
             String innerStatement = applyPlanner(prepared.first(), Planner.valueOf((String) config.getOrDefault("planner", Planner.DEFAULT.name())));
             boolean iterateList = prepared.other();
             String periodicId = UUID.randomUUID().toString();

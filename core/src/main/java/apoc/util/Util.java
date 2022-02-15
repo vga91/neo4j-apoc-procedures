@@ -865,7 +865,7 @@ public class Util {
             return (T) rebind(tx, (Relationship) e);
         }
     }
-
+// todo...
     public static <T extends Entity> List<T> rebind(List<T> entities, Transaction tx) {
         return entities.stream()
                 .map(n -> Util.rebind(tx, n))

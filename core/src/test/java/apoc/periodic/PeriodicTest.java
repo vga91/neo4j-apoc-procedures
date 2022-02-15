@@ -1,11 +1,14 @@
 package apoc.periodic;
 
+import apoc.cypher.Cypher;
+import apoc.nodes.Nodes;
 import apoc.util.MapUtil;
 import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.common.DependencyResolver;
+import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
@@ -32,11 +35,13 @@ import static apoc.periodic.Periodic.applyPlanner;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.map;
+import static java.util.Collections.singletonList;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.StreamSupport.stream;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
@@ -49,11 +54,12 @@ public class PeriodicTest {
     public static final int BATCH_SIZE = 399;
 
     @Rule
-    public DbmsRule db = new ImpermanentDbmsRule();
+    public DbmsRule db = new ImpermanentDbmsRule()
+            .withSetting(GraphDatabaseSettings.procedure_unrestricted, singletonList("apoc.*"));
 
     @Before
     public void initDb() throws Exception {
-        TestUtil.registerProcedure(db, Periodic.class);
+        TestUtil.registerProcedure(db, Periodic.class, Cypher.class, Nodes.class);
         db.executeTransactionally("call apoc.periodic.list() yield name call apoc.periodic.cancel(name) yield name as name2 return count(*)");
     }
 
@@ -77,6 +83,31 @@ public class PeriodicTest {
         assertThat(count, equalTo(1L));
 
         testCall(db, callList, (r) -> assertEquals(true, r.get("done")));
+    }
+    
+    @Test
+    public void testIterateRebind() throws Exception {
+        db.executeTransactionally("CREATE (:Account {name: 1})-[r:ASSOCIATED_WITH {name: 3}]->(:Other {name: 3})");
+
+        testCall(db, "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, $config)",
+                map("cypherIterate", "MATCH (:Account)-[r:ASSOCIATED_WITH]->() RETURN r", 
+                        "cypherAction", "CALL apoc.do.case([r.name = 2, 'WITH $r as r create (:Osvaldone {name: $r.name})'], 'WITH $r as r create (:Ugone {name: r.name})', {r: r}) YIELD value RETURN value",
+                        "config", map()),
+                (row) -> {
+                    assertEquals(1L, row.get("batches"));
+                    assertNotEquals(map(), row.get("errorMessages"));
+                    assertEquals(1L, row.get("failedBatches"));
+                });
+
+        testCall(db, "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, $config)",
+                map("cypherIterate", "MATCH (:Account)-[r:ASSOCIATED_WITH]->() RETURN r",
+                        "cypherAction", "CALL apoc.do.case([r.name = 2, 'WITH $r as r create (:Osvaldone {name: $r.name})'], 'WITH $r as r create (:Ugone {name: r.name})', {r: r}) YIELD value RETURN value",
+                        "config", map("rebind", true)),
+                (row) -> {
+                    assertEquals(1L, row.get("batches"));
+                    assertEquals(map(), row.get("errorMessages"));
+                    assertEquals(0L, row.get("failedBatches"));
+                });
     }
 
     @Test

@@ -58,5 +58,6 @@ public class LoadHdfsTest {
                     assertRow(r,2L,"name","Selina","age","18");
                     assertEquals(false, r.hasNext());
                 });
+        System.out.println("LoadHdfsTest.testLoadCsvFromHDFS");
     }
 }
