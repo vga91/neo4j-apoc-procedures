@@ -12,7 +12,6 @@ import org.neo4j.configuration.GraphDatabaseSettings;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -27,6 +26,7 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM;
 import static apoc.ApocConfig.apocConfig;
@@ -45,20 +45,20 @@ public class FileUtils {
         https(true, null),
         ftp(true, null),
         s3(Util.classExists("com.amazonaws.services.s3.AmazonS3"),
-                Util.createInstanceOrNull("apoc.util.s3.S3UrlStreamHandlerFactory")),
+                "apoc.util.s3.S3UrlStreamHandlerFactory"),
         gs(Util.classExists("com.google.cloud.storage.Storage"),
-                Util.createInstanceOrNull("apoc.util.google.cloud.GCStorageURLStreamHandlerFactory")),
+                "apoc.util.google.cloud.GCStorageURLStreamHandlerFactory"),
         hdfs(Util.classExists("org.apache.hadoop.fs.FileSystem"),
-                Util.createInstanceOrNull("org.apache.hadoop.fs.FsUrlStreamHandlerFactory")),
+                "org.apache.hadoop.fs.FsUrlStreamHandlerFactory"),
         file(true, null);
 
         private final boolean enabled;
 
-        private final URLStreamHandlerFactory urlStreamHandlerFactory;
+        private final String urlStreamHandlerClassName;
 
-        SupportedProtocols(boolean enabled, URLStreamHandlerFactory urlStreamHandlerFactory) {
+        SupportedProtocols(boolean enabled, String urlStreamHandlerClassName) {
             this.enabled = enabled;
-            this.urlStreamHandlerFactory = urlStreamHandlerFactory;
+            this.urlStreamHandlerClassName = urlStreamHandlerClassName;
         }
 
         public StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
@@ -114,7 +114,10 @@ public class FileUtils {
         }
 
         public URLStreamHandler createURLStreamHandler() {
-            return urlStreamHandlerFactory == null ? null : urlStreamHandlerFactory.createURLStreamHandler(this.name());
+            return Optional.ofNullable(urlStreamHandlerClassName)
+                    .map(Util::createInstanceOrNull)
+                    .map(i -> ((URLStreamHandlerFactory) i).createURLStreamHandler(this.name()))
+                    .orElse(null);
         }
 
         public static SupportedProtocols from(String source) {
