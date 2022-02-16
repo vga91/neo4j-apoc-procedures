@@ -273,9 +273,9 @@ public class Periodic {
 
         try (Result result = tx.execute(slottedRuntime(cypherIterate),params)) {
             final List<String> columns = result.columns();
-            if (Util.toBoolean(config.get("rebind"))) {
-                cypherAction = Util.withMapping(columns.stream(), (c) ->  "apoc.any.rebind(" + Util.quote(c) + ") AS " + Util.quote(c)) + cypherAction;
-            }
+//            if (Util.toBoolean(config.get("rebind"))) {
+//                cypherAction = Util.withMapping(columns.stream(), (c) ->  "apoc.any.rebindTx(" + Util.quote(c) + ") AS " + Util.quote(c)) + cypherAction;
+//            }
             Pair<String,Boolean> prepared = PeriodicUtils.prepareInnerStatement(cypherAction, batchMode, columns, "_batch");
             String innerStatement = applyPlanner(prepared.first(), Planner.valueOf((String) config.getOrDefault("planner", Planner.DEFAULT.name())));
             boolean iterateList = prepared.other();
@@ -287,6 +287,7 @@ public class Periodic {
                     db, terminationGuard, log, pools,
                     (int)batchSize, parallel, iterateList, retries, result,
                     (tx, p) -> {
+                        // TODO !!!!!- forse qua...
                         final Result r = tx.execute(innerStatement, merge(params, p));
                         Iterators.count(r); // XXX: consume all results
                         return r.getQueryStatistics();
@@ -295,6 +296,11 @@ public class Periodic {
         }
     }
 
+    /*
+    Transaction transaction = db.beginTx()
+    final Iterator<Node> n = transaction.execute("MATCH (n) RETURN n", Map.of()).<Node>columnAs("n").stream().iterator();
+Iterators.asList(n)
+*/
     static String slottedRuntime(String cypherIterate) {
         if (RUNTIME_PATTERN.matcher(cypherIterate).find()) {
             return cypherIterate;

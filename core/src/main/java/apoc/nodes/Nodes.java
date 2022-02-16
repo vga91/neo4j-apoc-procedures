@@ -707,8 +707,32 @@ public class Nodes {
             return Util.rebind(tx, (Entity) any);
         }
         return any;
-//        throw new RuntimeException("dunno... todo");
     }
+
+    @UserFunction("apoc.any.rebindTx")
+    @Description("apoc.any.rebindTx")
+    public Object anyRebindTx(@Name("any") Object any) {
+        try (Transaction tx = db.beginTx()) {
+            if (any instanceof Map) {
+                return ((Map<String, Object>) any).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> {
+                    return anyRebindTx(e.getValue());
+//                if (e.getValue() instanceof Entity) {
+//                    return Util.inTx(db, pools, tx -> Util.rebind(tx, (Entity) e.getValue()));
+//                }
+//                return e.getValue();
+                }));
+            }
+            if (any instanceof List) {
+                return ((List) any).stream().map(i -> anyRebindTx(i)).collect(Collectors.toList());
+            }
+            if (any instanceof Entity) {
+                return Util.rebind(tx, (Entity) any);
+            }
+            return any;
+        }
+    }
+    
+    
 
     @UserFunction("apoc.rel.rebind")
     @Description("apoc.rel.rebind")

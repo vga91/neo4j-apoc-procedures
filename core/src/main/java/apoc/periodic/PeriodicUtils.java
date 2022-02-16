@@ -82,6 +82,10 @@ public class PeriodicUtils {
                 List<Map<String,Object>> batch = Util.take(iterator, batchsize);
 
                 // todo - config ...
+                
+                
+                // todo - FORSE NUOVA TRANSAZIONE!!!!!!!!!!!
+                
 //                if (true) {
 //                    batch = batch.stream().map(i -> i.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> {
 //                        if (e.getValue() instanceof Entity) {
