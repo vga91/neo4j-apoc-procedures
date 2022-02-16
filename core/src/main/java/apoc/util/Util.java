@@ -11,7 +11,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.fs.FileSystem;
 import org.eclipse.collections.api.iterator.LongIterator;
 import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Entity;

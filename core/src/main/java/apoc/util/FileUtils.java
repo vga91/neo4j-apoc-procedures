@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLStreamHandler;
 import java.net.URLStreamHandlerFactory;
@@ -64,9 +65,9 @@ public class FileUtils {
         public StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
             switch (this) {
                 case s3:
-                    return FileUtils.openS3InputStream(new URL(urlAddress));
+                    return FileUtils.openS3InputStream(urlAddress);
                 case hdfs:
-                    return FileUtils.openHdfsInputStream(new URL(urlAddress));
+                    return FileUtils.openHdfsInputStream(urlAddress);
                 case ftp:
                 case http:
                 case https:
@@ -126,6 +127,12 @@ public class FileUtils {
                 return from(url);
             } catch (MalformedURLException e) {
                 if (!e.getMessage().contains("no protocol")) {
+                    try {
+                        // in case new URL(source) throw e.g. unknown protocol: hdfs, because of missing jar, 
+                        // we retrieve the related enum and throw the associated MissingDependencyException(..)
+                        // otherwise we return unknown protocol: yyyyy
+                        return SupportedProtocols.valueOf(new URI(source).getScheme());
+                    } catch (Exception ignored) {}
                     throw new RuntimeException(e);
                 }
                 return SupportedProtocols.file;
@@ -260,7 +267,7 @@ public class FileUtils {
         return apocConfig().getBoolean(ApocConfig.APOC_IMPORT_FILE_USE_NEO4J_CONFIG);
     }
 
-    public static StreamConnection openS3InputStream(URL url) throws IOException {
+    public static StreamConnection openS3InputStream(String urlAddress) throws IOException {
         if (!SupportedProtocols.s3.isEnabled()) {
             throw new MissingDependencyException("Cannot find the S3 jars in the plugins folder. \n" +
                     "Please put these files into the plugins folder :\n\n" +
@@ -271,23 +278,15 @@ public class FileUtils {
                     "joda-time-x.y.z.jar\n" +
                     "\nSee the documentation: https://neo4j-contrib.github.io/neo4j-apoc-procedures/#_loading_data_from_web_apis_json_xml_csv");
         }
-        return S3URLConnection.openS3InputStream(url);
+        return S3URLConnection.openS3InputStream(new URL(urlAddress));
     }
 
-    public static StreamConnection openHdfsInputStream(URL url) throws IOException {
+    public static StreamConnection openHdfsInputStream(String urlAddress) throws IOException {
         if (!SupportedProtocols.hdfs.isEnabled()) {
             throw new MissingDependencyException("Cannot find the HDFS/Hadoop jars in the plugins folder. \n" +
-                    "Please put these files into the plugins folder :\n\n" +
-                    "commons-cli\n" +
-                    "hadoop-auth\n" +
-                    "hadoop-client\n" +
-                    "hadoop-common\n" +
-                    "hadoop-hdfs\n" +
-                    "htrace-core-3.1.0-incubating\n" +
-                    "protobuf-java\n" +
-                    "\nSee the documentation: https://neo4j-contrib.github.io/neo4j-apoc-procedures/#_loading_data_from_web_apis_json_xml_csv");
+                    "\nPlease, see the documentation: https://neo4j.com/labs/apoc/4.4/import/web-apis/");
         }
-        return HDFSUtils.readFile(url);
+        return HDFSUtils.readFile(new URL(urlAddress));
     }
 
     /**
