@@ -18,5 +18,10 @@ returns properties for virtual and real, nodes, rels and maps
 returns property for virtual and real, nodes, rels and maps
 |label:function[]
 |label:apoc-core[]
+|xref::overview/apoc.any/apoc.any.rebind.adoc[apoc.any.rebind icon:book[]]
+
+apoc.any.rebind(Object) - to rebind any rel, node, path, map, list or combination of them (i.e. executing a Transaction.getNodeById(node.getId()) / Transaction.getRelationshipById(rel.getId()))
+|label:function[]
+|label:apoc-core[]
 |===
 

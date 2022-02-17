@@ -144,6 +144,11 @@ returns properties for virtual and real, nodes, rels and maps
 returns property for virtual and real, nodes, rels and maps
 |label:function[]
 |label:apoc-core[]
+|xref::overview/apoc.any/apoc.any.rebind.adoc[apoc.any.rebind icon:book[]]
+
+apoc.any.rebind(Object) - to rebind any rel, node, path, map, list or combination of them (i.e. executing a Transaction.getNodeById(node.getId()) / Transaction.getRelationshipById(rel.getId()))
+|label:function[]
+|label:apoc-core[]
 |===
 
 == xref::overview/apoc.atomic/index.adoc[]
@@ -2338,6 +2343,11 @@ returns id for (virtual) nodes
 returns labels for (virtual) nodes
 |label:function[]
 |label:apoc-core[]
+|xref::overview/apoc.node/apoc.node.rebind.adoc[apoc.node.rebind icon:book[]]
+
+apoc.node.rebind(node - to rebind a node (i.e. executing a Transaction.getNodeById(node.getId())  
+|label:function[]
+|label:apoc-core[]
 |xref::overview/apoc.node/apoc.node.relationship.exists.adoc[apoc.node.relationship.exists icon:book[]]
 
 apoc.node.relationship.exists(node, rel-direction-pattern) - returns true when the node has the relationships of the pattern
@@ -2870,6 +2880,11 @@ returns endNode for (virtual) relationships
 |xref::overview/apoc.rel/apoc.rel.id.adoc[apoc.rel.id icon:book[]]
 
 returns id for (virtual) relationships
+|label:function[]
+|label:apoc-core[]
+|xref::overview/apoc.rel/apoc.rel.rebind.adoc[apoc.rel.rebind icon:book[]]
+
+apoc.rel.rebind(rel) - to rebind a rel (i.e. executing a Transaction.getRelationshipById(rel.getId())  
 |label:function[]
 |label:apoc-core[]
 |xref::overview/apoc.rel/apoc.rel.startNode.adoc[apoc.rel.startNode icon:book[]]

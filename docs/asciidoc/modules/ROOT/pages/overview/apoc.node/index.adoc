@@ -33,6 +33,11 @@ returns id for (virtual) nodes
 returns labels for (virtual) nodes
 |label:function[]
 |label:apoc-core[]
+|xref::overview/apoc.node/apoc.node.rebind.adoc[apoc.node.rebind icon:book[]]
+
+apoc.node.rebind(node - to rebind a node (i.e. executing a Transaction.getNodeById(node.getId())  
+|label:function[]
+|label:apoc-core[]
 |xref::overview/apoc.node/apoc.node.relationship.exists.adoc[apoc.node.relationship.exists icon:book[]]
 
 apoc.node.relationship.exists(node, rel-direction-pattern) - returns true when the node has the relationships of the pattern
