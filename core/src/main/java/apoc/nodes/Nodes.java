@@ -677,8 +677,6 @@ public class Nodes {
 
         return node.getDegree(relType, direction);
     }
-    
-    // todo - valutare un any rebind che cicla...
 
     @UserFunction("apoc.node.rebind")
     @Description("apoc.node.rebind")
@@ -686,58 +684,16 @@ public class Nodes {
         return Util.rebind(tx, node);
     }
 
-    @UserFunction("apoc.any.rebind")
-    @Description("apoc.any.rebind")
-    public Object anyRebind(@Name("any") Object any) {
-        if (any instanceof Map) {
-            return ((Map<String, Object>) any).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> {
-                return anyRebind(e.getValue());
-//                if (e.getValue() instanceof Entity) {
-//                    return Util.inTx(db, pools, tx -> Util.rebind(tx, (Entity) e.getValue()));
-//                }
-//                return e.getValue();
-            }));
-        }
-        if (any instanceof List) {
-            return ((List) any).stream().map(i -> {
-                return anyRebind(i);
-            }).collect(Collectors.toList());
-        }
-        if (any instanceof Entity) {
-            return Util.rebind(tx, (Entity) any);
-        }
-        return any;
-    }
-
-    @UserFunction("apoc.any.rebindTx")
-    @Description("apoc.any.rebindTx")
-    public Object anyRebindTx(@Name("any") Object any) {
-        try (Transaction tx = db.beginTx()) {
-            if (any instanceof Map) {
-                return ((Map<String, Object>) any).entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> {
-                    return anyRebindTx(e.getValue());
-//                if (e.getValue() instanceof Entity) {
-//                    return Util.inTx(db, pools, tx -> Util.rebind(tx, (Entity) e.getValue()));
-//                }
-//                return e.getValue();
-                }));
-            }
-            if (any instanceof List) {
-                return ((List) any).stream().map(i -> anyRebindTx(i)).collect(Collectors.toList());
-            }
-            if (any instanceof Entity) {
-                return Util.rebind(tx, (Entity) any);
-            }
-            return any;
-        }
-    }
-    
-    
-
     @UserFunction("apoc.rel.rebind")
     @Description("apoc.rel.rebind")
     public Relationship relationshipRebind(@Name("rel") Relationship rel) {
         return Util.rebind(tx, rel);
+    }
+
+    @UserFunction("apoc.any.rebind")
+    @Description("apoc.any.rebind")
+    public Object anyRebind(@Name("any") Object any) {
+        return Util.anyRebind(tx, any);
     }
 
 }

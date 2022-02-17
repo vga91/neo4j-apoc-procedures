@@ -9,6 +9,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.common.DependencyResolver;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
@@ -59,7 +61,7 @@ public class PeriodicTest {
 
     @Before
     public void initDb() throws Exception {
-        TestUtil.registerProcedure(db, Periodic.class, Cypher.class, Nodes.class);
+        TestUtil.registerProcedure(db, Periodic.class, Nodes.class);
         db.executeTransactionally("call apoc.periodic.list() yield name call apoc.periodic.cancel(name) yield name as name2 return count(*)");
     }
 
@@ -87,38 +89,37 @@ public class PeriodicTest {
     
     @Test
     public void testIterateRebind() throws Exception {
-        db.executeTransactionally("CREATE (:Ajeje {id: 1})");
-//        db.executeTransactionally("UNWIND range(0, 10) as idx CREATE (:Ajeje {id: idx})");
 
-//        testCall(db, "MATCH (a:Ajeje) CREATE (b:Brazorf {id: a.id}) WITH b \n" +
-//                        "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, {rebind: true, params: {b:b} } ) \n" +
-//                        "YIELD batches, errorMessages, failedBatches RETURN batches, errorMessages, failedBatches",
+        Node node;
+        try (Transaction tx = db.beginTx()) {
+            node = tx.createNode(Label.label("Ajeje"));
+            tx.commit();
+        }
 
-        testCall(db, "\n" +
-                        "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, {rebind: true, params: {} } ) \n" +
-                        "YIELD batches, errorMessages, failedBatches RETURN batches, errorMessages, failedBatches",
-                map("cypherIterate", "MATCH (a:Ajeje) CREATE (b:Brazorf {id: a.id}) WITH b RETURN b AS b", 
-                        "cypherAction", "SET b.test = 1"/*,
-                        "config", map("params", "{b: b}"))*/),
-                (row) -> {
-//                    assertEquals(1L, row.get("batches"));
-//                    assertNotEquals(map(), row.get("errorMessages"));
-//                    assertEquals(1L, row.get("failedBatches"));
-                });
+        final Map<String, Object> config = map("params", map("b", node));
         
-        testCall(db, "MATCH (b:Brazorf) RETURN b", r -> {
-            System.out.println("PeriodicTest.testIterateRebind");
+        final Map<String, Object> params = map("cypherIterate", "WITH $b as b RETURN b",
+                "cypherAction", "SET b.test = 1",
+                "config", config);
+        try {
+            testCall(db, "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, $config )", params, (row) -> fail());
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("NotInTransactionException"));
+        }
+
+        // with rebind flag
+        config.put("rebind", true);
+
+        testCall(db, "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, $config )", params, (row) -> {
+            assertEquals(1L, row.get("batches"));
+            assertEquals(map(), row.get("errorMessages"));
+            assertEquals(0L, row.get("failedBatches"));
         });
 
-        testCall(db, "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, $config)",
-                map("cypherIterate", "MATCH (:Account)-[r:ASSOCIATED_WITH]->() RETURN r",
-                        "cypherAction", "CALL apoc.do.case([r.name = 2, 'WITH $r as r create (:Osvaldone {name: $r.name})'], 'WITH $r as r create (:Ugone {name: r.name})', {r: r}) YIELD value RETURN value",
-                        "config", map("rebind", true)),
-                (row) -> {
-                    assertEquals(1L, row.get("batches"));
-                    assertEquals(map(), row.get("errorMessages"));
-                    assertEquals(0L, row.get("failedBatches"));
-                });
+        testCall(db, "MATCH (b:Ajeje) RETURN b", r -> {
+            assertEquals(1L, ((Node) r.get("b")).getProperty("test"));
+        });
+
     }
 
     @Test

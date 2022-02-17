@@ -2,7 +2,6 @@ package apoc.periodic;
 
 import apoc.Pools;
 import apoc.util.Util;
-import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Transaction;
@@ -32,10 +31,6 @@ public class PeriodicUtils {
 
     public static Pair<String,Boolean> prepareInnerStatement(String cypherAction, BatchMode batchMode, List<String> columns, String iteratorVariableName) {
         String names = columns.stream().map(Util::quote).collect(Collectors.joining("|"));
-
-        
-        // todo --> Util.withMapping(columns.stream(), (c) ->  "apoc.any.rebind(" + Util.quote(c) + ") AS " + Util.quote(c))
-        
         boolean withCheck = regNoCaseMultiLine("[{$](" + names + ")\\}?\\s+AS\\s+").matcher(cypherAction).find();
         if (withCheck) return Pair.of(cypherAction, false);
 
@@ -44,7 +39,6 @@ public class PeriodicUtils {
                  return Pair.of(Util.withMapping(columns.stream(), (c) ->  Util.param(c) + " AS " + Util.quote(c)) + cypherAction,false);
             case BATCH:
                 if (regNoCaseMultiLine("UNWIND\\s+[{$]" + iteratorVariableName+"\\}?\\s+AS\\s+").matcher(cypherAction).find()) {
-                    // todo - qua non si capisce quando va...
                     return Pair.of(cypherAction, true);
                 }
                 String with = Util.withMapping(columns.stream(), (c) -> Util.quote(iteratorVariableName) + "." + Util.quote(c) + " AS " + Util.quote(c));
@@ -80,24 +74,8 @@ public class PeriodicUtils {
 
                 if (log.isDebugEnabled()) log.debug("Execute, in periodic iteration with id %s, no %d batch size ", periodicId, batchsize);
                 List<Map<String,Object>> batch = Util.take(iterator, batchsize);
-
-                // todo - config ...
-                
-                
-                // todo - FORSE NUOVA TRANSAZIONE!!!!!!!!!!!
-                
-//                if (true) {
-//                    batch = batch.stream().map(i -> i.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> {
-//                        if (e.getValue() instanceof Entity) {
-//                            return Util.inTx(db, pools, tx -> Util.rebind(tx, (Entity) e.getValue()));
-//                        }
-//                        return e.getValue();
-//                    }))).collect(Collectors.toList());
-//                }
-                
-                // todo - nell'iterator stanno le entità. potrei mappare....
                 final long currentBatchSize = batch.size();
-                Periodic.ExecuteBatch executeBatch = // todo - questo qua in batch ha la relazione
+                Periodic.ExecuteBatch executeBatch =
                         iterateList ?
                                 new Periodic.ListExecuteBatch(terminationGuard, collector, batch, consumer) :
                                 new Periodic.OneByOneExecuteBatch(terminationGuard, collector, batch, consumer);

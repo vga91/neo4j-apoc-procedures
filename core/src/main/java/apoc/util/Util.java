@@ -849,6 +849,21 @@ public class Util {
                 })
                 .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
     }
+    
+    public static <T> T anyRebind(Transaction tx, T any) {
+        if (any instanceof Map) {
+            return (T) ((Map<String, Object>) any).entrySet().stream()
+                    .collect(Collectors.toMap(e -> e.getKey(), e -> anyRebind(tx, e.getValue())));
+        }
+        if (any instanceof List) {
+            return (T) ((List) any).stream()
+                    .map(i -> anyRebind(tx, i)).collect(Collectors.toList());
+        }
+        if (any instanceof Entity) {
+            return (T) Util.rebind(tx, (Entity) any);
+        }
+        return any;
+    }
 
     public static Node rebind(Transaction tx, Node node) {
          return node instanceof VirtualNode ? node : tx.getNodeById(node.getId());
@@ -865,7 +880,7 @@ public class Util {
             return (T) rebind(tx, (Relationship) e);
         }
     }
-// todo...
+
     public static <T extends Entity> List<T> rebind(List<T> entities, Transaction tx) {
         return entities.stream()
                 .map(n -> Util.rebind(tx, n))
