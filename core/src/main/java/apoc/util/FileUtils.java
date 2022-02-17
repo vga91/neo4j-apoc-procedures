@@ -117,7 +117,7 @@ public class FileUtils {
         public URLStreamHandler createURLStreamHandler() {
             return Optional.ofNullable(urlStreamHandlerClassName)
                     .map(Util::createInstanceOrNull)
-                    .map(i -> ((URLStreamHandlerFactory) i).createURLStreamHandler(this.name()))
+                    .map(urlStreamHandlerFactory -> ((URLStreamHandlerFactory) urlStreamHandlerFactory).createURLStreamHandler(this.name()))
                     .orElse(null);
         }
 
