@@ -87,11 +87,6 @@ apoc.convert.fromJsonMap,CORE
 apoc.convert.getJsonProperty,CORE
 apoc.convert.getJsonPropertyMap,CORE
 apoc.convert.setJsonProperty,CORE
-apoc.convert.toBoolean,CORE
-apoc.convert.toBooleanList,CORE
-apoc.convert.toFloat,CORE
-apoc.convert.toInteger,CORE
-apoc.convert.toIntList,CORE
 apoc.convert.toJson,CORE
 apoc.convert.toList,CORE
 apoc.convert.toMap,CORE
@@ -101,8 +96,6 @@ apoc.convert.toRelationship,CORE
 apoc.convert.toRelationshipList,CORE
 apoc.convert.toSet,CORE
 apoc.convert.toSortedJsonMap,CORE
-apoc.convert.toString,CORE
-apoc.convert.toStringList,CORE
 apoc.convert.toTree,CORE
 apoc.couchbase.append,EXTENDED
 apoc.couchbase.exists,EXTENDED

@@ -38,36 +38,6 @@ apoc.convert.getJsonProperty(node,key[,'json-path', 'path-options']) - converts 
 apoc.convert.getJsonPropertyMap(node,key[,'json-path', 'path-options']) - converts serialized JSON in property back to map
 |label:function[]
 |label:apoc-core[]
-|xref::overview/apoc.convert/apoc.convert.toBoolean.adoc[apoc.convert.toBoolean icon:book[]]
-
-apoc.convert.toBoolean(value) \| tries it's best to convert the value to a boolean
-|label:function[]
-|label:apoc-core[]
-|xref::overview/apoc.convert/apoc.convert.toBooleanList.adoc[apoc.convert.toBooleanList icon:book[]]
-
-apoc.convert.toBooleanList(value) \| tries it's best to convert the value to a list of booleans
-|label:function[]
-|label:apoc-core[]
-|xref::overview/apoc.convert/apoc.convert.toFloat.adoc[apoc.convert.toFloat icon:book[]]
-
-apoc.convert.toFloat(value) \| tries it's best to convert the value to a float
-|label:function[]
-|label:apoc-core[]
-|xref::overview/apoc.convert/apoc.convert.toIntList.adoc[apoc.convert.toIntList icon:book[]]
-
-apoc.convert.toIntList(value) \| tries it's best to convert the value to a list of integers
-|label:function[]
-|label:apoc-core[]
-|xref::overview/apoc.convert/apoc.convert.toInteger.adoc[apoc.convert.toInteger icon:book[]]
-
-apoc.convert.toInteger(value) \| tries it's best to convert the value to an integer
-|label:function[]
-|label:apoc-core[]
-|xref::overview/apoc.convert/apoc.convert.toJson.adoc[apoc.convert.toJson icon:book[]]
-
-apoc.convert.toJson([1,2,3]) or toJson({a:42,b:"foo",c:[1,2,3]}) or toJson(NODE/REL/PATH)
-|label:function[]
-|label:apoc-core[]
 |xref::overview/apoc.convert/apoc.convert.toList.adoc[apoc.convert.toList icon:book[]]
 
 apoc.convert.toList(value) \| tries it's best to convert the value to a list
@@ -106,16 +76,6 @@ apoc.convert.toSet(value) \| tries it's best to convert the value to a set
 |xref::overview/apoc.convert/apoc.convert.toSortedJsonMap.adoc[apoc.convert.toSortedJsonMap icon:book[]]
 
 apoc.convert.toSortedJsonMap(node\|map, ignoreCase:true) - returns a JSON map with keys sorted alphabetically, with optional case sensitivity
-|label:function[]
-|label:apoc-core[]
-|xref::overview/apoc.convert/apoc.convert.toString.adoc[apoc.convert.toString icon:book[]]
-
-apoc.convert.toString(value) \| tries it's best to convert the value to a string
-|label:function[]
-|label:apoc-core[]
-|xref::overview/apoc.convert/apoc.convert.toStringList.adoc[apoc.convert.toStringList icon:book[]]
-
-apoc.convert.toStringList(value) \| tries it's best to convert the value to a list of strings
 |label:function[]
 |label:apoc-core[]
 |===

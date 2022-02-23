@@ -393,11 +393,6 @@ for the provided `label` and `uuidProperty`, in case the UUID handler is already
 ¦function¦apoc.convert.fromJsonMap¦apoc.convert.fromJsonMap(map :: STRING?, path =  :: STRING?, pathOptions = null :: LIST? OF STRING?) :: (MAP?)¦apoc.convert.fromJsonMap('{"a":42,"b":"foo","c":[1,2,3]}'[,'json-path', 'path-options'])¦true¦
 ¦function¦apoc.convert.getJsonProperty¦apoc.convert.getJsonProperty(node :: NODE?, key :: STRING?, path =  :: STRING?, pathOptions = null :: LIST? OF STRING?) :: (ANY?)¦apoc.convert.getJsonProperty(node,key[,'json-path', 'path-options']) - converts serialized JSON in property back to original object¦true¦
 ¦function¦apoc.convert.getJsonPropertyMap¦apoc.convert.getJsonPropertyMap(node :: NODE?, key :: STRING?, path =  :: STRING?, pathOptions = null :: LIST? OF STRING?) :: (MAP?)¦apoc.convert.getJsonPropertyMap(node,key[,'json-path', 'path-options']) - converts serialized JSON in property back to map¦true¦
-¦function¦apoc.convert.toBoolean¦apoc.convert.toBoolean(bool :: ANY?) :: (BOOLEAN?)¦apoc.convert.toBoolean(value) | tries it's best to convert the value to a boolean¦true¦
-¦function¦apoc.convert.toBooleanList¦apoc.convert.toBooleanList(list :: ANY?) :: (LIST? OF ANY?)¦apoc.convert.toBooleanList(value) | tries it's best to convert the value to a list of booleans¦true¦
-¦function¦apoc.convert.toFloat¦apoc.convert.toFloat(object :: ANY?) :: (FLOAT?)¦apoc.convert.toFloat(value) | tries it's best to convert the value to a float¦true¦
-¦function¦apoc.convert.toIntList¦apoc.convert.toIntList(list :: ANY?) :: (LIST? OF ANY?)¦apoc.convert.toIntList(value) | tries it's best to convert the value to a list of integers¦true¦
-¦function¦apoc.convert.toInteger¦apoc.convert.toInteger(object :: ANY?) :: (INTEGER?)¦apoc.convert.toInteger(value) | tries it's best to convert the value to an integer¦true¦
 ¦function¦apoc.convert.toJson¦apoc.convert.toJson(value :: ANY?) :: (STRING?)¦apoc.convert.toJson([1,2,3]) or toJson({a:42,b:"foo",c:[1,2,3]}) or toJson(NODE/REL/PATH)¦true¦
 ¦function¦apoc.convert.toList¦apoc.convert.toList(list :: ANY?) :: (LIST? OF ANY?)¦apoc.convert.toList(value) | tries it's best to convert the value to a list¦true¦
 ¦function¦apoc.convert.toMap¦apoc.convert.toMap(map :: ANY?) :: (MAP?)¦apoc.convert.toMap(value) | tries it's best to convert the value to a map¦true¦
@@ -407,8 +402,6 @@ for the provided `label` and `uuidProperty`, in case the UUID handler is already
 ¦function¦apoc.convert.toRelationshipList¦apoc.convert.toRelationshipList(list :: ANY?) :: (LIST? OF ANY?)¦apoc.convert.toRelationshipList(value) | tries it's best to convert the value to a list of relationships¦true¦
 ¦function¦apoc.convert.toSet¦apoc.convert.toSet(list :: ANY?) :: (LIST? OF ANY?)¦apoc.convert.toSet(value) | tries it's best to convert the value to a set¦true¦
 ¦function¦apoc.convert.toSortedJsonMap¦apoc.convert.toSortedJsonMap(value :: ANY?, ignoreCase = true :: BOOLEAN?) :: (STRING?)¦apoc.convert.toSortedJsonMap(node|map, ignoreCase:true) - returns a JSON map with keys sorted alphabetically, with optional case sensitivity¦true¦
-¦function¦apoc.convert.toString¦apoc.convert.toString(string :: ANY?) :: (STRING?)¦apoc.convert.toString(value) | tries it's best to convert the value to a string¦true¦
-¦function¦apoc.convert.toStringList¦apoc.convert.toStringList(list :: ANY?) :: (LIST? OF ANY?)¦apoc.convert.toStringList(value) | tries it's best to convert the value to a list of strings¦true¦
 ¦function¦apoc.create.uuid¦apoc.create.uuid() :: (STRING?)¦apoc.create.uuid() - creates an UUID¦true¦xref::graph-updates/uuid.adoc
 ¦function¦apoc.create.vNode¦apoc.create.vNode(label :: LIST? OF STRING?, props = {} :: MAP?) :: (NODE?)¦apoc.create.vNode(['Label'], {key:value,...}) returns a virtual node¦true¦xref::virtual/virtual-nodes-rels.adoc
 ¦function¦apoc.create.vRelationship¦apoc.create.vRelationship(from :: NODE?, relType :: STRING?, props :: MAP?, to :: NODE?) :: (RELATIONSHIP?)¦apoc.create.vRelationship(nodeFrom,'KNOWS',{key:value,...}, nodeTo) returns a virtual relationship¦true¦xref::virtual/virtual-nodes-rels.adoc
