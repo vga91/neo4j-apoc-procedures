@@ -6,6 +6,7 @@ import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.test.rule.DbmsRule;
@@ -14,6 +15,7 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static apoc.ApocSettings.apoc_trigger_enabled;
@@ -88,14 +90,13 @@ public class TriggerExtendedTest {
 
     @Test
     public void testIssue1152() {
-        final long id = TestUtil.singleResultFirstColumn(db, 
-                "CREATE (n:To:Delete {prop1: 'val1', prop2: 'val2'}) RETURN id(n) as id");
+        db.executeTransactionally("CREATE (n:To:Delete {prop1: 'val1', prop2: 'val2'}) RETURN id(n) as id");
         
-        testIssue1152Common(id, "before");
-        testIssue1152Common(id, "after");
+        testIssue1152Common("before");
+        testIssue1152Common("after");
     }
 
-    private void testIssue1152Common(long id, String phase) {
+    private void testIssue1152Common(String phase) {
         // we check also that we can execute write operation (through virtualNode functions, e.g. apoc.create.addLabels)
         final String query = "UNWIND $deletedNodes as deletedNode " +
                 "WITH apoc.trigger.rebuildNode(deletedNode, $removedLabels, $removedNodeProperties) AS deletedNode " +
@@ -112,35 +113,47 @@ public class TriggerExtendedTest {
             final Node n = (Node) row.get("n");
             assertEquals("val1", n.getProperty("prop1"));
             assertEquals("val2", n.getProperty("prop2"));
-            assertEquals(id, n.getProperty("id"));
         });
     }
 
     @Test
     public void testRetrievePropsDeletedRelationship() {
-        final long id = TestUtil.singleResultFirstColumn(db, 
-                "CREATE (:Start)-[r:MY_TYPE {prop1: 'val1', prop2: 'val2'}]->(:End) RETURN id(r) as id");
-
-        testRetrievePropsDeletedRelationshipCommon(id, "before");
-        testRetrievePropsDeletedRelationshipCommon(id, "after");
-    }
-
-    private void testRetrievePropsDeletedRelationshipCommon(long id, String phase) {
+        db.executeTransactionally("CREATE (s:Start)-[r:MY_TYPE {prop1: 'val1', prop2: 'val2'}]->(e:End), (s)-[:REMAINING_REL]->(e)");
+        
         final String query = "UNWIND $deletedRelationships as deletedRel " +
                 "WITH apoc.trigger.rebuildRelationship(deletedRel, $removedRelationshipProperties) AS deletedRel " +
-                "CREATE (r:Report {id: id(deletedRel), type: type(deletedRel)}) WITH r, deletedRel " +
+                "MATCH (s)-[r:REMAINING_REL]->(e) WITH r, deletedRel " +
+                "set r+=apoc.any.properties(deletedRel), r.type= type(deletedRel)";
+
+        final String assertionQuery = "MATCH (:Start)-[n:REMAINING_REL]->(:End) RETURN n";
+        testRetrievePropsDeletedRelationshipCommon("before", query, assertionQuery);
+        testRetrievePropsDeletedRelationshipCommon("after", query, assertionQuery);
+    }
+
+    @Test
+    public void testRetrievePropsDeletedRelationshipWithQueryCreation() {
+        db.executeTransactionally("CREATE (:Start)-[r:MY_TYPE {prop1: 'val1', prop2: 'val2'}]->(:End)");
+        
+        final String query = "UNWIND $deletedRelationships as deletedRel " +
+                "WITH apoc.trigger.rebuildRelationship(deletedRel, $removedRelationshipProperties) AS deletedRel " +
+                "CREATE (r:Report {type: type(deletedRel)}) WITH r, deletedRel " +
                 "set r+=apoc.any.properties(deletedRel)";
 
-        db.executeTransactionally("call apoc.trigger.add('deleteRelationshipsBefore', $query , {phase: $phase})",
-                Map.of("query", query, "phase", phase));
+        final String assertionQuery = "MATCH (n:Report) RETURN n";
+        testRetrievePropsDeletedRelationshipCommon("before", query, assertionQuery);
+        testRetrievePropsDeletedRelationshipCommon("after", query, assertionQuery);
+    }
+
+    private void testRetrievePropsDeletedRelationshipCommon(String phase, String triggerQuery, String assertionQuery) {
+        db.executeTransactionally("call apoc.trigger.add('myTrigger', $query , {phase: $phase})",
+                Map.of("name", UUID.randomUUID().toString(), "query", triggerQuery, "phase", phase));
         db.executeTransactionally("MATCH (:Start)-[r:MY_TYPE]->(:End) DELETE r");
 
-        TestUtil.testCall(db, "MATCH (n:Report) RETURN n", (row) -> {
-            final Node n = (Node) row.get("n");
+        TestUtil.testCall(db, assertionQuery, (row) -> {
+            final Entity n = (Entity) row.get("n");
             assertEquals("MY_TYPE", n.getProperty("type"));
             assertEquals("val1", n.getProperty("prop1"));
             assertEquals("val2", n.getProperty("prop2"));
-            assertEquals(id, n.getProperty("id"));
         });
     }
 }

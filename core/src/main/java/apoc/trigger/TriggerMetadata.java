@@ -100,11 +100,11 @@ public class TriggerMetadata {
                                 .map(LabelEntry::label)
                                 .toArray(Label[]::new);
                         final Map<String, Object> props = getProps(txData.removedNodeProperties(), node);
-                        return new VirtualNode(node.getId(), labels, props);
+                        return new VirtualNode(labels, props);
                     } else {
                         Relationship rel = (Relationship) e;
                         final Map<String, Object> props = getProps(txData.removedRelationshipProperties(), rel);
-                        return new VirtualRelationship(rel.getId(), rel.getStartNode(), rel.getEndNode(), rel.getType(), props);
+                        return new VirtualRelationship(rel.getStartNode(), rel.getEndNode(), rel.getType(), props);
                     }
                 })
                 .collect(Collectors.toList());
@@ -121,10 +121,7 @@ public class TriggerMetadata {
         final List<Relationship> createdRelationships = Util.rebind(this.createdRelationships, tx);
 //        final List<Node> deletedNodes = Util.rebind(this.deletedNodes, tx);
 //        final List<Relationship> deletedRelationships = Util.rebind(this.deletedRelationships, tx);
-        final Map<String, List<Node>> removedLabels = rebindMap(this.removedLabels, tx);
         final Map<String, List<Node>> assignedLabels = rebindMap(this.assignedLabels, tx);
-        final Map<String, List<PropertyEntryContainer<Node>>> removedNodeProperties = rebindPropertyEntryContainer(this.removedNodeProperties, tx);
-        final Map<String, List<PropertyEntryContainer<Relationship>>> removedRelationshipProperties = rebindPropertyEntryContainer(this.removedRelationshipProperties, tx);
         final Map<String, List<PropertyEntryContainer<Node>>> assignedNodeProperties = rebindPropertyEntryContainer(this.assignedNodeProperties, tx);
         final Map<String, List<PropertyEntryContainer<Relationship>>> assignedRelationshipProperties = rebindPropertyEntryContainer(this.assignedRelationshipProperties, tx);
         return new TriggerMetadata(transactionId, commitTime, createdNodes, createdRelationships, deletedNodes, deletedRelationships,

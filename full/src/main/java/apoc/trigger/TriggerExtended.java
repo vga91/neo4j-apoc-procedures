@@ -126,7 +126,7 @@ TriggerExtended {
                 .map(Optional::get)
                 .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
 
-        return new VirtualNode(id, labels, props);
+        return new VirtualNode(labels, props);
     }
     
     @UserFunction
@@ -141,6 +141,6 @@ TriggerExtended {
                 .map(Optional::get)
                 .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
         
-        return new VirtualRelationship(rel.getId(), rel.getStartNode(), rel.getEndNode(), rel.getType(), props);
+        return new VirtualRelationship(rel.getStartNode(), rel.getEndNode(), rel.getType(), props);
     }
 }
