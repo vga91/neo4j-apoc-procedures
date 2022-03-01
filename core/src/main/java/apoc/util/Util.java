@@ -97,7 +97,6 @@ import static apoc.export.cypher.formatter.CypherFormatterUtils.formatProperties
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatToString;
 import static apoc.util.DateFormatUtil.getOrCreate;
 import static java.lang.String.format;
-import static org.eclipse.jetty.util.URIUtil.encodePath;
 
 /**
  * @author mh
@@ -937,7 +936,7 @@ public class Util {
 
     public static Map<String, Object> extractCredentialsIfNeeded(String url, boolean failOnError) {
         try {
-            URI uri = new URI(encodePath(url));
+            URI uri = new URI(url);
             String authInfo = uri.getUserInfo();
             if (null != authInfo) {
                 String[] parts = authInfo.split(":");
