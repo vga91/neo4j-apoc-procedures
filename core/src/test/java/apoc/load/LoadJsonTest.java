@@ -80,6 +80,17 @@ public class LoadJsonTest {
                 });
     }
 
+    @Test
+    public void testLoadInvalidJson() throws Exception {
+        URL url = ClassLoader.getSystemResource("invalid.json");
+        testCall(db, "CALL apoc.load.json($url, '', {failOnError: false})",
+                map("url",url.toString()),
+                (row) -> {
+                    assertEquals(map("foo",asList(1L,2L,3L)), row.get("value"));
+                });
+    }
+
+
     @Test public void testLoadJsonFromBlockedIpRange() throws Exception {
         var protocols = List.of("https", "http", "ftp");
 

@@ -306,6 +306,54 @@ public class ConvertJsonTest {
 		           assertEquals(asList(1L,2L,3L), value.get("c"));
 		         });
     }
+//    // todo - ma con il path come si comporta???
+//    @Test public void testFromInvalidJsonMap() throws Exception {
+//	    testCall(db, "RETURN apoc.convert.fromJsonMap('{\"osvaldo\": [1,2,3],\n" +
+//                        "  \"foo\":[\"1\", {\n" +
+////                        "  \"foo\":[\"1\", {\n" +
+//                        "    \"bar\": 1\n" +
+//                        "  }, {\"baz\":  18446744062065078016838}]\n" +
+////                        "  }, {\"baz\":  [12,3]}]\n" +
+//                        "}\n', '$', null, false)  as value",
+//	             (row) -> {
+//		           Map value = (Map)row.get("value");
+//		           assertEquals(42L, value.get("a"));
+//		           assertEquals("foo", value.get("b"));
+//		           assertEquals(asList(1L,2L,3L), value.get("c"));
+//		         });
+//    }
+    // todo - ma con il path come si comporta???
+    @Test public void testFromInvalidJsonMap() throws Exception {
+	    testCall(db, "RETURN apoc.convert.fromJsonMap('{\"osvaldo\": [1,2,3],\n" +
+                        "  \"foo\":[\"1\", {\n" +
+//                        "  \"foo\":[\"1\", {\n" +
+                        "    \"bar\": 1\n" +
+                        "  }, {\"baz\":  18446744062065078016838}]\n" +
+//                        "  }, {\"baz\":  [12,3]}]\n" +
+                        "}\n', '', null, false)  as value",
+	             (row) -> {
+		           Map value = (Map)row.get("value");
+		           assertEquals(42L, value.get("a"));
+		           assertEquals("foo", value.get("b"));
+		           assertEquals(asList(1L,2L,3L), value.get("c"));
+		         });
+    }
+    // todo - ma con il path come si comporta???
+    @Test public void testFromInvalidJsonMap1() throws Exception {
+	    testCall(db, "RETURN apoc.convert.fromJsonMap('{\"osvaldo\": [1,2,3],\n" +
+                        "  \"foo\":[\"1\", {\n" +
+//                        "  \"foo\":[\"1\", {\n" +
+                        "    \"bar\": 1\n" +
+                        "  }, {\"baz\":  18446744062065078016838}]\n" +
+//                        "  }, {\"baz\":  [12,3]}]\n" +
+                        "}\n', '$', null, false)  as value",
+	             (row) -> {
+		           Map value = (Map)row.get("value");
+		           assertEquals(42L, value.get("a"));
+		           assertEquals("foo", value.get("b"));
+		           assertEquals(asList(1L,2L,3L), value.get("c"));
+		         });
+    }
 
     @Test public void testSetJsonProperty() throws Exception {
         testCall(db, "CREATE (n) WITH n CALL apoc.convert.setJsonProperty(n, 'json', [1,2,3]) RETURN n",

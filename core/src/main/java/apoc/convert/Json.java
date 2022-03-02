@@ -122,8 +122,8 @@ public class Json {
 
     @UserFunction
     @Description("apoc.convert.fromJsonMap('{\"a\":42,\"b\":\"foo\",\"c\":[1,2,3]}'[,'json-path', 'path-options'])")
-    public Map<String,Object> fromJsonMap(@Name("map") String value,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions) {
-        return JsonUtil.parse(value, path, Map.class, pathOptions);
+    public Map<String,Object> fromJsonMap(@Name("map") String value,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failOnError", defaultValue = "true") boolean failOnError) {
+        return JsonUtil.parse(value, path, Map.class, pathOptions, failOnError);
     }
 
     @UserFunction
