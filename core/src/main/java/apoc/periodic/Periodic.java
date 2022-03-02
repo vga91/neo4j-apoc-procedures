@@ -288,6 +288,7 @@ public class Periodic {
             if (log.isDebugEnabled()) {
             	log.debug("Starting periodic iterate from `%s` operation using iteration `%s` in separate thread with id: `%s`", cypherIterate,cypherAction, periodicId);
             }
+            Map<String, Object> finalParams = params;
             return PeriodicUtils.iterateAndExecuteBatchedInSeparateThread(
                     db, terminationGuard, log, pools,
                     (int)batchSize, parallel, iterateList, retries, result,

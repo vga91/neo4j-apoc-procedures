@@ -4,6 +4,7 @@ import apoc.cypher.Cypher;
 import apoc.nodes.Nodes;
 import apoc.util.MapUtil;
 import apoc.util.TestUtil;
+import apoc.util.Util;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -12,6 +13,7 @@ import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.TransientTransactionFailureException;
@@ -61,7 +63,7 @@ public class PeriodicTest {
 
     @Before
     public void initDb() throws Exception {
-        TestUtil.registerProcedure(db, Periodic.class, Nodes.class);
+        TestUtil.registerProcedure(db, Periodic.class, Nodes.class, Cypher.class);
         db.executeTransactionally("call apoc.periodic.list() yield name call apoc.periodic.cancel(name) yield name as name2 return count(*)");
     }
 
@@ -85,6 +87,64 @@ public class PeriodicTest {
         assertThat(count, equalTo(1L));
 
         testCall(db, callList, (r) -> assertEquals(true, r.get("done")));
+    }
+
+    @Test
+    public void testSetWithoutRebindShouldFailsOnlyWithTxSetPropertyInsteadOfSetViaCypher() {
+        // we create 2 nodes via Transaction, and we rebind only one of them
+        Node firstNode;
+        try (Transaction tx = db.beginTx()) {
+            firstNode = tx.createNode(Label.label("FirstNode"));
+            tx.commit();
+        }
+
+        try (Transaction tx = db.beginTx()) {
+            // without rebind
+            firstNode.setProperty("alpha", true);
+            fail("Should fails due to 'The transaction has been closed.'");
+            tx.commit();
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("The transaction has been closed."));
+        }
+        
+        Node secondNode;
+        try (Transaction tx = db.beginTx()) {
+            secondNode = tx.createNode(Label.label("SecondNode"));
+            tx.commit();
+        }
+
+        try (Transaction tx = db.beginTx()) {
+            // with rebind
+            secondNode = Util.rebind(tx, secondNode);
+            secondNode.setProperty("alpha", true);
+            tx.commit();
+        }
+        
+        // try periodic and runMany procs (which open a new tx) with a set statement and without rebind
+        db.executeTransactionally("CREATE (:Rebind)-[r:REL_ONE]->(:Baz)");
+
+        final Map<String, Object> runManyParams = map("cypher", "SET $n.first = 1;");
+        testCall(db, "MATCH (n:Rebind) WITH n CALL apoc.cypher.runMany($cypher, {n: n}) YIELD row RETURN row",
+                runManyParams, (row) -> {});
+        testCall(db, "MATCH (:Rebind)-[n:REL_ONE]->(:Baz) WITH n CALL apoc.cypher.runMany($cypher, {n: n}) YIELD row RETURN row",
+                runManyParams, (row) -> {});
+
+        // periodic iterate
+        final String cypherAction = "CALL apoc.cypher.runMany(\"SET $entity.test = true;\", {entity: n}) YIELD row RETURN row";
+        
+        testCall(db, "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, {})", 
+                map("cypherIterate", "MATCH (n:Rebind) RETURN n", "cypherAction", cypherAction), (row) -> {});
+        testCall(db, "CALL apoc.periodic.iterate($cypherIterate, $cypherAction, {})",
+                map("cypherIterate", "MATCH (:Rebind)-[n:REL_ONE]->(:Baz) RETURN n", "cypherAction", cypherAction), (row) -> {});
+
+        testCall(db, "MATCH (n:Rebind)-[r:REL_ONE]->(:Baz) RETURN n, r", r -> {
+            final Node node = (Node) r.get("n");
+            assertEquals(true, node.getProperty("test"));
+            assertEquals(1L, node.getProperty("first"));
+            final Relationship rel = (Relationship) r.get("r");
+            assertEquals(true, rel.getProperty("test"));
+            assertEquals(1L, rel.getProperty("first"));
+        });
     }
     
     @Test
