@@ -5,35 +5,26 @@ import apoc.export.util.PointSerializer;
 import apoc.export.util.TemporalSerializer;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.Version;
-import com.fasterxml.jackson.databind.BeanDescription;
-import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.KeyDeserializer;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
-import com.fasterxml.jackson.databind.deser.NullValueProvider;
-import com.fasterxml.jackson.databind.deser.ValueInstantiator;
-import com.fasterxml.jackson.databind.deser.std.MapDeserializer;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer;
-import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.DocumentContext;
-import com.jayway.jsonpath.InvalidJsonException;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
 import com.jayway.jsonpath.spi.json.JacksonJsonProvider;
 import com.jayway.jsonpath.spi.mapper.JacksonMappingProvider;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.spatial.Point;
+import org.neo4j.logging.Log;
 import org.neo4j.values.storable.DurationValue;
 
 import java.io.FilterInputStream;
@@ -41,11 +32,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Spliterators;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -55,29 +44,18 @@ import java.util.stream.StreamSupport;
  * @since 04.05.16
  */
 public class JsonUtil {
+
+
+    // public for test purpose
+    public static final String KEY_ERROR = "errorList";
+
+    public enum FailSilently { FALSE, WITH_LOG, WITH_LIST }
+    
     private final static Option[] defaultJsonPathOptions = { Option.DEFAULT_PATH_LEAF_TO_NULL, Option.SUPPRESS_EXCEPTIONS };
     
     public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-//    public static final ObjectMapper OBJECT_MAPPER;// = new ObjectMapper();
     public static final String PATH_OPTIONS_ERROR_MESSAGE = "Invalid pathOptions. The allowed values are: " + EnumSet.allOf(Option.class);
     static {
-//        JacksonNonBlockingObjectMapperFactory factory = new JacksonNonBlockingObjectMapperFactory();
-//        factory.setJsonDeserializers(Arrays.asList(new StdDeserializer[] {
-////                // StdDeserializer, here, comes from Jackson (org.codehaus.jackson.map.deser.StdDeserializer)
-////                new MapDeserializer(Map.class),
-////                new org.codehaus.jackson.map.deser.std.StdDeserializer.IntegerDeserializer(Integer.class, null),
-////                new org.codehaus.jackson.map.deser.std.StdDeserializer.CharacterDeserializer(Character.class, null),
-////                new org.codehaus.jackson.map.deser.std.StdDeserializer.LongDeserializer(Long.class, null),
-////                new org.codehaus.jackson.map.deser.std.StdDeserializer.FloatDeserializer(Float.class, null),
-////                new org.codehaus.jackson.map.deser.std.StdDeserializer.DoubleDeserializer(Double.class, null),
-////                new org.codehaus.jackson.map.deser.std.StdDeserializer.NumberDeserializer(),
-////                new org.codehaus.jackson.map.deser.std.StdDeserializer.BigDecimalDeserializer(),
-////                new org.codehaus.jackson.map.deser.std.StdDeserializer.BigIntegerDeserializer()
-//////                new org.codehaus.jackson.map.deser.std.StdDeserializer.CalendarDeserializer()
-//        }));
-//        OBJECT_MAPPER = factory.createObjectMapper();
-        
-        
         OBJECT_MAPPER.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
         OBJECT_MAPPER.configure(JsonParser.Feature.AUTO_CLOSE_SOURCE, false);
         OBJECT_MAPPER.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
@@ -86,32 +64,10 @@ public class JsonUtil {
         OBJECT_MAPPER.configure(JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true);
         OBJECT_MAPPER.configure(JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS, true);
         OBJECT_MAPPER.enable(DeserializationFeature.USE_LONG_FOR_INTS);
-        
-//        OBJECT_MAPPER.enable(DeserializationFeature.WRAP_EXCEPTIONS);
-        
-        
         SimpleModule module = new SimpleModule("Neo4jApocSerializer");
-//        module.setDeserializerModifier(new BeanDeserializerModifier() {
-//            @Override
-//            public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
-//                config.
-//                return super.modifyDeserializer(config, beanDesc, deserializer);
-//            }
-//        })
         module.addSerializer(Point.class, new PointSerializer());
         module.addSerializer(Temporal.class, new TemporalSerializer());
         module.addSerializer(DurationValue.class, new DurationValueSerializer());
-        
-        
-        
-        
-        module.addDeserializer(Object.class, new SilentDeserializer(null, null));
-        
-        
-        
-        
-//        module.addDeserializer(Map.class, new SilentDeserializer2(null, null));
-//        module.setDeserializerModifier()
         OBJECT_MAPPER.registerModule(module);
     }
 
@@ -126,14 +82,18 @@ public class JsonUtil {
         }
     }
 
+    // todo - forse non serve..
     private static Configuration getJsonPathConfig(List<String> options) {
+        return getJsonPathConfig(options, OBJECT_MAPPER);
+    }
+
+    private static Configuration getJsonPathConfig(List<String> options, ObjectMapper objectMapper) {
         try {
             Option[] opts = options == null ? defaultJsonPathOptions : options.stream().map(Option::valueOf).toArray(Option[]::new);
             return Configuration.builder()
                     .options(opts)
-                    // ... questo
-                    .jsonProvider(new JacksonJsonProvider(OBJECT_MAPPER))
-                    .mappingProvider(new JacksonMappingProvider(OBJECT_MAPPER))
+                    .jsonProvider(new JacksonJsonProvider(objectMapper))
+                    .mappingProvider(new JacksonMappingProvider(objectMapper))
                     .build();
         } catch (Exception e) {
             throw new RuntimeException(PATH_OPTIONS_ERROR_MESSAGE, e);
@@ -205,87 +165,24 @@ public class JsonUtil {
         return parse(json, path, type, null);
     }
 
-    public static class JacksonNonBlockingObjectMapperFactory {
-
-        /**
-         * Deserializer that won't block if value parsing doesn't match with target type
-         * @param <T> Handled type
-         */
-        private static class NonBlockingDeserializer<T> extends JsonDeserializer<T> {
-            private StdDeserializer<T> delegate;
-
-            public NonBlockingDeserializer(StdDeserializer<T> _delegate){
-                this.delegate = _delegate;
-            }
-
-            @Override
-            public T deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-                try {
-                    return delegate.deserialize(jp, ctxt);
-                }catch (JsonMappingException e){
-                    // If a JSON Mapping occurs, simply returning null instead of blocking things
-                    return null;
-                }
-            }
-        }
-
-        private List<StdDeserializer> jsonDeserializers = new ArrayList<StdDeserializer>();
-
-        public ObjectMapper createObjectMapper(){
-            ObjectMapper objectMapper = new ObjectMapper();
-
-            SimpleModule customJacksonModule = new SimpleModule("customJacksonModule", new Version(1, 0, 0, null));
-            for(StdDeserializer jsonDeserializer : jsonDeserializers){
-                // Wrapping given deserializers with NonBlockingDeserializer
-                customJacksonModule.addDeserializer(jsonDeserializer.getValueClass(), new NonBlockingDeserializer(jsonDeserializer));
-            }
-
-            objectMapper.registerModule(customJacksonModule);
-            return objectMapper;
-        }
-
-        public JacksonNonBlockingObjectMapperFactory setJsonDeserializers(List<StdDeserializer> _jsonDeserializers){
-            this.jsonDeserializers = _jsonDeserializers;
-            return this;
-        }
-    }
-
-
     public static <T> T parse(String json, String path, Class<T> type, List<String> options) {
-        return parse(json, path, type, options, false);
+        return parse(json, path, type, options, FailSilently.FALSE, null, false);
     }
-
-    public static class SilentDeserializer2 extends MapDeserializer {
-
-        public SilentDeserializer2(JavaType mapType, ValueInstantiator valueInstantiator, KeyDeserializer keyDeser, JsonDeserializer<Object> valueDeser, TypeDeserializer valueTypeDeser) {
-            super(mapType, valueInstantiator, keyDeser, valueDeser, valueTypeDeser);
-        }
-
-        protected SilentDeserializer2(MapDeserializer src) {
-            super(src);
-        }
-
-        protected SilentDeserializer2(MapDeserializer src, KeyDeserializer keyDeser, JsonDeserializer<Object> valueDeser, TypeDeserializer valueTypeDeser, NullValueProvider nuller, Set<String> ignorable) {
-            super(src, keyDeser, valueDeser, valueTypeDeser, nuller, ignorable);
-        }
-
-        protected SilentDeserializer2(MapDeserializer src, KeyDeserializer keyDeser, JsonDeserializer<Object> valueDeser, TypeDeserializer valueTypeDeser, NullValueProvider nuller, Set<String> ignorable, Set<String> includable) {
-            super(src, keyDeser, valueDeser, valueTypeDeser, nuller, ignorable, includable);
-        }
-
-        @Override
-        public  Map<Object,Object>  deserialize(JsonParser jp, DeserializationContext ctxt)
-                throws IOException, JsonProcessingException {
-            System.out.println("AAAAAA");
-            return super.deserialize(jp, ctxt);
-        }
+    
+    public static <T> T parse(String json, String path, Class<T> type, List<String> options, boolean validation) {
+        return parse(json, path, type, options, FailSilently.WITH_LIST, null, validation);
     }
+    
 
-    // todo - ma questo richiama solo ObjectMapper, non 
     public final static class SilentDeserializer extends UntypedObjectDeserializer {
-
-        public SilentDeserializer(JavaType listType, JavaType mapType) {
+        private final Log log;
+        private final FailSilently failSilently;
+        private final List<String> errorList = new ArrayList<>();
+        
+        public SilentDeserializer(FailSilently failSilently, Log log, JavaType listType, JavaType mapType) {
             super(listType, mapType);
+            this.log = log;
+            this.failSilently = failSilently;
         }
 
         @Override
@@ -293,22 +190,30 @@ public class JsonUtil {
             try {
                 // fallback to standard deserialization
                 return super.deserialize(p, ctxt);
+            } catch (IOException e) {
+                final String errMsg = "Error with key " + p.getParsingContext().getCurrentName() + " - " + e.getMessage();
+                final String errorKey = "__ERROR";
+                switch (failSilently) {
+                    case WITH_LIST:
+                        errorList.add(errMsg);
+                        return errorKey; // todo - key...
+                    case WITH_LOG:
+                        if (log != null) {
+                            log.error(errMsg);
+                        }
+                        return errorKey;
+                    default:
+                        throw new IOException(e);
+                }
             } catch (Exception e) {
-                System.out.println("CustomNumberSerializer.deserialize");
-                return "porcoDio";
+                System.out.println("qui non dovrebbe mai andarci... credo...");
+                return null;
             }
         }
 
-//        @Override
-//        public Object readValue(JsonParser p, DeserializationContext ctxt) throws IOException {
-//            try {
-//                // fallback to standard deserialization
-//                return super.deserialize(p, ctxt);
-//            } catch (JsonMappingException e) {
-//                System.out.println("CustomNumberSerializer.deserialize");
-//                return "porcoDio";
-//            }
-//        }
+        public List<String> getErrorList() {
+            return errorList;
+        }
     }
 
 //    public static class JacksonNonBlockingObjectMapperFactory {
@@ -375,29 +280,105 @@ public class JsonUtil {
     
     
     // TODO - farlo a tutti i json..., mettere opzione che fa tipo loadHtml - private enum FailSilently { FALSE, WITH_LOG, WITH_LIST }
+
+    public static <T> T parse(String json, String path, Class<T> type, List<String> options, FailSilently failSilently, Log log) {
+        return parse(json, path, type, options, failSilently, log, false);
+    }
     
-    public static <T> T parse(String json, String path, Class<T> type, List<String> options, boolean failOnError) {
+    public static <T> T parse(String json, String path, Class<T> type, List<String> options, FailSilently failSilently, Log log, boolean validation) {
+        
         if (json==null || json.isEmpty()) return null;
+        final String withListErrorMsg = String.format("The failSilently is set to %s but we don't know how to append the error message to type %s. So we just throw the parse message \n",
+                FailSilently.WITH_LIST.name(), type);
         try {
+            ObjectMapper objectMapper = OBJECT_MAPPER;
+            final SilentDeserializer deser = new SilentDeserializer(failSilently, log, null, null);
+            if (!failSilently.equals(FailSilently.FALSE)) {
+//                SimpleModule module = new SimpleModule("Neo4jApocSerializer");
+//                module.
+
+                SimpleModule module = new SimpleModule("SilentDeserializer")
+                        .addDeserializer(Object.class, deser);
+                
+                // todo - controllare che abbia anche PointSerializer e gli altri
+                objectMapper = OBJECT_MAPPER.copy().registerModule(module);
+//                        .setAnnotationIntrospector(new JacksonAnnotationIntrospector() {
+//                    @Override
+//                    public Object findDeserializer(AnnotatedIntro a) {
+//                        Object deserializer = super.findDeserializer(a);
+//                        if (deserializer == null) {
+//                            return null;
+//                        }
+//                        if (deserializer.equals(MyDeserializer.class)) {
+//                            return null;
+//                        }
+//                        return deserializer;
+//                    }
+//                });
+            }
+            
             final String listOpt = Option.ALWAYS_RETURN_LIST.name();
             if (type == Map.class && options != null && options.contains(listOpt)) {
                 throw new RuntimeException("It's not possible to use " + listOpt + " option because the conversion should return a Map");
             }
             if (path == null || path.isEmpty()) {
-                return (T) OBJECT_MAPPER.readValue(json, Object.class);
+                final T t = (T) objectMapper.readValue(json, Object.class);
+                return getJson(failSilently, withListErrorMsg, deser.getErrorList(), t, validation);
             }
             // https://stackoverflow.com/questions/9080904/jackson-deserialization-error-handling
-            final DocumentContext parse = JsonPath.parse(json, getJsonPathConfig(options));
-            return parse.read(path, type);
-        } catch (IOException e) {
-            if (!failOnError) {
+            final DocumentContext parse = JsonPath.parse(json, getJsonPathConfig(options, objectMapper));
+            final T t = parse.read(path, type);
+            return getJson(failSilently, withListErrorMsg, deser.getErrorList(), t, validation);
+        } catch (Exception e) {
+            final String errMessage = "Can't convert " + json + " to " + type.getSimpleName() + " with path " + path;
+            switch (failSilently) {
+                case WITH_LOG:
+                    if (log != null) {
+                        log.error(errMessage);
+                    }
+                    break;
+                case WITH_LIST:
+                    final Map<String, String> keyError = Map.of(KEY_ERROR, errMessage);
+                    if (type.isAssignableFrom(Map.class) || type.equals(Object.class)) {
+//                    if (type.isAssignableFrom(Map.class) || type.equals(Object.class)) {
+                        return (T) keyError;
+                    } else if (type.isAssignableFrom(List.class)) {
+                        return (T) List.of(keyError);
+//                    } else if () {
+                        
+                    } else {
+                        throw new RuntimeException(withListErrorMsg + errMessage, e);
+                    }
+                case FALSE:
+                    throw new RuntimeException(errMessage, e);
+            }
+            if (failSilently.equals(FailSilently.FALSE)) {
                 return null;
             }
-            throw new RuntimeException("Can't convert " + json + " to "+type.getSimpleName()+" with path "+path, e);
-        } catch (Exception e) {
-            System.out.println("AAAAAAAAAAAAAa");
-            return null;
+            throw new RuntimeException(errMessage, e);
+        } 
+//        catch (Exception e) {
+//            System.out.println("AAAAAAAAAAAAAa");
+//            return null;
+//        }
+    }
+
+    private static <T> T getJson(FailSilently failSilently, String withListErrorMsg, List<String> errorList, T json, boolean onlyValidation) {
+        final Map<String, List<String>> keyError = Map.of(KEY_ERROR, errorList);
+        if (onlyValidation) {
+            return (T) errorList;
         }
+        if (failSilently.equals(FailSilently.WITH_LIST)) {
+            if (json instanceof Map) {
+                ((Map) json).putAll(keyError);
+            } else if (json instanceof List) {
+                ((List) json).add(keyError);
+            } else {
+                // todo - common...
+                throw new RuntimeException(withListErrorMsg + String.join(", ", errorList));
+            }
+        }
+        return json;
     }
 
     public static String writeValueAsString(Object json) {

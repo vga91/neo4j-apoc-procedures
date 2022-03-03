@@ -15,6 +15,7 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Result;
+import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.helpers.collection.MapUtil;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
@@ -306,55 +307,43 @@ public class ConvertJsonTest {
 		           assertEquals(asList(1L,2L,3L), value.get("c"));
 		         });
     }
-//    // todo - ma con il path come si comporta???
-//    @Test public void testFromInvalidJsonMap() throws Exception {
-//	    testCall(db, "RETURN apoc.convert.fromJsonMap('{\"osvaldo\": [1,2,3],\n" +
-//                        "  \"foo\":[\"1\", {\n" +
-////                        "  \"foo\":[\"1\", {\n" +
-//                        "    \"bar\": 1\n" +
-//                        "  }, {\"baz\":  18446744062065078016838}]\n" +
-////                        "  }, {\"baz\":  [12,3]}]\n" +
-//                        "}\n', '$', null, false)  as value",
-//	             (row) -> {
-//		           Map value = (Map)row.get("value");
-//		           assertEquals(42L, value.get("a"));
-//		           assertEquals("foo", value.get("b"));
-//		           assertEquals(asList(1L,2L,3L), value.get("c"));
-//		         });
-//    }
-    // todo - ma con il path come si comporta???
-    @Test public void testFromInvalidJsonMap() throws Exception {
-	    testCall(db, "RETURN apoc.convert.fromJsonMap('{\"osvaldo\": [1,2,3],\n" +
-                        "  \"foo\":[\"1\", {\n" +
-//                        "  \"foo\":[\"1\", {\n" +
-                        "    \"bar\": 1\n" +
-                        "  }, {\"baz\":  18446744062065078016838}]\n" +
-//                        "  }, {\"baz\":  [12,3]}]\n" +
-                        "}\n', '', null, false)  as value",
-	             (row) -> {
-		           Map value = (Map)row.get("value");
-		           assertEquals(42L, value.get("a"));
-		           assertEquals("foo", value.get("b"));
-		           assertEquals(asList(1L,2L,3L), value.get("c"));
-		         });
-    }
-    // todo - ma con il path come si comporta???
-    @Test public void testFromInvalidJsonMap1() throws Exception {
-	    testCall(db, "RETURN apoc.convert.fromJsonMap('{\"osvaldo\": [1,2,3],\n" +
-                        "  \"foo\":[\"1\", {\n" +
-//                        "  \"foo\":[\"1\", {\n" +
-                        "    \"bar\": 1\n" +
-                        "  }, {\"baz\":  18446744062065078016838}]\n" +
-//                        "  }, {\"baz\":  [12,3]}]\n" +
-                        "}\n', '$', null, false)  as value",
-	             (row) -> {
-		           Map value = (Map)row.get("value");
-		           assertEquals(42L, value.get("a"));
-		           assertEquals("foo", value.get("b"));
-		           assertEquals(asList(1L,2L,3L), value.get("c"));
-		         });
-    }
 
+    @Test public void testFromInvalidJsonMap1() throws Exception {
+        final String jsonString = "{\"foo\":[\"1\", {\n" +
+                "    \"bar\": 18446744062065078016838\n" +
+                "  }, {\"baz\":  18446744062065078016838}],\n" +
+                "    \"baz\": 7 \n" +
+                "}";
+        testCall(db, "RETURN apoc.convert.fromJsonMap(" + jsonString + ", '', null, 'WITH_LOG')  as value",
+	             map("json", jsonString),
+	             (row) -> {
+		           Map value = (Map)row.get("value");
+		           System.out.println("ConvertJsonTest.testFromInvalidJsonMap1");
+		         });
+        
+        testCall(db, "RETURN apoc.convert.fromJsonMap(" + jsonString + ", '$', null, 'WITH_LOG')  as value",
+	             map("json", jsonString),
+	             (row) -> {
+		           Map value = (Map)row.get("value");
+		           System.out.println("ConvertJsonTest.testFromInvalidJsonMap1");
+		         });
+    }
+    
+    @Test 
+    public void testJsonValidate() {
+	    testResult(db, "CALL apoc.json.validate('{\"osvaldo\": [1,2,3],\n" +
+                        "  \"foo\":[\"1\", {\n" +
+                        "    \"bar\": 28446744062065078016838\n" +
+                        "  }, {\"baz\":  18446744062065078016838}],\n" +
+                        "    \"baz\": 7 \n" +
+                        "}', '$')",
+	             (r) -> {
+                     final List<String> value = Iterators.asList(r.columnAs("value"));
+                     assertEquals(2, value.size());
+                     assertTrue(value.stream().allMatch(i -> i.contains("out of range of long ")));
+		         });
+    }
+    
     @Test public void testSetJsonProperty() throws Exception {
         testCall(db, "CREATE (n) WITH n CALL apoc.convert.setJsonProperty(n, 'json', [1,2,3]) RETURN n",
                 (row) -> assertEquals("[1,2,3]", ((Node)row.get("n")).getProperty("json")));

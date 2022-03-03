@@ -1,13 +1,16 @@
 package apoc.convert;
 
 import apoc.meta.Meta;
+import apoc.result.ListResult;
 import apoc.result.MapResult;
+import apoc.result.StringResult;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
 import java.io.IOException;
@@ -80,6 +83,17 @@ public class Json {
 
     @Context
     public org.neo4j.graphdb.GraphDatabaseService db;
+    
+    @Context
+    public Log log;
+
+    @Procedure("apoc.json.validate")
+    @Description("apoc.json.validate('{json}' [,'json-path' , 'path-options'])")
+    public Stream<StringResult> validate(@Name("json") String json, @Name(value = "path",defaultValue = "$") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions) {
+        return ((List<String>) JsonUtil.parse(json, path, Object.class, pathOptions, true))
+                .stream()
+                .map(StringResult::new);
+    }
 
     @UserFunction("apoc.json.path")
     @Description("apoc.json.path('{json}' [,'json-path' , 'path-options'])")
@@ -122,8 +136,9 @@ public class Json {
 
     @UserFunction
     @Description("apoc.convert.fromJsonMap('{\"a\":42,\"b\":\"foo\",\"c\":[1,2,3]}'[,'json-path', 'path-options'])")
-    public Map<String,Object> fromJsonMap(@Name("map") String value,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failOnError", defaultValue = "true") boolean failOnError) {
-        return JsonUtil.parse(value, path, Map.class, pathOptions, failOnError);
+    public Map<String,Object> fromJsonMap(@Name("map") String value,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
+        final JsonUtil.FailSilently failSilentlyEnum = JsonUtil.FailSilently.valueOf(failSilently);
+        return JsonUtil.parse(value, path, Map.class, pathOptions, failSilentlyEnum, log);
     }
 
     @UserFunction
