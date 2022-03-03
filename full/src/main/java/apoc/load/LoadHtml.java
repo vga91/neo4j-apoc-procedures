@@ -3,7 +3,7 @@ package apoc.load;
 import apoc.Extended;
 import apoc.result.MapResult;
 import apoc.util.FileUtils;
-import apoc.util.ConversionUtil;
+import apoc.load.util.ConversionUtil;
 import apoc.util.Util;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attribute;
@@ -23,7 +23,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static apoc.util.ConversionUtil.KEY_ERROR;
+import static apoc.load.util.ConversionUtil.KEY_ERROR;
 
 @Extended
 public class LoadHtml {

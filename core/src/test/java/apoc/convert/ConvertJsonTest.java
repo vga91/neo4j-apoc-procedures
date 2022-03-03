@@ -25,6 +25,8 @@ import java.util.Map;
 
 import static apoc.convert.Json.NODE;
 import static apoc.convert.Json.RELATIONSHIP;
+import static apoc.load.util.ConversionUtil.ERROR_VALUE;
+import static apoc.load.util.ConversionUtil.KEY_ERROR;
 import static apoc.util.JsonUtil.PATH_OPTIONS_ERROR_MESSAGE;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
@@ -308,27 +310,79 @@ public class ConvertJsonTest {
 		         });
     }
 
-    @Test public void testFromInvalidJsonMap1() throws Exception {
+    @Test 
+    public void testFromInvalidJsonMap1() {
         final String jsonString = "{\"foo\":[\"1\", {\n" +
                 "    \"bar\": 18446744062065078016838\n" +
-                "  }, {\"baz\":  18446744062065078016838}],\n" +
+                "  }, {\"baz\":  1228446744062065078016838}],\n" +
                 "    \"baz\": 7 \n" +
                 "}";
-        testCall(db, "RETURN apoc.convert.fromJsonMap(" + jsonString + ", '', null, 'WITH_LOG')  as value",
+
+        final List<Object> fooList = asList("1", map("bar", ERROR_VALUE), map("baz", ERROR_VALUE));
+        final Map<String, Object> expected = map("foo", fooList, "baz", 7L);
+        testCall(db, "RETURN apoc.convert.fromJsonMap($json, null, null, 'WITH_LOG')  as value",
 	             map("json", jsonString),
-	             (row) -> {
-		           Map value = (Map)row.get("value");
-		           System.out.println("ConvertJsonTest.testFromInvalidJsonMap1");
-		         });
+	             (row) -> assertEquals(expected, row.get("value")));
         
-        testCall(db, "RETURN apoc.convert.fromJsonMap(" + jsonString + ", '$', null, 'WITH_LOG')  as value",
+        testCall(db, "RETURN apoc.convert.fromJsonMap($json, null, null, 'WITH_LIST')  as value",
+	             map("json", jsonString),
+	             (row) -> assertionConvertMapWithList(fooList, row));
+
+        testCall(db, "RETURN apoc.convert.fromJsonMap($json, '$', null, 'WITH_LOG')  as value",
+	             map("json", jsonString),
+	             (row) -> assertEquals(expected, row.get("value")));
+
+        testCall(db, "RETURN apoc.convert.fromJsonMap($json, '$', null, 'WITH_LIST')  as value",
+                map("json", jsonString), 
+                (row) -> assertionConvertMapWithList(fooList, row));
+
+        testCall(db, "RETURN apoc.json.path($json, '$..baz', [], 'WITH_LOG')  as value",
+	             map("json", jsonString),
+	             (row) -> assertEquals(List.of(7L, ERROR_VALUE), row.get("value")));
+
+        testCall(db, "RETURN apoc.json.path($json, '$..baz', [], 'WITH_LIST')  as value",
 	             map("json", jsonString),
 	             (row) -> {
-		           Map value = (Map)row.get("value");
-		           System.out.println("ConvertJsonTest.testFromInvalidJsonMap1");
-		         });
+                     final List value = (List) row.get("value");
+                     assertEquals(7L, value.get(0));
+                     assertEquals(ERROR_VALUE, value.get(1));
+                     assertionErrorList((Map) value.get(2));
+                 });
+        
+        testCall(db, "RETURN apoc.convert.fromJsonList($json, '$..bar', [], 'WITH_LOG')  as value",
+	             map("json", jsonString),
+	             (row) -> assertEquals(List.of(ERROR_VALUE), row.get("value")));
+        
+        testCall(db, "RETURN apoc.convert.fromJsonList($json, '$..bar', [], 'WITH_LIST')  as value",
+	             map("json", jsonString),
+                (row) -> {
+                    final List value = (List) row.get("value");
+                    assertEquals(ERROR_VALUE, value.get(0));
+                    assertionErrorList((Map) value.get(1));
+                });
+        
+        try {
+            testCall(db, "RETURN apoc.convert.fromJsonList($json, '$..bar', [], 'FALSE')  as value",
+                    map("json", jsonString), 
+                    (row) -> fail());
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains("out of range"));
+        }
     }
-    
+
+    private void assertionConvertMapWithList(List<Object> fooList, Map<String, Object> row) {
+        final Map value = (Map) row.get("value");
+        assertionErrorList(value);
+        assertEquals(fooList, value.get("foo"));
+        assertEquals(7L, value.get("baz"));
+    }
+
+    private void assertionErrorList(Map value) {
+        final List<String> errors = (List<String>) value.get(KEY_ERROR);
+        assertEquals(2, errors.size());
+        assertTrue(errors.stream().allMatch(i -> i.contains("out of range of long ")));
+    }
+
     @Test 
     public void testJsonValidate() {
 	    testResult(db, "CALL apoc.json.validate('{\"osvaldo\": [1,2,3],\n" +

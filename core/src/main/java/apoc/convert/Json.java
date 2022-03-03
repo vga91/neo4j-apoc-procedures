@@ -1,10 +1,9 @@
 package apoc.convert;
 
 import apoc.meta.Meta;
-import apoc.result.ListResult;
 import apoc.result.MapResult;
 import apoc.result.StringResult;
-import apoc.util.ConversionUtil;
+import apoc.load.util.ConversionUtil;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import org.neo4j.graphdb.Entity;
@@ -91,7 +90,7 @@ public class Json {
     @Procedure("apoc.json.validate")
     @Description("apoc.json.validate('{json}' [,'json-path' , 'path-options'])")
     public Stream<StringResult> validate(@Name("json") String json, @Name(value = "path",defaultValue = "$") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions) {
-        return ((List<String>) JsonUtil.parse(json, path, Object.class, pathOptions, true))
+        return ((List<String>) JsonUtil.parse(json, path, Object.class, pathOptions, ConversionUtil.FailSilently.WITH_LIST, null, true))
                 .stream()
                 .map(StringResult::new);
     }

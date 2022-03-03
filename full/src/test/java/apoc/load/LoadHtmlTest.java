@@ -15,7 +15,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.util.ConversionUtil.KEY_ERROR;
+import static apoc.load.util.ConversionUtil.KEY_ERROR;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
