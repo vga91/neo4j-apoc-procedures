@@ -32,6 +32,8 @@ import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.convert.ConvertJsonTest.EXPECTED_AS_PATH_LIST;
 import static apoc.convert.ConvertJsonTest.EXPECTED_PATH;
 import static apoc.convert.ConvertJsonTest.EXPECTED_PATH_WITH_NULLS;
+import static apoc.util.ConversionUtil.ERROR_VALUE;
+import static apoc.util.ConversionUtil.KEY_ERROR;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
@@ -86,7 +88,8 @@ public class LoadJsonTest {
         testCall(db, "CALL apoc.load.json($url, '', {failOnError: false})",
                 map("url",url.toString()),
                 (row) -> {
-                    assertEquals(map("foo",asList(1L,2L,3L)), row.get("value"));
+                    final Map<String, Object> expected = map("foo", asList("1", map("bar", ERROR_VALUE), map("baz", ERROR_VALUE)), "baz", 7L);
+                    assertEquals(expected, row.get("value"));
                 });
     }
 

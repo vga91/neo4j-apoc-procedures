@@ -3,7 +3,7 @@ package apoc.load;
 import apoc.Extended;
 import apoc.result.MapResult;
 import apoc.util.FileUtils;
-import apoc.util.JsonUtil;
+import apoc.util.ConversionUtil;
 import apoc.util.Util;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attribute;
@@ -23,7 +23,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.stream.Stream;
 
-import static apoc.util.JsonUtil.KEY_ERROR;
+import static apoc.util.ConversionUtil.KEY_ERROR;
 
 @Extended
 public class LoadHtml {
@@ -72,7 +72,7 @@ public class LoadHtml {
 
     private List<Map<String, Object>> getElements(Elements elements, Map<String, Object> config, List<String> errorList) {
 
-        JsonUtil.FailSilently failConfig = JsonUtil.FailSilently.valueOf((String) config.getOrDefault("failSilently", "FALSE"));
+        ConversionUtil.FailSilently failConfig = ConversionUtil.FailSilently.valueOf((String) config.getOrDefault("failSilently", "FALSE"));
         List<Map<String, Object>> elementList = new ArrayList<>();
 
         for (Element element : elements) {

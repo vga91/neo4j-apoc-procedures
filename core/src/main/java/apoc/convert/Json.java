@@ -4,6 +4,7 @@ import apoc.meta.Meta;
 import apoc.result.ListResult;
 import apoc.result.MapResult;
 import apoc.result.StringResult;
+import apoc.util.ConversionUtil;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import org.neo4j.graphdb.Entity;
@@ -97,8 +98,9 @@ public class Json {
 
     @UserFunction("apoc.json.path")
     @Description("apoc.json.path('{json}' [,'json-path' , 'path-options'])")
-    public Object path(@Name("json") String json, @Name(value = "path",defaultValue = "$") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions) {
-        return JsonUtil.parse(json, path, Object.class, pathOptions);
+    public Object path(@Name("json") String json, @Name(value = "path",defaultValue = "$") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
+        final ConversionUtil.FailSilently failSilentlyEnum = ConversionUtil.FailSilently.valueOf(failSilently);
+        return JsonUtil.parse(json, path, Object.class, pathOptions, failSilentlyEnum, log);
     }
     @UserFunction("apoc.convert.toJson")
     @Description("apoc.convert.toJson([1,2,3]) or toJson({a:42,b:\"foo\",c:[1,2,3]}) or toJson(NODE/REL/PATH)")
@@ -137,14 +139,15 @@ public class Json {
     @UserFunction
     @Description("apoc.convert.fromJsonMap('{\"a\":42,\"b\":\"foo\",\"c\":[1,2,3]}'[,'json-path', 'path-options'])")
     public Map<String,Object> fromJsonMap(@Name("map") String value,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
-        final JsonUtil.FailSilently failSilentlyEnum = JsonUtil.FailSilently.valueOf(failSilently);
+        final ConversionUtil.FailSilently failSilentlyEnum = ConversionUtil.FailSilently.valueOf(failSilently);
         return JsonUtil.parse(value, path, Map.class, pathOptions, failSilentlyEnum, log);
     }
 
     @UserFunction
     @Description("apoc.convert.fromJsonList('[1,2,3]'[,'json-path', 'path-options'])")
-    public List<Object> fromJsonList(@Name("list") String value, @Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions) {
-        return JsonUtil.parse(value, path, List.class, pathOptions);
+    public List<Object> fromJsonList(@Name("list") String value, @Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
+        final ConversionUtil.FailSilently failSilentlyEnum = ConversionUtil.FailSilently.valueOf(failSilently);
+        return JsonUtil.parse(value, path, List.class, pathOptions, failSilentlyEnum, log);
     }
 
     @Procedure("apoc.convert.toTree")
