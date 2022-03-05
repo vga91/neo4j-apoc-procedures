@@ -39,7 +39,7 @@ public class ConversionUtil {
                         return ERROR_VALUE;
                     case WITH_LOG:
                         if (log != null) {
-                            log.error(errMsg);
+                            log.warn(errMsg);
                         }
                         return ERROR_VALUE;
                     default:

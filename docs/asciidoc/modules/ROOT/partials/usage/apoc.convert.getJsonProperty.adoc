@@ -33,7 +33,7 @@ RETURN apoc.convert.getJsonProperty(p, "json", "$.a") AS output;
 |===
 
 
-Moreover, we can customize the Json path options, adding as third parameter (`pathOptions`) a list of strings,
+Moreover, we can customize the Json path options, adding as 4th parameter (`pathOptions`) a list of strings,
 where the strings are based on https://javadoc.io/doc/com.jayway.jsonpath/json-path/2.4.0/com/jayway/jsonpath/Option.html[Enum<Option>].
 The default value is `["SUPPRESS_EXCEPTIONS", "DEFAULT_PATH_LEAF_TO_NULL"]`. Note that we can also insert `[]`, that is "without options".
 So, with a `(n:JsonPathNode {prop: '{"columns":{"col2":{"_id":"772col2"}}}'})` we can execute (with default pathOptions):
@@ -62,4 +62,43 @@ MATCH (n:JsonPathNode) RETURN apoc.convert.getJsonProperty(n, 'prop', '$..column
 |===
 | Output
 | [ {"col2": { "_id": "772col2" }} ]
+|===
+
+Also, we can pass a `failSilently` option in the 5th parameter to handle incorrectly formatted JSONs.
+Possible parameters are "FALSE" (default), "WITH_LOG" and "WITH_LIST".
+If the parse fails with one or more elements, using `FALSE` it throws a `RuntimeException`, using `WITH_LOG` a `log.warn` is created for each incorrect item and using `WITH_LIST` a map entry with `errorList` as a key is added to the result with the failed tags.
+With config `WITH_LIST` and `WITH_LOG` will be put a "__ERROR" where the json fails.
+
+For example, with a node CREATE (n:JsonPathNode {prop: '{"foo": [{"baz":  18446744062065078016838}],"baz": 7}'}):
+
+[source, cypher]
+----
+MATCH (n:JsonPathNode) RETURN apoc.convert.getJsonProperty(n, 'prop', '$..baz',  [], 'WITH_LOG') AS output;
+----
+
+.Results
+[opts="header"]
+|===
+| output
+| [7, "__ERROR"]
+|===
+
+[source, cypher]
+----
+MATCH (n:JsonPathNode) RETURN apoc.convert.getJsonProperty(n, 'prop', '$..baz',  [], 'WITH_LIST') AS output;
+----
+
+.Results
+[opts="header"]
+|===
+| output
+a|
+[source,json]
+----
+[7, "__ERROR", {
+"errorList": [
+    "Error with key baz - Numeric value (18446744062065078016838) out of range of long (-9223372036854775808 - 9223372036854775807) at ..."
+    ]
+}]
+----
 |===

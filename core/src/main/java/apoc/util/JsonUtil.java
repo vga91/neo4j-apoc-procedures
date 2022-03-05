@@ -3,6 +3,7 @@ package apoc.util;
 import apoc.export.util.DurationValueSerializer;
 import apoc.export.util.PointSerializer;
 import apoc.export.util.TemporalSerializer;
+import apoc.load.util.ConversionUtil;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -126,8 +127,9 @@ public class JsonUtil {
         return parse(json, path, type, options, FailSilently.FALSE, null, false);
     }
 
-    public static <T> T parse(String json, String path, Class<T> type, List<String> options, FailSilently failSilently, Log log) {
-        return parse(json, path, type, options, failSilently, log, false);
+    public static <T> T parse(String json, String path, Class<T> type, List<String> options, String failSilently, Log log) {
+        final ConversionUtil.FailSilently failSilentlyEnum = ConversionUtil.FailSilently.valueOf(failSilently);
+        return parse(json, path, type, options, failSilentlyEnum, log, false);
     }
     
     public static <T> T parse(String json, String path, Class<T> type, List<String> options, FailSilently failSilently, Log log, boolean validation) {
@@ -153,7 +155,7 @@ public class JsonUtil {
             switch (failSilently) {
                 case WITH_LOG:
                     if (log != null) {
-                        log.error(errMessage);
+                        log.warn(errMessage);
                     }
                     break;
                 case WITH_LIST:
@@ -188,14 +190,10 @@ public class JsonUtil {
         return json;
     }
 
-    private static ObjectMapper getObjectMapper(SilentDeserializer deser) {
-//        if (!failSilently.equals(FailSilently.FALSE)) {
-            SimpleModule module = new SimpleModule("SilentDeserializer")
-                    .addDeserializer(Object.class, deser);
-
-            return OBJECT_MAPPER.copy().registerModule(module);
-//        }
-//        return OBJECT_MAPPER;
+    private static ObjectMapper getObjectMapper(SilentDeserializer deserializer) {
+        SimpleModule module = new SimpleModule("SilentDeserializer")
+                .addDeserializer(Object.class, deserializer);
+        return OBJECT_MAPPER.copy().registerModule(module);
     }
 
     public static String writeValueAsString(Object json) {

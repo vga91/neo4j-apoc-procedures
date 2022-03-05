@@ -88,7 +88,7 @@ public class Json {
     public Log log;
 
     @Procedure("apoc.json.validate")
-    @Description("apoc.json.validate('{json}' [,'json-path' , 'path-options'])")
+    @Description("apoc.json.validate('{json}' [,'json-path' , 'path-options']) - to check if the json is correct (returning an empty result) or not")
     public Stream<StringResult> validate(@Name("json") String json, @Name(value = "path",defaultValue = "$") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions) {
         return ((List<String>) JsonUtil.parse(json, path, Object.class, pathOptions, ConversionUtil.FailSilently.WITH_LIST, null, true))
                 .stream()
@@ -98,8 +98,7 @@ public class Json {
     @UserFunction("apoc.json.path")
     @Description("apoc.json.path('{json}' [,'json-path' , 'path-options'])")
     public Object path(@Name("json") String json, @Name(value = "path",defaultValue = "$") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
-        final ConversionUtil.FailSilently failSilentlyEnum = ConversionUtil.FailSilently.valueOf(failSilently);
-        return JsonUtil.parse(json, path, Object.class, pathOptions, failSilentlyEnum, log);
+        return JsonUtil.parse(json, path, Object.class, pathOptions, failSilently, log);
     }
     @UserFunction("apoc.convert.toJson")
     @Description("apoc.convert.toJson([1,2,3]) or toJson({a:42,b:\"foo\",c:[1,2,3]}) or toJson(NODE/REL/PATH)")
@@ -123,30 +122,28 @@ public class Json {
 
     @UserFunction// ("apoc.json.getJsonProperty")
     @Description("apoc.convert.getJsonProperty(node,key[,'json-path', 'path-options']) - converts serialized JSON in property back to original object")
-    public Object getJsonProperty(@Name("node") Node node, @Name("key") String key,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions) {
+    public Object getJsonProperty(@Name("node") Node node, @Name("key") String key,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
         String value = (String) node.getProperty(key, null);
-        return JsonUtil.parse(value, path, Object.class, pathOptions);
+        return JsonUtil.parse(value, path, Object.class, pathOptions, failSilently, log);
     }
 
     @UserFunction// ("apoc.json.getJsonPropertyMap")
     @Description("apoc.convert.getJsonPropertyMap(node,key[,'json-path', 'path-options']) - converts serialized JSON in property back to map")
-    public Map<String,Object> getJsonPropertyMap(@Name("node") Node node, @Name("key") String key,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions) {
+    public Map<String,Object> getJsonPropertyMap(@Name("node") Node node, @Name("key") String key,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
         String value = (String) node.getProperty(key, null);
-        return JsonUtil.parse(value, path, Map.class, pathOptions);
+        return JsonUtil.parse(value, path, Map.class, pathOptions, failSilently, log);
     }
 
     @UserFunction
     @Description("apoc.convert.fromJsonMap('{\"a\":42,\"b\":\"foo\",\"c\":[1,2,3]}'[,'json-path', 'path-options'])")
     public Map<String,Object> fromJsonMap(@Name("map") String value,@Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
-        final ConversionUtil.FailSilently failSilentlyEnum = ConversionUtil.FailSilently.valueOf(failSilently);
-        return JsonUtil.parse(value, path, Map.class, pathOptions, failSilentlyEnum, log);
+        return JsonUtil.parse(value, path, Map.class, pathOptions, failSilently, log);
     }
 
     @UserFunction
     @Description("apoc.convert.fromJsonList('[1,2,3]'[,'json-path', 'path-options'])")
     public List<Object> fromJsonList(@Name("list") String value, @Name(value = "path",defaultValue = "") String path, @Name(value = "pathOptions", defaultValue = "null") List<String> pathOptions, @Name(value = "failSilently", defaultValue = "FALSE") String failSilently) {
-        final ConversionUtil.FailSilently failSilentlyEnum = ConversionUtil.FailSilently.valueOf(failSilently);
-        return JsonUtil.parse(value, path, List.class, pathOptions, failSilentlyEnum, log);
+        return JsonUtil.parse(value, path, List.class, pathOptions, failSilently, log);
     }
 
     @Procedure("apoc.convert.toTree")

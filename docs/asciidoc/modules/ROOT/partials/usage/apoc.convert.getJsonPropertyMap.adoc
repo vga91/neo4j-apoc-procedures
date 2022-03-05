@@ -49,3 +49,60 @@ MATCH (n:JsonPathNode) RETURN apoc.convert.getJsonPropertyMap(n, 'prop', '$.colu
 |===
 | Failed to invoke function `apoc.convert.getJsonPropertyMap`: Caused by: com.fasterxml.jackson.databind.exc.MismatchedInputException: Cannot deserialize instance of `java.util.LinkedHashMap<java.lang.Object,java.lang.Object>` out of START_ARRAY token at [Source: UNKNOWN; line: -1, column: -1]
 |===
+
+
+Also, we can pass a `failSilently` option in the 5th parameter to handle incorrectly formatted JSONs.
+Possible parameters are "FALSE" (default), "WITH_LOG" and "WITH_LIST".
+If the parse fails with one or more elements, using `FALSE` it throws a `RuntimeException`, using `WITH_LOG` a `log.warn` is created for each incorrect item and using `WITH_LIST` a map entry with `errorList` as a key is added to the result with the failed tags.
+With config `WITH_LIST` and `WITH_LOG` will be put a "__ERROR" where the json fails.
+
+For example, with a node CREATE (n:JsonPathNode {prop: '{"foo": [{"baz":  18446744062065078016838}],"baz": 7}'}):
+
+[source, cypher]
+----
+MATCH (n:JsonPathNode) RETURN apoc.convert.getJsonPropertyMap(n, 'prop', '$',  [], 'WITH_LOG') AS output;
+----
+
+.Results
+[opts="header"]
+|===
+| output
+a|
+[source,json]
+----
+ {
+    "foo": [
+        {
+            "baz": "__ERROR"
+        }
+    ],
+    "baz": 7
+  }
+----
+|===
+
+[source, cypher]
+----
+MATCH (n:JsonPathNode) RETURN apoc.convert.getJsonPropertyMap(n, 'prop', '$',  [], 'WITH_LIST') AS output;
+----
+
+.Results
+[opts="header"]
+|===
+| output
+a|
+[source,json]
+----
+{
+  "errorList": [
+    "Error with key baz - Numeric value (18446744062065078016838) out of range of long (-9223372036854775808 - 9223372036854775807)..."
+  ],
+  "foo": [
+    {
+      "baz": "__ERROR"
+    }
+  ],
+  "baz": 7
+}
+----
+|===
