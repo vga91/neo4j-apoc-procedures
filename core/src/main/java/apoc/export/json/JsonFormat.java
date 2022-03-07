@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
+
 public class JsonFormat implements Format {
     enum Format {JSON_LINES, ARRAY_JSON, JSON, JSON_ID_AS_KEYS}
     private final GraphDatabaseService db;
@@ -47,13 +48,10 @@ public class JsonFormat implements Format {
         try (Transaction tx = db.beginTx();
              JsonGenerator jsonGenerator = getJsonGenerator(writer)) {
             consumer.accept(jsonGenerator);
-            jsonGenerator.flush();
             tx.commit();
-            reporter.done();
-            return reporter.getTotal();
-        } finally {
-            writer.close();
         }
+        reporter.done();
+        return reporter.getTotal();
     }
 
     @Override
