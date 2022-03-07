@@ -18,6 +18,7 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.xml.sax.SAXParseException;
 
 import java.io.File;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.Collections;
 import java.util.List;
@@ -438,5 +439,19 @@ public class XmlTest {
             assertEquals("DOCTYPE is disallowed when the feature \"http://apache.org/xml/features/disallow-doctype-decl\" set to true.", except.getMessage());
             throw e;
         }
+    }
+    
+    @Test
+    public void testIssue2608() {
+        final String url = getUrlFileName("xml/issue2608.xml").toString();
+        testCall(db, "CALL apoc.load.xml($url, '/', $config)", 
+                map("url", url, "config", 
+                        map("features", map("http://apache.org/xml/features/disallow-doctype-decl", false, 
+                                "http://xml.org/sax/features/use-entity-resolver2", true))),
+                (row) -> {
+                    final Map<String, Object> expected = map("_type", "PubmedArticleSet", 
+                            "_children", List.of(map("_type", "PubmedArticle", "_text", "Article 1")));
+                    assertEquals(expected, row.get("value"));
+                });
     }
 }

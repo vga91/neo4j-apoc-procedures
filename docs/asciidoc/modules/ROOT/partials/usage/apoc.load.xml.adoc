@@ -417,3 +417,52 @@ RETURN value
 }
 ----
 |===
+
+== Parser Features
+
+You can set custom parser features, putting in the 3rd parameter a map with key "features" and
+value a Map<String, Boolean>.
+By default, the config is set with {`http://apache.org/xml/features/disallow-doctype-dec`: true}. 
+A list of possible features is link:https://xerces.apache.org/xerces2-j/features.html[here]
+
+For example, with the following xml
+.fileWithDatatype.graphml
+[source,xml]
+----
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2019//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_190101.dtd">
+<PubmedArticleSet>
+    <PubmedArticle>
+        Article 1
+    </PubmedArticle>
+</PubmedArticleSet>
+----
+
+you can do:
+
+[source,cypher]
+----
+CALL apoc.load.xml("fileWithDatatype.xml", "/", 
+  {features: {`http://apache.org/xml/features/disallow-doctype-decl`: false}})
+----
+
+.Results
+[opts="header"]
+|===
+| value
+|
+[source,json]
+----
+{
+  "_children": [
+    {
+      "_type": "PubmedArticle",
+      "_text": "Article 1"
+    }
+  ],
+  "_type": "PubmedArticleSet"
+}
+----
+|===
+
+

@@ -69,6 +69,7 @@ This function supports the following config parameter:
 |===
 | name | type | default | description
 | failOnError | boolean | true | fail if error encountered while parsing XML
+| features | Map<String, Boolean> | {`http://apache.org/xml/features/disallow-doctype-decl`: false} | to set additional parser features. See link:https://xerces.apache.org/xerces2-j/features.html[here].
 |===
 
 .The following parses an XML string into a Cypher map
@@ -83,6 +84,36 @@ RETURN apoc.xml.parse(xmlString) AS value
 |===
 | value
 | {_type: "table", _children: [{_type: "tr", _children: [{_type: "td", _children: [{_type: "img", src: "pix/logo-tl.gif"}]}]}]}
+|===
+
+
+.The following parses an XML string using a custom parser feature.
+[source,cypher]
+----
+WITH '<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2019//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_190101.dtd">
+<PubmedArticleSet> <PubmedArticle>Article 1</PubmedArticle></PubmedArticleSet>' AS xmlString
+RETURN apoc.xml.parse(xmlString, '/', 
+  {features: {`http://apache.org/xml/features/disallow-doctype-decl`: false}}) AS value
+----
+
+.Results
+[options="header"]
+|===
+| value
+|
+[source,json]
+----
+{
+  "_children": [
+    {
+      "_type": "PubmedArticle",
+      "_text": "Article 1"
+    }
+  ],
+  "_type": "PubmedArticleSet"
+}
+----
 |===
 
 [[load-xml-available-procedures-apoc.import.xml]]

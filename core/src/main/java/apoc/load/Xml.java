@@ -31,6 +31,7 @@ import org.xml.sax.InputSource;
 import javax.xml.namespace.QName;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -65,6 +66,8 @@ import java.util.stream.Stream;
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
 import static apoc.util.Util.ERROR_BYTES_OR_STRING;
+import static org.apache.xerces.impl.Constants.DISALLOW_DOCTYPE_DECL_FEATURE;
+import static org.apache.xerces.impl.Constants.XERCES_FEATURE_PREFIX;
 
 public class Xml {
 
@@ -93,17 +96,19 @@ public class Xml {
     public Map<String, Object> parse(@Name("data") String data, @Name(value = "path", defaultValue = "/") String path, @Name(value = "config",defaultValue = "{}") Map<String, Object> config, @Name(value = "simple", defaultValue = "false") boolean simpleMode) throws Exception {
         if (config == null) config = Collections.emptyMap();
         boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
-        return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, failOnError)
+        Map<String, Boolean> features = (Map<String, Boolean>) config.getOrDefault("features", Map.of(XERCES_FEATURE_PREFIX + DISALLOW_DOCTYPE_DECL_FEATURE, true));
+        return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, failOnError, features)
                 .map(mr -> mr.value).findFirst().orElse(null);
     }
 
     private Stream<MapResult> xmlXpathToMapResult(@Name("urlOrBinary") Object urlOrBinary, boolean simpleMode, String path, Map<String, Object> config) throws Exception {
         if (config == null) config = Collections.emptyMap();
         boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
+        Map<String, Boolean> features = (Map<String, Boolean>) config.getOrDefault("features", Map.of(XERCES_FEATURE_PREFIX + DISALLOW_DOCTYPE_DECL_FEATURE, true));
         try {
             Map<String, Object> headers = (Map) config.getOrDefault("headers", Collections.emptyMap());
             CountingInputStream is = FileUtils.inputStreamFor(urlOrBinary, headers, null, (String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name()));
-            return parse(is, simpleMode, path, failOnError);
+            return parse(is, simpleMode, path, failOnError, features);
         } catch (Exception e){
             if(!failOnError)
                 return Stream.of(new MapResult(Collections.emptyMap()));
@@ -112,13 +117,19 @@ public class Xml {
         }
     }
 
-    private Stream<MapResult> parse(InputStream data, boolean simpleMode, String path, boolean failOnError) throws Exception {
+    private Stream<MapResult> parse(InputStream data, boolean simpleMode, String path, boolean failOnError, Map<String, Boolean> features) throws Exception {
         List<MapResult> result = new ArrayList<>();
         try {
             DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
             documentBuilderFactory.setNamespaceAware(true);
             documentBuilderFactory.setIgnoringElementContentWhitespace(true);
-            documentBuilderFactory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            features.forEach((k,v) -> {
+                try {
+                    documentBuilderFactory.setFeature(k, v);
+                } catch (ParserConfigurationException e) {
+                    throw new RuntimeException(e);
+                }
+            });
             DocumentBuilder documentBuilder = documentBuilderFactory.newDocumentBuilder();
             documentBuilder.setEntityResolver((publicId, systemId) -> new InputSource(new StringReader("")));
 
