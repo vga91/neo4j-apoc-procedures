@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.custom.CustomCypherConfig.WRAP_MAP;
 import static apoc.custom.CypherProcedures.ERROR_MISMATCHED_INPUTS;
 import static apoc.custom.CypherProcedures.ERROR_MISMATCHED_OUTPUTS;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
@@ -154,6 +155,32 @@ public class CypherProceduresTest  {
             assertEquals(4L, list.get(0).get("value").get(0).get("value"));
         });
     }
+    
+//    @Test
+//    public void testWrapMap() {
+//        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map(val :: INTEGER) :: MAP ', 'RETURN {value : $val} as value', false, '', $config)",
+//                Map.of("config", Map.of(WRAP_MAP, false)));
+//        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map_list(val :: INTEGER) :: LIST OF MAP ', 'RETURN [{value : $val}] as value', false, '', $config)",
+//                Map.of("config", Map.of(WRAP_MAP, false)));
+//        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map_list_single(val :: INTEGER) :: LIST OF MAP ', 'RETURN [{value : $val}] as value', true, '', $config)",
+//                Map.of("config", Map.of(WRAP_MAP, false)));
+//
+//        // then
+//        final Map<String, Long> mapValue = Map.of("value", 3L);
+//        
+//        testCall(db, "RETURN custom.ret_map(3) AS val", (result) -> {
+//            Map<String, Object> map = (Map<String, Object>) result.get("val");
+//            assertEquals(mapValue, map);
+//        });
+//        testCall(db, "RETURN custom.ret_map_list(3) AS val", (result) -> {
+//            List<Map<String, Object>> list = (List<Map<String, Object>>) result.get("val");
+//            assertEquals(List.of(List.of(mapValue)), list);
+//        });
+//        testCall(db, "RETURN custom.ret_map_list_single(3) AS val", (result) -> {
+//            List<Map<String, Object>> list = (List<Map<String, Object>>) result.get("val");
+//            assertEquals(List.of(mapValue), list);
+//        });
+//    }
 
     @Test
     public void testRegisterFunctionReturnTypes() {
@@ -307,6 +334,7 @@ public class CypherProceduresTest  {
                     assertEquals(asList(asList("input", "integer", "42")), value.get("inputs"));
                     assertEquals("Procedure that answer to the Ultimate Question of Life, the Universe, and Everything", value.get("description").toString());
                     assertNull(value.get("forceSingle"));
+                    // todo ... force map
                     assertEquals("read", value.get("mode"));
                 }
 
@@ -316,6 +344,7 @@ public class CypherProceduresTest  {
                     assertEquals(asList(asList("input", "number")), value.get("inputs"));
                     assertEquals("", value.get("description"));
                     assertFalse((Boolean) value.get("forceSingle"));
+                    // todo ... force map
                     assertNull(value.get("mode"));
                 }
             }

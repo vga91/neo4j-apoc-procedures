@@ -2,6 +2,7 @@ package apoc.custom;
 
 import apoc.path.PathExplorer;
 import apoc.util.FileUtils;
+import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
@@ -19,6 +20,9 @@ import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.custom.CustomCypherConfig.WRAP_MAP;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.isOneOf;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -89,6 +93,46 @@ public class CypherProceduresStorageTest {
         TestUtil.testCall(db, "call apoc.custom.list()", row -> {
             assertEquals("foo.bar.baz", row.get("name"));
             assertEquals("procedure", row.get("type"));
+        });
+    }
+    
+    @Test
+    public void testWrapMapAfterRestart() throws Exception {
+        final Map<String, Boolean> config = Map.of(WRAP_MAP, false);
+        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map(val :: INTEGER) :: MAP ', 'RETURN {value : $val} as value', false, '', $config)",
+                Map.of("config", config));
+        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map_list(val :: INTEGER) :: LIST OF MAP ', 'RETURN [{value : $val}] as value', false, '', $config)",
+                Map.of("config", config));
+        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map_list_single(val :: INTEGER) :: LIST OF MAP ', 'RETURN [{value : $val}] as value', true, '', $config)",
+                Map.of("config", config));
+
+        final Map<String, Long> mapValue = Map.of("value", 3L);
+
+        assertionsTestWrapMap(config, mapValue);
+        restartDb();
+        assertionsTestWrapMap(config, mapValue);
+    }
+
+    private void assertionsTestWrapMap(Map<String, Boolean> config, Map<String, Long> mapValue) {
+        TestUtil.testCall(db, "RETURN custom.ret_map(3) AS val", (result) -> {
+            Map<String, Object> map = (Map<String, Object>) result.get("val");
+            assertEquals(mapValue, map);
+        });
+        TestUtil.testCall(db, "RETURN custom.ret_map_list(3) AS val", (result) -> {
+            List<Map<String, Object>> list = (List<Map<String, Object>>) result.get("val");
+            assertEquals(List.of(List.of(mapValue)), list);
+        });
+        TestUtil.testCall(db, "RETURN custom.ret_map_list_single(3) AS val", (result) -> {
+            List<Map<String, Object>> list = (List<Map<String, Object>>) result.get("val");
+            assertEquals(List.of(mapValue), list);
+        });
+
+        TestUtil.testResult(db, "call apoc.custom.list()", result -> {
+            result.forEachRemaining(function -> {
+                assertEquals("function", function.get("type"));
+                assertThat(function.get("name"), isOneOf("ret_map", "ret_map_list", "ret_map_list_single"));
+                assertEquals(config, function.get("config"));
+            });
         });
     }
 

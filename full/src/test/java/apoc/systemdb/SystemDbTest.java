@@ -111,7 +111,7 @@ public class SystemDbTest {
         db.executeTransactionally(pauseTrigger);
 
         // We test custom procedures and functions
-        final String declareFunction = "CALL apoc.custom.declareFunction('declareFoo(input :: NUMBER?) :: (INTEGER?)', 'RETURN $input as answer', false, '');";
+        final String declareFunction = "CALL apoc.custom.declareFunction('declareFoo(input :: NUMBER?) :: (INTEGER?)', 'RETURN $input as answer', false, '', {});";
         db.executeTransactionally(declareFunction);
         final String declareProcedure = "CALL apoc.custom.declareProcedure('declareBar(one = 2 :: INTEGER?, two = 3 :: INTEGER?) :: (sum :: INTEGER?)', 'RETURN $one + $two as sum', 'READ', '');";
         db.executeTransactionally(declareProcedure);
@@ -120,7 +120,7 @@ public class SystemDbTest {
         // the expected exported cypher queries will leverage the new procedures (declareFunction and declareProcedure) 
         db.executeTransactionally("CALL apoc.custom.asProcedure('procName','RETURN $input as answer','read',[['answer','number']],[['input','int','42']], 'Procedure that answer to the Ultimate Question of Life, the Universe, and Everything');");
         db.executeTransactionally("CALL apoc.custom.asFunction('funName','RETURN $input as answer', 'long', [['input','number']], false);");
-        String declareStatementFromFunction = "CALL apoc.custom.declareFunction('funName(input :: NUMBER?) :: (INTEGER?)', 'RETURN $input as answer', false, '');";
+        String declareStatementFromFunction = "CALL apoc.custom.declareFunction('funName(input :: NUMBER?) :: (INTEGER?)', 'RETURN $input as answer', false, '', {});";
         String declareStatementFromProcedure = "CALL apoc.custom.declareProcedure('procName(input = 42 :: INTEGER?) :: (answer :: NUMBER?)', 'RETURN $input as answer', 'READ', 'Procedure that answer to the Ultimate Question of Life, the Universe, and Everything');";
 
         // We test uuid, we also need to export the related constraint (in another file)

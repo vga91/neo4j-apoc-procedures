@@ -103,20 +103,22 @@ public class CypherProcedures {
                            @Name(value = "description", defaultValue = "") String description) throws ProcedureException {
         UserFunctionSignature signature = cypherProceduresHandler.functionSignature(name, output, inputs, description);
         validateFunction(statement, signature.inputSignature());
-        cypherProceduresHandler.storeFunction(signature, statement, forceSingle);
+        cypherProceduresHandler.storeFunction(signature, statement, forceSingle, CustomCypherConfig.EMPTY);
     }
 
     @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE)
     @Description("apoc.custom.declareFunction(signature, statement, forceSingle, description) - register a custom cypher function")
     public void declareFunction(@Name("signature") String signature, @Name("statement") String statement,
                            @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
-                           @Name(value = "description", defaultValue = "") String description) throws ProcedureException {
+                           @Name(value = "description", defaultValue = "") String description, 
+                            @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws ProcedureException {
+        CustomCypherConfig conf = new CustomCypherConfig(config);
         UserFunctionSignature userFunctionSignature = new Signatures(PREFIX).asFunctionSignature(signature, description);
         validateFunction(statement, userFunctionSignature.inputSignature());
-        if (!cypherProceduresHandler.registerFunction(userFunctionSignature, statement, forceSingle)) {
+        if (!cypherProceduresHandler.registerFunction(userFunctionSignature, statement, forceSingle, conf)) {
             throw new IllegalStateException("Error registering function " + signature + ", see log.");
         }
-        cypherProceduresHandler.storeFunction(userFunctionSignature, statement, forceSingle);
+        cypherProceduresHandler.storeFunction(userFunctionSignature, statement, forceSingle, conf);
     }
 
 
@@ -135,7 +137,7 @@ public class CypherProcedures {
                         procedureDescriptor.getStatement(),
                         convertInputSignature(signature.inputSignature()),
                         Iterables.asList(Iterables.map(f -> Arrays.asList(f.name(), prettyPrintType(f.neo4jType())), signature.outputSignature())),
-                        null);
+                        null, null);
             } else {
                 CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor = (CypherProceduresHandler.UserFunctionDescriptor) descriptor;
                 UserFunctionSignature signature = userFunctionDescriptor.getSignature();
@@ -147,7 +149,8 @@ public class CypherProcedures {
                         userFunctionDescriptor.getStatement(),
                         convertInputSignature(signature.inputSignature()),
                         prettyPrintType(signature.outputType()),
-                        userFunctionDescriptor.isForceSingle());
+                        userFunctionDescriptor.isForceSingle(),
+                        userFunctionDescriptor.getConfig());
             }
         });
     }
@@ -251,10 +254,11 @@ public class CypherProcedures {
         public List<List<String>>inputs;
         public Object outputs;
         public Boolean forceSingle;
+        public Map<String, Object> config;
 
         public CustomProcedureInfo(String type, String name, String description, String mode,
                                    String statement, List<List<String>> inputs, Object outputs,
-                                   Boolean forceSingle){
+                                   Boolean forceSingle, Map<String, Object> config) {
             this.type = type;
             this.name = name;
             this.description = description;
@@ -263,6 +267,7 @@ public class CypherProcedures {
             this.inputs = inputs;
             this.forceSingle = forceSingle;
             this.mode = mode;
+            this.config = config;
         }
     }
 
