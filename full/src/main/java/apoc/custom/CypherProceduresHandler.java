@@ -3,6 +3,7 @@ package apoc.custom;
 import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
+import apoc.meta.Meta;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -56,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
@@ -358,10 +360,10 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                         resourceTracker.registerCloseableResource(result);
 
                         List<FieldSignature> outputs = signature.outputSignature();
-                        String[] names = outputs == null ? null : outputs.stream().map(FieldSignature::name).toArray(String[]::new);
+//                        String[] names = outputs == null ? null : outputs.stream().map(FieldSignature::name).toArray(String[]::new);
                         boolean defaultOutputs = outputs == null || outputs.equals(DEFAULT_MAP_OUTPUT);
 
-                        Stream<AnyValue[]> stream = result.stream().map(row -> toResult(row, names, defaultOutputs));
+                        Stream<AnyValue[]> stream = result.stream().map(row -> toResult(row, outputs, defaultOutputs));
                         return Iterators.asRawIterator(stream);
                     }
                 }
@@ -376,6 +378,56 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             log.error("Could not register procedure: " + signature.name() + " with " + statement + "\n accepting" + signature.inputSignature() + " resulting in " + signature.outputSignature() + " mode " + signature.mode(), e);
             return false;
         }
+    }
+    
+//    private AnyValue returnFunction(AnyType outType, Result result, boolean forceSingle, CustomCypherConfig conf) {
+//        if (!result.hasNext()) return null;
+//        if (outType.equals(NTAny)) {
+//            return ValueUtils.of(result.stream().collect(Collectors.toList()));
+//        }
+//        List<String> cols = result.columns();
+//        if (cols.isEmpty()) return null;
+//        if (!forceSingle && outType instanceof Neo4jTypes.ListType) {
+//            Neo4jTypes.ListType listType = (Neo4jTypes.ListType) outType;
+//            Neo4jTypes.AnyType innerType = listType.innerType();
+//            // We wrap the result only if we have a "true" map, and not NodeType or RelationshipType that extends MapType
+//            if (conf.isWrapMap() && innerType.getClass().equals(Neo4jTypes.MapType.class))
+//                return ValueUtils.of(result.stream().collect(Collectors.toList()));
+//            if (cols.size() == 1)
+//                return ValueUtils.of(result.stream().map(row -> row.get(cols.get(0))).collect(Collectors.toList()));
+////                return ValueUtils.of(result.stream().map(row -> row.get(cols.get(0))).collect(Collectors.toList()));
+//        } else {
+//            Map<String, Object> row = result.next();
+//            // We wrap the result only if we have a "true" map, and not NodeType or RelationshipType that extends MapType
+//            if (conf.isWrapMap() && outType.getClass().equals(Neo4jTypes.MapType.class)) return ValueUtils.of(row);
+//            if (cols.size() == 1) return ValueUtils.of(row.get(cols.get(0)));
+//        }
+//        throw new IllegalStateException("Result mismatch " + cols + " output type is " + outType);
+//    }
+    
+    private Object returnFunction(AnyType outType, Result result, boolean forceSingle, CustomCypherConfig conf) {
+        if (!result.hasNext()) return null;
+        if (outType.equals(NTAny)) {
+            return result.stream().collect(Collectors.toList());
+        }
+        List<String> cols = result.columns();
+        if (cols.isEmpty()) return null;
+        if (!forceSingle && outType instanceof Neo4jTypes.ListType) {
+            Neo4jTypes.ListType listType = (Neo4jTypes.ListType) outType;
+            Neo4jTypes.AnyType innerType = listType.innerType();
+            // We wrap the result only if we have a "true" map, and not NodeType or RelationshipType that extends MapType
+            if (conf.isWrapMap() && innerType.getClass().equals(Neo4jTypes.MapType.class))
+                return result.stream().collect(Collectors.toList());
+            if (cols.size() == 1)
+                return result.stream().map(row -> row.get(cols.get(0))).collect(Collectors.toList());
+//                return ValueUtils.of(result.stream().map(row -> row.get(cols.get(0))).collect(Collectors.toList()));
+        } else {
+            Map<String, Object> row = result.next();
+            // We wrap the result only if we have a "true" map, and not NodeType or RelationshipType that extends MapType
+            if (conf.isWrapMap() && outType.getClass().equals(Neo4jTypes.MapType.class)) return row;
+            if (cols.size() == 1) return row.get(cols.get(0));
+        }
+        throw new IllegalStateException("Result mismatch " + cols + " output type is " + outType);
     }
 
     public boolean registerFunction(UserFunctionSignature signature, String statement, boolean forceSingle, CustomCypherConfig conf) {
@@ -394,27 +446,9 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                         Transaction tx = transactionComponentFunction.apply(ctx);
                         try (Result result = tx.execute(statement, params)) {
 //                resourceTracker.registerCloseableResource(result); // TODO
-                            if (!result.hasNext()) return null;
-                            if (outType.equals(NTAny)) {
-                                return ValueUtils.of(result.stream().collect(Collectors.toList()));
-                            }
-                            List<String> cols = result.columns();
-                            if (cols.isEmpty()) return null;
-                            if (!forceSingle && outType instanceof Neo4jTypes.ListType) {
-                                Neo4jTypes.ListType listType = (Neo4jTypes.ListType) outType;
-                                Neo4jTypes.AnyType innerType = listType.innerType();
-                                // We wrap the result only if we have a "true" map, and not NodeType or RelationshipType that extends MapType
-                                if (conf.isWrapMap() && innerType.getClass().equals(Neo4jTypes.MapType.class))
-                                    return ValueUtils.of(result.stream().collect(Collectors.toList()));
-                                if (cols.size() == 1)
-                                    return ValueUtils.of(result.stream().map(row -> row.get(cols.get(0))).collect(Collectors.toList()));
-                            } else {
-                                Map<String, Object> row = result.next();
-                                // We wrap the result only if we have a "true" map, and not NodeType or RelationshipType that extends MapType
-                                if (conf.isWrapMap() && outType.getClass().equals(Neo4jTypes.MapType.class)) return ValueUtils.of(row);
-                                if (cols.size() == 1) return ValueUtils.of(row.get(cols.get(0)));
-                            }
-                            throw new IllegalStateException("Result mismatch " + cols + " output type is " + outType);
+                            final Object anyValue = returnFunction(outType, result, forceSingle, conf);
+                            validateOutputType(outType, anyValue);
+                            return ValueUtils.of(anyValue);
                         }
                     }
 
@@ -565,15 +599,29 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         }
     }
 
-    private AnyValue[] toResult(Map<String, Object> row, String[] names, boolean defaultOutputs) {
+    private AnyValue[] toResult(Map<String, Object> row, List<FieldSignature> outputs, boolean defaultOutputs) {
         if (defaultOutputs) {
             return new AnyValue[]{convertToValueRecursive(row)};
         } else {
-            AnyValue[] result = new AnyValue[names.length];
-            for (int i = 0; i < names.length; i++) {
-                result[i] = convertToValueRecursive(row.get(names[i]));
-            }
+            AnyValue[] result = new AnyValue[outputs.size()];
+//            AnyValue[] result = new AnyValue[names.length];
+//            for (int i = 0; i < names.length; i++) {
+            IntStream.range(0, outputs.size()).forEach(i -> {
+                final FieldSignature fieldSignature = outputs.get(i);
+                final AnyType anyType = fieldSignature.neo4jType();
+                final Object o = row.get(fieldSignature.name());
+                final AnyValue anyValue = convertToValueRecursive(o);
+                validateOutputType(anyType, o);
+                result[i] = anyValue;
+            });
             return result;
+        }
+    }
+
+    private void validateOutputType(AnyType anyType, Object anyValue) {
+        if (anyValue != null && !Meta.Types.of(anyValue).toString().toUpperCase().equals(anyType.toString().replace("?", ""))) {
+            throw new RuntimeException(String.format("Error, the output query type (%s) is different from the type set in the procedure (%s)", 
+                    ));
         }
     }
 

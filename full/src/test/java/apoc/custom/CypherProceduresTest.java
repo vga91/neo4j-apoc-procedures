@@ -55,10 +55,19 @@ public class CypherProceduresTest  {
 
     @Test
     public void registerSimpleStatement() throws Exception {
-        db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
-        TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
-        db.executeTransactionally("CALL apoc.custom.declareProcedure('answer2() :: (answer::INT)','RETURN 42 as answer')");
+//        db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
+//        TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
+        db.executeTransactionally("CALL apoc.custom.declareProcedure('answer2() :: (answer::STRING, answer2::MAP)','RETURN 42 as answer, 43 as answer2')");
         TestUtil.testCall(db, "call custom.answer2()", (row) -> assertEquals(42L, row.get("answer")));
+    }
+
+    @Test
+    public void validateOutputType() throws Exception {
+        db.executeTransactionally("CALL apoc.custom.declareProcedure('answer2() :: (answer::STRING, answer2::INT)','RETURN 42 as answer, 43 as answer2')");
+        TestUtil.testCall(db, "call custom.answer2()", (row) -> assertEquals(42L, row.get("answer")));
+        
+//        db.executeTransactionally("CALL apoc.custom.declareProcedure('answer2() :: (answer::INT, answer2::INT)','RETURN 42 as answer, 43 as answer2')");
+//        TestUtil.testCall(db, "call custom.answer2()", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
@@ -156,31 +165,15 @@ public class CypherProceduresTest  {
         });
     }
     
-//    @Test
-//    public void testWrapMap() {
-//        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map(val :: INTEGER) :: MAP ', 'RETURN {value : $val} as value', false, '', $config)",
-//                Map.of("config", Map.of(WRAP_MAP, false)));
-//        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map_list(val :: INTEGER) :: LIST OF MAP ', 'RETURN [{value : $val}] as value', false, '', $config)",
-//                Map.of("config", Map.of(WRAP_MAP, false)));
-//        db.executeTransactionally("CALL apoc.custom.declareFunction('ret_map_list_single(val :: INTEGER) :: LIST OF MAP ', 'RETURN [{value : $val}] as value', true, '', $config)",
-//                Map.of("config", Map.of(WRAP_MAP, false)));
-//
-//        // then
-//        final Map<String, Long> mapValue = Map.of("value", 3L);
-//        
-//        testCall(db, "RETURN custom.ret_map(3) AS val", (result) -> {
-//            Map<String, Object> map = (Map<String, Object>) result.get("val");
-//            assertEquals(mapValue, map);
-//        });
-//        testCall(db, "RETURN custom.ret_map_list(3) AS val", (result) -> {
-//            List<Map<String, Object>> list = (List<Map<String, Object>>) result.get("val");
-//            assertEquals(List.of(List.of(mapValue)), list);
-//        });
-//        testCall(db, "RETURN custom.ret_map_list_single(3) AS val", (result) -> {
-//            List<Map<String, Object>> list = (List<Map<String, Object>>) result.get("val");
-//            assertEquals(List.of(mapValue), list);
-//        });
-//    }
+    @Test
+    public void testWrapMap() {
+        // todo - validation output type...
+        db.executeTransactionally("CALL apoc.custom.declareFunction('funWithMap(map :: MAP) :: MAP' , 'RETURN $map' )");
+
+        TestUtil.testCall(db, "RETURN custom.funWithMap({a:1}) AS val", (result) -> {
+            Map<String, Object> map = (Map<String, Object>) result.get("val");
+        });
+    }
 
     @Test
     public void testRegisterFunctionReturnTypes() {
@@ -702,8 +695,8 @@ public class CypherProceduresTest  {
     @Test
     public void shouldCreateFunctionWithDefaultParameters() {
         // default inputs
-        db.executeTransactionally("CALL apoc.custom.declareFunction('multiParDeclareFun(params = {} :: MAP) :: INT ', 'RETURN $one + $two as sum')");
-        TestUtil.testCall(db, "return custom.multiParDeclareFun({one:2, two: 3}) as row", (row) -> assertEquals(5L, row.get("row")));
+//        db.executeTransactionally("CALL apoc.custom.declareFunction('multiParDeclareFun(params = {} :: MAP) :: INT ', 'RETURN $one + $two as sum')");
+//        TestUtil.testCall(db, "return custom.multiParDeclareFun({one:2, two: 3}) as row", (row) -> assertEquals(5L, row.get("row")));
         
         db.executeTransactionally("CALL apoc.custom.declareProcedure('multiParDeclareProc(params = {} :: MAP) :: (sum :: INT) ', 'RETURN $one + $two + $three as sum')");
         TestUtil.testCall(db, "call custom.multiParDeclareProc({one:2, two: 3, three: 4})", (row) -> assertEquals(9L, row.get("sum")));
