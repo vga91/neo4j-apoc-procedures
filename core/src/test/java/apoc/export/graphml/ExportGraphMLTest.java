@@ -31,6 +31,7 @@ import java.io.FileWriter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
@@ -308,7 +309,6 @@ public class ExportGraphMLTest {
                     else
                         assertEquals("file", r.get("source"));
                     assertEquals("graphml", r.get("format"));
-                    assertTrue("Should get time greater than 0",((long) r.get("time")) > 0);
                 });
 
         TestUtil.testCall(db, "MATCH (foo:FOO)-[rel:EDGE_LABEL]->(bar:BAR) RETURN foo, rel, bar", null, (r) -> {
@@ -472,9 +472,9 @@ public class ExportGraphMLTest {
         else
             assertEquals("file", r.get("source"));
         assertEquals("graphml", r.get("format"));
-        assertTrue("Should get time greater than 0", ((long) r.get("time")) > 0);
     }
 
+    @Test
     public void testExportGraphGraphMLQueryGephi() throws Exception {
         File output = new File(directory, "query.graphml");
         TestUtil.testCall(db, "call apoc.export.graphml.query('MATCH p=()-[r]->() RETURN p limit 1000',$file,{useTypes:true, format: 'gephi'}) ", map("file", output.getAbsolutePath()),
@@ -507,7 +507,6 @@ public class ExportGraphMLTest {
                     else
                         assertEquals("file", r.get("source"));
                     assertEquals("graphml", r.get("format"));
-                    assertTrue("Should get time greater than 0",((long) r.get("time")) > 0);
                 });
         assertXMLEquals(output, EXPECTED_TYPES_PATH_CAPTION);
     }
@@ -526,7 +525,6 @@ public class ExportGraphMLTest {
                     else
                         assertEquals("file", r.get("source"));
                     assertEquals("graphml", r.get("format"));
-                    assertTrue("Should get time greater than 0",((long) r.get("time")) > 0);
                 });
         assertXMLEquals(output, EXPECTED_TYPES_PATH_WRONG_CAPTION);
     }
@@ -561,7 +559,6 @@ public class ExportGraphMLTest {
                     else
                         assertEquals("file", r.get("source"));
                     assertEquals("graphml", r.get("format"));
-                    assertTrue("Should get time greater than 0",((long) r.get("time")) > 0);
                 });
         assertXMLEquals(output, EXPECTED_TYPES_PATH_CAMEL_CASE);
     }
@@ -581,7 +578,6 @@ public class ExportGraphMLTest {
         assertEquals(1L, r.get("relationships"));
         assertEquals(8L, r.get("properties"));
         assertEquals("graphml", r.get("format"));
-        assertTrue("Should get time greater than 0",((long) r.get("time")) > 0);
     }
 
     private void assertStreamResults(Map<String, Object> r, final String source) {
