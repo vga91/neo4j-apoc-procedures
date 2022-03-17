@@ -70,32 +70,32 @@ public class TestContainerUtil {
         }
 
         System.out.println("neo4jDockerImageVersion = " + neo4jDockerImageVersion);
-        Neo4jContainerExtension neo4jContainer = new Neo4jContainerExtension(neo4jDockerImageVersion)
-                .withPlugins(MountableFile.forHostPath(pluginsFolder.toPath()))
-                .withAdminPassword("apoc")
-                .withEnv("NEO4J_dbms_memory_heap_max__size", "512M")
-                .withEnv("NEO4J_dbms_memory_pagecache_size", "256M")
-                .withEnv("apoc.export.file.enabled", "true")
-                .withNeo4jConfig("dbms.security.procedures.unrestricted", "apoc.*")
-                .withFileSystemBind(canonicalPath, "/var/lib/neo4j/import") // map the "target/import" dir as the Neo4j's import dir
-                .withEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", "yes")
-//                .withDebugger()  // uncomment this line for remote debbuging inside docker's neo4j instance
-                .withCreateContainerCmdModifier(cmd -> cmd.withMemory(1024 * 1024 * 1024l))
-
-                // set uid if possible - export tests do write to "/import"
-                .withCreateContainerCmdModifier(cmd -> {
-                    try {
-                        Process p = Runtime.getRuntime().exec("id -u");
-                        BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
-                        String s = br.readLine();
-                        p.waitFor();
-                        p.destroy();
-                        cmd.withUser(s);
-                    } catch (Exception e) {
-                        System.out.println("Exception while assign cmd user to docker container:\n" + ExceptionUtils.getStackTrace(e));
-                        // ignore since it may fail depending on operating system
-                    }
-                });
+        Neo4jContainerExtension neo4jContainer = new Neo4jContainerExtension(neo4jDockerImageVersion);
+//                .withPlugins(MountableFile.forHostPath(pluginsFolder.toPath()))
+//                .withAdminPassword("apoc")
+//                .withEnv("NEO4J_dbms_memory_heap_max__size", "512M")
+//                .withEnv("NEO4J_dbms_memory_pagecache_size", "256M")
+//                .withEnv("apoc.export.file.enabled", "true")
+//                .withNeo4jConfig("dbms.security.procedures.unrestricted", "apoc.*")
+//                .withFileSystemBind(canonicalPath, "/var/lib/neo4j/import") // map the "target/import" dir as the Neo4j's import dir
+//                .withEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", "yes")
+////                .withDebugger()  // uncomment this line for remote debbuging inside docker's neo4j instance
+////                .withCreateContainerCmdModifier(cmd -> cmd.withMemory(1024 * 1024 * 1024l))
+//
+//                // set uid if possible - export tests do write to "/import"
+//                .withCreateContainerCmdModifier(cmd -> {
+//                    try {
+//                        Process p = Runtime.getRuntime().exec("id -u");
+//                        BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+//                        String s = br.readLine();
+//                        p.waitFor();
+//                        p.destroy();
+//                        cmd.withUser(s);
+//                    } catch (Exception e) {
+//                        System.out.println("Exception while assign cmd user to docker container:\n" + ExceptionUtils.getStackTrace(e));
+//                        // ignore since it may fail depending on operating system
+//                    }
+//                });
         if (withLogging) {
             neo4jContainer.withLogging();
         }

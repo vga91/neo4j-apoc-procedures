@@ -2,6 +2,9 @@ package apoc.meta;
 
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestUtil;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
@@ -19,11 +22,11 @@ public class CollEnterpriseTest {
     private static Neo4jContainerExtension neo4jContainer;
     private static Session session;
 
-    @BeforeAll
+    @BeforeClass
     public static void beforeAll() {
         assumeFalse(isRunningInCI());
         TestUtil.ignoreException(() -> {
-            // We build the project, the artifact will be placed into ./build/libs
+//             We build the project, the artifact will be placed into ./build/libs
             neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI());
             neo4jContainer.start();
         }, Exception.class);
@@ -33,7 +36,7 @@ public class CollEnterpriseTest {
         session = neo4jContainer.getSession();
     }
 
-    @AfterAll
+    @AfterClass
     public static void afterAll() {
         if (neo4jContainer != null && neo4jContainer.isRunning()) {
             session.close();
@@ -41,14 +44,16 @@ public class CollEnterpriseTest {
         }
     }
 
-    @RepeatedTest(50)
+//    @RepeatedTest(50)
+    @Test
     public void testMin() throws Exception {
         assertEquals(1L, session.run("RETURN apoc.coll.min([1,2]) as value").next().get("value").asLong());
         assertEquals(1L, session.run("RETURN apoc.coll.min([1,2,3]) as value").next().get("value").asLong());
         assertEquals(0.5D, session.run("RETURN apoc.coll.min([0.5,1,2.3]) as value").next().get("value").asDouble(), 0.1);
     }
 
-    @RepeatedTest(50)
+//    @RepeatedTest(50)
+    @Test
     public void testMax() throws Exception {
         assertEquals(3L, session.run("RETURN apoc.coll.max([1,2,3]) as value").next().get("value").asLong());
         assertEquals(2.3D, session.run("RETURN apoc.coll.max([0.5,1,2.3]) as value").next().get("value").asDouble(), 0.1);

@@ -31,7 +31,7 @@ public class CypherProceduresClusterTest {
                 .createEnterpriseCluster(3, 1, Collections.emptyMap(), MapUtil.stringMap("apoc.custom.procedures.refresh", "100")),
                 Exception.class);
         Assume.assumeNotNull(cluster);
-        assumeTrue("Neo4j Cluster should be up-and-running", cluster.isRunning());
+//        assumeTrue("Neo4j Cluster should be up-and-running", cluster.isRunning());
     }
 
     @AfterClass
@@ -44,7 +44,7 @@ public class CypherProceduresClusterTest {
     @Test
     public void shouldRecreateCustomFunctionsOnOtherClusterMembers() throws InterruptedException {
         // given
-        
+
         try(Session session = cluster.getDriver().session()) {
             session.writeTransaction(tx -> tx.run("call apoc.custom.asFunction('answer1', 'RETURN 42 as answer')")); // we create a function
         }

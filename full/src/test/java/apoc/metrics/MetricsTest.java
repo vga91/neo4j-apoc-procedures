@@ -40,11 +40,11 @@ public class MetricsTest {
         assumeFalse(isRunningInCI());
         TestUtil.ignoreException(() -> {
             neo4jContainer = createEnterpriseDB(true)
-                    .withDebugger()
-                    .withNeo4jConfig("apoc.import.file.enabled", "true")
-                    .withNeo4jConfig("metrics.enabled", "true")
-                    .withNeo4jConfig("metrics.csv.interval", "1s")
-                    .withNeo4jConfig("metrics.namespaces.enabled", "true");
+                    .withDebugger();
+//                    .withNeo4jConfig("apoc.import.file.enabled", "true")
+//                    .withNeo4jConfig("metrics.enabled", "true")
+//                    .withNeo4jConfig("metrics.csv.interval", "1s")
+//                    .withNeo4jConfig("metrics.namespaces.enabled", "true");
             neo4jContainer.start();
         }, Exception.class);
         assumeNotNull(neo4jContainer);

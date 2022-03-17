@@ -36,15 +36,15 @@ public class UUIDMultiDbTest {
     public static void setupContainer() {
         assumeFalse(isRunningInCI());
         TestUtil.ignoreException(() -> {
-            neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
-                    .withEnv(Map.of(String.format(APOC_UUID_ENABLED_DB, dbTest), "false",
-                            APOC_UUID_ENABLED, "true"));
+            neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI());
+//                    .withEnv(Map.of(String.format(APOC_UUID_ENABLED_DB, dbTest), "false",
+//                            APOC_UUID_ENABLED, "true"));
             neo4jContainer.start();
         }, Exception.class);
         assumeNotNull(neo4jContainer);
         assumeTrue("Neo4j Instance should be up-and-running", neo4jContainer.isRunning());
 
-        driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.basic("neo4j", "apoc"));
+        driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("neo4j", "apoc"));
 
         try (Session session = driver.session()) {
             session.writeTransaction(tx -> tx.run(String.format("CREATE DATABASE %s;", dbTest)));

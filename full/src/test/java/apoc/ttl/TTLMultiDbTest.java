@@ -38,22 +38,22 @@ public class TTLMultiDbTest {
     public static void setupContainer() {
         assumeFalse(isRunningInCI());
         TestUtil.ignoreException(() -> {
-            neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
-                    .withEnv(Map.of("apoc.ttl.enabled." + DB_TEST, "false",
-                            "apoc.ttl.enabled", "true",
-                            "apoc.ttl.schedule", "2",
-                            "apoc.ttl.schedule." + DB_FOO, "7",
-                            "apoc.ttl.limit", "200",
-                            "apoc.ttl.limit." + DB_BAR, "2000"));
+            neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI());
+//                    .withEnv(Map.of("apoc.ttl.enabled." + DB_TEST, "false",
+//                            "apoc.ttl.enabled", "true",
+//                            "apoc.ttl.schedule", "2",
+//                            "apoc.ttl.schedule." + DB_FOO, "7",
+//                            "apoc.ttl.limit", "200",
+//                            "apoc.ttl.limit." + DB_BAR, "2000"));
             neo4jContainer.start();
         }, Exception.class);
         assumeNotNull(neo4jContainer);
         assumeTrue("Neo4j Instance should be up-and-running", neo4jContainer.isRunning());
 
-        driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.basic("neo4j", "apoc"));
+        driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("neo4j", "apoc"));
 
         try (Session session = driver.session()) {
-            session.writeTransaction(tx -> tx.run("CREATE DATABASE " + DB_TEST + ";"));
+//            session.writeTransaction(tx -> tx.run("CREATE DATABASE " + DB_TEST + ";"));
             session.writeTransaction(tx -> tx.run("CREATE DATABASE " + DB_FOO + ";"));
             session.writeTransaction(tx -> tx.run("CREATE DATABASE " + DB_BAR + ";"));
         }
