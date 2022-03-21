@@ -32,6 +32,7 @@ import java.util.stream.StreamSupport;
 
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testCallCount;
 import static apoc.util.TestUtil.testCallEmpty;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.isSelfRel;
@@ -523,7 +524,35 @@ MATCH (a:A {prop1:1}) MATCH (b:B {prop2:99}) CALL apoc.refactor.mergeNodes([a, b
                     assertEquals(1L, rel.getProperty("a"));
                 });
     }
+    
+    @Test
+    public void testRefactorWithSameEntities() {
+        Node node = db.executeTransactionally("CREATE (n:SingleNode) RETURN n", emptyMap(), 
+                r -> Iterators.single(r.columnAs("n")));
+        testCall(db, "MATCH (n:SingleNode) CALL apoc.refactor.mergeNodes([n,n]) yield node return node",
+                r -> assertEquals(node, r.get("node")));
+        testCallCount(db, "MATCH (n:SingleNode) RETURN n", 1);
 
+        Relationship rel = db.executeTransactionally("CREATE (n:Start)-[r:REL_TO_MERGE]->(:End) RETURN r", emptyMap(), 
+                r -> Iterators.single(r.columnAs("r")));
+        testCall(db, "MATCH (n:Start)-[r:REL_TO_MERGE]->(:End) CALL apoc.refactor.mergeRelationships([r,r]) yield rel return rel", r -> {
+            assertEquals(rel, r.get("rel"));
+        });
+        testCallCount(db, "MATCH (n:Start)-[r:REL_TO_MERGE]->(:End) RETURN r", 1);
+
+        Long id = db.executeTransactionally("CREATE (f:Foo)-[:FOO {a:1}]->(b:Bar {c:3})-[:BAR {b:2}]->(f) RETURN id(b) as id", emptyMap(), result -> Iterators.single(result.columnAs("id")));
+        testCallCount(db, "MATCH (n) WHERE id(n) = $id RETURN n", map("id", id), 1);
+        testCall(db, "CALL apoc.refactor.collapseNode($ids,'FOOBAR')", map("ids", List.of(id, id)),
+                r -> assertEquals(id, r.get("input")));
+        testCallCount(db, "MATCH ()-[r:FOOBAR]->() return r", map("id", id), 1);
+
+        Long idExtract = db.executeTransactionally("CREATE (n:Start)-[r:REL_TO_EXTRACT]->(:End) RETURN id(r) as id", emptyMap(), 
+                result -> Iterators.single(result.columnAs("id")));
+        testCall(db, "CALL apoc.refactor.extractNode($ids,['FooBar'],'FOO','BAR')", map("ids", List.of(idExtract, idExtract)),
+                r -> assertEquals(id, r.get("input")));
+        testCallCount(db, "MATCH (n:Start)-[:BAR]->(extracted:FooBar)-[:FOO]->() return extracted", 1);
+    }
+    
     @Test
     public void testCollapseNode() throws Exception {
         Long id = db.executeTransactionally("CREATE (f:Foo)-[:FOO {a:1}]->(b:Bar {c:3})-[:BAR {b:2}]->(f) RETURN id(b) as id", emptyMap(), result -> Iterators.single(result.columnAs("id")));
@@ -537,6 +566,11 @@ MATCH (a:A {prop1:1}) MATCH (b:B {prop2:99}) CALL apoc.refactor.mergeNodes([a, b
                     assertEquals(3L, rel.getProperty("c"));
                     assertNotNull(rel.getEndNode().hasLabel(Label.label("Foo")));
                     assertNotNull(rel.getStartNode().hasLabel(Label.label("Foo")));
+                });
+
+        testCall(db, "MATCH ()-[r:FOOBAR]->() return r", map("ids", singletonList(id)),
+                r -> {
+                    System.out.println("GraphRefactoringTest.testCollapseNode");
                 });
     }
 
