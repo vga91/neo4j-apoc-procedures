@@ -8,7 +8,9 @@ import org.junit.Test;
 import org.neo4j.graphdb.Node;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
+import org.neo4j.values.storable.Values;
 
+import java.time.LocalDate;
 import java.util.*;
 
 import static apoc.util.TestUtil.testCall;
@@ -19,6 +21,7 @@ import static java.util.Collections.singletonList;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.*;
 import static org.neo4j.internal.helpers.collection.Iterables.asSet;
+import static org.neo4j.values.storable.CoordinateReferenceSystem.Cartesian;
 
 public class CollTest {
 
@@ -902,6 +905,27 @@ public class CollTest {
         
         testCall(db, "RETURN apoc.coll.fill() as value",
                 (row) -> assertEquals(Collections.emptyList(), row.get("value")));
+    }
+
+    @Test
+    public void testFillWithNodeProperties() {
+        testCall(db, "CREATE (n:FillNode) " +
+                "SET n.empty = apoc.coll.fill(), n.int = apoc.coll.fill(5, 2), n.double = apoc.coll.fill(5.2, 2), \n" +
+                "n.date = apoc.coll.fill(date('2020'), 2), n.point = apoc.coll.fill(point({x: 1, y: 1}), 2) \n" +
+                "RETURN n", r -> {
+            final Map<String, Object> props = ((Node) r.get("n")).getAllProperties();
+            assertArrayEquals(new String[0], (Object[]) props.get("empty"));
+            assertArrayEquals(new long[] {5L, 5L}, (long[]) props.get("int"));
+            assertArrayEquals(new double[] {5.2D, 5.2D}, (double[]) props.get("double"), 0.1D);
+            
+            final Object[] expectedDate = {LocalDate.of(2020, 1, 1), LocalDate.of(2020, 1, 1)};
+            assertArrayEquals(expectedDate, (Object[]) props.get("date"));
+            
+            final Object[] expectedPoint = {Values.pointValue(Cartesian, 1, 1), Values.pointValue(Cartesian, 1, 1)};
+            assertArrayEquals(expectedPoint, (Object[]) props.get("point"));
+        });
+        
+        db.executeTransactionally("MATCH (n:FillNode) DELETE n");
     }
 
     @Test
