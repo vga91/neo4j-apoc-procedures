@@ -17,7 +17,6 @@ import java.util.Map;
 
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
-import static apoc.util.TestUtil.testCallCount;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -34,22 +33,6 @@ public class RenameTest {
 
 	@Before public void setUp() throws Exception {
 		TestUtil.registerProcedure(db, Rename.class);
-	}
-
-	@Test
-	public void testRenameWithSameValues() {
-		db.executeTransactionally("CREATE (n:ToRename {a: 1})-[:REL_TO_RENAME {a: 1}]->(:Other)");
-		testCall(db, "CALL apoc.refactor.rename.label('ToRename', 'ToRename')", r -> assertEquals(1L, r.get("total")));
-		testCallCount(db, "MATCH (n:ToRename {a: 1}) RETURN n", 1);
-		
-		testCall(db, "CALL apoc.refactor.rename.type('REL_TO_RENAME', 'REL_TO_RENAME')", r -> assertEquals(1L, r.get("total")));
-		testCallCount(db, "MATCH (:ToRename)-[r:REL_TO_RENAME {a: 1}]->(:Other) RETURN r", 1);
-
-		testCall(db, "CALL apoc.refactor.rename.nodeProperty('a', 'a')", r -> assertEquals(1L, r.get("total")));
-		testCallCount(db, "MATCH (n:ToRename {a: 1}) RETURN n", 1);
-		
-		testCall(db, "CALL apoc.refactor.rename.typeProperty('a', 'a')", r -> assertEquals(1L, r.get("total")));
-		testCallCount(db, "MATCH (:ToRename)-[r:REL_TO_RENAME {a: 1}]->(:Other) RETURN r", 1);
 	}
 
 	@Test

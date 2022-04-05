@@ -567,11 +567,6 @@ MATCH (a:A {prop1:1}) MATCH (b:B {prop2:99}) CALL apoc.refactor.mergeNodes([a, b
                     assertNotNull(rel.getEndNode().hasLabel(Label.label("Foo")));
                     assertNotNull(rel.getStartNode().hasLabel(Label.label("Foo")));
                 });
-
-        testCall(db, "MATCH ()-[r:FOOBAR]->() return r", map("ids", singletonList(id)),
-                r -> {
-                    System.out.println("GraphRefactoringTest.testCollapseNode");
-                });
     }
 
     @Test
