@@ -143,15 +143,15 @@ public class CypherProceduresTest  {
             assertEquals(2L, node.getProperty("value"));
         });
         TestUtil.testResult(db, "RETURN custom.ret_map(3) AS val", (result) -> {
-            Map<String, Map<String, Object>> map = result.<Map<String, Map<String, Object>>>columnAs("val").next();
+            Map<String, Object> map = result.<Map<String, Object>>columnAs("val").next();
             assertEquals(1, map.size());
-            assertEquals(3L, map.get("value").get("value"));
+            assertEquals(3L, map.get("value"));
         });
         TestUtil.testResult(db, "RETURN custom.ret_map_list(4) AS val", (result) -> {
-            List<Map<String, List<Map<String, Object>>>> list = result.<List<Map<String, List<Map<String, Object>>>>>columnAs("val").next();
+            List<List<Map<String, Object>>> list = result.<List<List<Map<String, Object>>>>columnAs("val").next();
             assertEquals(1, list.size());
             assertEquals(1, list.get(0).size());
-            assertEquals(4L, list.get(0).get("value").get(0).get("value"));
+            assertEquals(4L, list.get(0).get(0).get("value"));
         });
     }
 
@@ -179,18 +179,16 @@ public class CypherProceduresTest  {
             assertEquals(2L, t.getProperty("value"));
         });
         TestUtil.testResult(db, "RETURN custom.ret_map(3) AS val", (result) -> {
-            Map<String,Node> map = result.<Map<String, Node>>columnAs("val").next();
-            assertEquals(1, map.size());
-            Node t = map.get("t");
-            assertTrue(t.hasLabel(Label.label("Target")));
-            assertEquals(3L, t.getProperty("value"));
+            Node node = result.<Node>columnAs("val").next();
+            assertTrue(node.hasLabel(Label.label("Target")));
+            assertEquals(3L, node.getProperty("value"));
         });
         TestUtil.testResult(db, "RETURN custom.ret_map_list(4) AS val", (result) -> {
-            List<Map<String, Node>> nodes = result.<List<Map<String, Node>>>columnAs("val").next();
+            List<Node> nodes = result.<List<Node>>columnAs("val").next();
             assertEquals(1, nodes.size());
-            Node t = nodes.get(0).get("t");
-            assertTrue(t.hasLabel(Label.label("Target")));
-            assertEquals(4L, t.getProperty("value"));
+            Node node = nodes.get(0);
+            assertTrue(node.hasLabel(Label.label("Target")));
+            assertEquals(4L, node.getProperty("value"));
         });
     }
 
@@ -210,7 +208,7 @@ public class CypherProceduresTest  {
     @Test
     public void registerSimpleStatementFunction() throws Exception {
         db.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42 as answer')");
-        TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((List)row.get("row")).get(0)));
         db.executeTransactionally("CALL apoc.custom.declareFunction('answer2() :: STRING','RETURN 42 as answer')");
         TestUtil.testCall(db, "return custom.answer2() as row", (row) -> assertEquals(42L, row.get("row")));
     }
@@ -218,7 +216,7 @@ public class CypherProceduresTest  {
     @Test
     public void registerSimpleStatementFunctionWithOneChar() throws Exception {
         db.executeTransactionally("call apoc.custom.asFunction('a','RETURN 42 as answer')");
-        TestUtil.testCall(db, "return custom.a() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.a() as row", (row) -> assertEquals(42L, ((List)row.get("row")).get(0)));
         final String procedureSignature = "b() :: STRING";
         assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, procedureSignature),
                 "CALL apoc.custom.declareFunction('" + procedureSignature + "','RETURN 42 as answer')");
@@ -276,7 +274,7 @@ public class CypherProceduresTest  {
         db.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42 as answer', '', null, false, 'Answer to the Ultimate Question of Life, the Universe, and Everything')");
 
         // when
-        TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((List)row.get("row")).get(0)));
 
         // then
         TestUtil.testCall(db, "call apoc.custom.list()", row -> {
@@ -358,10 +356,10 @@ public class CypherProceduresTest  {
 
         // given
         db.executeTransactionally("CALL apoc.custom.asFunction('a.b.c','RETURN 42 as answer')");
-        TestUtil.testCall(db, "return custom.a.b.c() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.a.b.c() as row", (row) -> assertEquals(42L, ((List)row.get("row")).get(0)));
         db.executeTransactionally("call db.clearQueryCaches()");
         db.executeTransactionally("CALL apoc.custom.asFunction('a.b.c','RETURN 43 as answer')");
-        TestUtil.testCall(db, "return custom.a.b.c() as row", (row) -> assertEquals(43L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.a.b.c() as row", (row) -> assertEquals(43L, ((List)row.get("row")).get(0)));
         db.executeTransactionally("call db.clearQueryCaches()");
 
         // when
@@ -403,7 +401,7 @@ public class CypherProceduresTest  {
 
         // given
         db.executeTransactionally("CALL apoc.custom.asFunction('a.b.c','RETURN 42 as answer')");
-        TestUtil.testCall(db, "return custom.a.b.c() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.a.b.c() as row", (row) -> assertEquals(42L, ((List)row.get("row")).get(0)));
 
         // when
         db.executeTransactionally("call apoc.custom.removeFunction('a.b.c')");
@@ -437,16 +435,16 @@ public class CypherProceduresTest  {
 
         // given
         db.executeTransactionally("call apoc.custom.asFunction('a.b.name','RETURN 42 as answer')");
-        TestUtil.testCall(db, "return custom.a.b.name() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.a.b.name() as row", (row) -> assertEquals(42L, ((List)row.get("row")).get(0)));
         db.executeTransactionally("call db.clearQueryCaches()");
 
         db.executeTransactionally("call apoc.custom.asFunction('a.b.name','RETURN 34 as answer')");
-        TestUtil.testCall(db, "return custom.a.b.name() as row", (row) -> assertEquals(34L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.a.b.name() as row", (row) -> assertEquals(34L, (((List)row.get("row")).get(0))));
         db.executeTransactionally("call db.clearQueryCaches()");
 
         db.executeTransactionally("call apoc.custom.asFunction('x.z.name','RETURN 12 as answer')");
-        TestUtil.testCall(db, "return custom.x.z.name() as row", (row) -> assertEquals(12L, ((Map)((List)row.get("row")).get(0)).get("answer")));
-        TestUtil.testCall(db, "return custom.a.b.name() as row", (row) -> assertEquals(34L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        TestUtil.testCall(db, "return custom.x.z.name() as row", (row) -> assertEquals(12L, ((List)row.get("row")).get(0)));
+        TestUtil.testCall(db, "return custom.a.b.name() as row", (row) -> assertEquals(34L, ((List)row.get("row")).get(0)));
         db.executeTransactionally("call db.clearQueryCaches()");
 
         TestUtil.testResult(db, "call apoc.custom.list", (row) -> {
