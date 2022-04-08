@@ -150,6 +150,14 @@ public class ExportConfig extends CompressionConfig {
         return config.getOrDefault("defaultRelationshipType","RELATED").toString();
     }
 
+    public String getNodeStartLabel() {
+        return (String) config.get("startLabel");
+    }
+
+    public String getNodeEndLabel() {
+        return (String) config.get("endLabel");
+    }
+
     public boolean readLabels() {
         return toBoolean(config.getOrDefault("readLabels",false));
     }

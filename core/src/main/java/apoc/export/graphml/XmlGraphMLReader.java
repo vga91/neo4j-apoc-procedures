@@ -31,6 +31,8 @@ public class XmlGraphMLReader {
     private final Transaction tx;
     private boolean storeNodeIds;
     private RelationshipType defaultRelType = RelationshipType.withName("UNKNOWN");
+    private String startLabel = null;
+    private String endLabel = null;
     private int batchSize = 40000;
     private Reporter reporter;
     private boolean labels;
@@ -52,6 +54,16 @@ public class XmlGraphMLReader {
 
     public XmlGraphMLReader nodeLabels(boolean readLabels) {
         this.labels = readLabels;
+        return this;
+    }
+
+    public XmlGraphMLReader startLabel(String startLabel) {
+        this.startLabel = startLabel;
+        return this;
+    }
+
+    public XmlGraphMLReader endLabel(String endLabel) {
+        this.endLabel = endLabel;
         return this;
     }
 
@@ -258,8 +270,8 @@ public class XmlGraphMLReader {
                         String source = getAttribute(element, SOURCE);
                         String target = getAttribute(element, TARGET);
                         String label = getAttribute(element, LABEL);
-                        Node from = tx.getTransaction().getNodeById(cache.get(source));
-                        Node to = tx.getTransaction().getNodeById(cache.get(target));
+                        Node from = getByNodeId(cache, tx.getTransaction(), this.startLabel, source);
+                        Node to = getByNodeId(cache, tx.getTransaction(), this.endLabel, target);
 
                         RelationshipType relationshipType = label == null ? getRelationshipType(reader) : RelationshipType.withName(label);
                         Relationship relationship = from.createRelationshipTo(to, relationshipType);
@@ -272,6 +284,18 @@ public class XmlGraphMLReader {
             }
         }
         return count;
+    }
+
+    private Node getByNodeId(Map<String, Long> cache, Transaction tx, String label, String sourceTarget) {
+        final Long id = cache.get(sourceTarget);
+        if (id == null) {
+            try {
+                return tx.findNode(Label.label(label), "id", sourceTarget);
+            } catch (Exception e) {
+                throw new RuntimeException("Node not found", e);
+            }
+        }
+        return tx.getNodeById(id);
     }
 
     private RelationshipType getRelationshipType(XMLEventReader reader) throws XMLStreamException {
