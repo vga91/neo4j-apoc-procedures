@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.FileUtils.getInputStreamFromBinary;
@@ -93,7 +94,8 @@ public class Xml {
     public Map<String, Object> parse(@Name("data") String data, @Name(value = "path", defaultValue = "/") String path, @Name(value = "config",defaultValue = "{}") Map<String, Object> config, @Name(value = "simple", defaultValue = "false") boolean simpleMode) throws Exception {
         if (config == null) config = Collections.emptyMap();
         boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
-        return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, failOnError)
+        // todo - qui è mockato
+        return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, failOnError, false)
                 .map(mr -> mr.value).findFirst().orElse(null);
     }
 
@@ -102,8 +104,9 @@ public class Xml {
         boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
         try {
             Map<String, Object> headers = (Map) config.getOrDefault("headers", Collections.emptyMap());
+            boolean stream = Util.toBoolean(config.get("stream"));
             CountingInputStream is = FileUtils.inputStreamFor(urlOrBinary, headers, null, (String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name()));
-            return parse(is, simpleMode, path, failOnError);
+            return parse(is, simpleMode, path, failOnError, stream);
         } catch (Exception e){
             if(!failOnError)
                 return Stream.of(new MapResult(Collections.emptyMap()));
@@ -112,7 +115,7 @@ public class Xml {
         }
     }
 
-    private Stream<MapResult> parse(InputStream data, boolean simpleMode, String path, boolean failOnError) throws Exception {
+    private Stream<MapResult> parse(InputStream data, boolean simpleMode, String path, boolean failOnError, boolean stream) throws Exception {
         List<MapResult> result = new ArrayList<>();
         try {
             DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
@@ -131,6 +134,7 @@ public class Xml {
             XPathExpression xPathExpression = xPath.compile(path);
             NodeList nodeList = (NodeList) xPathExpression.evaluate(doc, XPathConstants.NODESET);
 
+            // todo todo - MA NON è CHE QUESTO NEI TEST è SEMPRE DI LUNGHEZZA 1 ??????
             for (int i = 0; i < nodeList.getLength(); i++) {
                 final Deque<Map<String, Object>> stack = new LinkedList<>();
 
@@ -139,6 +143,7 @@ public class Xml {
                     result.add(new MapResult(stack.pollFirst()));
                 }
             }
+//            return StreamSupport.stream(new XmlSpliterator(nodeList, simpleMode, stream), false);
         }
         catch (FileNotFoundException e){
             if(!failOnError)

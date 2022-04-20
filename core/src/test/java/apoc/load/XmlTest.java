@@ -57,6 +57,14 @@ public class XmlTest {
     }
 
     @Test
+    public void testLoadXmlStream() {
+        testCall(db, "CALL apoc.load.xml('file:databases.xml', '/', {stream: true)", //  YIELD value RETURN value
+                (row) -> {
+                    assertEquals(XmlTestUtils.XML_AS_NESTED_MAP, row.get("value"));
+                });
+    }
+
+    @Test
     public void testMixedContent() {
         testCall(db, "CALL apoc.load.xml('" + TestUtil.getUrlFileName("xml/mixedcontent.xml") + "')", //  YIELD value RETURN value
                 this::commonAssertionsMixedContent);
@@ -417,11 +425,11 @@ public class XmlTest {
     }
 
     @Test
-    public void testParseWithXPath() throws Exception {
+    public void testParseWithXPath() throws Exception { // todo - testare questo
         String xmlString = FileUtils.readFileToString(new File("src/test/resources/xml/books.xml"), Charset.forName("UTF-8"));
-        testCall(db, "RETURN apoc.xml.parse($xmlString, '/catalog/book[title=\"Maeve Ascendant\"]/.') AS result",
+        testCall(db, "RETURN apoc.xml.parse($xmlString, '/catalog/book') AS result",
                 map("xmlString", xmlString),
-                (r) -> assertEquals(XmlTestUtils.XML_XPATH_AS_NESTED_MAP, r.get("result")));
+                (r) -> assertEquals("{_children=[{_type=author, _text=Gambardella, Matthew}, {_type=author, _text=Arciniegas, Fabio}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=genre, _text=Computer}, {_type=price, _text=44.95}, {_type=publish_date, _text=2000-10-01}, {_type=description, _text=An in-depth look at creating applications with XML.}], _type=book, id=bk101}", r.get("result").toString()));
     }
 
     @Test(expected = QueryExecutionException.class)
