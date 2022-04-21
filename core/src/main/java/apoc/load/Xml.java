@@ -58,6 +58,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -135,22 +136,23 @@ public class Xml {
             NodeList nodeList = (NodeList) xPathExpression.evaluate(doc, XPathConstants.NODESET);
 
             // todo todo - MA NON è CHE QUESTO NEI TEST è SEMPRE DI LUNGHEZZA 1 ??????
-            for (int i = 0; i < nodeList.getLength(); i++) {
-                final Deque<Map<String, Object>> stack = new LinkedList<>();
-
-                handleNode(stack, nodeList.item(i), simpleMode);
-                for (int index = 0; index < stack.size(); index++) {
-                    result.add(new MapResult(stack.pollFirst()));
-                }
-            }
-//            return StreamSupport.stream(new XmlSpliterator(nodeList, simpleMode, stream), false);
+//            for (int i = 0; i < nodeList.getLength(); i++) {
+//                final Deque<Map<String, Object>> stack = new LinkedList<>();
+//
+//                handleNode(stack, nodeList.item(i), simpleMode);
+//                for (int index = 0; index < stack.size(); index++) {
+//                    result.add(new MapResult(stack.pollFirst()));
+//                }
+//            }
+            return StreamSupport.stream(new XmlSpliterator(nodeList, simpleMode, stream), false)
+                    .filter(i -> !i.equals(MapResult.EMPTY));
         } catch (Exception e){
             if(!failOnError)
                 return Stream.of(new MapResult(Collections.emptyMap()));
             else
                 throw e;
         }
-        return result.stream();
+//        return result.stream();
     }
 
     private XMLStreamReader getXMLStreamReader(Object urlOrBinary, XmlImportConfig config) throws IOException, XMLStreamException {

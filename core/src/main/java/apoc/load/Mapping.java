@@ -3,7 +3,6 @@ package apoc.load;
 import apoc.load.util.LoadCsvConfig;
 import apoc.meta.Meta;
 import apoc.util.Util;
-import org.apache.commons.lang3.StringUtils;
 import org.neo4j.values.storable.DateTimeValue;
 import org.neo4j.values.storable.DateValue;
 import org.neo4j.values.storable.DurationValue;
@@ -71,9 +70,7 @@ public class Mapping {
     }
 
     private Object convertType(String value) {
-        if (nullValues.contains(value) || (StringUtils.isBlank(value) && !type.equals(Meta.Types.STRING))) {
-            return null;
-        }
+        if (nullValues.contains(value)) return null;
         if (type == Meta.Types.STRING) return value;
 
         final Supplier<ZoneId> timezone = () -> ZoneId.of((String) optionalData.getOrDefault("timezone", apocConfig().getString(db_temporal_timezone.name())));

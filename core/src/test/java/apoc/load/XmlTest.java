@@ -96,9 +96,7 @@ public class XmlTest {
     public void testBookIds() {
         testResult(db, "call apoc.load.xml('" + TestUtil.getUrlFileName("xml/books.xml") + "') yield value as catalog\n" +
                 "UNWIND catalog._children as book\n" +
-                "RETURN book as book\n", result -> {
-            final List<Object> book = Iterators.asList(result.columnAs("book"));
-            System.out.println("XmlTest.testBookIds");
+                "RETURN book.id as id\n", result -> {
             List<Object> ids = Iterators.asList(result.columnAs("id"));
             assertTrue(IntStream.rangeClosed(1,12).allMatch(value -> ids.contains(String.format("bk1%02d",value))));
         });
@@ -394,15 +392,15 @@ public class XmlTest {
         });
     }
 
-//    @Test
-//    public void testLoadXmlFromTgzByUrl() {
-//        testResult(db, "call apoc.load.xml('https://github.com/neo4j-contrib/neo4j-apoc-procedures/blob/3.4/src/test/resources/testload.tgz?raw=true!xml/books.xml') yield value as catalog\n" +
-//                "UNWIND catalog._children as book\n" +
-//                "RETURN book.id as id\n", result -> {
-//            List<Object> ids = Iterators.asList(result.columnAs("id"));
-//            assertTrue(IntStream.rangeClosed(1,12).allMatch(value -> ids.contains(String.format("bk1%02d",value))));
-//        });
-//    }
+    @Test
+    public void testLoadXmlFromTgzByUrl() {
+        testResult(db, "call apoc.load.xml('https://github.com/neo4j-contrib/neo4j-apoc-procedures/blob/3.4/src/test/resources/testload.tgz?raw=true!xml/books.xml') yield value as catalog\n" +
+                "UNWIND catalog._children as book\n" +
+                "RETURN book.id as id\n", result -> {
+            List<Object> ids = Iterators.asList(result.columnAs("id"));
+            assertTrue(IntStream.rangeClosed(1,12).allMatch(value -> ids.contains(String.format("bk1%02d",value))));
+        });
+    }
 
     @Test
     public void testLoadXmlSingleLineSimple() {
@@ -426,8 +424,16 @@ public class XmlTest {
                 (row) -> assertEquals(XmlTestUtils.XML_AS_SINGLE_LINE, row.get("value")));
     }
 
+    @Test
+    public void testParseWithXPath() throws Exception {
+        String xmlString = FileUtils.readFileToString(new File("src/test/resources/xml/books.xml"), Charset.forName("UTF-8"));
+        testCall(db, "RETURN apoc.xml.parse($xmlString, '/catalog/book[title=\"Maeve Ascendant\"]/.') AS result",
+                map("xmlString", xmlString),
+                (r) -> assertEquals(XmlTestUtils.XML_XPATH_AS_NESTED_MAP, r.get("result")));
+    }
+
 //    @Test
-//    public void testParseWithXPath() throws Exception { // todo - testare questo
+//    public void testParseWithXPath1() throws Exception { // todo - testare questo
 //        String xmlString = FileUtils.readFileToString(new File("src/test/resources/xml/books.xml"), Charset.forName("UTF-8"));
 //        testCall(db, "RETURN apoc.xml.parse($xmlString, '/catalog/book') AS result",
 //                map("xmlString", xmlString),
