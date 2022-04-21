@@ -65,11 +65,6 @@ dependencies {
 
     testCompile 'net.sourceforge.jexcelapi:jxl:2.6.12'
 
-    compile (group: 'org.polyglotted', name: 'xpath-stax', version: '1.0.0') {
-        exclude group: 'com.google.guava', module: 'guava'
-    }
-
-
     compileOnly group: 'com.amazonaws', name: 'aws-java-sdk-s3', version: '1.11.270'
     testCompile group: 'com.amazonaws', name: 'aws-java-sdk-s3', version: '1.11.270'
 

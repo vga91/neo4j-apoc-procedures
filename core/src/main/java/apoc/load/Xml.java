@@ -144,14 +144,7 @@ public class Xml {
                 }
             }
 //            return StreamSupport.stream(new XmlSpliterator(nodeList, simpleMode, stream), false);
-        }
-        catch (FileNotFoundException e){
-            if(!failOnError)
-                return Stream.of(new MapResult(Collections.emptyMap()));
-            else
-                throw e;
-        }
-        catch (Exception e){
+        } catch (Exception e){
             if(!failOnError)
                 return Stream.of(new MapResult(Collections.emptyMap()));
             else
@@ -233,13 +226,13 @@ public class Xml {
                 Collections.reverse(nodeChildren);
                 if (nodeChildren.size() > 0) {
                     // Before adding the children we need to handle mixed text
-                    Object text = elementMap.get("_text");
-                    if (text instanceof List) {
-                        for (Object element : (List) text) {
-                            nodeChildren.add(element);
-                        }
-                        elementMap.remove("_text");
-                    }
+//                    Object text = elementMap.get("_text");
+//                    if (text instanceof List) {
+//                        for (Object element : (List) text) {
+//                            nodeChildren.add(element);
+//                        }
+//                        elementMap.remove("_text");
+//                    }
 
                     elementMap.put(key, nodeChildren);
                 }
