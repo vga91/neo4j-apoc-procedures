@@ -20,7 +20,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
@@ -58,6 +60,113 @@ public class CypherProceduresStorageTest {
             assertEquals("answer", row.get("name"));
             assertEquals("procedure", row.get("type"));
         });
+    }
+
+    @Test
+    public void registerSimpleStatementFunction123() throws Exception {
+        db.executeTransactionally("call apoc.custom.asFunction('sumFun', 'RETURN $input1 + $input2 as answer','int',[['input1', 'int'], ['input2', 'int']])");
+        extracted2(false);
+    }
+
+    @Test
+    public void registerSimpleStatementFunction12() throws Exception {
+        db.executeTransactionally("call apoc.custom.asFunction('sumFun','RETURN $input1 + $input2 as answer', 'int',[['input1', 'int', 'null'], ['input2', 'int', 'null']])");
+        extracted2(true);
+    }
+
+    @Test
+    public void registerSimpleStatementFunction122() throws Exception {
+        db.executeTransactionally("call apoc.custom.declareFunction('sumFun(input1 = null::INT, input2 = null::INT) :: INT','RETURN $input1 + $input2 AS answer')");
+        extracted2(true);
+    }
+
+    @Test
+    public void registerSimpleStatementFunction1() throws Exception {
+        db.executeTransactionally("call apoc.custom.declareFunction('sumFun(input1::INT, input2::INT) :: INT','RETURN $input1 + $input2 AS answer')");
+        extracted2(false);
+    }
+
+    @Test
+    public void registerSimpleStatement123() throws Exception {
+        db.executeTransactionally("call apoc.custom.asProcedure('sum','RETURN $input1 + $input2 AS answer','read',[['answer','int']],[['input1', 'int'], ['input2', 'int']])");
+        extracted(false);
+    }
+
+    @Test
+    public void registerSimpleStatement12() throws Exception {
+        db.executeTransactionally("call apoc.custom.asProcedure('sum','RETURN $input1 + $input2 AS answer','read',[['answer','int']],[['input1', 'int', 'null'], ['input2', 'int', 'null']])");
+        extracted(true);
+    }
+
+    @Test
+    public void registerSimpleStatement122() throws Exception {
+        db.executeTransactionally("call apoc.custom.declareProcedure('sum(input1 = null::INT, input2 = null::INT) :: (answer::INT)','RETURN $input1 + $input2 AS answer')");
+        extracted(true);
+
+    }
+
+    @Test
+    public void registerSimpleStatement1() throws Exception { 
+        db.executeTransactionally("call apoc.custom.declareProcedure('sum(input1::INT, input2::INT) :: (answer::INT)','RETURN $input1 + $input2 AS answer')");
+        extracted( false);
+    }
+
+    private void extracted2(boolean isDefaultNull) throws IOException {
+        String expectedSignature = isDefaultNull 
+                ? "custom.sumFun(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (INTEGER?)"
+                : "custom.sumFun(input1 :: INTEGER?, input2 :: INTEGER?) :: (INTEGER?)";
+        asd(isDefaultNull, expectedSignature);
+        restartDb();
+        asd(isDefaultNull, expectedSignature);
+    }
+
+    private void asd(boolean isDefaultNull, String expectedSignature) {
+        TestUtil.testCall(db, "SHOW FUNCTIONS YIELD signature, name WHERE name = 'custom.sumFun' RETURN DISTINCT signature",
+                r -> assertEquals(expectedSignature, r.get("signature")));
+        TestUtil.testCall(db, "RETURN custom.sumFun(40, 2) as row", (row) -> assertEquals(42L, row.get("row")));
+        TestUtil.testCall(db, "call apoc.custom.list()", row -> {
+            assertEquals("sumFun", row.get("name"));
+            assertEquals("function", row.get("type"));
+        });
+        if (isDefaultNull) {
+            TestUtil.testCall(db, "RETURN custom.sumFun()", (row) -> assertNull(row.get("answer")));
+        } else {
+            try {
+                TestUtil.testCall(db, "RETURN custom.sumFun()", (row) -> fail("Should fail because of missing params"));
+            } catch (RuntimeException e) {
+                assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 2 got 0"));
+            }
+        }
+    }
+
+    private void extracted(boolean isDefaultNull) throws IOException {
+        String expectedSignature = isDefaultNull
+                ? "custom.sum(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (answer :: INTEGER?)"
+                : "custom.sum(input1 :: INTEGER?, input2 :: INTEGER?) :: (answer :: INTEGER?)";
+        TestUtil.testCall(db, "SHOW PROCEDURES YIELD signature, name WHERE name = 'custom.sum'",
+                r -> assertEquals(expectedSignature, r.get("signature")));
+        TestUtil.testCall(db, "call custom.sum(40, 2)", (row) -> assertEquals(42L, row.get("answer")));
+        TestUtil.testCall(db, "call apoc.custom.list()", row -> {
+            assertEquals("sum", row.get("name"));
+            assertEquals("procedure", row.get("type"));
+        });
+        restartDb();
+        TestUtil.testCall(db, "SHOW PROCEDURES YIELD signature, name WHERE name = 'custom.sum' RETURN DISTINCT signature",
+                r -> assertEquals(expectedSignature, r.get("signature")));
+        TestUtil.testCall(db, "call custom.sum(40, 2)", (row) -> assertEquals(42L, row.get("answer")));
+        TestUtil.testCall(db, "call apoc.custom.list()", row -> {
+            assertEquals("sum", row.get("name"));
+            assertEquals("procedure", row.get("type"));
+        });
+        if (isDefaultNull) {
+            TestUtil.testCall(db, "call custom.sum()", (row) -> assertNull(row.get("answer")));
+        } else {
+            try {
+                TestUtil.testCall(db, "call custom.sum()", (row) -> fail("Should fail because of missing params"));
+            } catch (RuntimeException e) {
+                assertTrue(e.getMessage().contains("Procedure call does not provide the required number of arguments: got 0 expected at least 2"));
+            }
+        }
     }
 
     @Test
