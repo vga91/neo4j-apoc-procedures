@@ -11,6 +11,7 @@ import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.io.File;
@@ -20,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
@@ -58,6 +61,88 @@ public class CypherProceduresStorageTest {
             assertEquals("answer", row.get("name"));
             assertEquals("procedure", row.get("type"));
         });
+    }
+
+    @Test
+    public void functionSignatureShouldNotChangeBeforeAndAfterRestart() throws Exception {
+        // 2 with default null, 2 without default, for both asFunction and declareFunction
+        db.executeTransactionally("call apoc.custom.asFunction('sumFun1', 'RETURN $input1 + $input2 as answer','int',[['input1', 'int'], ['input2', 'int']])");
+        db.executeTransactionally("call apoc.custom.asFunction('sumFun2','RETURN $input1 + $input2 as answer', 'int',[['input1', 'int', 'null'], ['input2', 'int', 'null']])");
+        db.executeTransactionally("call apoc.custom.declareFunction('sumFun3(input1::INT, input2::INT) :: INT','RETURN $input1 + $input2 AS answer')");
+        db.executeTransactionally("call apoc.custom.declareFunction('sumFun4(input1 = null::INT, input2 = null::INT) :: INT','RETURN $input1 + $input2 AS answer')");
+        functionAssertions();
+        restartDb();
+        functionAssertions();
+    }
+
+    @Test
+    public void procedureSignatureShouldNotChangeBeforeAndAfterRestart() throws Exception {
+        // 2 with default null, 2 without default, for both asProcedure and declareProcedure
+        db.executeTransactionally("call apoc.custom.asProcedure('sum1','RETURN $input1 + $input2 AS answer','read',[['answer','int']],[['input1', 'int'], ['input2', 'int']])");
+        db.executeTransactionally("call apoc.custom.asProcedure('sum2','RETURN $input1 + $input2 AS answer','read',[['answer','int']],[['input1', 'int', 'null'], ['input2', 'int', 'null']])");
+        db.executeTransactionally("call apoc.custom.declareProcedure('sum4(input1 = null::INT, input2 = null::INT) :: (answer::INT)','RETURN $input1 + $input2 AS answer')");
+        db.executeTransactionally("call apoc.custom.declareProcedure('sum3(input1::INT, input2::INT) :: (answer::INT)','RETURN $input1 + $input2 AS answer')");
+        procedureAssertions();
+        restartDb();
+        procedureAssertions();
+    }
+
+    private void functionAssertions() {
+        TestUtil.testResult(db, "SHOW FUNCTIONS YIELD signature, name WHERE name STARTS WITH 'custom.sumFun' RETURN DISTINCT name, signature ORDER BY name",
+                r -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals("custom.sumFun1(input1 :: INTEGER?, input2 :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sumFun2(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sumFun3(input1 :: INTEGER?, input2 :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sumFun4(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    assertFalse(r.hasNext());
+                });
+        TestUtil.testResult(db, "call apoc.custom.list() YIELD name RETURN name ORDER BY name", 
+                row -> {
+                    final List<String> sumFun1 = List.of("sumFun1", "sumFun2", "sumFun3", "sumFun4");
+                    assertEquals(sumFun1, Iterators.asList(row.columnAs("name")));
+                });
+        List.of("custom.sumFun1", "custom.sumFun3").forEach(fun -> {
+            try {
+                TestUtil.testCall(db, String.format("RETURN %s()", fun), (row) -> fail("Should fail because of missing params"));
+            } catch (RuntimeException e) {
+                assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 2 got 0"));
+            }
+        });
+        List.of("custom.sumFun2", "custom.sumFun4").forEach(fun -> 
+                TestUtil.testCall(db, String.format("RETURN %s()", fun), (row) -> assertNull(row.get("answer"))));
+    }
+
+    private void procedureAssertions() {
+        TestUtil.testResult(db, "SHOW PROCEDURES YIELD signature, name WHERE name STARTS WITH 'custom.sum' RETURN DISTINCT name, signature ORDER BY name",
+                r -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals("custom.sum1(input1 :: INTEGER?, input2 :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sum2(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sum3(input1 :: INTEGER?, input2 :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sum4(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    assertFalse(r.hasNext());
+                });
+        TestUtil.testResult(db, "call apoc.custom.list() YIELD name RETURN name ORDER BY name", 
+                row -> {
+                    final List<String> sumFun1 = List.of("sum1", "sum2", "sum3", "sum4");
+                    assertEquals(sumFun1, Iterators.asList(row.columnAs("name")));
+                });
+        List.of("custom.sum1", "custom.sum3").forEach(fun -> {
+            try {
+                TestUtil.testCall(db, String.format("CALL %s()", fun), (row) -> fail("Should fail because of missing params"));
+            } catch (RuntimeException e) {
+                assertTrue(e.getMessage().contains("Procedure call does not provide the required number of arguments: got 0 expected at least 2"));
+            }
+        });
+        List.of("custom.sum2", "custom.sum4").forEach(fun -> 
+                TestUtil.testCall(db, String.format("CALL %s", fun), (row) -> assertNull(row.get("answer"))));
     }
 
     @Test

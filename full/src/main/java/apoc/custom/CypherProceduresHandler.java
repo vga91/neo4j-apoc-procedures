@@ -275,11 +275,14 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     private String serializeSignatures(List<FieldSignature> signatures) {
-        List<Map<String, Object>> mapped = signatures.stream().map(fs -> map(
-                "name", fs.name(),
-                "type", fs.neo4jType().toString(),
-                "default", fs.defaultValue().orElse(DefaultParameterValue.nullValue(new Neo4jTypes.AnyType())).value()
-        )).collect(Collectors.toList());
+        List<Map<String, Object>> mapped = signatures.stream().map(fs -> {
+            final Map<String, Object> map = map(
+                    "name", fs.name(),
+                    "type", fs.neo4jType().toString()
+            );
+            fs.defaultValue().map(defVal -> map.put("default", defVal.value()));
+            return map;
+        }).collect(Collectors.toList());
         return Util.toJson(mapped);
     }
 
@@ -291,12 +294,11 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                 typeString = typeString.substring(0, typeString.length() - 1);
             }
             AnyType type = typeof(typeString);
-
-            Object deflt = map.get("default");
-            if (deflt == null) {
-                return FieldSignature.inputField((String) map.get("name"), type);
+            // we insert the default value only if is present
+            if (map.containsKey("default")) {
+                return FieldSignature.inputField((String) map.get("name"), type, new DefaultParameterValue(map.get("default"), type));
             } else {
-                return FieldSignature.inputField((String) map.get("name"), type, new DefaultParameterValue(deflt, type));
+                return FieldSignature.inputField((String) map.get("name"), type);
             }
         }).collect(Collectors.toList());
     }
@@ -513,6 +515,12 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     private DefaultParameterValue defaultValue(String typeName, String stringValue) {
         if (stringValue == null) return null;
+        // todo - evaluate if necessary, with this "if" we can handle the defaultValue = null
+        //  but, otoh we cannot differentiate "null" (as as string) from null
+        //  document this behavior, in case
+        if (stringValue.equals("null")) {
+            return DefaultParameterValue.nullValue(typeof(typeName));
+        }
         Object value = JsonUtil.parse(stringValue, null, Object.class);
         if (value == null) return null;
         typeName = typeName.toUpperCase();
