@@ -11,6 +11,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.rule.DbmsRule;
@@ -56,18 +57,46 @@ public class XmlTest {
                 });
     }
 
-//    @Test
-//    public void testLoadXmlStream() {
-//        testResult(db, "CALL apoc.load.xml('file:databases.xml', '/', {stream: true})", //  YIELD value RETURN value
-//                (row) -> {
-//                    assertEquals(XmlTestUtils.XML_AS_NESTED_MAP, Iterators.asList(row.columnAs("value")));
-//                });
-//    }
+    @Test
+    public void testLoadXmlStream() {
+        testResult(db, "CALL apoc.load.xml('databases.xml', '/', {stream: true})",
+                (r) -> {
+                    final ResourceIterator<Map<String, Object>> value = r.columnAs("value");
+                    Map<String, Object> actual = map("_parent_key", "parent_1", "_child_key", "#document_0", "_type", "parent", "name", "databases");
+                    assertEquals(actual, value.next());
+                    actual = map("_parent_key", "child_3", "_child_key", "parent_1", "_type", "child", "name", "Neo4j", "_text", "Neo4j is a graph database");
+                    assertEquals(actual, value.next());
+                    actual = map("_parent_key", "child_5", "_child_key", "parent_1", "_type", "child", "name", "relational");
+                    assertEquals(actual, value.next());
+                    actual = map("_parent_key", "grandchild_8", "_child_key", "child_5", "_type", "grandchild", "name", "MySQL", "_text", "MySQL is a database & relational");
+                    assertEquals(actual, value.next());
+                    actual = map("_parent_key", "grandchild_10", "_child_key", "child_5", "_type", "grandchild", "name", "Postgres", "_text", "Postgres is a relational database");
+                    assertEquals(actual, value.next());
+                    assertFalse(value.hasNext());
+                });
+    }
 
     @Test
     public void testMixedContent() {
         testCall(db, "CALL apoc.load.xml('" + TestUtil.getUrlFileName("xml/mixedcontent.xml") + "')", //  YIELD value RETURN value
                 this::commonAssertionsMixedContent);
+    }
+
+    @Test
+    public void testMixedContentStream() {
+        testResult(db, "CALL apoc.load.xml('" + TestUtil.getUrlFileName("xml/mixedcontent.xml") + "', '/', {stream: true})", //  YIELD value RETURN value
+                r -> {
+                    final ResourceIterator<Map<String, Object>> value = r.columnAs("value");
+                    Map<String, Object> actual = map("_parent_key", "root_1", "_child_key", "#document_0", "_type", "root");
+                    assertEquals(actual, value.next());
+                    actual = map("_parent_key", "text_3", "_child_key", "root_1", "_type", "text", "_text", List.of("text0", "text1"));
+                    assertEquals(actual, value.next());
+                    actual = map("_parent_key", "text_5", "_child_key", "root_1", "_type", "text", "_text", "text as cdata");
+                    assertEquals(actual, value.next());
+                    actual = map("_parent_key", "mixed_8", "_child_key", "text_3", "_type", "mixed");
+                    assertEquals(actual, value.next());
+                    assertFalse(value.hasNext());
+                });
     }
 
     @Test
@@ -156,6 +185,15 @@ public class XmlTest {
 
     @Test
     public void testLoadXmlXpathAuthorFromBookId () {
+        testCall(db, "CALL apoc.load.xml('" + TestUtil.getUrlFileName("xml/books.xml") + "', '/catalog/book[@id=\"bk102\"]/author') yield value as result",
+                (r) -> {
+                    assertEquals("author", ((Map) r.get("result")).get("_type"));
+                    assertEquals("Ralls, Kim", ((Map) r.get("result")).get("_text"));
+                });
+    }
+
+    @Test
+    public void testLoadXmlXpathStream() {
         testCall(db, "CALL apoc.load.xml('" + TestUtil.getUrlFileName("xml/books.xml") + "', '/catalog/book[@id=\"bk102\"]/author') yield value as result",
                 (r) -> {
                     assertEquals("author", ((Map) r.get("result")).get("_type"));
@@ -431,14 +469,6 @@ public class XmlTest {
                 map("xmlString", xmlString),
                 (r) -> assertEquals(XmlTestUtils.XML_XPATH_AS_NESTED_MAP, r.get("result")));
     }
-
-//    @Test
-//    public void testParseWithXPath1() throws Exception { // todo - testare questo
-//        String xmlString = FileUtils.readFileToString(new File("src/test/resources/xml/books.xml"), Charset.forName("UTF-8"));
-//        testCall(db, "RETURN apoc.xml.parse($xmlString, '/catalog/book') AS result",
-//                map("xmlString", xmlString),
-//                (r) -> assertEquals("{_children=[{_type=author, _text=Gambardella, Matthew}, {_type=author, _text=Arciniegas, Fabio}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=title, _text=XML Developer's Guide}, {_type=genre, _text=Computer}, {_type=price, _text=44.95}, {_type=publish_date, _text=2000-10-01}, {_type=description, _text=An in-depth look at creating applications with XML.}], _type=book, id=bk101}", r.get("result").toString()));
-//    }
 
     @Test(expected = QueryExecutionException.class)
     public void testLoadXmlPreventXXEVulnerabilityThrowsQueryExecutionException() {

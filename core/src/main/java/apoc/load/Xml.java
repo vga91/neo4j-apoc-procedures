@@ -93,10 +93,7 @@ public class Xml {
     @UserFunction("apoc.xml.parse")
     @Description("RETURN apoc.xml.parse(<xml string>, <xPath string>, config, false) AS value")
     public Map<String, Object> parse(@Name("data") String data, @Name(value = "path", defaultValue = "/") String path, @Name(value = "config",defaultValue = "{}") Map<String, Object> config, @Name(value = "simple", defaultValue = "false") boolean simpleMode) throws Exception {
-        if (config == null) config = Collections.emptyMap();
-        boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
-        // todo - qui è mockato
-        return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, failOnError, false)
+        return parse(new ByteArrayInputStream(data.getBytes(Charset.forName("UTF-8"))), simpleMode, path, config)
                 .map(mr -> mr.value).findFirst().orElse(null);
     }
 
@@ -105,9 +102,8 @@ public class Xml {
         boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
         try {
             Map<String, Object> headers = (Map) config.getOrDefault("headers", Collections.emptyMap());
-            boolean stream = Util.toBoolean(config.get("stream"));
             CountingInputStream is = FileUtils.inputStreamFor(urlOrBinary, headers, null, (String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name()));
-            return parse(is, simpleMode, path, failOnError, stream);
+            return parse(is, simpleMode, path, config);
         } catch (Exception e){
             if(!failOnError)
                 return Stream.of(new MapResult(Collections.emptyMap()));
@@ -116,7 +112,11 @@ public class Xml {
         }
     }
 
-    private Stream<MapResult> parse(InputStream data, boolean simpleMode, String path, boolean failOnError, boolean stream) throws Exception {
+    private Stream<MapResult> parse(InputStream data, boolean simpleMode, String path, Map<String, Object> config) throws Exception {
+        if (config == null) config = Collections.emptyMap();
+        boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
+        boolean stream = Util.toBoolean(config.get("stream"));
+        
         List<MapResult> result = new ArrayList<>();
         try {
             DocumentBuilderFactory documentBuilderFactory = DocumentBuilderFactory.newInstance();
@@ -135,15 +135,6 @@ public class Xml {
             XPathExpression xPathExpression = xPath.compile(path);
             NodeList nodeList = (NodeList) xPathExpression.evaluate(doc, XPathConstants.NODESET);
 
-            // todo todo - MA NON è CHE QUESTO NEI TEST è SEMPRE DI LUNGHEZZA 1 ??????
-//            for (int i = 0; i < nodeList.getLength(); i++) {
-//                final Deque<Map<String, Object>> stack = new LinkedList<>();
-//
-//                handleNode(stack, nodeList.item(i), simpleMode);
-//                for (int index = 0; index < stack.size(); index++) {
-//                    result.add(new MapResult(stack.pollFirst()));
-//                }
-//            }
             return StreamSupport.stream(new XmlSpliterator(nodeList, simpleMode, stream), false)
                     .filter(i -> !i.equals(MapResult.EMPTY));
         } catch (Exception e){
@@ -152,7 +143,6 @@ public class Xml {
             else
                 throw e;
         }
-//        return result.stream();
     }
 
     private XMLStreamReader getXMLStreamReader(Object urlOrBinary, XmlImportConfig config) throws IOException, XMLStreamException {
@@ -183,159 +173,6 @@ public class Xml {
             return true;
         } else {
             return false;
-        }
-    }
-
-    private void handleNode(Deque<Map<String, Object>> stack, Node node, boolean simpleMode) {
-
-        // Handle document node
-        if (node.getNodeType() == Node.DOCUMENT_NODE) {
-            NodeList children = node.getChildNodes();
-            for (int i = 0; i < children.getLength(); i++) {
-                if (children.item(i).getLocalName() != null) {
-                    handleNode(stack, children.item(i), simpleMode);
-                    return;
-                }
-            }
-        }
-
-        Map<String, Object> elementMap = new LinkedHashMap<>();
-        handleTypeAndAttributes(node, elementMap);
-
-        // Set children
-        NodeList children = node.getChildNodes();
-        int count = 0;
-        for (int i = 0; i < children.getLength(); i++) {
-            Node child = children.item(i);
-
-            // This is to deal with text between xml tags for example new line characters
-            if (child.getNodeType() != Node.TEXT_NODE && child.getNodeType() != Node.CDATA_SECTION_NODE) {
-                handleNode(stack, child, simpleMode);
-                count++;
-            } else {
-                // Deal with text nodes
-                handleTextNode(child, elementMap);
-            }
-        }
-
-        if (children.getLength() > 0) {
-            if (!stack.isEmpty()) {
-                List<Object> nodeChildren = new ArrayList<>();
-                for (int i = 0; i < count; i++) {
-                    nodeChildren.add(stack.pollLast());
-                }
-                String key = simpleMode ? "_" + node.getLocalName() : "_children";
-                Collections.reverse(nodeChildren);
-                if (nodeChildren.size() > 0) {
-                    // Before adding the children we need to handle mixed text
-//                    Object text = elementMap.get("_text");
-//                    if (text instanceof List) {
-//                        for (Object element : (List) text) {
-//                            nodeChildren.add(element);
-//                        }
-//                        elementMap.remove("_text");
-//                    }
-
-                    elementMap.put(key, nodeChildren);
-                }
-            }
-        }
-
-        if (!elementMap.isEmpty()) {
-            stack.addLast(elementMap);
-        }
-    }
-
-    /**
-     * Collects type and attributes for the node
-     *
-     * @param node
-     * @param elementMap
-     */
-    private void handleTypeAndAttributes(Node node, Map<String, Object> elementMap) {
-        // Set type
-        if (node.getLocalName() != null) {
-            elementMap.put("_type", node.getLocalName());
-        }
-
-        // Set the attributes
-        if (node.getAttributes() != null) {
-            NamedNodeMap attributeMap = node.getAttributes();
-            for (int i = 0; i < attributeMap.getLength(); i++) {
-                Node attribute = attributeMap.item(i);
-                elementMap.put(attribute.getNodeName(), attribute.getNodeValue());
-            }
-        }
-    }
-
-    /**
-     * Handle TEXT nodes and CDATA nodes
-     *
-     * @param node
-     * @param elementMap
-     */
-    private void handleTextNode(Node node, Map<String, Object> elementMap) {
-        Object text = "";
-        int nodeType = node.getNodeType();
-        switch (nodeType) {
-            case Node.TEXT_NODE:
-                text = normalizeText(node.getNodeValue());
-                break;
-            case Node.CDATA_SECTION_NODE:
-                text = normalizeText(((CharacterData) node).getData());
-                break;
-            default:
-                break;
-        }
-
-        // If the text is valid ...
-        if (!StringUtils.isEmpty(text.toString())) {
-            // We check if we have already collected some text previously
-            Object previousText = elementMap.get("_text");
-            if (previousText != null) {
-                // If we just have a "_text" key than we need to collect to a List
-                text = Arrays.asList(previousText.toString(), text);
-            }
-            elementMap.put("_text", text);
-        }
-    }
-
-    /**
-     * Remove trailing whitespaces and new line characters
-     *
-     * @param text
-     * @return
-     */
-    private String normalizeText(String text) {
-        String[] tokens = StringUtils.split(text, "\n");
-        for (int i = 0; i < tokens.length; i++) {
-            tokens[i] = tokens[i].trim();
-        }
-
-        return StringUtils.join(tokens, " ").trim();
-    }
-
-    private boolean collectionIsAllStrings(Object collection) {
-        if (collection instanceof Collection) {
-            return ((Collection<Object>) collection).stream().allMatch(o -> o instanceof String);
-        } else {
-            return false;
-        }
-    }
-
-    private void amendToList(Map<String, Object> map, String key, Object value) {
-        final Object element = map.get(key);
-        if (element == null) {
-            map.put(key, value);
-        } else {
-            if (element instanceof List) {
-                ((List) element).add(value);
-            } else {
-                List<Object> list = new LinkedList<>();
-                list.add(element);
-                list.add(value);
-                map.put(key, list);
-            }
         }
     }
 

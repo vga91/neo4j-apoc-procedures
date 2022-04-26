@@ -1,6 +1,5 @@
 package apoc.load;
 
-import apoc.coll.Coll;
 import apoc.result.MapResult;
 import org.apache.commons.lang3.StringUtils;
 import org.w3c.dom.CharacterData;
@@ -20,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -30,7 +28,7 @@ public class XmlSpliterator extends Spliterators.AbstractSpliterator<MapResult> 
     private List<Map.Entry<String, NodeList>> nodeListList;
     private final Map<String, NodeList> childNodeListList = new HashMap<>();
     private int index = 0;
-    private int childIndex = 0;
+    private int currentChildIndex = 0;
     private final boolean simpleMode;
     private final boolean stream;
     private final AtomicInteger id = new AtomicInteger();
@@ -45,68 +43,40 @@ public class XmlSpliterator extends Spliterators.AbstractSpliterator<MapResult> 
     @Override
     public synchronized boolean tryAdvance(Consumer<? super MapResult> action) {
         try {
-            System.out.println("AAAAAAAAAAAA");
-
-//            if (nodeListList.isEmpty()) {
-//                System.out.println("init???");
-//                return false;
-//            }
-//            else {
-            if (childIndex == this.nodeListList.size()) {
-                System.out.println("allora ritorno false");
+            if (currentChildIndex == this.nodeListList.size()) {
                 return false;
             }
-            final Map.Entry<String, NodeList> nodeList = this.nodeListList.get(childIndex);
-//                return true;
+            final Map.Entry<String, NodeList> nodeList = this.nodeListList.get(currentChildIndex);
             if (index < nodeList.getValue().getLength()) {
-//            for (int i = 0; i < nodeList.getLength(); i++) {
                 final Deque<Map<String, Object>> stack = new LinkedList<>();
 
                 if (stream) {
                     handleStreamNode(action, nodeList.getValue().item(index), nodeList.getKey());
                 } else {
-                    handleNode(action, stack, nodeList.getValue().item(index), simpleMode);
+                    handleNode(stack, nodeList.getValue().item(index), simpleMode);
                 }
-//                for (int index = 0; index < stack.size(); index++) {
-//                    result.add(new MapResult(stack.pollFirst()));
-//                }
-//                    action.accept();
-                // todo - mettere !stream
+                
                 if (!stream) {
                     stack.iterator().forEachRemaining(item -> action.accept(new MapResult(item)));
                     index++;
                 }
-//                stack.stream().flatMap(item -> new MapResult(item));//.forEachRemaining(item -> action.accept(new MapResult(item)));// MapResult::new);
-//                action.accept(new MapResult(stack.pollFirst()));
-                action.accept(MapResult.EMPTY);
-                return true;
-//                }
+                return mapEmptyAndReturnTrue(action);
             }
 
             if (stream) {
-
-                System.out.println("NON SO childIndex " + childIndex + " idx " + index);
-                childIndex++;
-                if (nodeListList.size() > childIndex) {
+                currentChildIndex++;
+                if (nodeListList.size() > currentChildIndex) {
                     index = 0;
-                    action.accept(MapResult.EMPTY);
-                    return true;
+                    return mapEmptyAndReturnTrue(action);
                 }
                 if (childNodeListList.isEmpty()) {
-                    System.out.println("here????");
                     return false;
                 }
-                // TODO - QUI DOVREI AGGIUNGERE LA PROPRIETà PER I CHILD...
                 nodeListList = List.copyOf(childNodeListList.entrySet());
                 childNodeListList.clear();
-                if (nodeListList.isEmpty()) {
-                    System.out.println("non è ok...");
-                }
                 index = 0;
-                childIndex = 0;
-                action.accept(MapResult.EMPTY);
-//                action.accept(new MapResult(Map.of("porto", "dio")));
-                return true;
+                currentChildIndex = 0;
+                return mapEmptyAndReturnTrue(action);
             }
             return false;
 
@@ -114,120 +84,71 @@ public class XmlSpliterator extends Spliterators.AbstractSpliterator<MapResult> 
             throw new RuntimeException(e);
         }
     }
-    
+
+    private boolean mapEmptyAndReturnTrue(Consumer<? super MapResult> action) {
+        action.accept(MapResult.EMPTY);
+        return true;
+    }
+
     private synchronized void handleStreamNode(Consumer<? super MapResult> action, Node node, String parentKey) {
         Map<String, Object> elementMap = new LinkedHashMap<>();
         handleTypeAndAttributes(node, elementMap);
-        System.out.println("map " + elementMap);
-        
-        
-//        node.t
-        
-//        if (node.getNodeType() == Node.DOCUMENT_NODE) {
-//            NodeList children = node.getChildNodes();
-//            System.out.println("PORTO DIO!!!!! ");
-//            System.out.println(children.getLength());
-//            if (children.getLength() > 0) {
-//                System.out.println("aggiungo child qui");
-//                childNodeListList.add(children);
-//            }
-//            index++;
-//            action.accept(elementMap.isEmpty() ? new MapResult(Map.of("AAA", "EEE")) : new MapResult(elementMap));
-//            return;
-//        }
-
-//        if (node.getNodeType() == Node.DOCUMENT_NODE || (node.getNodeType() != Node.TEXT_NODE && node.getNodeType() != Node.CDATA_SECTION_NODE)) {
-//            System.out.println("childone = " + node);
-////            handleNode(action, stack, node, simpleMode);
-////            count++;
-//        } else {
-//            // Deal with text nodes
-//            handleTextNode(node, elementMap);
-//        }
 
         NodeList children = node.getChildNodes();
-
-//        int count = 0;
+        
         for (int i = 0; i < children.getLength(); i++) {
             Node child = children.item(i);
 
-            // This is to deal with text between xml tags for example new line characters
-            if (child.getNodeType() != Node.TEXT_NODE && child.getNodeType() != Node.CDATA_SECTION_NODE) {
-                System.out.println("child = " + child);
-//                if (!stream) {
-//                handleNode(action, stack, child, simpleMode);
-//                }
-//                count++;
-            } else {
-                // Deal with text nodes
+            // Deal with text nodes
+            if (child.getNodeType() == Node.TEXT_NODE || child.getNodeType() == Node.CDATA_SECTION_NODE) {
                 handleTextNode(child, elementMap);
             }
         }
 
-
+        // we assign a _parent_key and a _child_key instead of tree structure in not-stream mode {key,val,key2,val2,_children: [{map1}, {map2}]]...}
+        // note that with default non-stream mode we have to handle text differently 
+        // e.g a tag like <text>text0<mixed/> text1</text> will be handled in non-stream mode as [{_type=mixed}, text0, text1], _type=text},
+        // instead with stream mode we will have a row {_parent_key=XX, _child_key: 'root_1', _type: 'text', _text:['text0', 'text1']} 
+        // and another row for the mixed tag {_parent_key: XX, _child_key: 'text_3', _type: 'mixed'}, because we don't have the "_children" key
         final boolean empty = elementMap.isEmpty();
         String key = node.getNodeName() + "_" + id.getAndIncrement();
         if (!empty) {
-//            if (node.getNodeType() != Node.DOCUMENT_NODE) {
-                elementMap.put("_parent_key", key);
-//            }
-//            if (!parentKey.equals(ROOT_KEY)) {
-                elementMap.put("_child_key", parentKey);
-//            }
+            elementMap.put("_parent_key", key);
+            elementMap.put("_child_key", parentKey);
         }
         if (children.getLength() > 0) {
-            System.out.println("aggiungo child");
             childNodeListList.put(key, children);
         }
         
         index++;
-//            if (!elementMap.isEmpty()) { // todo - da migliorare
-//                return;
-//            }
         action.accept(empty ? MapResult.EMPTY : new MapResult(elementMap));
-        return;
     }
 
+    private void handleNode(Deque<Map<String, Object>> stack, Node node, boolean simpleMode) {
 
-    // todo - qui incremento childIndex e prendo i figli da mettere in childNodeList,
-    //   una volta che finisco i childIndex, incremento index
-    //   quando finisco index, allora prendo i childNodeList e li assegno come nodeListList
-    //   poi riazzero index e childIndex e rifaccio il giro
-    
-    // TODO !!! - RIMETTERE SYNCHRONIZED!!!
-    private synchronized void handleNode(Consumer<? super MapResult> action, Deque<Map<String, Object>> stack, Node node, boolean simpleMode) {
-
-        // Handle document node // todo - ma per forza qua???
+        // Handle document node
         if (node.getNodeType() == Node.DOCUMENT_NODE) {
             NodeList children = node.getChildNodes();
             for (int i = 0; i < children.getLength(); i++) {
                 if (children.item(i).getLocalName() != null) {
-                    System.out.println("i = " + i);
-//                    if (!stream) {
-                        handleNode(action, stack, children.item(i), simpleMode);
-                        return;
-//                    }
+                    handleNode(stack, children.item(i), simpleMode);
+                    return;
                 }
             }
         }
-        
+
         Map<String, Object> elementMap = new LinkedHashMap<>();
         handleTypeAndAttributes(node, elementMap);
 
-        
         // Set children
         NodeList children = node.getChildNodes();
-        
         int count = 0;
         for (int i = 0; i < children.getLength(); i++) {
             Node child = children.item(i);
 
             // This is to deal with text between xml tags for example new line characters
             if (child.getNodeType() != Node.TEXT_NODE && child.getNodeType() != Node.CDATA_SECTION_NODE) {
-                System.out.println("child = " + child);
-//                if (!stream) {
-                    handleNode(action, stack, child, simpleMode);
-//                }
+                handleNode(stack, child, simpleMode);
                 count++;
             } else {
                 // Deal with text nodes
@@ -235,11 +156,7 @@ public class XmlSpliterator extends Spliterators.AbstractSpliterator<MapResult> 
             }
         }
 
-
-
-//
-        if (children.getLength() > 0 && !stream) { // todo - in teoria faccio questa parte solo quando non streamo, o meglio, ma a che cazzo serve?
-            // todo - commentare sto blocco e vedere se spaccano i test...
+        if (children.getLength() > 0) {
             if (!stack.isEmpty()) {
                 List<Object> nodeChildren = new ArrayList<>();
                 for (int i = 0; i < count; i++) {
@@ -260,22 +177,11 @@ public class XmlSpliterator extends Spliterators.AbstractSpliterator<MapResult> 
             }
         }
 
-        
-//        if (stream) {
-//            index++;
-//            System.out.println("PORTO DIO");
-//            childNodeListList.add(children);
-////            index++;
-//            // todo - da migliorare
-//            action.accept(elementMap.isEmpty() ? MapResult.EMPTY : new MapResult(elementMap));
-//            return;
-//        }
-
         if (!elementMap.isEmpty()) {
-//            index++;
             stack.addLast(elementMap);
         }
     }
+
     /**
      * Collects type and attributes for the node
      *
