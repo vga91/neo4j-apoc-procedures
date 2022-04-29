@@ -156,7 +156,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     private ProcedureDescriptor procedureDescriptor(Node node) {
-        // todo - è il deserialize che non va...
         String statement = (String) node.getProperty(SystemPropertyKeys.statement.name());
 
         String name = (String) node.getProperty(SystemPropertyKeys.name.name());
@@ -273,7 +272,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             registerProcedure(signature, statement);
             return null;
         });
-    }  // todo - ma se NON ci metto il default... che succede... credo diventi null comunque
+    }
 
     private String serializeSignatures(List<FieldSignature> signatures) {
         List<Map<String, Object>> mapped = signatures.stream().map(fs -> {
@@ -516,12 +515,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     private DefaultParameterValue defaultValue(String typeName, String stringValue) {
         if (stringValue == null) return null;
-        // todo - evaluate if necessary, with this "if" we can handle the defaultValue = null
-        //  but, otoh we cannot differentiate "null" (as as string) from null
-        //  document this behavior, in case
-        if (stringValue.equals("null")) {
-            return DefaultParameterValue.nullValue(typeof(typeName));
-        }
         Object value = JsonUtil.parse(stringValue, null, Object.class);
         if (value == null) return null;
         typeName = typeName.toUpperCase();
