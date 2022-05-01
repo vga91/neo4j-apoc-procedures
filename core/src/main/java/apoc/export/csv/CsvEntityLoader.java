@@ -131,6 +131,7 @@ public class CsvEntityLoader {
                     }
                     reporter.update(1, 0, props++);
                 }
+                btx.lastCommit();
             }
         }
     }
@@ -218,6 +219,7 @@ public class CsvEntityLoader {
                     }
                     reporter.update(0, 1, props);
                 }
+                btx.lastCommit();
             }
         }
     }

@@ -53,10 +53,13 @@ public class BatchTransaction implements AutoCloseable {
         return gdb.beginTx();
     }
 
+    public void lastCommit() {
+        tx.commit();
+    }
+    
     @Override
     public void close() {
         if (tx!=null) {
-            tx.commit();
             tx.close();
             if (reporter!=null) reporter.progress("finish after " + count + " row(s) ");
         }

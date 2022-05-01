@@ -48,6 +48,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
 
 public class ImportCsvTest {
     public static final String BASE_URL_FILES = "src/test/resources/csv-inputs";
@@ -189,6 +190,28 @@ public class ImportCsvTest {
 
         List<Long> ids = TestUtil.firstColumn(db, "MATCH (n:Person) RETURN n.id AS id ORDER BY id");
         assertThat(ids, Matchers.contains(1L, 2L));
+    }
+
+    @Test
+    public void issue2826WithImportCsv() {
+        db.executeTransactionally("CREATE (n:Person {name: 'John'})");
+        db.executeTransactionally("CREATE CONSTRAINT unique_person ON (n:Person) ASSERT n.name IS UNIQUE");
+        try {
+            TestUtil.testCall(db,
+                    "CALL apoc.import.csv([{fileName: $file, labels: ['Person']}], [], $config)",
+                    map("file", "file:/id.csv", "config", map("delimiter", '|')),
+                    (r) -> fail());
+        } catch (RuntimeException e) {
+            String expected = "Failed to invoke procedure `apoc.import.csv`: " +
+                    "Caused by: IndexEntryConflictException{propertyValues=( String(\"John\") ), addedNodeId=-1, existingNodeId=0}";
+            assertEquals(expected, e.getMessage());
+        }
+
+        // should return only 1 node due to constraint exception
+        TestUtil.testCall(db, "MATCH (n:Person) RETURN properties(n) AS props",
+                r -> assertEquals(Map.of("name", "John"), r.get("props")));
+
+        db.executeTransactionally("DROP CONSTRAINT unique_person");
     }
 
     @Test

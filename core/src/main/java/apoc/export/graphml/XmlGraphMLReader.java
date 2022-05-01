@@ -288,6 +288,7 @@ public class XmlGraphMLReader {
                     }
                 }
             }
+            tx.lastCommit();
         }
         return count;
     }
