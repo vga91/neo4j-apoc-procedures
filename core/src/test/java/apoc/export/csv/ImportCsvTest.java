@@ -184,31 +184,6 @@ public class ImportCsvTest {
     }
 
     @Test
-    public void issue2797WithImportCsv() {
-        db.executeTransactionally("CREATE (n:Person {name: 'John'})");
-        db.executeTransactionally("CREATE CONSTRAINT unique_person ON (n:Person) ASSERT n.name IS UNIQUE");
-        try {
-            TestUtil.testCall(db,
-                    "CALL apoc.import.csv([{fileName: $file, labels: ['Person']}], [], $config)",
-                    map(
-                            "file", "file:/id.csv", "config", map("delimiter", '|')),
-                    (r) -> {
-                        assertEquals(2L, r.get("nodes"));
-//                        assertEquals(2L, r.get("relationships"));
-                    }
-            );
-        } catch (Exception e) {
-            System.out.println("ImportCsvTest.issue2797WithCloneNodes");
-        }
-
-        // should return only 1 node due to constraint exception
-        TestUtil.testCall(db, "MATCH (n:Person) RETURN properties(n) AS props", 
-                r -> assertEquals(Map.of("name", "John"), r.get("props")));
-
-        db.executeTransactionally("DROP CONSTRAINT unique_person");
-    }
-
-    @Test
     public void testNodesAndRelsWithMultiTypes() {
         TestUtil.testCall(db,
                 "CALL apoc.import.csv([{fileName: $nodeFile, labels: ['Person']}], [{fileName: $relFile, type: 'KNOWS'}], $config)",

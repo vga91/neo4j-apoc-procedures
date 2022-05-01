@@ -213,30 +213,6 @@ public class ExportGraphMLTest {
     }
 
     @Test
-    public void issue2797WithImportGraphMl() {
-        db.executeTransactionally("CREATE (n:FOO {name: 'foo'})");
-        db.executeTransactionally("CREATE CONSTRAINT unique_foo ON (n:FOO) ASSERT n.name IS UNIQUE");
-        try {
-            TestUtil.testCall(db,
-                    "CALL apoc.import.graphml($file,{readLabels:true})",
-                    map("file", new File(directory, "importNodeEdges.graphml").getAbsolutePath()),
-                    (r) -> {
-                        assertEquals(3L, r.get("nodes"));
-//                        assertEquals(2L, r.get("relationships"));
-                    }
-            );
-        } catch (Exception e) {
-            System.out.println("ImportCsvTest.issue2797WithCloneNodes");
-        }
-
-        // should return only 1 node due to constraint exception
-        TestUtil.testCall(db, "MATCH (n:FOO) RETURN properties(n) AS props",
-                r -> assertEquals(Map.of("name", "foo"), r.get("props")));
-
-        db.executeTransactionally("DROP CONSTRAINT unique_foo");
-    }
-
-    @Test
     public void testImportGraphMLWithEdgeWithoutDataKeys() throws Exception {
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
 

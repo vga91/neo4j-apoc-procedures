@@ -11,6 +11,9 @@ import org.neo4j.driver.internal.value.NullValue;
 
 import java.util.Map;
 
+import static apoc.refactor.GraphRefactoringTest.CLONE_NODES_QUERY;
+import static apoc.refactor.GraphRefactoringTest.CLONE_SUBGRAPH_QUERY;
+import static apoc.refactor.GraphRefactoringTest.EXTRACT_QUERY;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.TestContainerUtil.testCall;
 import static apoc.util.TestUtil.isRunningInCI;
@@ -22,11 +25,6 @@ import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
 public class GraphRefactoringEnterpriseTest {
-    private static final String CLONE_NODES_QUERY = "match (n:MyBook) with n call apoc.refactor.cloneNodes([n], true) " +
-            "YIELD output, error RETURN output, error";
-    private static final String CLONE_SUBGRAPH_QUERY = "MATCH (n:MyBook) with n call apoc.refactor.cloneSubgraph([n], [], {}) YIELD output, error RETURN output, error";
-    private static final String EXTRACT_QUERY = "MATCH p=(:Start)-[r:TO_MOVE]->(:End) with r call apoc.refactor.extractNode([r], ['MyBook'], 'OUT', 'IN') " +
-            "YIELD output, error RETURN output, error";
     private static final String CREATE_REL_FOR_EXTRACT_NODE = "CREATE (:Start)-[r:TO_MOVE {name: 'foobar', surname: 'baz'}]->(:End)";
     private static final String DELETE_REL_FOR_EXTRACT_NODE = "MATCH p=(:Start)-[r:TO_MOVE]->(:End) DELETE p";
     private static Neo4jContainerExtension neo4jContainer;
@@ -100,44 +98,6 @@ public class GraphRefactoringEnterpriseTest {
         cloneNodesAssertions(query, "already exists with label `MyBook` and property `name` = 'foobar'");
         session.writeTransaction(tx -> tx.run("DROP CONSTRAINT unique"));
         session.writeTransaction(tx -> tx.run("DROP CONSTRAINT notNull"));
-    }
-    
-    @Test
-    public void issue2797WithCloneNodes() {
-        extracted(CLONE_NODES_QUERY);
-    }
-
-    @Test
-    public void issue2797WithExtractNode() {
-        session.writeTransaction(tx -> tx.run("CREATE (:Start)-[r:TO_MOVE {name: 1}]->(:End)"));
-        extracted(EXTRACT_QUERY);
-    }
-
-    @Test
-    public void issue2797WithCloneSubgraph() {
-        extracted(CLONE_SUBGRAPH_QUERY);
-    }
-
-    private void extracted(String extractQuery) {
-        session.writeTransaction(tx -> tx.run("CREATE CONSTRAINT unique_book ON (book:MyBook) ASSERT book.name IS UNIQUE"));
-
-        session.writeTransaction(tx -> tx.run("CREATE (n:MyBook {name: 1})"));
-
-        session.writeTransaction(tx -> {
-            final Record record = tx.run(extractQuery).single();
-            final String error = record.get("error").asString();
-            assertTrue(error.contains("already exists with label `MyBook` and property `name` = 1"));
-            assertEquals(NullValue.NULL, record.get("output"));
-            return null;
-        });
-
-        session.readTransaction(tx -> {
-            final Map<String, Object> bookProps = tx.run("MATCH (n:MyBook) RETURN properties(n) AS props").single().asMap();
-            assertEquals(Map.of("name", 1L), bookProps.get("props"));
-            return null;
-        });
-        session.writeTransaction(tx -> tx.run("DROP CONSTRAINT unique_book"));
-        session.writeTransaction(tx -> tx.run("MATCH (n:MyBook) DELETE n"));
     }
 
     private void cloneNodesAssertions(String query, String message) {

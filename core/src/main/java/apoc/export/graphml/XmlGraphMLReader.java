@@ -190,8 +190,7 @@ public class XmlGraphMLReader {
         Map<String, Key> nodeKeys = new HashMap<>();
         Map<String, Key> relKeys = new HashMap<>();
         int count = 0;
-        try (BatchTransaction tx = new BatchTransaction(db, batchSize * 10, reporter);
-             Transaction transaction = tx.getTransaction()) {
+        try (BatchTransaction tx = new BatchTransaction(db, batchSize * 10, reporter)) {
 
             while (reader.hasNext()) {
                 XMLEvent event = (XMLEvent) reader.next();
@@ -241,7 +240,7 @@ public class XmlGraphMLReader {
                     if (name.equals("node")) {
                         tx.increment();
                         String id = getAttribute(element, ID);
-                        Node node = transaction.createNode();
+                        Node node = tx.getTransaction().createNode();
                         if (this.labels) {
                             String labels = getAttribute(element, LABELS);
                             addLabels(node, labels);
@@ -259,11 +258,11 @@ public class XmlGraphMLReader {
                         String source = getAttribute(element, SOURCE);
                         String target = getAttribute(element, TARGET);
                         String label = getAttribute(element, LABEL);
-                        Node from = transaction.getNodeById(cache.get(source));
-                        Node to = transaction.getNodeById(cache.get(target));
+                        Node from = tx.getTransaction().getNodeById(cache.get(source));
+                        Node to = tx.getTransaction().getNodeById(cache.get(target));
 
                         RelationshipType relationshipType = label == null ? getRelationshipType(reader) : RelationshipType.withName(label);
-                        Relationship relationship = from.createRelationshipTo(to, relationshipType); // todo - testare con constraint
+                        Relationship relationship = from.createRelationshipTo(to, relationshipType);
                         setDefaults(relKeys, relationship);
                         last = relationship;
                         if (reporter != null) reporter.update(0, 1, 0);
@@ -271,7 +270,6 @@ public class XmlGraphMLReader {
                     }
                 }
             }
-            transaction.commit();
         }
         return count;
     }
