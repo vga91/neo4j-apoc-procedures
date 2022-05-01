@@ -71,7 +71,10 @@ public class CsvEntityLoader {
 
             final String[] loadCsvCompatibleHeader = fields.stream().map(f -> f.getName()).toArray(String[]::new);
             int lineNo = 0;
-            try (BatchTransaction btx = new BatchTransaction(db, clc.getBatchSize(), reporter)) {
+//            try (Transaction btx = db.beginTx()) {
+            try (BatchTransaction btx = new BatchTransaction(db, clc.getBatchSize(), reporter);
+            Transaction transaction = btx.getTransaction()
+            ) {
                 for (String[] line : csv.readAll()) {
                     lineNo++;
 
@@ -93,45 +96,55 @@ public class CsvEntityLoader {
                         }
                     }
 
-                    // create node and add its id to the mapping
-                    final Node node = btx.getTransaction().createNode();
-                    if (idField.isPresent()) {
-                        idspaceIdMapping.put(nodeCsvId, node.getId());
-                    }
-
-                    // add labels
-                    for (String label : labels) {
-                        node.addLabel(Label.label(label));
-                    }
-
-                    // add properties
-                    int props = 0;
-                    for (CsvHeaderField field : fields) {
-                        final String name = field.getName();
-                        Object value = result.map.get(name);
-
-                        if (field.isMeta()) {
-                            final List<String> customLabels = (List<String>) value;
-                            for (String customLabel : customLabels) {
-                                node.addLabel(Label.label(customLabel));
-                            }
-                        } else if (field.isId()) {
-                            final Object idValue;
-                            if (clc.getStringIds()) {
-                                idValue = value;
-                            } else {
-                                idValue = Long.valueOf((String) value);
-                            }
-                            node.setProperty(field.getName(), idValue);
-                            props++;
-                        } else {
-                            boolean propertyAdded = CsvPropertyConverter.addPropertyToGraphEntity(node, field, value,clc);
-                            props += propertyAdded ? 1 : 0;
+//                    try (final Transaction transaction = btx.getTransaction()) {
+                        // create node and add its id to the mapping
+//                    final Node node = btx.createNode();
+//                        final Node node = btx.getTransaction().createNode();
+                        final Node node = transaction.createNode();
+                        if (idField.isPresent()) {
+                            idspaceIdMapping.put(nodeCsvId, node.getId());
                         }
-                    }
-                    reporter.update(1, 0, props++);
+
+                        // add labels
+                        for (String label : labels) {
+                            node.addLabel(Label.label(label));
+                        }
+
+                        // add properties
+                        int props = 0;
+                        for (CsvHeaderField field : fields) {
+                            final String name = field.getName();
+                            Object value = result.map.get(name);
+
+                            if (field.isMeta()) {
+                                final List<String> customLabels = (List<String>) value;
+                                for (String customLabel : customLabels) {
+                                    node.addLabel(Label.label(customLabel));
+                                }
+                            } else if (field.isId()) {
+                                final Object idValue;
+                                if (clc.getStringIds()) {
+                                    idValue = value;
+                                } else {
+                                    idValue = Long.valueOf((String) value);
+                                }
+                                node.setProperty(field.getName(), idValue);
+                                props++;
+                            } else {
+                                boolean propertyAdded = CsvPropertyConverter.addPropertyToGraphEntity(node, field, value, clc);
+                                props += propertyAdded ? 1 : 0;
+                            }
+                        }
+                        reporter.update(1, 0, props++);
+//                    }
                 }
+                transaction.commit();
+//                btx.commit();
             }
+//            catch (Exception e) {
+//                throw new RuntimeException(e);
+//                System.out.println("CsvEntityLoader.loadNodes");
+//            }
         }
     }
 
@@ -206,7 +219,7 @@ public class CsvEntityLoader {
                     } else {
                         currentType = type;
                     }
-                    final Relationship rel = source.createRelationshipTo(target, RelationshipType.withName(currentType));
+                    final Relationship rel = source.createRelationshipTo(target, RelationshipType.withName(currentType)); // todo - testare con constraint
 
                     // add properties
                     int props = 0;
@@ -218,6 +231,8 @@ public class CsvEntityLoader {
                     }
                     reporter.update(0, 1, props);
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }

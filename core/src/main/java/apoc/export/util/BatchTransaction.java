@@ -2,6 +2,10 @@ package apoc.export.util;
 
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
+//import org.neo4j.internal.kernel.api.exceptions.TransactionFailureException;
+//import org.neo4j.kernel.api.KernelTransaction;
+//import org.neo4j.kernel.impl.coreapi.InternalTransaction;
+//import org.neo4j.kernel.impl.coreapi.TransactionImpl;
 
 /**
 * @author mh
@@ -55,11 +59,25 @@ public class BatchTransaction implements AutoCloseable {
 
     @Override
     public void close() {
+//    public void close() throws Exception {
+//        System.out.println("BatchTransaction.close");
         if (tx!=null) {
-            tx.commit();
+//            tx.commit();
             tx.close();
             if (reporter!=null) reporter.progress("finish after " + count + " row(s) ");
         }
+//            try {
+//            } catch (Exception e) {
+//                try {
+//                    ((InternalTransaction)tx).kernelTransaction().rollback();
+//                } catch (TransactionFailureException transactionFailureException) {
+//                    transactionFailureException.printStackTrace();
+//                }
+//            }
+//            if (!((TransactionImpl) tx).isOpen()) {
+//                tx.rollback();
+//            }
+//            tx.rollback();
     }
 
     public Transaction getTransaction() {
