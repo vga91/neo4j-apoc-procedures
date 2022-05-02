@@ -4,6 +4,7 @@ import apoc.export.util.*;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.Relationship;
 
 import javax.xml.stream.XMLOutputFactory;
@@ -119,8 +120,8 @@ public class XmlGraphMLWriter {
     private int writeRelationship(XMLStreamWriter writer, Relationship rel, ExportConfig config) throws XMLStreamException {
         writer.writeStartElement("edge");
         writer.writeAttribute("id", id(rel));
-        writer.writeAttribute("source", id(rel.getStartNode()));
-        writer.writeAttribute("target", id(rel.getEndNode()));
+        getSourceTargetAttribute(writer, "source", config, rel);
+        getSourceTargetAttribute(writer, "target", config, rel);
         writer.writeAttribute("label", rel.getType().name());
         writeData(writer, "label", rel.getType().name());
         if (config.getFormat() == ExportFormat.GEPHI) {
@@ -129,6 +130,44 @@ public class XmlGraphMLWriter {
         int props = writeProps(writer, rel);
         endElement(writer);
         return props;
+    }
+
+    private void getSourceTargetAttribute(XMLStreamWriter writer, String localName, ExportConfig config, Relationship rel) throws XMLStreamException {
+        final Map<String, String> sourceTargetConf;
+        final Node node;
+        if (localName.equals("source")) {
+            sourceTargetConf = config.getSource();
+            node = rel.getStartNode();
+        } else {
+            sourceTargetConf = config.getTarget();
+            node = rel.getEndNode();
+        }
+        final String id = sourceTargetConf.get("id");
+        if (id == null) {
+            writer.writeAttribute(localName, id(node));
+            return;
+        }
+        try {
+            final Object nodeProperty = node.getProperty(id);
+            writer.writeAttribute(localName, nodeProperty.toString());
+            writer.writeAttribute(localName + "Type", MetaInformation.typeFor(nodeProperty.getClass(), MetaInformation.GRAPHML_ALLOWED));
+        } catch (NotFoundException e) {
+            throw new RuntimeException(
+                    "The config source and/or target cannot be used because the node with id " + node.getId() + " doesn't have property " + id);
+        }
+    }
+
+    private String getSourceTargetId(Map<String, String> source, Node startNode) {
+        final String id = source.get("id");
+        if (id == null) {
+            return id(startNode);
+        }
+        try {
+            return startNode.getProperty(id).toString();
+        } catch (NotFoundException e) {
+            throw new RuntimeException(
+                    "The config source and/or target cannot be used because the node with id " + startNode.getId() + " doesn't have property " + id);
+        }
     }
 
     private String id(Relationship rel) {

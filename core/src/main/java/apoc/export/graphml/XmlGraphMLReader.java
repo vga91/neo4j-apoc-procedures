@@ -16,6 +16,7 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.Reader;
 import java.lang.reflect.Array;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,8 +32,8 @@ public class XmlGraphMLReader {
     private final Transaction tx;
     private boolean storeNodeIds;
     private RelationshipType defaultRelType = RelationshipType.withName("UNKNOWN");
-    private String startLabel = null;
-    private String endLabel = null;
+    private Map<String, String> source = Collections.emptyMap();
+    private Map<String, String> target = Collections.emptyMap();
     private int batchSize = 40000;
     private Reporter reporter;
     private boolean labels;
@@ -57,13 +58,13 @@ public class XmlGraphMLReader {
         return this;
     }
 
-    public XmlGraphMLReader startLabel(String startLabel) {
-        this.startLabel = startLabel;
+    public XmlGraphMLReader source(Map<String, String> sourceConfig) {
+        this.source = sourceConfig;
         return this;
     }
 
-    public XmlGraphMLReader endLabel(String endLabel) {
-        this.endLabel = endLabel;
+    public XmlGraphMLReader target(Map<String, String> targetConfig) {
+        this.target = targetConfig;
         return this;
     }
 
@@ -267,11 +268,9 @@ public class XmlGraphMLReader {
                     }
                     if (name.equals("edge")) {
                         tx.increment();
-                        String source = getAttribute(element, SOURCE);
-                        String target = getAttribute(element, TARGET);
                         String label = getAttribute(element, LABEL);
-                        Node from = getByNodeId(cache, tx.getTransaction(), this.startLabel, source);
-                        Node to = getByNodeId(cache, tx.getTransaction(), this.endLabel, target);
+                        Node from = getByNodeId(cache, tx.getTransaction(), element, "source");
+                        Node to = getByNodeId(cache, tx.getTransaction(), element, "target");
 
                         RelationshipType relationshipType = label == null ? getRelationshipType(reader) : RelationshipType.withName(label);
                         Relationship relationship = from.createRelationshipTo(to, relationshipType);
@@ -286,11 +285,30 @@ public class XmlGraphMLReader {
         return count;
     }
 
-    private Node getByNodeId(Map<String, Long> cache, Transaction tx, String label, String sourceTarget) {
-        final Long id = cache.get(sourceTarget);
+    private Node getByNodeId(Map<String, Long> cache, Transaction tx, StartElement element, String typeNode) {
+        final Map<String, String> sourceTargetConfig;
+        final String sourceTargetValue;
+        if (typeNode.equals("source")) {
+            sourceTargetConfig = this.source;
+            sourceTargetValue = getAttribute(element, SOURCE);
+        } else {
+            sourceTargetConfig = this.target;
+            sourceTargetValue = getAttribute(element, TARGET);
+        }
+        
+        final Long id = cache.get(sourceTargetValue);
         if (id == null) {
             try {
-                return tx.findNode(Label.label(label), "id", sourceTarget);
+                final String label = sourceTargetConfig.get("label");
+                if (label == null) {
+                    throw new RuntimeException("The source and target config map must have a key 'label'");
+                }
+                final String idKey = sourceTargetConfig.getOrDefault("id", "id");
+                final String attribute = getAttribute(element, QName.valueOf(typeNode + "Type"));
+                final Object value = attribute == null 
+                        ? sourceTargetValue 
+                        : Type.forType(attribute).parse(sourceTargetValue);
+                return tx.findNode(Label.label(label), idKey, value);
             } catch (Exception e) {
                 throw new RuntimeException("Node not found", e);
             }

@@ -26,6 +26,8 @@ public class ExportConfig extends CompressionConfig {
     public static final String DEFAULT_QUOTES = ALWAYS_QUOTES;
     private final boolean streamStatements;
     private final boolean ifNotExists;
+    private final Map<String, String> source;
+    private final Map<String, String> target;
 
     private int batchSize;
     private boolean silent;
@@ -109,6 +111,8 @@ public class ExportConfig extends CompressionConfig {
         this.samplingConfig = (Map<String, Object>) config.getOrDefault("samplingConfig", new HashMap<>());
         this.unwindBatchSize = ((Number)getOptimizations().getOrDefault("unwindBatchSize", DEFAULT_UNWIND_BATCH_SIZE)).intValue();
         this.awaitForIndexes = ((Number)config.getOrDefault("awaitForIndexes", 300)).longValue();
+        this.source = (Map<String, String>) config.getOrDefault("source", Collections.emptyMap());
+        this.target = (Map<String, String>) config.getOrDefault("target", Collections.emptyMap());
         validate();
     }
 
@@ -150,12 +154,12 @@ public class ExportConfig extends CompressionConfig {
         return config.getOrDefault("defaultRelationshipType","RELATED").toString();
     }
 
-    public String getNodeStartLabel() {
-        return (String) config.get("startLabel");
+    public Map<String, String> getSource() {
+        return source;
     }
 
-    public String getNodeEndLabel() {
-        return (String) config.get("endLabel");
+    public Map<String, String> getTarget() {
+        return target;
     }
 
     public boolean readLabels() {

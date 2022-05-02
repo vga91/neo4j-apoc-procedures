@@ -69,8 +69,8 @@ public class ExportGraphML {
             XmlGraphMLReader graphMLReader = new XmlGraphMLReader(db, tx).reporter(reporter)
                     .batchSize(exportConfig.getBatchSize())
                     .relType(exportConfig.defaultRelationshipType())
-                    .startLabel(exportConfig.getNodeStartLabel())
-                    .endLabel(exportConfig.getNodeEndLabel())
+                    .source(exportConfig.getSource())
+                    .target(exportConfig.getTarget())
                     .nodeLabels(exportConfig.readLabels());
 
             if (exportConfig.storeNodeIds()) graphMLReader.storeNodeIds();
