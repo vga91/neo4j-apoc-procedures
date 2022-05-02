@@ -11,14 +11,15 @@ import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.util.MapUtil.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -30,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
  * @since 18.08.18
  */
 public class CypherProceduresStorageTest {
+    private final static String QUERY_CREATE = "RETURN $input1 + $input2 as answer";
+    private final static String QUERY_OVERWRITE = "RETURN $input1 + $input2 + 123 as answer";
 
     @Rule
     public TemporaryFolder STORE_DIR = new TemporaryFolder();
@@ -44,15 +47,16 @@ public class CypherProceduresStorageTest {
         TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
     }
 
-    private void restartDb() throws IOException {
+    private void restartDb() {
         databaseManagementService.shutdown();
         databaseManagementService = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         assertTrue(db.isAvailable(1000));
         TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
     }
+
     @Test
-    public void registerSimpleStatement() throws Exception {
+    public void registerSimpleStatement() {
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
         restartDb();
         TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
@@ -170,7 +174,7 @@ public class CypherProceduresStorageTest {
     }
 
     @Test
-    public void registerSimpleFunctionWithDotInName() throws Exception {
+    public void registerSimpleFunctionWithDotInName() {
         db.executeTransactionally("call apoc.custom.asFunction('foo.bar.baz','RETURN 42 as answer')");
         TestUtil.testCall(db, "return custom.foo.bar.baz() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
         TestUtil.testCall(db, "call apoc.custom.list()", row -> {
@@ -186,7 +190,7 @@ public class CypherProceduresStorageTest {
     }
 
     @Test
-    public void registerSimpleProcedureWithDotInName() throws Exception {
+    public void registerSimpleProcedureWithDotInName() {
         db.executeTransactionally("call apoc.custom.asProcedure('foo.bar.baz','RETURN 42 as answer')");
         TestUtil.testCall(db, "call custom.foo.bar.baz()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
         TestUtil.testCall(db, "call apoc.custom.list()", row -> {
@@ -202,35 +206,35 @@ public class CypherProceduresStorageTest {
     }
 
     @Test
-    public void registerSimpleStatementConcreteResults() throws Exception {
+    public void registerSimpleStatementConcreteResults() {
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42 as answer','read',[['answer','long']])");
         restartDb();
         TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
-    public void registerParameterStatement() throws Exception {
+    public void registerParameterStatement() {
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN $answer as answer')");
         restartDb();
         TestUtil.testCall(db, "call custom.answer({answer:42})", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
     }
 
     @Test
-    public void registerConcreteParameterStatement() throws Exception {
+    public void registerConcreteParameterStatement() {
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN $input as answer','read',null,[['input','number']])");
         restartDb();
         TestUtil.testCall(db, "call custom.answer(42)", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
     }
 
     @Test
-    public void registerConcreteParameterAndReturnStatement() throws Exception {
+    public void registerConcreteParameterAndReturnStatement() {
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN $input as answer','read',[['answer','number']],[['input','int','42']])");
         restartDb();
         TestUtil.testCall(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
-    public void testAllParameterTypes() throws Exception {
+    public void testAllParameterTypes() {
         db.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN [$int,$float,$string,$map,$`list int`,$bool,$date,$datetime,$point] as data','read',null," +
                 "[['int','int'],['float','float'],['string','string'],['map','map'],['list int','list int'],['bool','bool'],['date','date'],['datetime','datetime'],['point','point']])");
         restartDb();
@@ -238,7 +242,7 @@ public class CypherProceduresStorageTest {
     }
 
     @Test
-    public void registerSimpleStatementFunction() throws Exception {
+    public void registerSimpleStatementFunction() {
         db.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42 as answer')");
         TestUtil.testCall(db, "return custom.answer() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
         restartDb();
@@ -250,7 +254,7 @@ public class CypherProceduresStorageTest {
     }
 
     @Test
-    public void registerSimpleStatementFunctionWithDotInName() throws Exception {
+    public void registerSimpleStatementFunctionWithDotInName() {
         db.executeTransactionally("call apoc.custom.asFunction('foo.bar.baz','RETURN 42 as answer')");
         TestUtil.testCall(db, "return custom.foo.bar.baz() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
         TestUtil.testCall(db, "call apoc.custom.list()", row -> {
@@ -266,35 +270,35 @@ public class CypherProceduresStorageTest {
     }
 
     @Test
-    public void registerSimpleStatementConcreteResultsFunction() throws Exception {
+    public void registerSimpleStatementConcreteResultsFunction() {
         db.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42 as answer','long')");
         restartDb();
         TestUtil.testCall(db, "return custom.answer() as answer", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
-    public void registerSimpleStatementConcreteResultsFunctionUnnamedResultColumn() throws Exception {
+    public void registerSimpleStatementConcreteResultsFunctionUnnamedResultColumn() {
         db.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42','long')");
         restartDb();
         TestUtil.testCall(db, "return custom.answer() as answer", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
-    public void registerParameterStatementFunction() throws Exception {
+    public void registerParameterStatementFunction() {
         db.executeTransactionally("call apoc.custom.asFunction('answer','RETURN $answer as answer','long')");
         restartDb();
         TestUtil.testCall(db, "return custom.answer({answer:42}) as answer", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
-    public void registerConcreteParameterAndReturnStatementFunction() throws Exception {
+    public void registerConcreteParameterAndReturnStatementFunction() {
         db.executeTransactionally("call apoc.custom.asFunction('answer','RETURN $input as answer','long',[['input','number']])");
         restartDb();
         TestUtil.testCall(db, "return custom.answer(42) as answer", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
-    public void testAllParameterTypesFunction() throws Exception {
+    public void testAllParameterTypesFunction() {
         db.executeTransactionally("call apoc.custom.asFunction('answer','RETURN [$int,$float,$string,$map,$`list int`,$bool,$date,$datetime,$point] as data','list of any'," +
                 "[['int','int'],['float','float'],['string','string'],['map','map'],['list int','list int'],['bool','bool'],['date','date'],['datetime','datetime'],['point','point']], true)");
         restartDb();
@@ -334,6 +338,144 @@ public class CypherProceduresStorageTest {
         assertFalse(logFileContent.contains("Could not register function: custom.vantagepoint_within_area"));
         assertFalse(logFileContent.contains("Could not register procedure: custom.vantagepoint_within_area"));
         testCallIssue1744();
+    }
+
+    @Test
+    public void functionSignatureShouldNotChangeBeforeAndAfterRestart() {
+        functionsCreation();
+
+        functionAssertions();
+        restartDb();
+        functionAssertions();
+    }
+
+    @Test
+    public void procedureSignatureShouldNotChangeBeforeAndAfterRestart() {
+        proceduresCreation();
+
+        procedureAssertions();
+        restartDb();
+        procedureAssertions();
+    }
+
+    @Test
+    public void functionSignatureShouldNotChangeBeforeAndAfterRestartAndOverwrite() {
+        functionsCreation();
+
+        functionAssertions();
+        restartDb();
+
+        // overwrite function
+        db.executeTransactionally("call apoc.custom.asFunction('sumFun1', $query,'int',[['input1', 'int'], ['input2', 'int']])",
+                map("query", QUERY_OVERWRITE));
+        db.executeTransactionally("call apoc.custom.asFunction('sumFun2',$query, 'int',[['input1', 'int', 'null'], ['input2', 'int', 'null']])",
+                map("query", QUERY_OVERWRITE));
+        db.executeTransactionally("call apoc.custom.declareFunction('sumFun3(input1::INT, input2::INT) :: INT',$query)",
+                map("query", QUERY_OVERWRITE));
+        db.executeTransactionally("call apoc.custom.declareFunction('sumFun4(input1 = null::INT, input2 = null::INT) :: INT',$query)",
+                map("query", QUERY_OVERWRITE));
+        functionAssertions();
+    }
+
+    @Test
+    public void procedureSignatureShouldNotChangeBeforeAndAfterRestartAndOverwrite() {
+        proceduresCreation();
+
+        procedureAssertions();
+        restartDb();
+
+        // overwrite function
+        db.executeTransactionally("call apoc.custom.asProcedure('sum1',$query,'read',[['answer','int']],[['input1', 'int'], ['input2', 'int']])",
+                map("query", QUERY_OVERWRITE));
+        db.executeTransactionally("call apoc.custom.asProcedure('sum2',$query,'read',[['answer','int']],[['input1', 'int', 'null'], ['input2', 'int', 'null']])",
+                map("query", QUERY_OVERWRITE));
+        db.executeTransactionally("call apoc.custom.declareProcedure('sum4(input1 = null::INT, input2 = null::INT) :: (answer::INT)',$query)",
+                map("query", QUERY_OVERWRITE));
+        db.executeTransactionally("call apoc.custom.declareProcedure('sum3(input1::INT, input2::INT) :: (answer::INT)',$query)",
+                map("query", QUERY_OVERWRITE));
+        procedureAssertions();
+    }
+
+    private void functionsCreation() {
+        // 2 with default null, 2 without default, for both asFunction and declareFunction
+        db.executeTransactionally("call apoc.custom.asFunction('sumFun1', $query,'int',[['input1', 'int'], ['input2', 'int']])",
+                map("query", QUERY_CREATE));
+        db.executeTransactionally("call apoc.custom.asFunction('sumFun2',$query, 'int',[['input1', 'int', 'null'], ['input2', 'int', 'null']])",
+                map("query", QUERY_CREATE));
+        db.executeTransactionally("call apoc.custom.declareFunction('sumFun3(input1::INT, input2::INT) :: INT',$query)",
+                map("query", QUERY_CREATE));
+        db.executeTransactionally("call apoc.custom.declareFunction('sumFun4(input1 = null::INT, input2 = null::INT) :: INT',$query)",
+                map("query", QUERY_CREATE));
+    }
+
+    private void functionAssertions() {
+        TestUtil.testResult(db, "SHOW FUNCTIONS YIELD signature, name WHERE name STARTS WITH 'custom.sumFun' RETURN DISTINCT name, signature ORDER BY name",
+                r -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals("custom.sumFun1(input1 :: INTEGER?, input2 :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sumFun2(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sumFun3(input1 :: INTEGER?, input2 :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sumFun4(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    assertFalse(r.hasNext());
+                });
+        TestUtil.testResult(db, "call apoc.custom.list() YIELD name RETURN name ORDER BY name",
+                row -> {
+                    final List<String> sumFun1 = List.of("sumFun1", "sumFun2", "sumFun3", "sumFun4");
+                    assertEquals(sumFun1, Iterators.asList(row.columnAs("name")));
+                });
+        List.of("custom.sumFun1", "custom.sumFun3").forEach(fun -> {
+            try {
+                TestUtil.testCall(db, String.format("RETURN %s()", fun), (row) -> fail("Should fail because of missing params"));
+            } catch (RuntimeException e) {
+                assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 2 got 0"));
+            }
+        });
+        List.of("custom.sumFun2", "custom.sumFun4").forEach(fun ->
+                TestUtil.testCall(db, String.format("RETURN %s()", fun), (row) -> assertNull(row.get("answer"))));
+    }
+
+    private void proceduresCreation() {
+        // 2 with default null, 2 without default, for both asProcedure and declareProcedure
+        db.executeTransactionally("call apoc.custom.asProcedure('sum1',$query,'read',[['answer','int']],[['input1', 'int'], ['input2', 'int']])",
+                map("query", QUERY_CREATE));
+        db.executeTransactionally("call apoc.custom.asProcedure('sum2',$query,'read',[['answer','int']],[['input1', 'int', 'null'], ['input2', 'int', 'null']])",
+                map("query", QUERY_CREATE));
+        db.executeTransactionally("call apoc.custom.declareProcedure('sum4(input1 = null::INT, input2 = null::INT) :: (answer::INT)',$query)",
+                map("query", QUERY_CREATE));
+        db.executeTransactionally("call apoc.custom.declareProcedure('sum3(input1::INT, input2::INT) :: (answer::INT)',$query)",
+                map("query", QUERY_CREATE));
+    }
+
+    private void procedureAssertions() {
+        TestUtil.testResult(db, "SHOW PROCEDURES YIELD signature, name WHERE name STARTS WITH 'custom.sum' RETURN DISTINCT name, signature ORDER BY name",
+                r -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals("custom.sum1(input1 :: INTEGER?, input2 :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sum2(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sum3(input1 :: INTEGER?, input2 :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.sum4(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    assertFalse(r.hasNext());
+                });
+        TestUtil.testResult(db, "call apoc.custom.list() YIELD name RETURN name ORDER BY name",
+                row -> {
+                    final List<String> sumFun1 = List.of("sum1", "sum2", "sum3", "sum4");
+                    assertEquals(sumFun1, Iterators.asList(row.columnAs("name")));
+                });
+        List.of("custom.sum1", "custom.sum3").forEach(fun -> {
+            try {
+                TestUtil.testCall(db, String.format("CALL %s()", fun), (row) -> fail("Should fail because of missing params"));
+            } catch (RuntimeException e) {
+                assertTrue(e.getMessage().contains("Procedure call does not provide the required number of arguments: got 0 expected at least 2"));
+            }
+        });
+        List.of("custom.sum2", "custom.sum4").forEach(fun ->
+                TestUtil.testCall(db, String.format("CALL %s", fun), (row) -> assertNull(row.get("answer"))));
     }
 
     private void testCallIssue1744() {
