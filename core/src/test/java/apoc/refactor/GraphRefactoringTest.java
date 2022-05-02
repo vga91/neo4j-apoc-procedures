@@ -539,18 +539,6 @@ MATCH (a:A {prop1:1}) MATCH (b:B {prop2:99}) CALL apoc.refactor.mergeNodes([a, b
             assertEquals(rel, r.get("rel"));
         });
         testCallCount(db, "MATCH (n:Start)-[r:REL_TO_MERGE]->(:End) RETURN r", 1);
-
-        Long id = db.executeTransactionally("CREATE (f:Foo)-[:FOO {a:1}]->(b:Bar {c:3})-[:BAR {b:2}]->(f) RETURN id(b) as id", emptyMap(), result -> Iterators.single(result.columnAs("id")));
-        testCallCount(db, "MATCH (n) WHERE id(n) = $id RETURN n", map("id", id), 1);
-        testCall(db, "CALL apoc.refactor.collapseNode($ids,'FOOBAR')", map("ids", List.of(id, id)),
-                r -> assertEquals(id, r.get("input")));
-        testCallCount(db, "MATCH ()-[r:FOOBAR]->() return r", map("id", id), 1);
-
-        Long idExtract = db.executeTransactionally("CREATE (n:Start)-[r:REL_TO_EXTRACT]->(:End) RETURN id(r) as id", emptyMap(), 
-                result -> Iterators.single(result.columnAs("id")));
-        testCall(db, "CALL apoc.refactor.extractNode($ids,['FooBar'],'FOO','BAR')", map("ids", List.of(idExtract, idExtract)),
-                r -> assertEquals(id, r.get("input")));
-        testCallCount(db, "MATCH (n:Start)-[:BAR]->(extracted:FooBar)-[:FOO]->() return extracted", 1);
     }
     
     @Test

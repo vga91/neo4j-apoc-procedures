@@ -164,7 +164,7 @@ public class Util {
     }
 
     public static Stream<Node> nodeStream(Transaction tx, Object ids) {
-        return stream(ids).distinct().map(id -> node(tx, id));
+        return stream(ids).map(id -> node(tx, id));
     }
 
     public static Node node(Transaction tx, Object id) {
@@ -174,7 +174,7 @@ public class Util {
     }
 
     public static Stream<Relationship> relsStream(Transaction tx, Object ids) {
-        return stream(ids).distinct().map(id -> relationship(tx, id));
+        return stream(ids).map(id -> relationship(tx, id));
     }
 
     public static Relationship relationship(Transaction tx, Object id) {
