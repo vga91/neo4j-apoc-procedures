@@ -991,4 +991,14 @@ public class Util {
         final StringBuilder builder = formatProperties(map);
         return "{" + formatToString(builder) + "}";
     }
+    
+    public static <T extends Entity> T withTransactionAndRebind(GraphDatabaseService db, Transaction transaction, Function<Transaction, T> action) {
+        T result;
+        try (Transaction tx = db.beginTx()) {
+            result = action.apply(tx);
+            tx.commit();
+        }
+        result = Util.rebind(transaction, result);
+        return result;
+    }
 }

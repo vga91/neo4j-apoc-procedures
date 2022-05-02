@@ -27,6 +27,7 @@ import java.util.stream.StreamSupport;
 import static apoc.refactor.util.PropertiesManager.mergeProperties;
 import static apoc.refactor.util.RefactorConfig.RelationshipSelectionStrategy.MERGE;
 import static apoc.refactor.util.RefactorUtil.*;
+import static apoc.util.Util.withTransactionAndRebind;
 
 public class GraphRefactoring {
     @Context
@@ -46,7 +47,7 @@ public class GraphRefactoring {
         return nodes.stream().map(node -> Util.rebind(tx, node)).map(node -> {
             NodeRefactorResult result = new NodeRefactorResult(node.getId());
             try {
-                Node copy = withTransactionAndRebind(transaction -> {
+                Node copy = withTransactionAndRebind(db, tx, transaction -> {
                     Node newNode = copyLabels(node, transaction.createNode());
 
                     Map<String, Object> properties = node.getAllProperties();
@@ -73,7 +74,7 @@ public class GraphRefactoring {
         return Util.relsStream(tx, rels).map((rel) -> {
             NodeRefactorResult result = new NodeRefactorResult(rel.getId());
             try {
-                Node copy = withTransactionAndRebind(transaction -> {
+                Node copy = withTransactionAndRebind(db, tx, transaction -> {
                     Node copyNode = copyProperties(rel, transaction.createNode(Util.labels(labels)));
                     copyNode.createRelationshipTo(rel.getEndNode(), RelationshipType.withName(outType));
                     return copyNode;
@@ -218,17 +219,16 @@ public class GraphRefactoring {
 
             NodeRefactorResult result = new NodeRefactorResult(node.getId());
             try {
-                Node copy = withTransactionAndRebind(transaction -> {
+                Node copy = withTransactionAndRebind(db, tx, transaction -> {
                     Node copyTemp = transaction.createNode();
                     Map<String, Object> properties = node.getAllProperties();
                     if (skipProperties != null && !skipProperties.isEmpty()) {
                         for (String skip : skipProperties) properties.remove(skip);
                     }
-                    copyTemp = copyProperties(properties, copyTemp);
+                    copyProperties(properties, copyTemp);
                     copyLabels(node, copyTemp);
                     return copyTemp;
                 });
-                copy = Util.rebind(tx, copy);
                 resultStream.add(result.withOther(copy));
                 copyMap.put(node, copy);
                 
@@ -593,16 +593,6 @@ public class GraphRefactoring {
                 node.removeProperty(sourceKey);
             }
         });
-    }
-
-    private Node withTransactionAndRebind(Function<Transaction, Node> action) {
-        Node result;
-        try (Transaction tx = db.beginTx()) {
-            result = action.apply(tx);
-            tx.commit();
-        }
-        result = Util.rebind(tx, result);
-        return result;
     }
 
     private void mergeNodes(Node source, Node target, RefactorConfig conf, List<Long> excludeRelIds) {
