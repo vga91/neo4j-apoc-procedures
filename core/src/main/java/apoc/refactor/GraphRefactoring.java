@@ -81,7 +81,6 @@ public class GraphRefactoring {
                 });
                 rel.getStartNode().createRelationshipTo(copy, RelationshipType.withName(inType));
                 rel.delete();
-                copy = Util.rebind(tx, copy);
                 return result.withOther(copy);
             } catch (Exception e) {
                 return result.withError(e);
@@ -231,7 +230,6 @@ public class GraphRefactoring {
                 });
                 resultStream.add(result.withOther(copy));
                 copyMap.put(node, copy);
-                
             } catch (Exception e) {
                 resultStream.add(result.withError(e));
             }
