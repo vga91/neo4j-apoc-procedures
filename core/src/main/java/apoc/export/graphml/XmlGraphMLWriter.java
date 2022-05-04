@@ -1,8 +1,10 @@
 package apoc.export.graphml;
 
 import apoc.export.util.*;
+import org.apache.commons.lang3.StringUtils;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
+import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.Relationship;
@@ -120,8 +122,8 @@ public class XmlGraphMLWriter {
     private int writeRelationship(XMLStreamWriter writer, Relationship rel, ExportConfig config) throws XMLStreamException {
         writer.writeStartElement("edge");
         writer.writeAttribute("id", id(rel));
-        getSourceTargetAttribute(writer, "source", config, rel);
-        getSourceTargetAttribute(writer, "target", config, rel);
+        getNodeAttribute(writer, XmlNodeExport.NodeType.SOURCE, config, rel);
+        getNodeAttribute(writer, XmlNodeExport.NodeType.TARGET, config, rel);
         writer.writeAttribute("label", rel.getType().name());
         writeData(writer, "label", rel.getType().name());
         if (config.getFormat() == ExportFormat.GEPHI) {
@@ -132,41 +134,26 @@ public class XmlGraphMLWriter {
         return props;
     }
 
-    private void getSourceTargetAttribute(XMLStreamWriter writer, String localName, ExportConfig config, Relationship rel) throws XMLStreamException {
-        final Map<String, String> sourceTargetConf;
-        final Node node;
-        if (localName.equals("source")) {
-            sourceTargetConf = config.getSource();
-            node = rel.getStartNode();
-        } else {
-            sourceTargetConf = config.getTarget();
-            node = rel.getEndNode();
-        }
-        final String id = sourceTargetConf.get("id");
-        if (id == null) {
-            writer.writeAttribute(localName, id(node));
+    private void getNodeAttribute(XMLStreamWriter writer, XmlNodeExport.NodeType nodeType, ExportConfig config, Relationship rel) throws XMLStreamException {
+
+        final XmlNodeExport.ExportNode xmlNodeInterface = nodeType.get();
+        final Node node = xmlNodeInterface.getNode(rel);
+        final String name = nodeType.getName();
+        final ExportConfig.NodeConfig nodeConfig = xmlNodeInterface.getNodeConfig(config);
+        // without config the source/target configs, we leverage the internal node id
+        if (StringUtils.isBlank(nodeConfig.id)) {
+            writer.writeAttribute(name, id(node));
             return;
         }
+        // with source/target with an id configured 
+        // we put a source with the property value and a sourceType with the prop type of node
         try {
-            final Object nodeProperty = node.getProperty(id);
-            writer.writeAttribute(localName, nodeProperty.toString());
-            writer.writeAttribute(localName + "Type", MetaInformation.typeFor(nodeProperty.getClass(), MetaInformation.GRAPHML_ALLOWED));
+            final Object nodeProperty = node.getProperty(nodeConfig.id);
+            writer.writeAttribute(name, nodeProperty.toString());
+            writer.writeAttribute(nodeType.getNameType(), MetaInformation.typeFor(nodeProperty.getClass(), MetaInformation.GRAPHML_ALLOWED));
         } catch (NotFoundException e) {
             throw new RuntimeException(
-                    "The config source and/or target cannot be used because the node with id " + node.getId() + " doesn't have property " + id);
-        }
-    }
-
-    private String getSourceTargetId(Map<String, String> source, Node startNode) {
-        final String id = source.get("id");
-        if (id == null) {
-            return id(startNode);
-        }
-        try {
-            return startNode.getProperty(id).toString();
-        } catch (NotFoundException e) {
-            throw new RuntimeException(
-                    "The config source and/or target cannot be used because the node with id " + startNode.getId() + " doesn't have property " + id);
+                    "The config source and/or target cannot be used because the node with id " + node.getId() + " doesn't have property " + nodeConfig.id);
         }
     }
 

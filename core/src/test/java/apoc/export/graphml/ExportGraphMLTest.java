@@ -203,6 +203,8 @@ public class ExportGraphMLTest {
                 "source", map("label", "Foo"),
                 "target", map("label", "Bar"));
 
+        // we didn't specified a source/target in export config
+        // so we have to store the nodeIds and looking for them during relationship import
         separatedFileCommons(exportConfig, importConfig);
     }
 
@@ -216,12 +218,15 @@ public class ExportGraphMLTest {
                 "source", map("label", "Foo", "id", "name"), 
                 "target", map("label", "Bar", "id", "age"));
         
+        // we specified a source/target in export config
+        // so storeNodeIds config is unnecessary and we search nodes by properties Foo.name and Bar.age
         separatedFileCommons(exportConfig, importConfig);
     }
 
     private void separatedFileCommons(Map<String, Object> exportConfig, Map<String, Object> importConfig) {
         db.executeTransactionally("CREATE (:Foo {name: 'zzz'})-[:KNOWS]->(:Bar {age: 0}), (:Foo {name: 'aaa'})-[:KNOWS {id: 1}]->(:Bar {age: 666})");
 
+        // we export 3 files: 1 for source nodes, 1 for end nodes, 1 for relationships
         String outputNodesFoo = new File(directory, "queryNodesFoo.graphml").getAbsolutePath();
         String outputNodesBar = new File(directory, "queryNodesBar.graphml").getAbsolutePath();
         String outputRelationships = new File(directory, "queryRelationship.graphml").getAbsolutePath();

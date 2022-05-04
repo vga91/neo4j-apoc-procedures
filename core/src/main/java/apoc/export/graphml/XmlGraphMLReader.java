@@ -1,6 +1,7 @@
 package apoc.export.graphml;
 
 import apoc.export.util.BatchTransaction;
+import apoc.export.util.ExportConfig;
 import apoc.export.util.Reporter;
 import apoc.util.JsonUtil;
 import org.apache.commons.lang3.StringUtils;
@@ -16,10 +17,10 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 import java.io.Reader;
 import java.lang.reflect.Array;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -32,8 +33,8 @@ public class XmlGraphMLReader {
     private final Transaction tx;
     private boolean storeNodeIds;
     private RelationshipType defaultRelType = RelationshipType.withName("UNKNOWN");
-    private Map<String, String> source = Collections.emptyMap();
-    private Map<String, String> target = Collections.emptyMap();
+    private ExportConfig.NodeConfig source;
+    private ExportConfig.NodeConfig target;
     private int batchSize = 40000;
     private Reporter reporter;
     private boolean labels;
@@ -58,12 +59,12 @@ public class XmlGraphMLReader {
         return this;
     }
 
-    public XmlGraphMLReader source(Map<String, String> sourceConfig) {
+    public XmlGraphMLReader source(ExportConfig.NodeConfig sourceConfig) {
         this.source = sourceConfig;
         return this;
     }
 
-    public XmlGraphMLReader target(Map<String, String> targetConfig) {
+    public XmlGraphMLReader target(ExportConfig.NodeConfig targetConfig) {
         this.target = targetConfig;
         return this;
     }
@@ -73,7 +74,13 @@ public class XmlGraphMLReader {
         return this;
     }
 
+    public ExportConfig.NodeConfig getSource() {
+        return source;
+    }
 
+    public ExportConfig.NodeConfig getTarget() {
+        return target;
+    }
 
     enum Type {
         BOOLEAN() {
@@ -269,8 +276,8 @@ public class XmlGraphMLReader {
                     if (name.equals("edge")) {
                         tx.increment();
                         String label = getAttribute(element, LABEL);
-                        Node from = getByNodeId(cache, tx.getTransaction(), element, "source");
-                        Node to = getByNodeId(cache, tx.getTransaction(), element, "target");
+                        Node from = getByNodeId(cache, tx.getTransaction(), element, XmlNodeExport.NodeType.SOURCE);
+                        Node to = getByNodeId(cache, tx.getTransaction(), element, XmlNodeExport.NodeType.TARGET);
 
                         RelationshipType relationshipType = label == null ? getRelationshipType(reader) : RelationshipType.withName(label);
                         Relationship relationship = from.createRelationshipTo(to, relationshipType);
@@ -285,35 +292,25 @@ public class XmlGraphMLReader {
         return count;
     }
 
-    private Node getByNodeId(Map<String, Long> cache, Transaction tx, StartElement element, String typeNode) {
-        final Map<String, String> sourceTargetConfig;
-        final String sourceTargetValue;
-        if (typeNode.equals("source")) {
-            sourceTargetConfig = this.source;
-            sourceTargetValue = getAttribute(element, SOURCE);
-        } else {
-            sourceTargetConfig = this.target;
-            sourceTargetValue = getAttribute(element, TARGET);
-        }
+    private Node getByNodeId(Map<String, Long> cache, Transaction tx, StartElement element, XmlNodeExport.NodeType nodeType) {
+        final XmlNodeExport.ExportNode xmlNodeInterface = nodeType.get();
+        final ExportConfig.NodeConfig nodeConfig = xmlNodeInterface.getNodeConfigReader(this);
+        
+        final String sourceTargetValue = getAttribute(element, QName.valueOf(nodeType.getName()));
         
         final Long id = cache.get(sourceTargetValue);
-        if (id == null) {
-            try {
-                final String label = sourceTargetConfig.get("label");
-                if (label == null) {
-                    throw new RuntimeException("The source and target config map must have a key 'label'");
-                }
-                final String idKey = sourceTargetConfig.getOrDefault("id", "id");
-                final String attribute = getAttribute(element, QName.valueOf(typeNode + "Type"));
-                final Object value = attribute == null 
-                        ? sourceTargetValue 
-                        : Type.forType(attribute).parse(sourceTargetValue);
-                return tx.findNode(Label.label(label), idKey, value);
-            } catch (Exception e) {
-                throw new RuntimeException("Node not found", e);
-            }
+        // without source/target config, we look for the internal id
+        if (StringUtils.isBlank(nodeConfig.label)) {
+            return tx.getNodeById(id);
         }
-        return tx.getNodeById(id);
+        // with source/target configured, we search a node with a specified label 
+        // and with a type specified in sourceType, if present, or string by default
+        final String attribute = getAttribute(element, QName.valueOf(nodeType.getNameType()));
+        final Object value = attribute == null 
+                ? sourceTargetValue 
+                : Type.forType(attribute).parse(sourceTargetValue);
+        
+        return tx.findNode(Label.label(nodeConfig.label), Optional.ofNullable(nodeConfig.id).orElse("id"), value);
     }
 
     private RelationshipType getRelationshipType(XMLEventReader reader) throws XMLStreamException {

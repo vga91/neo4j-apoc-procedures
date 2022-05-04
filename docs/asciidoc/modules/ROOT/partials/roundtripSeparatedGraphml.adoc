@@ -11,14 +11,13 @@ CREATE (:Foo {name: 'aaa'})-[:KNOWS {id: 1}]->(:Bar {age: 666});
 
 we can execute these 3 export queries:
 
-
 [source,cypher]
 ----
 // Foo nodes
 call apoc.export.graphml.query('MATCH (start:Foo)-[:KNOWS]->(:Bar) RETURN start', 'queryNodesFoo.graphml', {useTypes: true});
 
 // Bar nodes
-call apoc.export.graphml.query('MATCH (start:Foo)-[:KNOWS]->(:Bar) RETURN start', 'queryNodesBar.graphml', {useTypes: true});
+call apoc.export.graphml.query('MATCH (:Foo)-[:KNOWS]->(end:Bar) RETURN end', 'queryNodesBar.graphml', {useTypes: true});
 
 // KNOWS rels
 MATCH (:Foo)-[rel:KNOWS]->(:Bar) 
@@ -92,22 +91,27 @@ and we used the `useTypes: true` to import the attribute `id` of `node` tags as 
 
 === With custom property key 
 
-Otherwise, we can leverage a custom property and avoid importing the `id` attribute (via `useTypes:true`) in this way (same dataset and nodes export query as before):
+Otherwise, we can leverage a custom property and avoid importing the `id` attribute (via `useTypes:true`)
+in this way (same dataset and nodes export query as before):
+
 [source,cypher]
 ----
-// Foo nodes
-call apoc.export.graphml.query('MATCH (start:Foo)-[:KNOWS]->(:Bar) RETURN start', 'queryNodesFoo.graphml', {useTypes: true});
-
-// Bar nodes
-call apoc.export.graphml.query('MATCH (start:Foo)-[:KNOWS]->(:Bar) RETURN start', 'queryNodesBar.graphml', {useTypes: true});
-
 // KNOWS rels
 MATCH (:Foo)-[rel:KNOWS]->(:Bar) 
 WITH collect(rel) as rels
-call apoc.export.graphml.data([], rels, 'queryRelationship.graphml', {useTypes: true})
+call apoc.export.graphml.data([], rels, 'queryRelationship.graphml', 
+  {useTypes: true, source: {id: 'name'}, label: {id: 'age'}})
 YIELD nodes, relationships RETURN nodes, relationships;
 ----
-with this rel file:
+
+[Note]
+====
+Is strongly recommended using an unique constraint to ensure uniqueness, 
+so in this case for label `Foo` and property `name` and for label `Bar` and property `age`
+====
+
+
+The above query generate this rel file:
 
 .queryRelationship.graphml
 [source,xml]
@@ -124,7 +128,7 @@ with this rel file:
 </graphml>
 ----
 
-Finally, we can import the files:
+Finally, we can import the files using the same id (name and age) as above:
 [source,cypher]
 ----
 CALL apoc.import.graphml('queryNodesFoo.graphml', {readLabels: true});
