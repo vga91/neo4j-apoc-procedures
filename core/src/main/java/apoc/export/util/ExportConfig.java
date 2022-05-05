@@ -44,6 +44,8 @@ public class ExportConfig extends CompressionConfig {
 
     private int batchSize;
     private boolean silent;
+    private boolean uniqueIdRels; 
+    private boolean cleanupUniqueRels;
     private boolean saveIndexNames;
     private boolean saveConstraintNames;
     private boolean bulkImport = false;
@@ -101,6 +103,14 @@ public class ExportConfig extends CompressionConfig {
 
     public CypherFormat getCypherFormat() { return cypherFormat; }
 
+    public boolean isUniqueIdRels() {
+        return uniqueIdRels;
+    }
+
+    public boolean isCleanupUniqueIdRels() {
+        return cleanupUniqueRels;
+    }
+
     public ExportConfig(Map<String,Object> config) {
         super(config);
         config = config != null ? config : Collections.emptyMap();
@@ -128,6 +138,8 @@ public class ExportConfig extends CompressionConfig {
         this.samplingConfig = (Map<String, Object>) config.getOrDefault("samplingConfig", new HashMap<>());
         this.unwindBatchSize = ((Number)getOptimizations().getOrDefault("unwindBatchSize", DEFAULT_UNWIND_BATCH_SIZE)).intValue();
         this.awaitForIndexes = ((Number)config.getOrDefault("awaitForIndexes", 300)).longValue();
+        this.uniqueIdRels = toBoolean(config.get("uniqueIdRels"));
+        this.cleanupUniqueRels = toBoolean(config.getOrDefault("cleanupUniqueRels", uniqueIdRels));
         this.source = new NodeConfig((Map<String, String>) config.get("source"));
         this.target = new NodeConfig((Map<String, String>) config.get("target"));
         validate();

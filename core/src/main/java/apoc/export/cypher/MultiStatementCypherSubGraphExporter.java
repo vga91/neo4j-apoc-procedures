@@ -20,6 +20,7 @@ import java.util.stream.StreamSupport;
 
 import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_LABEL;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_PROP;
+import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_REL;
 
 /*
  * Idea is to lookup nodes for relationships via a unique index
@@ -196,7 +197,7 @@ public class MultiStatementCypherSubGraphExporter {
     }
 
     private void appendRelationship(PrintWriter out, Relationship rel, Reporter reporter) {
-        String cypher = this.cypherFormat.statementForRelationship(rel, uniqueConstraints, indexedProperties);
+        String cypher = this.cypherFormat.statementForRelationship(rel, uniqueConstraints, indexedProperties, exportConfig);
         if (cypher != null && !"".equals(cypher)) {
             out.println(cypher);
             reporter.update(0, 1, Iterables.count(rel.getPropertyKeys()));
@@ -209,7 +210,7 @@ public class MultiStatementCypherSubGraphExporter {
         List<String> indexesAndConstraints = new ArrayList<>();
         indexesAndConstraints.addAll(exportIndexes());
         indexesAndConstraints.addAll(exportConstraints());
-        if (indexesAndConstraints.isEmpty() && artificialUniques == 0) return;
+        if (indexesAndConstraints.isEmpty() && artificialUniques == 0 && !config.isCleanupUniqueIdRels()) return;
         begin(out);
         for (String index : indexesAndConstraints) {
             out.println(index);
@@ -219,6 +220,16 @@ public class MultiStatementCypherSubGraphExporter {
             if (cypher != null && !"".equals(cypher)) {
                 out.println(cypher);
             }
+        }
+        
+        if (config.isCleanupUniqueIdRels()) {
+            // add rel-indexes
+            graph.getAllRelationshipTypesInUse().forEach(type -> {
+                // TODO - this indexes should be deleted after cleanup, we need the index name, waiting for 2652 in branch 4.3+ to drop them
+                final String statement = this.cypherFormat
+                        .statementForIndexRelationship(type.name(), List.of(UNIQUE_ID_REL), true);
+                printIfNotEmpty(out, statement);
+            });
         }
         commit(out);
         if (graph.getIndexes().iterator().hasNext()) {
@@ -320,23 +331,46 @@ public class MultiStatementCypherSubGraphExporter {
     // ---- CleanUp ----
 
     private void exportCleanUp(PrintWriter out, int batchSize) {
-        if (artificialUniques > 0) {
-            while (artificialUniques > 0) {
-                String cypher = this.cypherFormat.statementForCleanUp(batchSize);
-                begin(out);
-                if (cypher != null && !"".equals(cypher)) {
-                    out.println(cypher);
+        exportCleanUp(null, out, batchSize, artificialUniques);
+        if (exportConfig.isCleanupUniqueIdRels()) {
+            graph.getAllRelationshipTypesInUse().forEach(type -> {
+                final long count = graph.countsForRelationship(type);
+                exportCleanUp(type, out, batchSize, count);
+            });
+        }
+    }
+    
+    private void printIfNotEmpty(PrintWriter out, String line) {
+        if (StringUtils.isNotEmpty(line)) {
+            out.println(line);
+        }
+    }
+    
+    private void exportCleanUp(RelationshipType type, PrintWriter out, int batchSize, Long entityCount) {
+        if (entityCount > 0) {
+            while (entityCount > 0) {
+                if (type == null) {
+                    // todo - not to cause breaking-change, a begin and commit is always printed, even with an empty body
+                    //  might be worth to remove these empty statements
+                    begin(out);
+                    printIfNotEmpty(out, this.cypherFormat.statementForCleanUp(batchSize));
+                    commit(out);
+                } else {
+                    final String statement = this.cypherFormat.statementForCleanUpRel(type, batchSize);
+                    if (StringUtils.isNotEmpty(statement)) {
+                        begin(out);
+                        out.println(statement);
+                        commit(out);
+                    }
                 }
+                entityCount -= batchSize;
+            }
+            if (type == null) {
+                begin(out);
+                printIfNotEmpty(out, this.cypherFormat.statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), false, StringUtils.EMPTY)
+                        .replaceAll("^CREATE", "DROP"));
                 commit(out);
-                artificialUniques -= batchSize;
             }
-            begin(out);
-            String cypher = this.cypherFormat.statementForConstraint(UNIQUE_ID_LABEL, Collections.singleton(UNIQUE_ID_PROP), false, StringUtils.EMPTY)
-                    .replaceAll("^CREATE", "DROP");
-            if (cypher != null && !"".equals(cypher)) {
-                out.println(cypher);
-            }
-            commit(out);
         }
         out.flush();
     }
