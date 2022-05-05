@@ -33,6 +33,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 	private static final String STATEMENT_NODE_FULLTEXT_IDX = "CALL db.index.fulltext.createNodeIndex('%s',[%s],[%s]);";
 	private static final String STATEMENT_REL_FULLTEXT_IDX = "CALL db.index.fulltext.createRelationshipIndex('%s',[%s],[%s]);";
 	public static final String PROPERTY_QUOTING_FORMAT = "'%s'";
+	private static final String ID_REL_KEY = "id";
 
 	@Override
 	public String statementForCleanUp(int batchSize) {
@@ -260,9 +261,6 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 						"start", new AbstractMap.SimpleImmutableEntry<>(startLabels, CypherFormatterUtils.getNodeIdProperties(start, uniqueConstraints).keySet()),
 						"end", new AbstractMap.SimpleImmutableEntry<>(endLabels, CypherFormatterUtils.getNodeIdProperties(end, uniqueConstraints).keySet()));
 
-				if (exportConfig.isUniqueIdRels()) {
-					key.put(UNIQUE_ID_REL, rel.getId());
-				}
 				tx.success();
 				return key;
 			}
@@ -299,6 +297,10 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 				writeRelationshipNodeIds(uniqueConstraints, out, start, startNode);
 
 				out.append(", ");
+				if (exportConfig.isUniqueIdRels()) {
+					String uniqueId = String.format("%s: %s, ", ID_REL_KEY, rel.getId());
+					out.append(uniqueId);
+				}
 
 				// end node
 				Node endNode = rel.getEndNode();
@@ -339,9 +341,9 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 
 		// create the relationship (depends on the strategy)
 		out.append(relationshipClause);
-		String mergeUniqueKey = Optional.ofNullable(path.get(UNIQUE_ID_REL))
-				.map(val -> String.format("{%s:%s}", Q_UNIQUE_ID_REL, val))
-				.orElse("");
+		String mergeUniqueKey = (exportConfig.isUniqueIdRels())
+				? String.format("{%s:row.%s}", Q_UNIQUE_ID_REL, ID_REL_KEY)
+				: "";
 		out.append("(start)-[r:" + Util.quote(path.get("type").toString()) + mergeUniqueKey + "]->(end) ");
 		out.append(setClause);
 		out.append("r += row.properties;");
