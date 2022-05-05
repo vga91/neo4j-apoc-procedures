@@ -76,78 +76,38 @@ public class ExportCypherTestUtils {
             ":commit\n";
 
     protected final static String RELS_UNWIND_MULTI_RELS = ":begin\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:5}}] AS row\n" +
+            "UNWIND [{start: {_id:0}, id: 6, end: {_id:2}, properties:{name:\"aaa\"}}, {start: {_id:0}, id: 7, end: {_id:3}, properties:{name:\"eee\"}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:5}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:1}}] AS row\n" +
+            "CREATE (start)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:row.id}]->(end) SET r += row.properties;\n" +
+            "UNWIND [{start: {_id:0}, id: 0, end: {_id:1}, properties:{id:1}}, {start: {_id:0}, id: 1, end: {_id:1}, properties:{id:2}}, {start: {_id:0}, id: 2, end: {_id:1}, properties:{id:2}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:0}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:3}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:3}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:3}, properties:{name:\"eee\"}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:7}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:4}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:4}]->(end) SET r += row.properties;\n" +
+            "CREATE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:row.id}]->(end) SET r += row.properties;\n" +
             ":commit\n" +
             ":begin\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:2}, properties:{name:\"aaa\"}}] AS row\n" +
+            "UNWIND [{start: {_id:0}, id: 3, end: {_id:1}, properties:{id:3}}, {start: {_id:0}, id: 4, end: {_id:1}, properties:{id:4}}, {start: {_id:0}, id: 5, end: {_id:1}, properties:{id:5}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:6}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:2}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:1}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:2}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:2}]->(end) SET r += row.properties;\n" +
+            "CREATE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:row.id}]->(end) SET r += row.properties;\n" +
             ":commit\n" +
             "\n";
 
     protected final static String RELS_UNWIND_UPDATE_ALL_MULTI_RELS = ":begin\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:5}}] AS row\n" +
+            "UNWIND [{start: {_id:0}, id: 6, end: {_id:2}, properties:{name:\"aaa\"}}, {start: {_id:0}, id: 7, end: {_id:3}, properties:{name:\"eee\"}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:5}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:1}}] AS row\n" +
+            "MERGE (start)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:row.id}]->(end) SET r += row.properties;\n" +
+            "UNWIND [{start: {_id:0}, id: 0, end: {_id:1}, properties:{id:1}}, {start: {_id:0}, id: 1, end: {_id:1}, properties:{id:2}}, {start: {_id:0}, id: 2, end: {_id:1}, properties:{id:2}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:0}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:3}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:3}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:3}, properties:{name:\"eee\"}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:7}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:4}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:4}]->(end) SET r += row.properties;\n" +
+            "MERGE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:row.id}]->(end) SET r += row.properties;\n" +
             ":commit\n" +
             ":begin\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:2}, properties:{name:\"aaa\"}}] AS row\n" +
+            "UNWIND [{start: {_id:0}, id: 3, end: {_id:1}, properties:{id:3}}, {start: {_id:0}, id: 4, end: {_id:1}, properties:{id:4}}, {start: {_id:0}, id: 5, end: {_id:1}, properties:{id:5}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:6}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:2}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:1}]->(end) SET r += row.properties;\n" +
-            "UNWIND [{start: {_id:0}, end: {_id:1}, properties:{id:2}}] AS row\n" +
-            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
-            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:2}]->(end) SET r += row.properties;\n" +
+            "MERGE (start)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:row.id}]->(end) SET r += row.properties;\n" +
             ":commit\n\n";
 
     protected final static String RELS_ADD_STRUCTURE_MULTI_RELS = ":begin\n" +
