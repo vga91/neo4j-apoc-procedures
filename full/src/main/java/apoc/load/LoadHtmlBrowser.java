@@ -27,6 +27,7 @@ public class LoadHtmlBrowser {
     
     public static InputStream getFirefoxInputStream(String url, Map<String, String> query, LoadHtmlConfig config, boolean isHeadless, boolean isAcceptInsecureCerts) {
         WebDriverManager.firefoxdriver().setup();
+        // todo -test
         FirefoxOptions firefoxOptions = new FirefoxOptions();
         firefoxOptions.setHeadless(isHeadless);
         firefoxOptions.setAcceptInsecureCerts(isAcceptInsecureCerts);
