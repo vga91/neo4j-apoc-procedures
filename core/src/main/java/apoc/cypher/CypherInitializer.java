@@ -4,6 +4,8 @@ import apoc.ApocConfig;
 import apoc.util.Util;
 import apoc.version.Version;
 import org.apache.commons.configuration2.Configuration;
+import org.apache.commons.lang3.RegExUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.neo4j.common.DependencyResolver;
 import org.neo4j.configuration.Config;
 import org.neo4j.configuration.GraphDatabaseSettings;
@@ -21,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class CypherInitializer implements AvailabilityListener {
 
@@ -95,8 +99,18 @@ public class CypherInitializer implements AvailabilityListener {
     // the visibility is public only for testing purpose, it could be private otherwise
     public static boolean isVersionDifferent(List<String> versions, String apocFullVersion) {
         return Optional.ofNullable(apocFullVersion)
-                .map(v -> versions.stream().noneMatch(v::startsWith))
-                .orElse(true);
+            .map(version -> { 
+                // match first 2 digits separated by a non digit string 
+                final Pattern compile = Pattern.compile("(^\\d+[^\\d]+\\d+)");
+                final Matcher apocMatcher = compile.matcher(version);
+                return apocMatcher.find() && versions
+                        .stream().noneMatch(sub -> {
+                            // find any match and check if neo4j matched is equal to apoc matched 
+                            final Matcher neo4jMatcher = compile.matcher(sub);
+                            return neo4jMatcher.find() && neo4jMatcher.group().equals(apocMatcher.group());
+                        });
+            })
+            .orElse(true);
     }
 
     private Collection<String> collectInitializers(boolean isSystemDatabase, Configuration config) {
