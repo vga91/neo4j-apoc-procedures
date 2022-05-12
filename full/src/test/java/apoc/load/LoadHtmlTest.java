@@ -26,6 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class LoadHtmlTest {
 
@@ -61,6 +62,28 @@ public class LoadHtmlTest {
     public void testParseGeneratedJs() {
         testCallGeneratedJsWithBrowser("FIREFOX");
         testCallGeneratedJsWithBrowser("CHROME");
+    }
+    
+    @Test
+    public void testParseGeneratedJs1() {
+        // todo - test con .gitHubToken("aaaa") 
+        testCallGeneratedJsWithBrowser("FIREFOX");
+        testCallGeneratedJsWithBrowser("CHROME");
+    }
+    
+    @Test
+    public void testParseGeneratedJs12() {
+        final String url = new File("src/test/resources/html/wikipediaWithJs.html").toURI().toString();
+        // todo - test con testWithWaitUntilAndOneElementNotFound e timeout 
+        try {
+            testCall(db, "CALL apoc.load.html($url,$query,$config)",
+                    map("url", url, "query", map("a", "a"),
+                            "config", map("browser", "CHROME", "operatingSystem", "dunno")),
+                    r -> fail());
+        } catch (Exception e) {
+            // todo
+            System.out.println("LoadHtmlTest.testParseGeneratedJs12");
+        }
     }
 
     @Test
@@ -276,7 +299,7 @@ public class LoadHtmlTest {
         testCall(db, "CALL apoc.load.html($url,$query,$config)",
                 map("url",new File("src/test/resources/html/wikipediaWithJs.html").toURI().toString(),
                         "query", map("td", "td", "strong", "strong"),
-                        "config", map("browser", browser)),
+                        "config", map("browser", browser, "driverVersion", "0.3.0")),
                 result -> {
                     Map<String, Object> value = (Map<String, Object>) result.get("value");
                     List<Map<String, Object>> tdList = (List<Map<String, Object>>) value.get("td");
