@@ -1,5 +1,7 @@
 package apoc.export.cypher;
 
+import apoc.cypher.Cypher;
+import apoc.export.util.ExportConfig;
 import apoc.graph.Graphs;
 import apoc.util.TestUtil;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -10,6 +12,8 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -56,7 +60,7 @@ public class ExportCypherTest {
     @Before
     public void setUp() throws Exception {
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, true);
-        TestUtil.registerProcedure(db, ExportCypher.class, Graphs.class);
+        TestUtil.registerProcedure(db, ExportCypher.class, Graphs.class, Cypher.class);
         db.executeTransactionally("CREATE INDEX ON :Bar(first_name, last_name)");
         db.executeTransactionally("CREATE INDEX ON :Foo(name)");
         db.executeTransactionally("CREATE CONSTRAINT ON (b:Bar) ASSERT b.name IS UNIQUE");
@@ -753,6 +757,163 @@ public class ExportCypherTest {
         relIndexTestCommon(fileName, EXPECTED_SCHEMA_WITH_RELS_AND_IF_NOT_EXISTS, true);
 
         db.executeTransactionally("DROP INDEX rel_index_name");
+    }
+    
+    
+    private static final String EXPECTED_2886_SCHEMA = "CREATE INDEX FOR (node:Bar) ON (node.first_name, node.last_name);\n" +
+            "CREATE INDEX FOR (node:Foo) ON (node.name);\n" +
+            "CREATE CONSTRAINT ON (node:Bar) ASSERT (node.name) IS UNIQUE;\n" +
+            "CREATE CONSTRAINT ON (node:`UNIQUE IMPORT LABEL`) ASSERT (node.`UNIQUE IMPORT ID`) IS UNIQUE;\n";
+    
+    private static final String EXPECTED_2886_CLEANUP = "MATCH (n:`UNIQUE IMPORT LABEL`)  WITH n LIMIT 20000 REMOVE n:`UNIQUE IMPORT LABEL` REMOVE n.`UNIQUE IMPORT ID`;\n" +
+            "DROP CONSTRAINT ON (node:`UNIQUE IMPORT LABEL`) ASSERT (node.`UNIQUE IMPORT ID`) IS UNIQUE;\n";
+    
+    private static final String EXPECTED_2886_UPDATE_STRUCTURE = "UNWIND [{start: {_id:3}, end: {_id:4}, properties:{id:1}}, {start: {_id:5}, end: {_id:6}, properties:{id:2}}] AS row\n" +
+            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
+            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
+            "%1$s (start)-[r:WORKS_FOR]->(end) SET r += row.properties;\n";
+
+    private static final String EXPECTED_2886_UNWIND = EXPECTED_2886_SCHEMA +
+            "UNWIND [{_id:4, properties:{}}, {_id:6, properties:{}}] AS row\n" +
+            "%1$s (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) SET n += row.properties SET n:Project;\n" +
+            "UNWIND [{_id:3, properties:{name:\"First\"}}, {_id:5, properties:{name:\"Second\"}}] AS row\n" +
+            "%1$s (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) SET n += row.properties SET n:Person;\n" +
+            EXPECTED_2886_UPDATE_STRUCTURE +
+            EXPECTED_2886_CLEANUP;
+
+    private static final String EXPECTED_2886_ADD_STRUCTURE = "UNWIND [{_id:4, properties:{}}, {_id:6, properties:{}}] AS row\n" +
+            "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) ON CREATE SET n += row.properties SET n:Project;\n" +
+            "UNWIND [{_id:3, properties:{name:\"First\"}}, {_id:5, properties:{name:\"Second\"}}] AS row\n" +
+            "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row._id}) ON CREATE SET n += row.properties SET n:Person;\n" +
+            "UNWIND [{start: {_id:3}, end: {_id:4}, properties:{id:1}}, {start: {_id:5}, end: {_id:6}, properties:{id:2}}] AS row\n" +
+            "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
+            "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
+            "CREATE (start)-[r:WORKS_FOR]->(end)  SET r += row.properties;\n";
+
+    private static final String EXPECTED_2886_RELS_WITHOUT_OPTIMIZATION = "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:4}) CREATE (n1)-[r:WORKS_FOR {id:1}]->(n2);\n" +
+            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:5}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:6}) CREATE (n1)-[r:WORKS_FOR {id:2}]->(n2);\n";
+    
+    @Test
+    public void testIssue2886OptimizationsNoneAndCypherFormatCreate() {
+        String expected = "CREATE (:Person:`UNIQUE IMPORT LABEL` {name:\"First\", `UNIQUE IMPORT ID`:3});\n" +
+                "CREATE (:Project:`UNIQUE IMPORT LABEL` {`UNIQUE IMPORT ID`:4});\n" +
+                "CREATE (:Person:`UNIQUE IMPORT LABEL` {name:\"Second\", `UNIQUE IMPORT ID`:5});\n" +
+                "CREATE (:Project:`UNIQUE IMPORT LABEL` {`UNIQUE IMPORT ID`:6});\n" +
+                EXPECTED_2886_SCHEMA +
+                EXPECTED_2886_RELS_WITHOUT_OPTIMIZATION +
+                EXPECTED_2886_CLEANUP;
+
+        final Map<String, Object> config = map("cypherFormat", "create");
+        issue2886Common(expected, withoutOptimization(config), true);
+    }
+
+    @Test
+    public void testIssue2886OptimizationsNoneAndCypherFormatCreate2() {
+        String expected = "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}) ON CREATE SET n.name=\"First\", n:Person;\n" +
+                "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:4}) ON CREATE SET n:Project;\n" +
+                "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:5}) ON CREATE SET n.name=\"Second\", n:Person;\n" +
+                "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:6}) ON CREATE SET n:Project;\n" +
+                EXPECTED_2886_RELS_WITHOUT_OPTIMIZATION;
+        final Map<String, Object> config = map("cypherFormat", "addStructure");
+        issue2886Common(expected, withoutOptimization(config), true);
+    }
+
+    @Test
+    public void testIssue2886OptimizationsNoneAndCypherFormatCreate23() {
+        String expected = "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:4}) MERGE (n1)-[r:WORKS_FOR]->(n2) ON CREATE SET r.id=1;\n" +
+                "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:5}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:6}) MERGE (n1)-[r:WORKS_FOR]->(n2) ON CREATE SET r.id=2;\n";
+        final Map<String, Object> config = map("cypherFormat", "updateStructure");
+        issue2886Common(expected, withoutOptimization(config), false);
+    }
+
+    @Test
+    public void testIssue2886OptimizationsNoneAndCypherFormatCreate245() {
+        String expected = "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}) SET n.name=\"First\", n:Person;\n" +
+                "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:4}) SET n:Project;\n" +
+                "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:5}) SET n.name=\"Second\", n:Person;\n" +
+                "MERGE (n:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:6}) SET n:Project;\n" +
+                EXPECTED_2886_SCHEMA +
+                "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:4}) MERGE (n1)-[r:WORKS_FOR]->(n2) SET r.id=1;\n" +
+                "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:5}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:6}) MERGE (n1)-[r:WORKS_FOR]->(n2) SET r.id=2;\n" +
+                EXPECTED_2886_CLEANUP;
+        final Map<String, Object> config = map("cypherFormat", "updateAll");
+        issue2886Common(expected, withoutOptimization(config), true);
+    }
+
+    @Test
+    public void testIssue2886CypherFormatCreate() {
+        final Map<String, Object> config = map("cypherFormat", "create");
+        String expected = String.format(EXPECTED_2886_UNWIND, "CREATE");
+        issue2886Common(expected, config, true);
+    }
+
+    @Test
+    public void testIssue2886CypherFormatCreate2() {
+        final Map<String, Object> config = map("cypherFormat", "addStructure");
+        issue2886Common(EXPECTED_2886_ADD_STRUCTURE, config, true);
+    }
+
+    @Test
+    public void testIssue2886CypherFormatCreate23() {
+        final Map<String, Object> config = map("cypherFormat", "updateStructure");
+        final String expected = String.format(EXPECTED_2886_UPDATE_STRUCTURE, "MERGE");
+        issue2886Common(expected, config, false);
+    }
+
+    @Test
+    public void testIssue2886CypherFormatCreate245() {
+        final Map<String, Object> config = map("cypherFormat", "updateAll");
+        String expected = String.format(EXPECTED_2886_UNWIND, "MERGE");
+        issue2886Common(expected, config, true);
+    }
+    
+    private Map<String, Object> withoutOptimization(Map<String, Object> map) {
+        map.put("useOptimizations", map("type", ExportConfig.OptimizationType.NONE.name()));
+        return map;
+    }
+
+    private void issue2886Common(String expected, Map<String, Object> config, boolean isRountrip) {
+        db.executeTransactionally("match (n) detach delete n");
+
+        final String startOne = "First";
+        final long relOne = 1L;
+        final String startTwo = "Second";
+        final long relTwo = 2L;
+        db.executeTransactionally("create (:Person {name: $name})-[:WORKS_FOR {id: $id}]->(:Project)", 
+                map("name", startOne, "id", relOne));
+        db.executeTransactionally("create (:Person {name: $name})-[:WORKS_FOR {id: $id}]->(:Project)",
+                map("name", startTwo, "id", relTwo));
+
+        final Map<String, Object> conf = map("format", "plain");
+        conf.putAll(config);
+        final String cypherStatements = db.executeTransactionally("CALL apoc.export.cypher.all(null, $config)",
+                map("config", conf),
+                r -> (String) r.next().get("cypherStatements"));
+        
+        beforeAfterIssue2886(startOne, relOne, startTwo, relTwo);
+
+        assertEquals(expected, cypherStatements);
+        
+        if (!isRountrip) {
+            return;
+        }
+        db.executeTransactionally("match (n) detach delete n");
+        db.executeTransactionally("call apoc.cypher.runMany($statements, {})", map("statements", cypherStatements));
+
+        beforeAfterIssue2886(startOne, relOne, startTwo, relTwo);
+    }
+
+    private void beforeAfterIssue2886(String startOne, long relOne, String startTwo, long relTwo) {
+        TestUtil.testResult(db, "MATCH (start:Person)-[rel:WORKS_FOR]->(end:Project) RETURN rel ORDER BY rel.id", r -> {
+            final ResourceIterator<Relationship> rels = r.columnAs("rel");
+            Relationship rel = rels.next();
+            assertEquals(startOne, rel.getStartNode().getProperty("name"));
+            assertEquals(relOne, rel.getProperty("id"));
+            rel = rels.next();
+            assertEquals(startTwo, rel.getStartNode().getProperty("name"));
+            assertEquals(relTwo, rel.getProperty("id"));
+            assertFalse(rels.hasNext());
+        });
     }
 
     private void relIndexTestCommon(String fileName, String expectedSchema, boolean ifNotExists) throws FileNotFoundException {
