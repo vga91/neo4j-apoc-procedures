@@ -26,6 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class LoadHtmlTest {
 
@@ -47,6 +48,9 @@ public class LoadHtmlTest {
     private static final String INVALID_PATH = new File("src/test/resources/wikipedia1.html").getName();
     private static final String VALID_PATH = new File("src/test/resources/wikipedia.html").toURI().toString();
     private static final String INVALID_CHARSET = "notValid";
+    private static final String URL_HTML_JS = new File("src/test/resources/html/wikipediaWithJs.html").toURI().toString();
+    private static final String CHROME = LoadHtmlConfig.Browser.CHROME.name();
+    private static final String FIREFOX = LoadHtmlConfig.Browser.FIREFOX.name();
 
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule()
@@ -59,16 +63,37 @@ public class LoadHtmlTest {
 
     @Test
     public void testParseGeneratedJs() {
-        testCallGeneratedJsWithBrowser("FIREFOX");
-//        testCallGeneratedJsWithBrowser("CHROME");
+        testCallGeneratedJsWithBrowser(FIREFOX);
+        testCallGeneratedJsWithBrowser(CHROME);
+    }
+    
+    @Test
+    public void testParseGeneratedJsInvalidConfigs() {
+        String errorInvalidConfig = "Invalid config";
+        assertInvalidConfig(map("browser", CHROME, "operatingSystem", "dunno"), errorInvalidConfig);
+
+        assertInvalidConfig(map("browser", FIREFOX, "architecture", "dunno"), errorInvalidConfig);
+        
+        String errorBrowserVersion = "io.github.bonigarcia.wdm.config.WebDriverManagerException: No proper candidate URL to download geckodriver 0.3.0";
+        assertInvalidConfig(map("browser", FIREFOX, "browserVersion", "99999.9", "avoidFallback", true), errorBrowserVersion);
+    }
+    
+    private void assertInvalidConfig(Map<String, Object> config, String msgError) {
+        try {
+            testCall(db, "CALL apoc.load.html($url, $query, $config)",
+                    map("url", URL_HTML_JS, "query", map("a", "a"), "config", config),
+                    r -> fail());
+        } catch (RuntimeException e) {
+            assertTrue(e.getMessage().contains(msgError));
+        }
     }
 
     @Test
     public void testWithWaitUntilAndOneElementNotFound() {
         testCall(db, "CALL apoc.load.html($url,$query,$config)",
-                map("url",new File("src/test/resources/html/wikipediaWithJs.html").toURI().toString(),
+                map("url", URL_HTML_JS,
                         "query", map("elementExistent", "strong", "elementNotExistent", ".asdfgh"),
-                        "config", map("browser", "CHROME", "wait", 5)),
+                        "config", map("browser", CHROME, "wait", 5)),
                 result -> {
                     Map<String, Object> value = (Map<String, Object>) result.get("value");
                     List<Map<String, Object>> notExistent = (List<Map<String, Object>>) value.get("elementNotExistent");
@@ -87,7 +112,7 @@ public class LoadHtmlTest {
 
         final String baseUri = new File("src/test/resources").toURI().toString();
         testCall(db, "CALL apoc.load.html($url,$query, $config)",
-                map("url", new File("src/test/resources/html/wikipediaWithJs.html").toURI().toString(),
+                map("url", URL_HTML_JS,
                         "query", query,
                         "config", map("baseUri", baseUri)),
                 result -> {
@@ -274,7 +299,7 @@ public class LoadHtmlTest {
 
     private void testCallGeneratedJsWithBrowser(String browser) {
         testCall(db, "CALL apoc.load.html($url,$query,$config)",
-                map("url",new File("src/test/resources/html/wikipediaWithJs.html").toURI().toString(),
+                map("url", URL_HTML_JS,
                         "query", map("td", "td", "strong", "strong"),
                         "config", map("browser", browser, "driverVersion", "0.3.0")),
                 result -> {
