@@ -42,6 +42,7 @@ public class BatchTransaction implements AutoCloseable {
     }
 
     private void doCommit(boolean log) {
+        System.out.println("doCommit = ");
         tx.commit();
         tx.close();
         if (log && reporter!=null) reporter.progress("commit after " + count + " row(s) ");

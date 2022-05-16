@@ -13,6 +13,7 @@ import org.neo4j.logging.Log;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -70,14 +71,17 @@ public class CsvEntityLoader {
             final CSVReader csv = new CSVReader(reader, clc.getDelimiter(), clc.getQuotationCharacter());
 
             final String[] loadCsvCompatibleHeader = fields.stream().map(f -> f.getName()).toArray(String[]::new);
-            int lineNo = 0;
+            AtomicInteger lineNo = new AtomicInteger();
             try (BatchTransaction btx = new BatchTransaction(db, clc.getBatchSize(), reporter)) {
-                for (String[] line : csv.readAll()) {
-                    lineNo++;
+                System.out.println("CsvEntityLoader.loadNodes");
+//                for (String[] line : csv.readAll()) {
+                csv.iterator().forEachRemaining(line -> {
+                    System.out.println("line..");
+                    lineNo.getAndIncrement();
 
                     final EnumSet<Results> results = EnumSet.of(Results.map);
                     final CSVResult result = new CSVResult(
-                            loadCsvCompatibleHeader, line, lineNo, false, mapping, Collections.emptyList(), results
+                            loadCsvCompatibleHeader, line, lineNo.get(), false, mapping, Collections.emptyList(), results
                     );
 
                     final String nodeCsvId = (String) idAttribute.map(result.map::get).orElse(null);
@@ -86,7 +90,7 @@ public class CsvEntityLoader {
                     // we either fail the loading process or skip it depending on the 'ignore duplicate nodes' setting
                     if (idField.isPresent() && idspaceIdMapping.containsKey(nodeCsvId)) {
                         if (clc.getIgnoreDuplicateNodes()) {
-                            continue;
+                            return;
                         } else {
                             throw new IllegalStateException("Duplicate node with id " + nodeCsvId + " found on line " + lineNo + "\n"
                                     + Arrays.toString(line));
@@ -129,8 +133,9 @@ public class CsvEntityLoader {
                             props += propertyAdded ? 1 : 0;
                         }
                     }
+                    btx.increment();
                     reporter.update(1, 0, props++);
-                }
+                });
             }
         }
     }
@@ -175,14 +180,19 @@ public class CsvEntityLoader {
             final CSVReader csv = new CSVReader(reader, clc.getDelimiter());
             final String[] loadCsvCompatibleHeader = fields.stream().map(f -> f.getName()).toArray(String[]::new);
 
-            int lineNo = 0;
+            AtomicInteger lineNo = new AtomicInteger();
             try (BatchTransaction btx = new BatchTransaction(db, clc.getBatchSize(), reporter)) {
-                for (String[] line : csv.readAll()) {
-                    lineNo++;
+                System.out.println("CsvEntityLoader.loadRelationships");
+//                while (csv.readNext())
+//                while(String[] strings = csv.forEach();)
+//                for (String[] line : csv.readAll()) {
+                csv.iterator().forEachRemaining(line -> {
+                    System.out.println("line..");
+                    lineNo.getAndIncrement();
 
                     final EnumSet<Results> results = EnumSet.of(Results.map);
                     final CSVResult result = new CSVResult(
-                            loadCsvCompatibleHeader, line, lineNo, false, mapping, Collections.emptyList(), results
+                            loadCsvCompatibleHeader, line, lineNo.get(), false, mapping, Collections.emptyList(), results
                     );
 
                     final Object startId = result.map.get(CsvLoaderConstants.START_ID_ATTR);
@@ -216,8 +226,9 @@ public class CsvEntityLoader {
                         boolean propertyAdded = CsvPropertyConverter.addPropertyToGraphEntity(rel, field, value, clc);
                         props += propertyAdded ? 1 : 0;
                     }
+                    btx.increment();
                     reporter.update(0, 1, props);
-                }
+                });
             }
         }
     }
