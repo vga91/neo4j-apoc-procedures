@@ -37,6 +37,7 @@ import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.isRunningInCI;
+import static apoc.util.TestUtil.testCall;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -498,6 +499,7 @@ public class ExportGraphMLTest {
         assertTrue("Should get time greater than 0", ((long) r.get("time")) > 0);
     }
 
+    @Test
     public void testExportGraphGraphMLQueryGephi() throws Exception {
         File output = new File(directory, "query.graphml");
         TestUtil.testCall(db, "call apoc.export.graphml.query('MATCH p=()-[r]->() RETURN p limit 1000',$file,{useTypes:true, format: 'gephi'}) ", map("file", output.getAbsolutePath()),
@@ -514,6 +516,16 @@ public class ExportGraphMLTest {
                     assertTrue("Should get time greater than 0",((long) r.get("time")) > 0);
                 });
         assertXMLEquals(output, EXPECTED_TYPES_PATH);
+    }
+    
+    @Test
+    public void testTodo() {
+        db.executeTransactionally("create (:Start {id: 1})-[:REL {foo: 'bar'}]->(:End {id: '1'})");
+        
+        testCall(db, "call apoc.export.graphml.query(\"MATCH (start:Start)-[rel:REL]->(end:End) RETURN rel\", null, {stream: true})\n" +
+                "YIELD  data", r -> {
+            // todo
+        });
     }
 
     @Test
