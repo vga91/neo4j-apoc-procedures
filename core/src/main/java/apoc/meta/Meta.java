@@ -209,10 +209,14 @@ public class Meta {
         public MetaResult rel(long out, long in) {
             this.type = Types.RELATIONSHIP.name();
             if (out>1) array = true;
-            leftCount += out;
-            rightCount += in;
-            left = leftCount / count;
-            right = rightCount / count;
+            left = out;
+            right = in;
+            // todo - bohh...
+            
+//            leftCount += out;
+//            rightCount += in;
+//            left = leftCount / count;
+//            right = rightCount / count;
             return this;
         }
 
@@ -869,6 +873,7 @@ public class Meta {
         StreamSupport.stream(node.getRelationshipTypes().spliterator(), false)
                 .filter(type -> types.contains(type))
                 .forEach(type -> {
+                    // out - degree outgoing, quindi per ogni nodo dovrebbe tornare il degre
                     int out = node.getDegree(type, Direction.OUTGOING);
                     if (out == 0) return;
 
