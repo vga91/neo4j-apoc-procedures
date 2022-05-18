@@ -333,6 +333,26 @@ public class MetaTest {
     }
 
     @Test
+    public void testMetaData2() throws Exception {
+//        db.executeTransactionally("create index on :Movie(title)");
+//        db.executeTransactionally("create constraint on (a:Actor) assert a.name is unique");
+        db.executeTransactionally("create (a:Person {id: 1}), (am:Movie {id: 1}), (bm:Movie {id: 2}),\n" +
+                "(a)-[:WROTE]->(am), (a)-[:WROTE]->(bm)");
+        TestUtil.testResult(db, "CALL apoc.meta.data()",
+                (r) -> {
+                    int count = 0;
+                    while (r.hasNext()) {
+                        Map<String, Object> row = r.next();
+                        // todo more assertions
+                        count ++;
+                    }
+                    assertEquals(5,count);
+                });
+    }
+    
+    
+
+    @Test
     public void testMetaSchema() {
         db.executeTransactionally("create index on :Movie(title)");
         db.executeTransactionally("create constraint on (p:Person) assert p.name is unique");

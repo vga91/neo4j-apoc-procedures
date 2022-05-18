@@ -862,12 +862,12 @@ public class Meta {
                                   Iterable<ConstraintDefinition> relConstraints, Set<String> indexes) {
         MetaResult relNodeMeta = typeMeta.get(labelName);
         relMeta.elementType(Types.of(node).name());
-        for (Relationship rel : node.getRelationships(Direction.OUTGOING, type)) {
+        for (Relationship rel : node.getRelationships(Direction.OUTGOING, type)) { // uno dei due nodi ha doppia rel, quindi ci passa 2 volte
             Node endNode = rel.getEndNode();
             List<String> labels = toStrings(endNode.getLabels());
-            int in = endNode.getDegree(type, Direction.INCOMING);
+            int in = endNode.getDegree(type, Direction.INCOMING); // todo 2 - ma se non passo le out 2 volte, poi la divisione è sempre 1 o 0!!!! --> dovrebbe essere double a sto punto.... 
             relMeta.inc().other(labels).rel(out , in);
-            relNodeMeta.inc().other(labels).rel(out,in);
+            relNodeMeta.inc().other(labels).rel(out,in); // todo - !!!!! ci passa 2 volte con out = 2, quindi raddoppia sto stronzo, dovrei fare che quando
             addProperties(typeMeta, type.name(), relConstraints, indexes, rel, node);
             relNodeMeta.elementType(Types.RELATIONSHIP.name());
         }
