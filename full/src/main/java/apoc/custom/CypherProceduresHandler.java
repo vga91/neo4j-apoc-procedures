@@ -41,6 +41,7 @@ import org.neo4j.scheduler.JobScheduler;
 import org.neo4j.values.AnyValue;
 import org.neo4j.values.ValueMapper;
 import org.neo4j.values.storable.Values;
+import org.neo4j.values.virtual.MapValue;
 import org.neo4j.values.virtual.MapValueBuilder;
 import org.neo4j.values.virtual.VirtualValues;
 
@@ -585,6 +586,9 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                     return VirtualValues.list(objects);
                 } else if (toConvert instanceof Map) {
                     Map<String, Object> map = (Map) toConvert;
+                    if (map.isEmpty()) {
+                        return MapValue.EMPTY;
+                    }
                     MapValueBuilder builder = new MapValueBuilder(map.size());
                     map.entrySet().stream().forEach(e -> {
                         builder.add(e.getKey(), convertToValueRecursive(e.getValue()));

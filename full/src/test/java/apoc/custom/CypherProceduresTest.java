@@ -703,6 +703,17 @@ public class CypherProceduresTest  {
         assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, procedureSignature), 
                 "call apoc.custom.declareProcedure('" + procedureSignature + "','RETURN $first + $s AS answer')");
     }
+
+    @Test
+    public void testIssue2909() {
+        db.executeTransactionally("CALL apoc.custom.declareProcedure('emptyProc() :: (answer::MAP)','RETURN {} as answer')");
+        TestUtil.testCall(db, "call custom.emptyProc", 
+                (row) -> assertEquals(Collections.emptyMap(), row.get("answer")));
+        
+        db.executeTransactionally("CALL apoc.custom.declareFunction('emptyFun() :: MAP', 'RETURN {} AS row')");
+        TestUtil.testCall(db, "return custom.emptyFun() AS answer", 
+                (row) -> assertEquals(Collections.emptyMap(), ((Map) row.get("answer")).get("row")));
+    }
     
 
     private void assertProcedureFails(String expectedMessage, String query) {
