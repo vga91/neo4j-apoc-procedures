@@ -7,6 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.schema.ConstraintType;
 import org.neo4j.graphdb.schema.Schema;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.PointValue;
@@ -174,6 +175,7 @@ public class JsonImporter implements Closeable {
             final String importIdName = importJsonConfig.getImportIdName();
             final String missingConstraint = labels.stream().filter(label -> 
                     StreamSupport.stream(schema.getConstraints(Label.label(label)).spliterator(), false)
+                            .filter(c -> c.isConstraintType(ConstraintType.UNIQUENESS))
                             .noneMatch(constraint -> Iterables.contains(constraint.getPropertyKeys(), importIdName))
             ).findAny()
             .orElse(null);
