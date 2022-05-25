@@ -1,18 +1,14 @@
 package apoc.export.json;
 
 import apoc.util.CompressionAlgo;
-import apoc.util.MapUtil;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestUtil;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.neo4j.driver.Session;
 
 import java.io.File;
-import java.nio.file.Path;
-import java.util.Map;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.export.json.JsonImporter.MISSING_CONSTRAINT_ERROR_MSG;
@@ -20,16 +16,12 @@ import static apoc.util.BinaryTestUtil.fileToBinary;
 import static apoc.util.CompressionConfig.COMPRESSION;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.TestContainerUtil.testCall;
-import static apoc.util.TestContainerUtil.testResult;
-import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.Util.map;
 import static java.lang.String.format;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
-import static org.neo4j.configuration.GraphDatabaseSettings.load_csv_file_url_root;
 
 public class ImportJsonEnterpriseTest {
 
@@ -38,12 +30,10 @@ public class ImportJsonEnterpriseTest {
 
     @BeforeClass
     public static void beforeAll() throws Exception {
-        final String path = new File("../docs/asciidoc/modules/ROOT/examples/data/exportJSON").getCanonicalFile().toString();
-        System.out.println("path = " + path);
         TestUtil.ignoreException(() -> {
             // We build the project, the artifact will be placed into ./build/libs
             neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
-                    .withEnv(Map.of(load_csv_file_url_root.name(), path, APOC_IMPORT_FILE_ENABLED, "true"));
+                    .withEnv(APOC_IMPORT_FILE_ENABLED, "true");
             neo4jContainer.start();
         }, Exception.class);
         assumeNotNull(neo4jContainer);
@@ -76,8 +66,6 @@ public class ImportJsonEnterpriseTest {
                     r -> fail("Should fail due to missing constraint"));
         } catch (Exception e) {
             String expectedMsg = format(MISSING_CONSTRAINT_ERROR_MSG, "User", "neo4jImportId");
-            System.out.println("expectedMsg = " + expectedMsg);
-            System.out.println("e.getMessage() = " + e.getMessage());
             assertTrue(e.getMessage().contains(expectedMsg));
         }
 
