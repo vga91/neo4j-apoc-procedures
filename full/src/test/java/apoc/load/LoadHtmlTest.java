@@ -68,21 +68,25 @@ public class LoadHtmlTest {
     }
     
     @Test
-    public void testParseGeneratedJsInvalidConfigs() {
+    public void testParseGeneratedJsWrongConfigs() {
         String errorInvalidConfig = "Invalid config";
-        assertInvalidConfig(map("browser", CHROME, "operatingSystem", "dunno"), errorInvalidConfig);
+        assertWrongConfig(errorInvalidConfig,
+                map("browser", CHROME, "operatingSystem", "dunno"));
 
-        assertInvalidConfig(map("browser", FIREFOX, "architecture", "dunno"), errorInvalidConfig);
+        assertWrongConfig(errorInvalidConfig,
+                map("browser", FIREFOX, "architecture", "dunno"));
         
-        String errorBrowserVersion = "io.github.bonigarcia.wdm.config.WebDriverManagerException: No proper candidate URL to download geckodriver 0.3.0";
-        assertInvalidConfig(map("browser", FIREFOX, "browserVersion", "99999.9", "avoidFallback", true), errorBrowserVersion);
+        assertWrongConfig("Error HTTP 401 executing", 
+                map("browser", FIREFOX, 
+                        "gitHubToken", "12345", 
+                        "forceDownload", true));
     }
     
-    private void assertInvalidConfig(Map<String, Object> config, String msgError) {
+    private void assertWrongConfig(String msgError, Map<String, Object> config) {
         try {
             testCall(db, "CALL apoc.load.html($url, $query, $config)",
                     map("url", URL_HTML_JS, "query", map("a", "a"), "config", config),
-                    r -> fail());
+                    r -> fail("Should fails due to wrong configuration"));
         } catch (RuntimeException e) {
             assertTrue(e.getMessage().contains(msgError));
         }

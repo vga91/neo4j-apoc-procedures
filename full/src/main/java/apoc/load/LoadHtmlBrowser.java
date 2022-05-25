@@ -43,21 +43,11 @@ public class LoadHtmlBrowser {
     }
     
     private static void setupWebDriverManager(WebDriverManager driver, LoadHtmlConfig config) {
-        ofNullable(config.getDriverVersion()).ifPresentOrElse(driver::driverVersion, () -> {
-            // currently we have to force default driver firefox version, because there is a bug with latest default driver
-            if (config.getBrowser().equals(LoadHtmlConfig.Browser.FIREFOX)) {
-                driver.driverVersion("0.3.0");
-            }
-        });
-        
+        // strings
+        ofNullable(config.getDriverVersion())
+                .ifPresent(driver::driverVersion);
         ofNullable(config.getBrowserVersion())
                 .ifPresent(driver::browserVersion);
-        ofNullable(config.getDriverRepositoryUrl())
-                .ifPresent(c -> driver.driverRepositoryUrl(fromUrl(c)));
-        ofNullable(config.getVersionsPropertiesUrl())
-                .ifPresent(c -> driver.versionsPropertiesUrl(fromUrl(c)));
-        ofNullable(config.getCommandsPropertiesUrl())
-                .ifPresent(c -> driver.commandsPropertiesUrl(fromUrl(c)));
         ofNullable(config.getCachePath())
                 .ifPresent(driver::cachePath);
         ofNullable(config.getResolutionCachePath())
@@ -71,14 +61,21 @@ public class LoadHtmlBrowser {
         ofNullable(config.getGitHubToken())
                 .ifPresent(driver::gitHubToken);
         
+        // URLs
+        ofNullable(config.getDriverRepositoryUrl())
+                .ifPresent(c -> driver.driverRepositoryUrl(fromUrl(c)));
+        ofNullable(config.getVersionsPropertiesUrl())
+                .ifPresent(c -> driver.versionsPropertiesUrl(fromUrl(c)));
+        ofNullable(config.getCommandsPropertiesUrl())
+                .ifPresent(c -> driver.commandsPropertiesUrl(fromUrl(c)));
+        
+        // enums
         ofNullable(config.getOperatingSystem())
                 .ifPresent(c -> driver.operatingSystem(OperatingSystem.valueOf(c)));
         ofNullable(config.getArchitecture())
                 .ifPresent(c -> driver.architecture(Architecture.valueOf(c)));
         
-        ofNullable(config.getIgnoreDriverVersions())
-                .ifPresent(cfg -> driver.ignoreDriverVersions(cfg.toArray(String[]::new)));
-        
+        // booleans
         if (config.isForceDownload()) {
             driver.forceDownload();
         }
@@ -116,6 +113,7 @@ public class LoadHtmlBrowser {
             driver.useLocalVersionsPropertiesFirst();
         }
 
+        // ints
         ofNullable(config.getTimeout()).ifPresent(driver::timeout);
         ofNullable(config.getTtl()).ifPresent(driver::ttl);
         ofNullable(config.getTtlBrowsers()).ifPresent(driver::ttlBrowsers);
