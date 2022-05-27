@@ -15,5 +15,8 @@ The `apoc.periodic.*` procedures provide such capabilities.
 
 
 
+TODO...
 
+It is also possible to set listeners on one or more folders, to execute custom cypher queries:
 
+* xref::background-operations/apoc-load-directory-async.adoc[]

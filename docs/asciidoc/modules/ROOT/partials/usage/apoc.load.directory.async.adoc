@@ -1,3 +1,5 @@
+We can pass from 2 to 5 parameter in the `apoc.load.directory.async.add`.
+
 The first parameter is the name of our custom watch listener.
 If we use an already existing listener name, that listener will be overwritten.
 The second parameter is the cypher query that will be executed.
@@ -187,6 +189,19 @@ We obtain this result calling `MATCH (n:JsonToNode) RETURN properties(n) as prop
 }
 |===
 
+
+=== List and remove procedures
+
+We can
+
+For example, if we execute execute TODO and TODO
+
+[source,cypher]
+----
+CALL apoc.trigger.list();
+----
+
+
 === Error handling
 
 When for some reason, the listener fails, its `status` field change from `RUNNING` to `ERROR`, and the associated error is output.
@@ -252,3 +267,4 @@ Instead, if we set `apoc.import.file.use_neo4j_config=false`, we can search with
 ----
 CALL apoc.load.directory.async.add('test', 'CREATE (n:Test)', '*.csv', 'file:///Users/username/Downloads');
 ----
+
