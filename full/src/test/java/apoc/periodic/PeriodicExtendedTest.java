@@ -1,21 +1,35 @@
 package apoc.periodic;
 
+import apoc.create.Create;
 import apoc.load.Jdbc;
+import apoc.log.Logging;
 import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.neo4j.common.DependencyResolver;
+import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.dbms.api.DatabaseManagementService;
+import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.exceptions.Status;
 import org.neo4j.kernel.impl.api.KernelTransactions;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
+import org.neo4j.logging.AssertableLogProvider;
+import org.neo4j.logging.LogAssert;
+import org.neo4j.test.TestDatabaseManagementServiceBuilder;
+import org.neo4j.test.assertion.Assert;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.io.File;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
@@ -24,13 +38,55 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 public class PeriodicExtendedTest {
+    public static AssertableLogProvider logProvider = new AssertableLogProvider();
+    
+//    private static File directory = new File("target/logs");
+//    static { //noinspection ResultOfMethodCallIgnored
+//        directory.mkdirs();
+//    }
+
+
+//    @Rule
+//    public TemporaryFolder STORE_DIR = new TemporaryFolder();
 
     @Rule
-    public DbmsRule db = new ImpermanentDbmsRule();
+    public DbmsRule db = new ImpermanentDbmsRule(logProvider);
+    
+//    private GraphDatabaseService db;
+    
+//    @Rule
+//    public GraphDatabaseService db;
+//        = new ImpermanentDbmsRule()
+//            .withSetting(GraphDatabaseSettings.logs_directory, STORE_DIR.getRoot().toPath());
 
     @Before
     public void initDb() {
-        TestUtil.registerProcedure(db, Periodic.class, PeriodicExtended.class, Jdbc.class);
+//        DatabaseManagementService databaseManagementService = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
+//        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+//        db  = new ImpermanentDbmsRule()
+//                .withSetting(GraphDatabaseSettings.logs_directory, STORE_DIR.getRoot().toPath());
+//        db.ensureStarted();
+//        DatabaseManagementService databaseManagementService = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
+//        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+        
+        TestUtil.registerProcedure(db, Periodic.class, PeriodicExtended.class, Jdbc.class, Logging.class, Create.class);
+    }
+
+    @Test
+    public void testRepeatWithReturn() throws InterruptedException {
+        final String log1 = "ajeje";
+        db.executeTransactionally("CALL apoc.periodic.repeat('repeat-1', 'CALL apoc.log.info($log)', 2, {params: {log: $log}}) ", 
+                map("log", log1));
+        final String log2 = "brazorf";
+        db.executeTransactionally("CALL apoc.periodic.repeat('repeat-2', 'CALL apoc.log.info($log) RETURN 1', 2, {params: {log: $log}}) ",
+                map("log", log2));
+
+        Thread.sleep(5000);
+        
+        // print logs and assert
+        logProvider.print(System.out);
+        final LogAssert logAssert = new LogAssert(logProvider);
+        logAssert.containsMessages(log1, log2);
     }
 
     @Test

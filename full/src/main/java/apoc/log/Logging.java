@@ -42,6 +42,7 @@ public class Logging {
     @Description("apoc.log.info(message, params) - logs info message")
     public void info(@Name("message") String message,
                      @Name(value = "params", defaultValue = "[]") List<Object> params) {
+        System.out.println("Logging.info " + message);
         log((logMessage) -> log.info(logMessage), message, params);
     }
 

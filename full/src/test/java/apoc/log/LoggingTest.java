@@ -9,6 +9,7 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.neo4j.exceptions.KernelException;
 import org.neo4j.logging.AssertableLogProvider;
+import org.neo4j.logging.LogAssert;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -212,6 +213,16 @@ public class LoggingTest {
 
         // then
         logProvider.print(System.out);
+//        final boolean prova = logProvider.getLogCalls().stream().anyMatch(i -> i.getMessage().toLowerCase().contains("prova"));
+//        final boolean ajeje = logProvider.getLogCalls().stream().anyMatch(i -> i.getMessage().toLowerCase().contains("ajeje"));
+
+
+        final LogAssert logAssert = new LogAssert(logProvider);
+        
+        final LogAssert prova = logAssert.containsMessages("prova");
+        logAssert.containsMessages("ajeje");
+                
+        System.out.println("LoggingTest.shouldCallTheProcedure");
 //        logProvider.assertExactly(new LogMatcherBuilder(Matchers.equalTo("org.neo4j.kernel.api.procedure.GlobalProcedures")).warn("prova_"));
     }
 }
