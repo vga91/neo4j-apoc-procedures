@@ -18,6 +18,7 @@ import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.config.Setting;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
@@ -27,6 +28,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,9 +38,11 @@ import static apoc.ApocConfig.APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_USE_NEO4J_CONFIG;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.ApocSettings.apoc_jobs_pool_num_threads;
 import static apoc.load.LoadDirectoryItem.DEFAULT_EVENT_TYPES;
 import static apoc.util.TestUtil.getUrlFileName;
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testCallCount;
 import static apoc.util.TestUtil.testCallEmpty;
 import static apoc.util.TestUtil.testResult;
 import static java.util.Collections.emptyMap;
@@ -51,11 +55,14 @@ import static org.junit.Assert.assertTrue;
 import static org.neo4j.test.assertion.Assert.assertEventually;
 
 public class LoadDirectoryTest {
-
+    private static final Class[] PROCS_TO_REGISTER = { LoadDirectory.class, LoadCsv.class, LoadJson.class };
+    
     @ClassRule
     public static TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     private static GraphDatabaseService db;
+    private static DatabaseManagementService databaseManagementService;
+    private static File importFolder;
     private static String importPath;
 
     private static final String IMPORT_DIR = "impo rt";
@@ -78,12 +85,14 @@ public class LoadDirectoryTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        File importFolder = new File(temporaryFolder.getRoot() + File.separator + IMPORT_DIR);
+        importFolder = new File(temporaryFolder.getRoot() + File.separator + IMPORT_DIR);
         importPath = encodePath(FILE_PROTOCOL + importFolder.getPath());
-        DatabaseManagementService databaseManagementService = new TestDatabaseManagementServiceBuilder(importFolder.toPath()).build();
+        databaseManagementService = new TestDatabaseManagementServiceBuilder(importFolder.toPath())
+                .setConfig(apoc_jobs_pool_num_threads, 10L)
+                .build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
 
-        TestUtil.registerProcedure(db, LoadDirectory.class, LoadCsv.class, LoadJson.class);
+        TestUtil.registerProcedure(db, PROCS_TO_REGISTER);
         apocConfig().setProperty(APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM, true);
 
         // create temp files and subfolder
@@ -230,7 +239,7 @@ public class LoadDirectoryTest {
 
     }
 
-    private void assertIsRunning(String name) {
+    private void assertIsRunning(String name) throws Error {
         assertEventually(() -> db.executeTransactionally("CALL apoc.load.directory.async.list() YIELD name, status " +
                         "WHERE name = $name " +
                         "RETURN *",
@@ -656,5 +665,92 @@ public class LoadDirectoryTest {
                     assertFalse(result.hasNext());
                 }
         );
+    }
+
+    private void restartDb(Map<Setting<?>, Object> configs, Class<?>...procsToRegister) {
+        databaseManagementService.shutdown();
+        databaseManagementService = new TestDatabaseManagementServiceBuilder(importFolder.toPath())
+                .setConfig(configs).build();
+//                .setConfig(apoc_jobs_pool_num_threads, 10L).build();
+        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+        assertTrue(db.isAvailable(1000));
+        TestUtil.registerProcedure(db, procsToRegister);
+    }
+
+    @Test
+    public void testWithLimit() throws Exception {
+//        apocConfig().setProperty(APOC_CONFIG_JOBS_POOL_NUM_THREADS, 100);
+        
+        
+//        restartDb(Map.of(apoc_jobs_pool_num_threads, 10L), PROCS_TO_REGISTER);
+        // to make sure all config on
+//        before();
+        
+//        apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
+//        apocConfig().setProperty(APOC_IMPORT_FILE_USE_NEO4J_CONFIG, true);
+        
+//        File importFolder = new File(temporaryFolder.getRoot() + File.separator + IMPORT_DIR);
+//        databaseManagementService.shutdown();
+//        databaseManagementService = new TestDatabaseManagementServiceBuilder(importFolder.toPath()).build();
+//        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+
+//        TestUtil.registerProcedure(db, LoadDirectory.class, LoadCsv.class, LoadJson.class);
+//        apocConfig().setProperty(APOC_IMPORT_FILE_ALLOW__READ__FROM__FILESYSTEM, true);
+
+        final int expected = 15;
+        getExpected(expected);
+//        IntStream.range(0, 20).forEach(i -> {
+//            final String name = "test" + i;
+//            db.executeTransactionally("CALL apoc.load.directory.async.add($nameListener,'CREATE (n:TestOne)', '*.csv', '', {}) YIELD name RETURN name", 
+//                    Map.of("nameListener", name));
+//            try { 
+//                assertIsRunning(name);
+//            } catch (AssertionError e) {
+//                return;
+//            }
+//        });
+//        db.executeTransactionally("CALL apoc.load.directory.async.add('testOne','CREATE (n:TestOne)', '*.csv', '', {}) YIELD name RETURN name");
+//        assertIsRunning("testOne");
+//        db.executeTransactionally("CALL apoc.load.directory.async.add('testTwo','CREATE (n:TestTwo)', '*.json', '', {}) YIELD name RETURN name");
+//        assertIsRunning("testTwo");
+//        System.out.println("ok = ");
+//        db.executeTransactionally("CALL apoc.load.directory.async.add('testThree','CREATE (n:TestTwo)', '*.json', '', {}) YIELD name RETURN name");
+//        assertIsRunning("testThree");
+
+        long count = TestUtil.singleResultFirstColumn(db, "CALL apoc.load.directory.async.list() YIELD name RETURN count(name)");
+        assertTrue(count < expected);
+
+
+        testCallEmpty(db, "CALL apoc.load.directory.async.removeAll()", emptyMap());
+
+//        System.out.println("LoadDirectoryTest.testWithLimit");
+//        testCallCount(db, "CALL apoc.load.directory.async.list", 0);
+        
+
+        // now with increased apoc.jobs.pool.num_threads
+//        TestUtil.restartDb(databaseManagementService, importFolder.toPath(), db, Map.of(apoc_jobs_pool_num_threads, 40L), PROCS_TO_REGISTER);
+        restartDb(Map.of(apoc_jobs_pool_num_threads, 40L), PROCS_TO_REGISTER);
+        // to make sure all config on
+        before();
+        getExpected(expected);
+        testCallCount(db, "CALL apoc.load.directory.async.list", expected);
+
+        testCallEmpty(db, "CALL apoc.load.directory.async.removeAll()", emptyMap());
+                
+    }
+
+    private void getExpected(int expected) {
+//        final int expected = 15;
+        for (int i = 0; i < expected; i++) {
+            final String name = "test" + i;
+            db.executeTransactionally("CALL apoc.load.directory.async.add($nameListener,'CREATE (n:TestOne)', '*.csv', '', {}) YIELD name RETURN name",
+                    Map.of("nameListener", name));
+            try {
+                assertIsRunning(name);
+            } catch (Throwable e) {
+                break;
+            }
+        }
+//        return expected;
     }
 }

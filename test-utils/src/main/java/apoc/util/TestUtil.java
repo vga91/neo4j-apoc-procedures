@@ -3,21 +3,26 @@ package apoc.util;
 import com.google.common.io.Files;
 import org.apache.commons.io.FileUtils;
 import org.hamcrest.Matcher;
+import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.exceptions.KernelException;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.config.Setting;
 import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.procedure.GlobalProcedures;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
+import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -223,4 +228,13 @@ public class TestUtil {
     public static <T> List<T> firstColumn(GraphDatabaseService db, String cypher) {
         return db.executeTransactionally(cypher , Collections.emptyMap(), result -> Iterators.asList(iteratorSingleColumn(result)));
     }
+    
+//    public static void restartDb(DatabaseManagementService service, Path homeDirectory, GraphDatabaseService db, Map<Setting<?>, Object> configs, Class<?>...procsToRegister) {
+//        service.shutdown();
+//        service = new TestDatabaseManagementServiceBuilder(homeDirectory)
+//                .setConfig(configs).build();
+//        db = service.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+//        assertTrue(db.isAvailable(3000));
+//        TestUtil.registerProcedure(db, procsToRegister);
+//    }
 }
