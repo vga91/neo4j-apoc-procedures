@@ -75,7 +75,6 @@ public class LoadDirectory {
     @Procedure("apoc.load.directory.async.removeAll")
     @Description("apoc.load.directory.async.removeAll() - Remove all folder listeners")
     public Stream<LoadDirectoryItem.LoadDirectoryResult> removeAll() {
-        System.out.println("LoadDirectory.removeAll");
         loadDirectoryHandler.removeAll();
         return Stream.empty();
     }
