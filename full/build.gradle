@@ -120,10 +120,10 @@ dependencies {
 
     compileOnly group: 'org.neo4j', name: 'neo4j', version: neo4jVersionEffective
 
-    compileOnly group: 'com.fasterxml.jackson.module', name: 'jackson-module-kotlin', version: '2.13.2'
+    compileOnly group: 'com.fasterxml.jackson.module', name: 'jackson-module-kotlin', version: '2.13.2', withoutJacksons
     compileOnly 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.0'
 
-    testCompile group: 'com.fasterxml.jackson.module', name: 'jackson-module-kotlin', version: '2.13.2'
+    testCompile group: 'com.fasterxml.jackson.module', name: 'jackson-module-kotlin', version: '2.13.2', withoutJacksons
     testCompile 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.6.0'
 
     testCompile 'org.mock-server:mockserver-netty:5.6.0'
@@ -153,8 +153,8 @@ dependencies {
     testCompile group: 'org.skyscreamer', name: 'jsonassert', version: '1.5.0'
     testCompile group: 'org.assertj', name: 'assertj-core', version: '3.13.2'
 
-    compileOnly group: 'com.google.cloud', name: 'google-cloud-storage', version: '1.92.0'
-    testCompile group: 'com.google.cloud', name: 'google-cloud-storage', version: '1.92.0', {
+    compileOnly group: 'com.google.cloud', name: 'google-cloud-storage', version: '2.6.1'
+    testCompile group: 'com.google.cloud', name: 'google-cloud-storage', version: '2.6.1', {
         exclude group: 'com.google.guava', module: 'guava'
     }
 
