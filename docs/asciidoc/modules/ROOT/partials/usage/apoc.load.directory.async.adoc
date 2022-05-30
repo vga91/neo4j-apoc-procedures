@@ -192,14 +192,25 @@ We obtain this result calling `MATCH (n:JsonToNode) RETURN properties(n) as prop
 
 === List and remove procedures
 
-We can
-
-For example, if we execute execute TODO and TODO
+We can see the list of 
 
 [source,cypher]
 ----
 CALL apoc.trigger.list();
 ----
+
+For example, if we execute a
+`CALL apoc.load.directory.async.add('csvImport',
+"CALL apoc.load.csv($filePath) yield list WITH list CREATE (n:CsvToNode {content: list, fileName: $fileName, fileDirectory: $fileDirectory, listenEventType: $listenEventType})",
+"*.csv", "csvFolder" ,{listenEventType: ["CREATE", "MODIFY"]})`,
+the result will be:
+
+.Results
+[opts="header"]
+|===
+| name | status | pattern | cypher | urlDir | config | error
+| "csvImport"	 | "RUNNING"	 | "*.csv" | "CALL apoc.load.csv($filePath) yield list WITH list CREATE (n:CsvToNode {content: list, fileName: $fileName, fileDirectory: $fileDirectory, listenEventType: $listenEventType})" | <importUrlDir> | {"listenEventType": ["CREATE", "MODIFY"], "interval": 1000 } | ""
+|===
 
 
 === Error handling
