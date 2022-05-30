@@ -7,7 +7,6 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.neo4j.exceptions.KernelException;
 import org.neo4j.logging.AssertableLogProvider;
 import org.neo4j.logging.LogAssert;
 import org.neo4j.test.rule.DbmsRule;
@@ -19,7 +18,6 @@ import java.util.stream.IntStream;
 
 import static apoc.ApocConfig.apocConfig;
 import static java.util.Arrays.asList;
-import static org.junit.Assert.*;
 
 public class LoggingTest {
 
@@ -204,25 +202,18 @@ public class LoggingTest {
     }
 
     @Test
-    public void shouldCallTheProcedure() throws KernelException {
+    public void shouldCallTheProcedure() {
         // given
         TestUtil.registerProcedure(db, Logging.class);
+        // not to conflict with the other tests
+        apocConfig().setRateLimiter(new SimpleRateLimiter(1, 20));
 
         // when
-        db.executeTransactionally("CALL apoc.log.warn('Prova %s', [1])");
+        db.executeTransactionally("CALL apoc.log.info('Prova %s', [1])");
 
         // then
         logProvider.print(System.out);
-//        final boolean prova = logProvider.getLogCalls().stream().anyMatch(i -> i.getMessage().toLowerCase().contains("prova"));
-//        final boolean ajeje = logProvider.getLogCalls().stream().anyMatch(i -> i.getMessage().toLowerCase().contains("ajeje"));
-
-
         final LogAssert logAssert = new LogAssert(logProvider);
-        
-        final LogAssert prova = logAssert.containsMessages("prova");
-        logAssert.containsMessages("ajeje");
-                
-        System.out.println("LoggingTest.shouldCallTheProcedure");
-//        logProvider.assertExactly(new LogMatcherBuilder(Matchers.equalTo("org.neo4j.kernel.api.procedure.GlobalProcedures")).warn("prova_"));
+        logAssert.containsMessages("prova_1");
     }
 }

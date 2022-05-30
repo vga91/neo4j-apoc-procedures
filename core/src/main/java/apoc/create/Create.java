@@ -27,7 +27,6 @@ public class Create {
     @Procedure(mode = Mode.WRITE)
     @Description("apoc.create.node(['Label'], {key:value,...}) - create node with dynamic labels")
     public Stream<NodeResult> node(@Name("label") List<String> labelNames, @Name("props") Map<String, Object> props) {
-        System.out.println("Create.node");
         return Stream.of(new NodeResult(setProperties(tx.createNode(Util.labels(labelNames)),props)));
     }
 
