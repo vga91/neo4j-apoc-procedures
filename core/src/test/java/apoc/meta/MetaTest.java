@@ -33,6 +33,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +54,7 @@ import static java.util.Collections.singletonMap;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.SettingImpl.newBuilder;
@@ -494,38 +496,94 @@ public class MetaTest {
     }
     @Test
     public void testSubGraphLimitLabels() throws Exception {
-        db.executeTransactionally("CREATE (:A)-[:X]->(b:B),(b)-[:Y]->(:C)");
-        testCall(db,"CALL apoc.meta.subGraph({labels:['A','B']})", (row) -> {
-            List<Node> nodes = (List<Node>) row.get("nodes");
-            List<Relationship> rels = (List<Relationship>) row.get("relationships");
-            assertEquals(2, nodes.size());
-            assertEquals(true, nodes.stream().map(n -> Iterables.first(n.getLabels()).name()).allMatch(n -> n.equals("A") || n.equals("B")));
-            assertEquals(1, rels.size());
-            assertEquals(true, rels.stream().map(r -> r.getType().name()).allMatch(n -> n.equals("X")));
-        });
+        final String labels = "labels";
+        testSubgraphLabelsCommon(labels);
     }
+
+    private void testSubgraphLabelsCommon(String labels) {
+        db.executeTransactionally("CREATE (:A)-[:X]->(b:B),(b)-[:Y]->(:C)");
+        testCall(db, "CALL apoc.meta.subGraph($conf)",
+                map("conf", map(labels, List.of("A", "B"))), (row) -> {
+                    List<Node> nodes = (List<Node>) row.get("nodes");
+                    List<Relationship> rels = (List<Relationship>) row.get("relationships");
+                    assertEquals(2, nodes.size());
+                    assertEquals(true, nodes.stream().map(n -> Iterables.first(n.getLabels()).name()).allMatch(n -> n.equals("A") || n.equals("B")));
+                    assertEquals(1, rels.size());
+                    assertEquals(true, rels.stream().map(r -> r.getType().name()).allMatch(n -> n.equals("X")));
+                });
+    }
+
+    @Test
+    public void testSubGraphWithIncludeLabels() throws Exception {
+        final String labels = "includeLabels";
+        testSubgraphLabelsCommon(labels);
+    }
+    
     @Test
     public void testSubGraphLimitRelTypes() throws Exception {
-        db.executeTransactionally("CREATE (:A)-[:X]->(b:B),(b)-[:Y]->(:C)");
-        testCall(db,"CALL apoc.meta.subGraph({rels:['X']})", (row) -> {
+        final String relsConf = "rels";
+        assertTodoName(relsConf);
+    }
+    
+    @Test
+    public void testSubGraphLimitRelTypesTODO() throws Exception {
+        final String relsConf = "includeRels";
+        assertTodoName(relsConf);
+    }
+
+    private void assertTodoName(String relsConf) {
+        final Consumer<Map<String, Object>> consumer = (row) -> {
             List<Node> nodes = (List<Node>) row.get("nodes");
             List<Relationship> rels = (List<Relationship>) row.get("relationships");
             assertEquals(3, nodes.size());
             assertEquals(true, nodes.stream().map(n -> Iterables.first(n.getLabels()).name()).allMatch(n -> n.equals("A") || n.equals("B") || n.equals("C")));
             assertEquals(1, rels.size());
             assertEquals(true, rels.stream().map(r -> r.getType().name()).allMatch(n -> n.equals("X")));
-        });
+        };
+        final Map<String, Object> conf = map(relsConf, List.of("X"));
+        testGraphCommon(conf, consumer);
     }
+
     @Test
-    public void testSubGraphExcludes() throws Exception {
+    public void testSubGraphExcludes() {
+        final String relsConf = "excludes";
+        testExcludeLabelsCommon(relsConf);
+    }
+
+    @Test
+    public void testSubGraphExcludesTODONAME() {
+        final String relsConf = "excludeLabels";
+        testExcludeLabelsCommon(relsConf);
+    }
+
+    private void testGraphCommon(Map<String, Object> conf, Consumer<Map<String, Object>> consumer) {
         db.executeTransactionally("CREATE (:A)-[:X]->(b:B),(b)-[:Y]->(:C)");
-        testCall(db,"CALL apoc.meta.subGraph({excludes:['B']})", (row) -> {
+        testCall(db, "CALL apoc.meta.subGraph($conf)", map("conf", conf), consumer);
+    }
+
+    private void testExcludeLabelsCommon(String relsConf) {
+        final Consumer<Map<String, Object>> consumer = (row) -> {
             List<Node> nodes = (List<Node>) row.get("nodes");
             List<Relationship> rels = (List<Relationship>) row.get("relationships");
             assertEquals(2, nodes.size());
             assertEquals(true, nodes.stream().map(n -> Iterables.first(n.getLabels()).name()).allMatch(n -> n.equals("A") || n.equals("C")));
             assertEquals(0, rels.size());
-        });
+        };
+        final Map<String, Object> conf = map(relsConf, List.of("B"));
+        testGraphCommon(conf, consumer);
+    }
+
+    @Test
+    public void testMetaSubgraphBothIncludeAndExclude() {
+        // todo - vale per tutti i meta???
+        
+        final Consumer<Map<String, Object>> consumer = (row) -> {
+            assertEquals(Collections.emptyList(), row.get("nodes"));
+            assertEquals(Collections.emptyList(), row.get("relationships"));
+        };
+        final Map<String, Object> conf = map("excludeLabels", List.of("B"),
+                "includeLabels", List.of("B"));
+        testGraphCommon(conf, consumer);
     }
 
     @Test
@@ -1418,6 +1476,24 @@ public class MetaTest {
                         "CALL apoc.meta.graph.of(graph) YIELD nodes, relationships " +
                         "RETURN *",
                 assertResult);
+    }
+    
+    @Test
+    public void testMetaRelTypePropertiesWithManyRels() {
+        db.executeTransactionally("UNWIND range (0, 200) as idx CREATE (a:A)-[:FIRST_A]-> (b:B)");
+        db.executeTransactionally("CREATE (a:A)-[:FIRST_A {a: 1}]->(b:B)");
+        
+        // with default maxRels
+        testCall(db, "CALL apoc.meta.relTypeProperties({includeRels: ['FIRST_A']})", r -> {
+            assertNull(r.get("propertyTypes"));
+            assertNull(r.get("propertyName"));
+        });
+
+        // with maxRels incremented
+        testCall(db, "CALL apoc.meta.relTypeProperties({includeRels: ['FIRST_A'], maxRels: 1000})", r -> {
+            assertEquals(List.of("Long"), r.get("propertyTypes"));
+            assertEquals("a", r.get("propertyName"));
+        });
     }
     
     @Test
