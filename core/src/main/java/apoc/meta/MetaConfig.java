@@ -38,6 +38,8 @@ public class MetaConfig {
 
         // To maintain backwards compatibility, need to still support "labels", "rels" and "excludes" for "includeLabels", "includeRels" and "excludeLabels" respectively.
 
+        // todo - controllare tutti i config con labels, rels, excludes ed in caso mettere anche test "non deprecati"
+        
         Set<String> includesLabelsLocal = new HashSet<>((Collection<String>)config.getOrDefault("labels",Collections.EMPTY_SET));
         Set<String> includesRelsLocal = new HashSet<>((Collection<String>)config.getOrDefault("rels",Collections.EMPTY_SET));
         Set<String> excludesLocal = new HashSet<>((Collection<String>)config.getOrDefault("excludes",Collections.EMPTY_SET));
@@ -76,7 +78,7 @@ public class MetaConfig {
     }
 
     public Set<String> getExcludeRels() {
-        return excludeRels;
+        return excludeRels; // todo - manca adoc e tests..
     }
 
     public long getSample() {
@@ -84,7 +86,7 @@ public class MetaConfig {
     }
 
     public long getMaxRels() {
-        return maxRels;
+        return maxRels; // todo, mancano test e adoc ..., almeno in meta.graph, ma penso anche in altri...
     }
 
     /**
