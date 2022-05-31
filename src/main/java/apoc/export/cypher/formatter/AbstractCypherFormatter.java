@@ -18,8 +18,8 @@ import java.util.stream.StreamSupport;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.Q_UNIQUE_ID_LABEL;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.Q_UNIQUE_ID_REL;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_PROP;
-import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_REL;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.quote;
+import static apoc.export.cypher.formatter.CypherFormatterUtils.simpleKeyValue;
 
 /**
  * @author AgileLARUS
@@ -117,7 +117,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 		result.append(", ");
 		result.append(CypherFormatterUtils.formatNodeLookup("n2", relationship.getEndNode(), uniqueConstraints, indexedProperties));
 		String mergeUniqueKey = exportConfig.isUniqueIdRels()
-				? String.format("{%s:%s}", Util.quote(UNIQUE_ID_REL), relationship.getId())
+				? simpleKeyValue(Q_UNIQUE_ID_REL, relationship.getId())
 				: "";
 		result.append(" MERGE (n1)-[r:" + Util.quote(relationship.getType().name()) + mergeUniqueKey + "]->(n2)");
 		if (relationship.getPropertyKeys().iterator().hasNext()) {
@@ -342,7 +342,7 @@ abstract class AbstractCypherFormatter implements CypherFormatter {
 		// create the relationship (depends on the strategy)
 		out.append(relationshipClause);
 		String mergeUniqueKey = (exportConfig.isUniqueIdRels())
-				? String.format("{%s:row.%s}", Q_UNIQUE_ID_REL, ID_REL_KEY)
+				? simpleKeyValue(Q_UNIQUE_ID_REL, "row." + ID_REL_KEY)
 				: "";
 		out.append("(start)-[r:" + Util.quote(path.get("type").toString()) + mergeUniqueKey + "]->(end) ");
 		out.append(setClause);

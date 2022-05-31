@@ -264,4 +264,8 @@ public class CypherFormatterUtils {
         }
         return "[" + result.toString() + "]";
     }
+
+    public static String simpleKeyValue(String key, Object value) {
+        return String.format("{%s:%s}", key, value);
+    }
 }
