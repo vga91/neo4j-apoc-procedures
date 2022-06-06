@@ -39,4 +39,3 @@ include::partial$usage/config/apoc.meta.graph.adoc[]
 == Usage Examples
 include::partial$usage/apoc.meta.graph.adoc[]
 
-// todo - config parameter...

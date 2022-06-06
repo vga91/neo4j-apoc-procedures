@@ -173,6 +173,33 @@ public class MetaTest {
     }
 
     @Test
+    public void testMetaGraphMaxRels() {
+        db.executeTransactionally("CREATE (:S2 {id:'another'}), (:S2 {id:'another2'}), (:S2 {id:'another3'}), \n" +
+                // create nodes to be linked
+                "(a:S1 {id:'aaa'}), (b:S2 {id:'bbb'}), (c:S3 {id:'ccc'}), (d:S4 {id:'ddd'}), " +
+                "(e:S5 {id:'eee'}), (f:S6 {id:'fff'}), (g:S7 {id:'ggg'})," +
+                // create rels
+                "(a)-[:HAS]->(b), (a)-[:HAS]->(c), (a)-[:HAS]->(d), (a)-[:HAS]->(e), (a)-[:HAS]->(f), (a)-[:HAS]->(g)," +
+                "(b)-[:HAS]->(c), (b)-[:HAS]->(d), (b)-[:HAS]->(e), (b)-[:HAS]->(f), (b)-[:HAS]->(g)");
+
+        testCall(db, "call apoc.meta.graph()",(row) -> {
+            List<Node> nodes = (List<Node>) row.get("nodes");
+            List<Relationship> relationships = (List<Relationship>) row.get("relationships");
+            assertEquals(9,nodes.size());
+            assertEquals(11,relationships.size());
+        });
+
+        testCall(db, "call apoc.meta.graph({maxRels: 1})",(row) -> {
+            List<Node> nodes = (List<Node>) row.get("nodes");
+            List<Relationship> relationships = (List<Relationship>) row.get("relationships");
+            assertEquals(9,nodes.size());
+            assertEquals(8,relationships.size());
+        });
+        
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+    }
+
+    @Test
     public void testMetaType() throws Exception {
         try (Transaction tx = db.beginTx()) {
             Node node = tx.createNode();
@@ -520,18 +547,18 @@ public class MetaTest {
     }
     
     @Test
-    public void testSubGraphLimitRelTypes() throws Exception {
+    public void testSubGraphLimitWithRels() throws Exception {
         final String relsConf = "rels";
-        assertTodoName(relsConf);
+        assertMetaSubgraphCommon(relsConf);
     }
     
     @Test
-    public void testSubGraphLimitRelTypesTODO() throws Exception {
+    public void testSubGraphLimitWithIncludeRels() throws Exception {
         final String relsConf = "includeRels";
-        assertTodoName(relsConf);
+        assertMetaSubgraphCommon(relsConf);
     }
 
-    private void assertTodoName(String relsConf) {
+    private void assertMetaSubgraphCommon(String relsConf) {
         final Consumer<Map<String, Object>> consumer = (row) -> {
             List<Node> nodes = (List<Node>) row.get("nodes");
             List<Relationship> rels = (List<Relationship>) row.get("relationships");
@@ -551,7 +578,7 @@ public class MetaTest {
     }
 
     @Test
-    public void testSubGraphExcludesTODONAME() {
+    public void testSubGraphExcludesLabels() {
         final String relsConf = "excludeLabels";
         testExcludeLabelsCommon(relsConf);
     }
@@ -575,8 +602,6 @@ public class MetaTest {
 
     @Test
     public void testMetaSubgraphBothIncludeAndExclude() {
-        // todo - vale per tutti i meta???
-        
         final Consumer<Map<String, Object>> consumer = (row) -> {
             assertEquals(Collections.emptyList(), row.get("nodes"));
             assertEquals(Collections.emptyList(), row.get("relationships"));

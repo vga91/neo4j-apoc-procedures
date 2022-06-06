@@ -493,8 +493,7 @@ public class Meta {
             cb.rel(id, name, subGraph.countsForRelationship(type));
         });
     }
-// todo - check sulle apoc.meta.data.*
-    
+
     @Procedure("apoc.meta.data.of")
     @Description("apoc.meta.data.of({graph}, {config})  - examines a subset of the graph to provide a tabular meta information")
     public Stream<MetaResult> dataOf(@Name(value = "graph") Object graph, @Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
@@ -502,7 +501,6 @@ public class Meta {
         final SubGraph subGraph;
         if (graph instanceof String) {
             Result result = tx.execute((String) graph);
-            // todo - manca adoc e test
             subGraph = CypherResultSubGraph.from(tx, result, metaConfig.isAddRelationshipsBetweenNodes());
         } else if (graph instanceof Map) {
             Map<String, Object> mGraph = (Map<String, Object>) graph;
@@ -517,7 +515,6 @@ public class Meta {
         } else {
             throw new IllegalArgumentException("Supported inputs are String, VirtualGraph, Map");
         }
-        // todo - qua forse ce ne sono altri
         return collectMetaData(subGraph, metaConfig).values().stream().flatMap(x -> x.values().stream());
     }
 
@@ -1023,7 +1020,6 @@ public class Meta {
         final SubGraph subGraph;
         if (graph instanceof String) {
             Result result = tx.execute((String) graph);
-            // todo - manca adoc e test
             subGraph = CypherResultSubGraph.from(tx, result, metaConfig.isAddRelationshipsBetweenNodes());
         } else if (graph instanceof Map) {
             Map<String, Object> mGraph = (Map<String, Object>) graph;
@@ -1041,7 +1037,6 @@ public class Meta {
         return metaGraph(subGraph,null, null, true, metaConfig);
     }
 
-    // todo - vedere chi lo richiama...
     private Stream<GraphResult> metaGraph(SubGraph subGraph, Collection<String> labelNames, Collection<String> relTypeNames, boolean removeMissing, MetaConfig metaConfig) {
         TokenRead tokenRead = kernelTx.tokenRead();
 
@@ -1147,18 +1142,15 @@ public class Meta {
     @Description("apoc.meta.graphSample() - examines the database statistics to build the meta graph, very fast, might report extra relationships")
     public Stream<GraphResult> graphSample(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
         MetaConfig metaConfig = new MetaConfig(config);
-        // todo - pure questo accetta config, vedere un po...
         return metaGraph(new DatabaseSubGraph(transaction), null, null, false, metaConfig);
     }
 
     @Procedure
     @Description("apoc.meta.subGraph({labels:[labels],rels:[rel-types], excludes:[labels,rel-types]}) - examines a sample sub graph to create the meta-graph")
     public Stream<GraphResult> subGraph(@Name("config") Map<String,Object> config ) {
-// todo - creare file di config...
-        
+
         MetaConfig metaConfig = new MetaConfig(config);
-// todo - getIncludesLabels c'è in adoc, ma solo usage... mettere in config.adoc, stessa cosa per includeRels
-        // todo - i config nei test ci sono, ma sono deprecati.. forse, semmai li aggiungo, ma non dico che sono deprecati
+
         return filterResultStream(metaConfig.getExcludes(), metaGraph(new DatabaseSubGraph(transaction), metaConfig.getIncludesLabels(), metaConfig.getIncludesRels(),true, metaConfig));
     }
 
