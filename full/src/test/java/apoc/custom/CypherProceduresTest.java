@@ -699,6 +699,39 @@ public class CypherProceduresTest  {
         db.executeTransactionally("call db.clearQueryCaches()");
         testCall(db, queryFunction, row -> fail("Should fail because of unknown function"));
     }
+
+    @Test
+    public void shouldFailDeclareFunctionAndProcedureWithDefaultFloatParameter() {
+        db.executeTransactionally("call apoc.custom.declareProcedure(\n" +
+                "    'asd(minScore=5.0::DOUBLE) :: (bestScore::DOUBLE)',\n" +
+                "    '',\n" +
+                "    'read'\n" +
+                ")");
+        
+        db.executeTransactionally("call apoc.custom.declareProcedure('defaultFloatProc(base=2.4::FLOAT,exp=1.2::FLOAT)::(res::FLOAT)',\n" +
+                "    'return $minScore as bestScore')");
+        testCall(db, "call custom.defaultFloatProc", (row) -> assertEquals(Math.pow(2.4, 1.2), row.get("res")));
+        testCall(db, "call custom.defaultFloatProc(1.1)", (row) -> assertEquals(Math.pow(1.1, 1.2), row.get("res")));
+        testCall(db, "call custom.defaultFloatProc(1.5, 7.1)", (row) -> assertEquals(Math.pow(1.5, 7.1), row.get("res")));
+        
+        db.executeTransactionally("call apoc.custom.declareProcedure('defaultDoubleProc(base = 2.4 :: DOUBLE, exp = 1.2 :: DOUBLE)::(res::DOUBLE)',\n" +
+                "    'return $minScore as bestScore')");
+        testCall(db, "call custom.defaultDoubleProc", (row) -> assertEquals(Math.pow(2.4, 1.2), row.get("res")));
+        testCall(db, "call custom.defaultDoubleProc(1.1)", (row) -> assertEquals(Math.pow(1.1, 1.2), row.get("res")));
+        testCall(db, "call custom.defaultDoubleProc(1.5, 7.1)", (row) -> assertEquals(Math.pow(1.5, 7.1), row.get("res")));
+        
+        db.executeTransactionally("call apoc.custom.declareProcedure('defaultIntProc(base = 4 ::INT, exp = 5 :: INT)::(res::INT)',\n" +
+                "    'return $minScore as bestScore')");
+        testCall(db, "call custom.defaultIntProc", (row) -> assertEquals((long) Math.pow(4, 5), row.get("res")));
+        testCall(db, "call custom.defaultIntProc(2)", (row) -> assertEquals((long) Math.pow(2, 5), row.get("res")));
+        testCall(db, "call custom.defaultIntProc(3, 7)", (row) -> assertEquals((long) Math.pow(1.5, 7.1), row.get("res")));
+        
+        db.executeTransactionally("call apoc.custom.declareProcedure('defaultLongProc(base = 4 ::LONG, exp = 5 :: LONG)::(res::LONG)',\n" +
+                "    'return $minScore as bestScore')");
+        testCall(db, "call custom.defaultLongProc", (row) -> assertEquals((long) Math.pow(4, 5), row.get("res")));
+        testCall(db, "call custom.defaultLongProc(2)", (row) -> assertEquals((long) Math.pow(2, 5), row.get("res")));
+        testCall(db, "call custom.defaultLongProc(3, 7)", (row) -> assertEquals((long) Math.pow(1.5, 7.1), row.get("res")));
+    }
     
     @Test
     public void shouldFailDeclareFunctionAndProcedureWithInvalidParameterTypes() {
