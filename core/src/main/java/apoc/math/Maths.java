@@ -17,7 +17,7 @@ public class Maths {
     @Description("apoc.math.round(value,[precision],mode=['CEILING','FLOOR','UP','DOWN','HALF_EVEN','HALF_DOWN','HALF_UP','DOWN','UNNECESSARY'])")
     public Double round(@Name("value") Double value,
                         @Name(value = "precision", defaultValue = "0") long precision,
-                        @Name(value = "mode", defaultValue = "HALF_UP") String mode) {
+                        @Name(value = "mode", defaultValue = "HALF UP DUE") String mode) {
         if (value == null) return null;
         return BigDecimal.valueOf(value).setScale((int)precision, RoundingMode.valueOf(mode)).doubleValue();
     }
