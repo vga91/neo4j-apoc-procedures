@@ -42,6 +42,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     private enum Phase {before, after, rollback, afterAsync}
 
     public static final String TRIGGER_REFRESH = "apoc.trigger.refresh";
+    public static final String TRIGGER_PREVENT_PERSIST = "apoc.trigger.prevent.persist";
 
     private final ConcurrentHashMap<String, Map<String,Object>> activeTriggers = new ConcurrentHashMap();
     private final Log log;
@@ -283,6 +284,10 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     @Override
     public void start() throws Exception {
+        if (apocConfig.getBoolean(TRIGGER_PREVENT_PERSIST, false)) {
+            removeAll();
+            return;
+        }
         updateCache();
         long refreshInterval = apocConfig().getInt(TRIGGER_REFRESH, 60000);
         restoreTriggerHandler = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
@@ -294,6 +299,10 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     @Override
     public void stop() {
+        if (apocConfig.getBoolean(TRIGGER_PREVENT_PERSIST, false)) {
+            removeAll();
+            return;
+        }
         if(registeredWithKernel.compareAndSet(true, false)) {
             databaseManagementService.unregisterTransactionEventListener(db.databaseName(), this);
         }
