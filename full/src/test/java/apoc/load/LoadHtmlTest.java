@@ -67,7 +67,7 @@ public class LoadHtmlTest {
 
     @Test
     public void testParseGeneratedJs() {
-        testCallGeneratedJsWithBrowser("FIREFOX");
+//        testCallGeneratedJsWithBrowser("FIREFOX");
         testCallGeneratedJsWithBrowser("CHROME");
     }
 

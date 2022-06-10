@@ -281,12 +281,7 @@ CALL apoc.load.html("test.html",{asyncTag: "#asyncTag"}, {browser: "FIREFOX", wa
 ----
 
 [[selenium-depencencies]]
-== Dependencies
 
-To use the `apoc.load.html` proceduree with `browser` config (not `NONE`), you have to add additional dependencies.
-
-This dependency is included in https://github.com/neo4j-contrib/neo4j-apoc-procedures/releases/download/{apoc-release}/apoc-selenium-dependencies-{apoc-release}.jar[apoc-selenium-dependencies-{apoc-release}.jar^], which can be downloaded from the https://github.com/neo4j-contrib/neo4j-apoc-procedures/releases/tag/{apoc-release}[releases page^].
-Once that file is downloaded, it should be placed in the `plugins` directory and the Neo4j Server restarted.
 
 We can also pass an HTML string into the 1st parameter by putting as a config parameter `htmlString: true`, for example:
 
@@ -355,16 +350,7 @@ a|
 
 == Html plain text representation
 
-Using the same syntax and logic as `apoc.load.html`, 
-we can get a plain text representation of the whole document, using the `apoc.load.htmlPlainText(URL_OR_TEXT, QUERY_MAP, CONFIG_MAP)` procedure, for example:
+If, instead of a map of list of json results, 
+you want to get a map of plain text representations,
+you can use the xref::overview/apoc.load/apoc.load.htmlPlainText.adoc[apoc.load.htmlPlainText procedure], which use the same syntax, logic and config parameters as `apoc.load.html`.
 
-[source,cypher]
-----
-CALL apoc.load.htmlPlainText($urlOrString, {nameKey: 'body'})
-----
-
-or of some elements, with a selector:
-[source,cypher]
-----
-CALL apoc.load.htmlPlainText($urlOrString, {nameKey: 'div'})
-----

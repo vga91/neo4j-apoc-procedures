@@ -1,0 +1,10 @@
+== Dependencies
+
+To use the `apoc.load.html` and `apoc.load.htmlPlainText` procedures with `browser` config (not `NONE`), 
+you have to add additional dependencies.
+
+This dependency is included in https://github.com/neo4j-contrib/neo4j-apoc-procedures/releases/download/{apoc-release}/apoc-selenium-dependencies-{apoc-release}.jar[apoc-selenium-dependencies-{apoc-release}.jar^], which can be downloaded from the https://github.com/neo4j-contrib/neo4j-apoc-procedures/releases/tag/{apoc-release}[releases page^].
+Once that file is downloaded, it should be placed in the `plugins` directory and the Neo4j Server restarted.
+
+
+// todo - remove duplicated part from apoc.load.html.adoc
