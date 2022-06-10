@@ -39,6 +39,7 @@ import static apoc.util.Util.readHttpInputStream;
  * @since 22.05.16
  */
 public class FileUtils {
+    public static final String CANNOT_OPEN_FILE_FOR_READING = "Cannot open file %s for reading.";
 
     public enum SupportedProtocols {
         http(true, null),
@@ -362,6 +363,12 @@ public class FileUtils {
             return getInputStreamFromBinary(urlOrBinary, compressionAlgo).asReader();
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+    
+    public static void checkFileReading(File file) throws IOException {
+        if (!file.exists() || !file.isFile() || !file.canRead()) {
+            throw new IOException(String.format(CANNOT_OPEN_FILE_FOR_READING, file.getAbsolutePath()));
         }
     }
 }

@@ -1,5 +1,6 @@
 package apoc.load;
 
+import apoc.util.FileUtils;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import io.github.bonigarcia.wdm.config.Architecture;
 import io.github.bonigarcia.wdm.config.OperatingSystem;
@@ -13,7 +14,10 @@ import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.support.ui.Wait;
 import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Map;
@@ -128,7 +132,17 @@ public class LoadHtmlBrowser {
     }
     
     private static InputStream getInputStreamWithBrowser(String url, Map<String, String> query, LoadHtmlConfig config, WebDriver driver) {
-        driver.get(url);
+        try {
+            // we need to check manually if file exists because with the chromedriver and a file url
+            // it just return nothing in case of missing file
+            url = FileUtils.changeFileUrlIfImportDirectoryConstrained(url);
+            if (FileUtils.isFile(url)) {
+                FileUtils.checkFileReading(new File(URI.create(url)));
+            }
+            driver.get(url);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         final long wait = config.getWait();
         if (wait > 0) {

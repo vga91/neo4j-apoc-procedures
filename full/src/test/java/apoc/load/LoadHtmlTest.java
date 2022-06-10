@@ -45,7 +45,6 @@ public class LoadHtmlTest {
             "{text=References[edit], tagName=h2}, " +
             "{text=Navigation menu, tagName=h2}");
 
-    private static final String INVALID_PATH = new File("src/test/resources/wikipedia1.html").getName();
     private static final String VALID_PATH = new File("src/test/resources/wikipedia.html").toURI().toString();
     private static final String INVALID_CHARSET = "notValid";
     private static final String URL_HTML_JS = new File("src/test/resources/html/wikipediaWithJs.html").toURI().toString();
@@ -406,20 +405,6 @@ public class LoadHtmlTest {
         }
     }
 
-    @Test(expected = QueryExecutionException.class)
-    public void testQueryWithExceptionIfIncorrectUrl() {
-        testIncorrectUrl("CALL apoc.load.html('" + INVALID_PATH + "',{a:'a'})");
-    }
-
-    @Test(expected = QueryExecutionException.class)
-    public void testQueryWithFailsSilentlyWithLogWithExceptionIfIncorrectUrl() {
-        testIncorrectUrl("CALL apoc.load.html('" + INVALID_PATH + "',{a:'a'}, {failSilently: 'WITH_LOG'})");
-    }
-
-    @Test(expected = QueryExecutionException.class)
-    public void testQueryWithFailsSilentlyWithListWithExceptionIfIncorrectUrl() {
-        testIncorrectUrl("CALL apoc.load.html('" + INVALID_PATH + "',{a:'a'}, {failSilently: 'WITH_LIST'})");
-    }
 
     @Test(expected = QueryExecutionException.class)
     public void testQueryWithExceptionIfIncorrectCharset() {
@@ -457,18 +442,6 @@ public class LoadHtmlTest {
             Throwable except = ExceptionUtils.getRootCause(e);
             String expectedMessage = "Unsupported charset: " + INVALID_CHARSET;
             assertEquals(expectedMessage, except.getMessage());
-            throw e;
-        }
-    }
-
-    private void testIncorrectUrl(String query) {
-        try {
-            testCall(db, query, (r) -> {});
-        } catch (Exception e) {
-            Throwable except = ExceptionUtils.getRootCause(e);
-            final String message = except.getMessage();
-            assertTrue(message.startsWith("Cannot open file "));
-            assertTrue(message.endsWith(INVALID_PATH + " for reading."));
             throw e;
         }
     }

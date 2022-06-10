@@ -11,6 +11,8 @@ import java.net.URLConnection;
 import java.util.zip.DeflaterInputStream;
 import java.util.zip.GZIPInputStream;
 
+import static apoc.util.FileUtils.checkFileReading;
+
 /**
  * @author mh
  * @since 26.01.18
@@ -66,14 +68,11 @@ public interface StreamConnection {
     }
 
     class FileStreamConnection implements StreamConnection {
-        public static final String CANNOT_OPEN_FILE_FOR_READING = "Cannot open file %s for reading.";
         private final File file;
 
         public FileStreamConnection(File file) throws IOException {
             this.file = file;
-            if (!file.exists() || !file.isFile() || !file.canRead()) {
-                throw new IOException(String.format(CANNOT_OPEN_FILE_FOR_READING, file.getAbsolutePath()));
-            }
+            checkFileReading(file);
         }
 
         public FileStreamConnection(URI fileName) throws IOException {
