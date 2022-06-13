@@ -18,7 +18,7 @@ NEWLINE:	[\r\n]+ ;
 QUOTED_IDENTIFIER:	'`' [^`]+? '`' ;
 IDENTIFIER:	[a-zA-Z_][a-zA-Z0-9_]+ ;
 WS:	[ \t\r\n]+ -> skip ;
-value: nullValue | stringValue | INT_VALUE | FLOAT_VALUE | boolValue | mapValue | listValue;
+value: nullValue  | INT_VALUE | FLOAT_VALUE | boolValue | mapValue | listValue | stringValue;
 INT_VALUE: [0-9]+;
 FLOAT_VALUE: ([0-9]+'.'[0-9]+) | 'NaN';
 boolValue: 'true'|'false';

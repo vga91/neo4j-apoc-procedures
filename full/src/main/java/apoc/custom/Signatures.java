@@ -121,6 +121,8 @@ public class Signatures {
         // pass a default value = null into the signature string is not equal to having `defaultValue == null`
         // the defaultValue is null only when we don't pass the default value part
         if (defaultValue == null) return null;
+//        DefaultParameterValue.ntAny()
+                
         SignatureParser.ValueContext v = defaultValue.value();
         if (v.nullValue() != null)
             return DefaultParameterValue.nullValue(type);
@@ -135,6 +137,7 @@ public class Signatures {
             return DefaultParameterValue.ntString(text);
         }
         if (v.INT_VALUE() != null)
+            
             return DefaultParameterValue.ntInteger(Integer.parseInt(v.INT_VALUE().getText()));
         if (v.FLOAT_VALUE() != null)
             return DefaultParameterValue.ntFloat(Float.parseFloat(v.FLOAT_VALUE().getText()));
@@ -156,6 +159,7 @@ public class Signatures {
         throw new IllegalStateException("Invalid Name " + ns);
     }
 
+    // ma forse con any...
     private Neo4jTypes.AnyType type(SignatureParser.TypeContext typeContext) {
         if (typeContext.list_type() != null) {
             return Neo4jTypes.NTList(type(typeContext.list_type().opt_type()));

@@ -702,58 +702,42 @@ public class CypherProceduresTest  {
 
     @Test
     public void shouldFailDeclareFunctionAndProcedureWithDefaultParameters() {
-//        db.executeTransactionally("call apoc.custom.declareProcedure('xxx(minScore=5.0::FLOAT) :: (bestScore::FLOAT)',\n" +
-//                "    'return $minScore as bestScore')");
-
-        // todo - decommentare
-//        db.executeTransactionally("call apoc.custom.declareProcedure('procWithNullString(minScore= \"null\" ::STRING) :: (bestScore::STRING)',\n" +
-//                "    'return $minScore as bestScore')");
-//        testCall(db, "call custom.procWithNullString", (row) -> {
-//            assertEquals("null", row.get("bestScore"));
-//        });
-//        testCall(db, "call custom.procWithNullString('other')", (row) -> assertEquals("other", row.get("bestScore")));
-
-        db.executeTransactionally("call apoc.custom.declareProcedure(\"procWithNullString(minScore=' foo \\\" bar '::STRING)::(bestScore::STRING)\",\n" +
-                "    'return $minScore as bestScore')");
+        // todo - test anche per funzioni...
+        
+        String query = "return $minScore + ' - suffix' as bestScore";
+        db.executeTransactionally("call apoc.custom.declareProcedure(\"procWithNullString(minScore=' foo \\\" bar '::STRING)::(bestScore::STRING)\", $query)", 
+                Map.of("query", query));
         testCall(db, "call custom.procWithNullString", (row) -> {
-            assertEquals(" foo \" bar ", row.get("bestScore"));
+            assertEquals(" foo \" bar  - suffix", row.get("bestScore"));
         });
+        testCall(db, "call custom.procWithNullString('myText')", (row) -> assertEquals("myText - suffix", row.get("bestScore")));
         
-        db.executeTransactionally("call apoc.custom.declareProcedure('procWithNullString1(minScore=\" foo \\' bar \"::STRING) :: (bestScore::STRING)',\n" +
-                "    'return $minScore as bestScore')");
+        db.executeTransactionally("call apoc.custom.declareProcedure('procWithNullString1(minScore=\" foo \\' bar \"::STRING) :: (bestScore::STRING)', $query)", 
+                Map.of("query", query));
         testCall(db, "call custom.procWithNullString1", (row) -> {
-            assertEquals(" foo ' bar ", row.get("bestScore"));
+            assertEquals(" foo ' bar  - suffix", row.get("bestScore"));
         });
+        testCall(db, "call custom.procWithNullString1('myText')", (row) -> assertEquals("myText - suffix", row.get("bestScore")));
         
-        // todo - decommentare
-        db.executeTransactionally("call apoc.custom.declareProcedure('procWithNullString11(minScore = plainText ::STRING) :: (bestScore::STRING)',\n" +
-                "    'return $minScore as bestScore')");
-        testCall(db, "call custom.procWithNullString11", (row) -> {
-            assertEquals("plainText", row.get("bestScore"));
-        });
-
-//        db.executeTransactionally("call apoc.custom.declareProcedure(\"procWithNullString(minScore= 'prova' ::STRING) :: (bestScore::STRING)\",\n" +
-//                "    'return $minScore as bestScore')");
-//        testCall(db, "call custom.procWithNullString", (row) -> {
-//            assertEquals("prova", row.get("bestScore"));
-//        });
+        db.executeTransactionally("call apoc.custom.declareProcedure('procWithNullString11(minScore = plainText :: STRING) :: (bestScore::STRING)', $query)", 
+                Map.of("query", query));
+        testCall(db, "call custom.procWithNullString11", (row) -> assertEquals("plainText - suffix", row.get("bestScore")));
+        testCall(db, "call custom.procWithNullString11('myText')", (row) -> assertEquals("myText - suffix", row.get("bestScore")));
         
-//        db.executeTransactionally("call apoc.custom.declareProcedure('yyy(minScore= prova ::STRING) :: (bestScore::STRING)',\n" +
-//                "    'return $minScore as bestScore')");
-
-
-//        db.executeTransactionally("call apoc.custom.declareProcedure('yyy(minScore= \"null\" ::STRING) :: (bestScore::STRING)',\n" +
-//                "    'return $minScore as bestScore')");
+        db.executeTransactionally("call apoc.custom.declareProcedure('procWithBool(minScore = true :: BOOLEAN) :: (bestScore :: INT)',\n" +
+                "    'return case when $minScore then 1 else 2 end as bestScore')");
+        testCall(db, "call custom.procWithBool", (row) -> assertEquals(1L, row.get("bestScore")));
+        testCall(db, "call custom.procWithBool(true)", (row) -> assertEquals(1L, row.get("bestScore")));
+        testCall(db, "call custom.procWithBool(false)", (row) -> assertEquals(2L, row.get("bestScore")));
         
         
-
-//        db.executeTransactionally("call apoc.custom.declareProcedure('fyyy(minScore=prova::STRING) :: (bestScore::STRING)',\n" +
-//                "    'return $minScore as bestScore')");
+        // todo - vale la pena fare test per liste di default....
         
-        // todo - decommentare
-//        db.executeTransactionally("call apoc.custom.declareProcedure(\n" +
-//                "    'string(minScore=osvaldo::STRING) :: (bestScore::STRING)',\n" +
-//                "    'return $minScore as bestScore')");
+        db.executeTransactionally("call apoc.custom.declareProcedure('procWithBool(minScore = true :: LIST) :: (bestScore :: INT)',\n" +
+                "    'return case when $minScore then 1 else 2 end as bestScore')");
+        testCall(db, "call custom.procWithBool", (row) -> assertEquals(1L, row.get("bestScore")));
+        testCall(db, "call custom.procWithBool(true)", (row) -> assertEquals(1L, row.get("bestScore")));
+        testCall(db, "call custom.procWithBool(false)", (row) -> assertEquals(2L, row.get("bestScore")));
     }
 
     @Test
