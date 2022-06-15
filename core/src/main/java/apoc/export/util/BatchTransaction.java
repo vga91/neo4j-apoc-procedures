@@ -41,6 +41,10 @@ public class BatchTransaction implements AutoCloseable {
         doCommit(log);
     }
 
+    public void rollback() {
+        tx.rollback();
+    }
+    
     private void doCommit(boolean log) {
         tx.commit();
         tx.close();
@@ -53,13 +57,10 @@ public class BatchTransaction implements AutoCloseable {
         return gdb.beginTx();
     }
 
-    public void lastCommit() {
-        tx.commit();
-    }
-    
     @Override
     public void close() {
         if (tx!=null) {
+            tx.commit();
             tx.close();
             if (reporter!=null) reporter.progress("finish after " + count + " row(s) ");
         }

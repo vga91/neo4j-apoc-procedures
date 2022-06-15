@@ -71,7 +71,8 @@ public class CsvEntityLoader {
 
             final String[] loadCsvCompatibleHeader = fields.stream().map(f -> f.getName()).toArray(String[]::new);
             int lineNo = 0;
-            try (BatchTransaction btx = new BatchTransaction(db, clc.getBatchSize(), reporter)) {
+            BatchTransaction btx = new BatchTransaction(db, clc.getBatchSize(), reporter);
+            try {
                 for (String[] line : csv.readAll()) {
                     lineNo++;
 
@@ -131,8 +132,11 @@ public class CsvEntityLoader {
                     }
                     reporter.update(1, 0, props++);
                 }
-                btx.lastCommit();
+            } catch (Exception e) {
+                btx.rollback();
+                throw new RuntimeException(e);
             }
+            btx.close();
         }
     }
 
@@ -177,7 +181,8 @@ public class CsvEntityLoader {
             final String[] loadCsvCompatibleHeader = fields.stream().map(f -> f.getName()).toArray(String[]::new);
 
             int lineNo = 0;
-            try (BatchTransaction btx = new BatchTransaction(db, clc.getBatchSize(), reporter)) {
+            BatchTransaction btx = new BatchTransaction(db, clc.getBatchSize(), reporter);
+            try {
                 for (String[] line : csv.readAll()) {
                     lineNo++;
 
@@ -219,8 +224,11 @@ public class CsvEntityLoader {
                     }
                     reporter.update(0, 1, props);
                 }
-                btx.lastCommit();
+            } catch (Exception e) {
+                btx.rollback();
+                throw new RuntimeException(e);
             }
+            btx.close();
         }
     }
 

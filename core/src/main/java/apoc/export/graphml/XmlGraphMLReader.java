@@ -210,7 +210,8 @@ public class XmlGraphMLReader {
         Map<String, Key> nodeKeys = new HashMap<>();
         Map<String, Key> relKeys = new HashMap<>();
         int count = 0;
-        try (BatchTransaction tx = new BatchTransaction(db, batchSize * 10, reporter)) {
+        BatchTransaction tx = new BatchTransaction(db, batchSize * 10, reporter);
+        try {
 
             while (reader.hasNext()) {
                 XMLEvent event = (XMLEvent) reader.next();
@@ -288,8 +289,11 @@ public class XmlGraphMLReader {
                     }
                 }
             }
-            tx.lastCommit();
+        } catch (Exception e) {
+            tx.rollback();
+            throw new RuntimeException(e);
         }
+        tx.close();
         return count;
     }
 
