@@ -4,12 +4,10 @@ import org.apache.commons.lang3.StringUtils;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.UserFunction;
-import org.neo4j.values.storable.DurationValue;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
-import java.time.LocalDate;
 
 import static java.lang.Math.pow;
 
@@ -54,24 +52,6 @@ public class Exact {
 	public Long toInteger(@Name("stringA")String string, @Name(value = "precision" , defaultValue = "0")Long precision, @Name(value = "roundingMode", defaultValue = "HALF_UP")String roundingMode){
 		if(string == null || string.isEmpty()) return null;
 			return new BigDecimal(string, createMathContextLong(precision, roundingMode)).longValue();
-	}
-
-//	@UserFunction
-//	@Description("apoc.number.exact.toInteger(string,[prec],[roundingMode]) - return the Integer value of a large number")
-//	public Long toIntegerProva(@Name("stringA")String string, @Name(value = "precision" , defaultValue = "0") Long precision, @Name(value = "roundingMode", defaultValue = "date('1991-10-10')") LocalDate roundingMode){
-//		return 1000L;
-//	}
-
-	@UserFunction
-	@Description("apoc.number.exact.toInteger(string,[prec],[roundingMode]) - return the Integer value of a large number")
-	public Long toIntegerProva2(@Name("stringA")String string, @Name(value = "precision" , defaultValue = "0") Long precision, @Name(value = "roundingMode", defaultValue = "false") boolean durationValue){
-		return 1000L;
-	}
-
-	@UserFunction
-	@Description("apoc.number.exact.toInteger(string,[prec],[roundingMode]) - return the Integer value of a large number")
-	public Object toIntegerProva3(@Name(value = "roundingMode", defaultValue = "duration('P5M1DT12H')") Object durationValue) {
-		return durationValue;
 	}
 
 	@UserFunction

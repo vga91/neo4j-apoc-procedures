@@ -2,6 +2,7 @@ package apoc.custom;
 
 import apoc.util.JsonUtil;
 import org.antlr.v4.runtime.*;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.internal.kernel.api.procs.*;
 import org.neo4j.procedure.Mode;
 
@@ -10,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
@@ -17,7 +20,7 @@ import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
 public class Signatures {
 
     public static final String SIGNATURE_SYNTAX_ERROR = "Syntax error(s) in signature definition %s. " +
-            "\nNote that procedure/function name, input and output names must have at least 2 character:\n";
+            "\nNote that procedure/function name, possible map keys, input and output names must have at least 2 character:\n";
     private final String prefix;
 
     public Signatures(String prefix) {
@@ -121,35 +124,54 @@ public class Signatures {
         // pass a default value = null into the signature string is not equal to having `defaultValue == null`
         // the defaultValue is null only when we don't pass the default value part
         if (defaultValue == null) return null;
-//        DefaultParameterValue.ntAny()
-                
         SignatureParser.ValueContext v = defaultValue.value();
         if (v.nullValue() != null)
-            return DefaultParameterValue.nullValue(type);
+            return getDefaultParameterValue(type, v.nullValue().getText(), () -> DefaultParameterValue.nullValue(type));
         if (v.boolValue() != null)
             return DefaultParameterValue.ntBoolean(Boolean.parseBoolean(v.boolValue().getText()));
         final SignatureParser.StringValueContext stringCxt = v.stringValue();
         if (stringCxt != null) {
+            
             String text = stringCxt.getText();
             if (stringCxt.SINGLE_QUOTED_STRING_VALUE() != null || stringCxt.QUOTED_STRING_VALUE() != null) {
                 text = text.substring(1, text.length() - 1);
             }
             return DefaultParameterValue.ntString(text);
         }
-        if (v.INT_VALUE() != null)
-            
-            return DefaultParameterValue.ntInteger(Integer.parseInt(v.INT_VALUE().getText()));
-        if (v.FLOAT_VALUE() != null)
-            return DefaultParameterValue.ntFloat(Float.parseFloat(v.FLOAT_VALUE().getText()));
+        if (v.INT_VALUE() != null) {
+            final String text = v.INT_VALUE().getText();
+            return getDefaultParameterValue(type, text, () -> DefaultParameterValue.ntInteger(Integer.parseInt(text)));
+        }
+        if (v.FLOAT_VALUE() != null) {
+            final String text = v.FLOAT_VALUE().getText();
+            return getDefaultParameterValue(type, text, () -> DefaultParameterValue.ntFloat(Integer.parseInt(v.FLOAT_VALUE().getText())));
+        }
         if (v.mapValue() != null) {
             Map map = JsonUtil.parse(v.mapValue().getText(), null, Map.class);
             return DefaultParameterValue.ntMap(map);
         }
         if (v.listValue() != null) {
             List<?> list = JsonUtil.parse(v.listValue().getText(), null, List.class);
-            return DefaultParameterValue.ntList(list, ((Neo4jTypes.ListType) type).innerType());
+            final AnyType inner = ((ListType) type).innerType();
+            if (inner instanceof TextType) {
+                list = list.stream()
+                        .map(String::valueOf)
+                        .collect(Collectors.toList());
+            }
+            return DefaultParameterValue.ntList(list, inner);
+            
         }
         return DefaultParameterValue.nullValue(type);
+    }
+
+    private DefaultParameterValue getDefaultParameterValue(AnyType type, String text, Supplier<DefaultParameterValue> fun) {
+        // to differentiate e.g. null (nullValue) from null as a plain string, or 1 (integer) from 1 as a plain text 
+        // we have to obtain the actual data type from type. 
+        // Otherwise we could we can remove the possibility of having plainText string and explicit them via quotes/double-quotes
+        // or document that null/numbers/boolean as a plain string are not possible.
+        return type instanceof TextType 
+                ? DefaultParameterValue.ntString(text) 
+                : fun.get();
     }
 
     public String name(SignatureParser.NameContext ns) {
@@ -159,7 +181,6 @@ public class Signatures {
         throw new IllegalStateException("Invalid Name " + ns);
     }
 
-    // ma forse con any...
     private Neo4jTypes.AnyType type(SignatureParser.TypeContext typeContext) {
         if (typeContext.list_type() != null) {
             return Neo4jTypes.NTList(type(typeContext.list_type().opt_type()));
