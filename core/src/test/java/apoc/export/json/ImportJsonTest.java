@@ -358,7 +358,7 @@ public class ImportJsonTest {
         assertionsAllJsonDbResult();
     }
 
-    private void assertionsAllJsonProgressInfo(Map<String, Object> r, boolean isBinary) {
+    public static void assertionsAllJsonProgressInfo(Map<String, Object> r, boolean isBinary) {
         // then
         Assert.assertEquals(isBinary ? null : "all.json", r.get("file"));
         Assert.assertEquals(isBinary ? "binary" : "file", r.get("source"));
