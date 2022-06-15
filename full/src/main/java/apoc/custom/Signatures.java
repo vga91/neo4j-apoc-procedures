@@ -126,7 +126,7 @@ public class Signatures {
         if (defaultValue == null) return null;
         SignatureParser.ValueContext v = defaultValue.value();
         if (v.nullValue() != null)
-            return getDefaultParameterValue(type, v.nullValue().getText(), () -> DefaultParameterValue.nullValue(type));
+            return DefaultParameterValue.nullValue(type);
         if (v.boolValue() != null)
             return DefaultParameterValue.ntBoolean(Boolean.parseBoolean(v.boolValue().getText()));
         final SignatureParser.StringValueContext stringCxt = v.stringValue();
@@ -144,7 +144,7 @@ public class Signatures {
         }
         if (v.FLOAT_VALUE() != null) {
             final String text = v.FLOAT_VALUE().getText();
-            return getDefaultParameterValue(type, text, () -> DefaultParameterValue.ntFloat(Integer.parseInt(v.FLOAT_VALUE().getText())));
+            return getDefaultParameterValue(type, text, () -> DefaultParameterValue.ntFloat(Float.parseFloat(text)));
         }
         if (v.mapValue() != null) {
             Map map = JsonUtil.parse(v.mapValue().getText(), null, Map.class);
