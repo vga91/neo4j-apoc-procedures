@@ -287,23 +287,21 @@ public class GraphRefactoring {
     @Procedure(mode = Mode.WRITE,eager = true)
     @Description("apoc.refactor.mergeNodes([node1,node2],[{properties:'overwrite' or 'discard' or 'combine'}]) merge nodes onto first in list")
     public Stream<NodeResult> mergeNodes(@Name("nodes") List<Node> nodes, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        return Util.inTx(db, pools, tx -> {
-            if (nodes == null || nodes.isEmpty()) return Stream.empty();
-            RefactorConfig conf = new RefactorConfig(config);
-            Set<Node> nodesSet = new LinkedHashSet<>(nodes);
-            // grab write locks upfront consistently ordered
-            nodesSet.stream().sorted(Comparator.comparingLong(Node::getId)).forEach(tx::acquireWriteLock);
-    
-            final Node first = nodes.get(0);
-            final List<Long> existingSelfRelIds = conf.isPreservingExistingSelfRels()
-                    ? StreamSupport.stream(first.getRelationships().spliterator(), false).filter(Util::isSelfRel)
-                        .map(Entity::getId)
-                        .collect(Collectors.toList())
-                    : Collections.emptyList();
-    
-            nodesSet.stream().skip(1).forEach(node -> mergeNodes(node, first, conf, existingSelfRelIds));
-            return Stream.of(new NodeResult(first));
-        });
+        if (nodes == null || nodes.isEmpty()) return Stream.empty();
+        RefactorConfig conf = new RefactorConfig(config);
+        Set<Node> nodesSet = new LinkedHashSet<>(nodes);
+        // grab write locks upfront consistently ordered
+        nodesSet.stream().sorted(Comparator.comparingLong(Node::getId)).forEach(tx::acquireWriteLock);
+
+        final Node first = nodes.get(0);
+        final List<Long> existingSelfRelIds = conf.isPreservingExistingSelfRels()
+                ? StreamSupport.stream(first.getRelationships().spliterator(), false).filter(Util::isSelfRel)
+                    .map(Entity::getId)
+                    .collect(Collectors.toList())
+                : Collections.emptyList();
+
+        nodesSet.stream().skip(1).forEach(node -> mergeNodes(node, first, conf, existingSelfRelIds));
+        return Stream.of(new NodeResult(first));
     }
 
     /**

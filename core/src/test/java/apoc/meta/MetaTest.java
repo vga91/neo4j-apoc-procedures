@@ -182,17 +182,14 @@ public class MetaTest {
                 "(a)-[:HAS]->(b), (a)-[:HAS]->(c), (a)-[:HAS]->(d), (a)-[:HAS]->(e), (a)-[:HAS]->(f), (a)-[:HAS]->(g)," +
                 "(b)-[:HAS]->(c), (b)-[:HAS]->(d), (b)-[:HAS]->(e), (b)-[:HAS]->(f), (b)-[:HAS]->(g)");
 
-        testCall(db, "call apoc.meta.graph()",(row) -> {
-            List<Node> nodes = (List<Node>) row.get("nodes");
+        testCall(db, "call apoc.meta.graph()",
+                (row) -> {
             List<Relationship> relationships = (List<Relationship>) row.get("relationships");
-            assertEquals(9,nodes.size());
             assertEquals(11,relationships.size());
         });
 
         testCall(db, "call apoc.meta.graph({maxRels: 1})",(row) -> {
-            List<Node> nodes = (List<Node>) row.get("nodes");
             List<Relationship> relationships = (List<Relationship>) row.get("relationships");
-            assertEquals(9,nodes.size());
             assertEquals(8,relationships.size());
         });
         
