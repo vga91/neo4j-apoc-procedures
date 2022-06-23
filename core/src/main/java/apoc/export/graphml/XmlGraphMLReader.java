@@ -292,7 +292,7 @@ public class XmlGraphMLReader {
             tx.commit();
         } catch (Exception e) {
             tx.rollback();
-            throw new RuntimeException(e);
+            throw e;
         } finally { 
             tx.close();
         }
