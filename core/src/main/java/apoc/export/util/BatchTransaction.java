@@ -2,7 +2,6 @@ package apoc.export.util;
 
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.kernel.impl.coreapi.TransactionImpl;
 
 /**
 * @author mh
