@@ -9,17 +9,20 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.common.DependencyResolver;
 import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.exceptions.Status;
 import org.neo4j.kernel.impl.api.KernelTransactions;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.AssertableLogProvider;
 import org.neo4j.logging.LogAssert;
+import org.neo4j.test.assertion.Assert;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
@@ -40,7 +43,7 @@ public class PeriodicExtendedTest {
 
     // put this test here in order to register Logging.class, which is located in `full` module
     @Test
-    public void testRepeatWithReturn() throws InterruptedException {
+    public void testRepeatWithReturn() {
         final String log1 = "ajeje";
         db.executeTransactionally("CALL apoc.periodic.repeat('repeat-1', 'CALL apoc.log.info($log)', 2, {params: {log: $log}}) ", 
                 map("log", log1));
@@ -48,13 +51,18 @@ public class PeriodicExtendedTest {
         db.executeTransactionally("CALL apoc.periodic.repeat('repeat-2', 'CALL apoc.log.info($log) RETURN 1', 2, {params: {log: $log}}) ",
                 map("log", log2));
 
-        // wait and print logs
-        Thread.sleep(5000);
         logProvider.print(System.out);
-        
-        // assert
         final LogAssert logAssert = new LogAssert(logProvider);
-        logAssert.containsMessages(log1, log2);
+        
+        org.neo4j.test.assertion.Assert.assertEventually(() -> {
+                    try {
+                        logAssert.containsMessages(log1, log2);
+                        return true;
+                    } catch (AssertionError e) {
+                        return false;
+                    }
+                }, (value) -> value, 5L, TimeUnit.SECONDS);
+        
     }
 
     @Test

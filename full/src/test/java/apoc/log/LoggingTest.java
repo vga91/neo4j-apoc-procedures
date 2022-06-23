@@ -7,8 +7,8 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.neo4j.exceptions.KernelException;
 import org.neo4j.logging.AssertableLogProvider;
-import org.neo4j.logging.LogAssert;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -18,6 +18,7 @@ import java.util.stream.IntStream;
 
 import static apoc.ApocConfig.apocConfig;
 import static java.util.Arrays.asList;
+import static org.junit.Assert.*;
 
 public class LoggingTest {
 
@@ -202,18 +203,15 @@ public class LoggingTest {
     }
 
     @Test
-    public void shouldCallTheProcedure() {
+    public void shouldCallTheProcedure() throws KernelException {
         // given
         TestUtil.registerProcedure(db, Logging.class);
-        // not to conflict with the other tests
-        apocConfig().setRateLimiter(new SimpleRateLimiter(1, 20));
 
         // when
-        db.executeTransactionally("CALL apoc.log.info('Prova %s', [1])");
+        db.executeTransactionally("CALL apoc.log.warn('Prova %s', [1])");
 
         // then
         logProvider.print(System.out);
-        final LogAssert logAssert = new LogAssert(logProvider);
-        logAssert.containsMessages("prova_1");
+//        logProvider.assertExactly(new LogMatcherBuilder(Matchers.equalTo("org.neo4j.kernel.api.procedure.GlobalProcedures")).warn("prova_"));
     }
 }
