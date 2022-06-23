@@ -132,11 +132,13 @@ public class CsvEntityLoader {
                     }
                     reporter.update(1, 0, props++);
                 }
-            } catch (Exception e) {
+                btx.commit();
+            } catch (RuntimeException e) {
                 btx.rollback();
-                throw new RuntimeException(e);
+                throw e;
+            } finally { 
+                btx.close();
             }
-            btx.close();
         }
     }
 
@@ -224,11 +226,13 @@ public class CsvEntityLoader {
                     }
                     reporter.update(0, 1, props);
                 }
-            } catch (Exception e) {
+                btx.commit();
+            } catch (RuntimeException e) {
                 btx.rollback();
-                throw new RuntimeException(e);
+                throw e;
+            } finally { 
+                btx.close();
             }
-            btx.close();
         }
     }
 

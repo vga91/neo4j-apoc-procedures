@@ -289,11 +289,13 @@ public class XmlGraphMLReader {
                     }
                 }
             }
+            tx.commit();
         } catch (Exception e) {
             tx.rollback();
             throw new RuntimeException(e);
+        } finally { 
+            tx.close();
         }
-        tx.close();
         return count;
     }
 

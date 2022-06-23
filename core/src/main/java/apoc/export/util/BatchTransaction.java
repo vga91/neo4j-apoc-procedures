@@ -2,6 +2,7 @@ package apoc.export.util;
 
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.kernel.impl.coreapi.TransactionImpl;
 
 /**
 * @author mh
@@ -60,7 +61,6 @@ public class BatchTransaction implements AutoCloseable {
     @Override
     public void close() {
         if (tx!=null) {
-            tx.commit();
             tx.close();
             if (reporter!=null) reporter.progress("finish after " + count + " row(s) ");
         }
