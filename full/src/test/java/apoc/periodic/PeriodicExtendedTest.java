@@ -9,14 +9,12 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.common.DependencyResolver;
 import org.neo4j.graphdb.QueryExecutionException;
-import org.neo4j.graphdb.Relationship;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.exceptions.Status;
 import org.neo4j.kernel.impl.api.KernelTransactions;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.AssertableLogProvider;
 import org.neo4j.logging.LogAssert;
-import org.neo4j.test.assertion.Assert;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
