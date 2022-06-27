@@ -5,7 +5,6 @@ import apoc.export.util.Reporter;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
 
 import java.io.PrintWriter;
 import java.util.Map;
@@ -30,11 +29,6 @@ public class UpdateStructureCypherFormatter extends AbstractCypherFormatter impl
 
 	@Override
 	public String statementForCleanUp(int batchSize) {
-		return "";
-	}
-
-	@Override
-	public String statementForCleanUpRel(RelationshipType type, int batchSize) {
 		return "";
 	}
 

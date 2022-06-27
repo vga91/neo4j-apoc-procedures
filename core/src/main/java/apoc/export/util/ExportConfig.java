@@ -15,7 +15,8 @@ import static java.util.Arrays.asList;
  */
 public class ExportConfig extends CompressionConfig {
     public static final ExportConfig EMPTY = new ExportConfig(null);
-    
+    public static final String RELS_WITH_TYPE_KEY = "multipleRelationshipsWithType";
+
     public static class NodeConfig {
         public String label;
         public String id;
@@ -44,8 +45,7 @@ public class ExportConfig extends CompressionConfig {
 
     private int batchSize;
     private boolean silent;
-    private boolean uniqueIdRels; 
-    private boolean cleanupUniqueRels;
+    private boolean multipleRelationshipsWithType; 
     private boolean saveIndexNames;
     private boolean saveConstraintNames;
     private boolean bulkImport = false;
@@ -103,12 +103,8 @@ public class ExportConfig extends CompressionConfig {
 
     public CypherFormat getCypherFormat() { return cypherFormat; }
 
-    public boolean isUniqueIdRels() {
-        return uniqueIdRels;
-    }
-
-    public boolean isCleanupUniqueIdRels() {
-        return cleanupUniqueRels;
+    public boolean isMultipleRelationshipsWithType() {
+        return multipleRelationshipsWithType;
     }
 
     public ExportConfig(Map<String,Object> config) {
@@ -138,8 +134,7 @@ public class ExportConfig extends CompressionConfig {
         this.samplingConfig = (Map<String, Object>) config.getOrDefault("samplingConfig", new HashMap<>());
         this.unwindBatchSize = ((Number)getOptimizations().getOrDefault("unwindBatchSize", DEFAULT_UNWIND_BATCH_SIZE)).intValue();
         this.awaitForIndexes = ((Number)config.getOrDefault("awaitForIndexes", 300)).longValue();
-        this.uniqueIdRels = toBoolean(config.get("uniqueIdRels"));
-        this.cleanupUniqueRels = toBoolean(config.getOrDefault("cleanupUniqueRels", uniqueIdRels));
+        this.multipleRelationshipsWithType = toBoolean(config.get(RELS_WITH_TYPE_KEY));
         this.source = new NodeConfig((Map<String, String>) config.get("source"));
         this.target = new NodeConfig((Map<String, String>) config.get("target"));
         validate();

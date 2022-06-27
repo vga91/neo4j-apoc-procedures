@@ -30,8 +30,6 @@ public interface CypherFormatter {
 	String statementForConstraint(String label, Iterable<String> keys, boolean ifNotExist, String name);
 
 	String statementForCleanUp(int batchSize);
-	
-	String statementForCleanUpRel(RelationshipType type, int batchSize);
 
 	void statementForNodes(Iterable<Node> node, Map<String, Set<String>> uniqueConstraints, ExportConfig exportConfig, PrintWriter out, Reporter reporter, GraphDatabaseService db);
 

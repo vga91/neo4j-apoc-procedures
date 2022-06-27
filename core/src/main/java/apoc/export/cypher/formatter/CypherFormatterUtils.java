@@ -279,4 +279,8 @@ public class CypherFormatterUtils {
     public static String cypherNode(Label label) {
         return String.format("(%s)", label == null ? "" : ":" + Util.quote(label.name()));
     }
+    
+    public static String simpleKeyValue(String key, Object value) {
+        return String.format("{%s:%s}", key, value);
+    }
 }

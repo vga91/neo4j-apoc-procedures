@@ -32,7 +32,7 @@ import java.util.stream.Stream;
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.export.cypher.ExportCypherTest.ExportCypherResults.*;
-import static apoc.export.cypher.ExportCypherTestUtils.CLEANUP;
+import static apoc.export.cypher.ExportCypherTestUtils.CLEANUP_SMALL_BATCH;
 import static apoc.export.cypher.ExportCypherTestUtils.CLEANUP_EMPTY;
 import static apoc.export.cypher.ExportCypherTestUtils.NODES_MULTI_RELS;
 import static apoc.export.cypher.ExportCypherTestUtils.NODES_MULTI_RELS_ADD_STRUCTURE;
@@ -45,9 +45,10 @@ import static apoc.export.cypher.ExportCypherTestUtils.RELS_ADD_STRUCTURE_MULTI_
 import static apoc.export.cypher.ExportCypherTestUtils.RELS_MULTI_RELS;
 import static apoc.export.cypher.ExportCypherTestUtils.RELS_UNWIND_MULTI_RELS;
 import static apoc.export.cypher.ExportCypherTestUtils.RELS_UNWIND_UPDATE_ALL_MULTI_RELS;
-import static apoc.export.cypher.ExportCypherTestUtils.SCHEMA_MULTI_REL;
+import static apoc.export.cypher.ExportCypherTestUtils.SCHEMA_WITH_UNIQUE_IMPORT_ID;
 import static apoc.export.cypher.ExportCypherTestUtils.SCHEMA_UPDATE_STRUCTURE_MULTI_REL;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.UNIQUE_ID_REL;
+import static apoc.export.util.ExportConfig.RELS_WITH_TYPE_KEY;
 import static apoc.export.util.ExportFormat.*;
 import static apoc.util.BinaryTestUtil.getDecompressedData;
 import static apoc.util.Util.map;
@@ -120,7 +121,7 @@ public class ExportCypherTest {
     
     @Test
     public void teastMultiRel() {
-        String expectedCypherStatement = NODES_MULTI_RELS + SCHEMA_MULTI_REL + RELS_MULTI_RELS + CLEANUP;
+        String expectedCypherStatement = NODES_MULTI_RELS + SCHEMA_WITH_UNIQUE_IMPORT_ID + RELS_MULTI_RELS + CLEANUP_SMALL_BATCH;
         final Map<String, Object> map = withoutOptimization(
                 map("cypherFormat", "updateAll"));
 
@@ -129,7 +130,7 @@ public class ExportCypherTest {
     
     @Test
     public void cypherFormatOptimizationNonedMultiRel() {
-        String expectedCypherStatement = NODES_MULTI_REL_CREATE + SCHEMA_MULTI_REL + RELS_ADD_STRUCTURE_MULTI_RELS + CLEANUP;
+        String expectedCypherStatement = NODES_MULTI_REL_CREATE + SCHEMA_WITH_UNIQUE_IMPORT_ID + RELS_ADD_STRUCTURE_MULTI_RELS + CLEANUP_SMALL_BATCH;
         final Map<String, Object> map = withoutOptimization(
                 map("cypherFormat", "create"));
 
@@ -156,7 +157,7 @@ public class ExportCypherTest {
     
     @Test
     public void updateAllMultiRel() {
-        String expectedCypherStatement = SCHEMA_MULTI_REL + NODES_UNWIND_UPDATE_STRUCTURE + RELS_UNWIND_UPDATE_ALL_MULTI_RELS + CLEANUP;
+        String expectedCypherStatement = SCHEMA_WITH_UNIQUE_IMPORT_ID + NODES_UNWIND_UPDATE_STRUCTURE + RELS_UNWIND_UPDATE_ALL_MULTI_RELS + CLEANUP_SMALL_BATCH;
         final Map<String, Object> map = withOptimizationSmallBatch(
                 map("cypherFormat", "updateAll"));
 
@@ -165,7 +166,7 @@ public class ExportCypherTest {
     
     @Test
     public void createMultiRel() {
-        String expectedCypherStatement = SCHEMA_MULTI_REL + NODES_UNWIND + RELS_UNWIND_MULTI_RELS + CLEANUP;
+        String expectedCypherStatement = SCHEMA_WITH_UNIQUE_IMPORT_ID + NODES_UNWIND + RELS_UNWIND_MULTI_RELS + CLEANUP_SMALL_BATCH;
         final Map<String, Object> map = withOptimizationSmallBatch(
                 map("cypherFormat", "create"));
 
@@ -227,8 +228,8 @@ public class ExportCypherTest {
         
         multiRelConsistencyCheck(false);
 
-        // all test with batch size, to ensure it works and with uniqueIdRels: true
-        final Map<String, Object> config = map("stream", true, "uniqueIdRels", true, "batchSize", 5);
+        // all test with batch size, to ensure it works correctly and with multipleRelationshipsWithType: true
+        final Map<String, Object> config = map("stream", true, RELS_WITH_TYPE_KEY, true, "batchSize", 5);
         config.putAll(otherConfigs);
         final String cypherStatements = db.executeTransactionally("CALL apoc.export.cypher.all(null, $config)", 
                 map("config",  config), 

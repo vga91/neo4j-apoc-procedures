@@ -49,10 +49,8 @@ public class ExportCypherTestUtils {
             "CREATE (:Team:`UNIQUE IMPORT LABEL` {name:\"two\", `UNIQUE IMPORT ID`:3});\n" +
             ":commit\n";
 
-    protected final static String SCHEMA_MULTI_REL = ":begin\n" +
+    protected final static String SCHEMA_WITH_UNIQUE_IMPORT_ID = ":begin\n" +
             "CREATE CONSTRAINT ON (node:`UNIQUE IMPORT LABEL`) ASSERT (node.`UNIQUE IMPORT ID`) IS UNIQUE;\n" +
-            "CREATE INDEX IF NOT EXISTS FOR ()-[rel:WORKS_FOR]-() ON (rel.`UNIQUE IMPORT ID REL`);\n" +
-            "CREATE INDEX IF NOT EXISTS FOR ()-[rel:IS_TEAM_MEMBER_OF]-() ON (rel.`UNIQUE IMPORT ID REL`);\n" +
             ":commit\n" +
             "CALL db.awaitIndexes(300);\n";
 
@@ -71,15 +69,15 @@ public class ExportCypherTestUtils {
             ":begin\n" +
             "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:1}) MERGE (n1)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:5}]->(n2) SET r.id=5;\n" +
             "\n" +
-            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:2}) MERGE (n1)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:6}]->(n2) SET r.name=\"aaa\";\n" +
-            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}) MERGE (n1)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:7}]->(n2) SET r.name=\"eee\";\n" +
+            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:2}) MERGE (n1)-[r:IS_TEAM_MEMBER_OF]->(n2) SET r.name=\"aaa\";\n" +
+            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}) MERGE (n1)-[r:IS_TEAM_MEMBER_OF]->(n2) SET r.name=\"eee\";\n" +
             ":commit\n";
 
     protected final static String RELS_UNWIND_MULTI_RELS = ":begin\n" +
-            "UNWIND [{start: {_id:0}, id: 6, end: {_id:2}, properties:{name:\"aaa\"}}, {start: {_id:0}, id: 7, end: {_id:3}, properties:{name:\"eee\"}}] AS row\n" +
+            "UNWIND [{start: {_id:0}, end: {_id:2}, properties:{name:\"aaa\"}}, {start: {_id:0}, end: {_id:3}, properties:{name:\"eee\"}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "CREATE (start)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:row.id}]->(end) SET r += row.properties;\n" +
+            "CREATE (start)-[r:IS_TEAM_MEMBER_OF]->(end) SET r += row.properties;\n" +
             "UNWIND [{start: {_id:0}, id: 0, end: {_id:1}, properties:{id:1}}, {start: {_id:0}, id: 1, end: {_id:1}, properties:{id:2}}, {start: {_id:0}, id: 2, end: {_id:1}, properties:{id:2}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
@@ -94,10 +92,10 @@ public class ExportCypherTestUtils {
             "\n";
 
     protected final static String RELS_UNWIND_UPDATE_ALL_MULTI_RELS = ":begin\n" +
-            "UNWIND [{start: {_id:0}, id: 6, end: {_id:2}, properties:{name:\"aaa\"}}, {start: {_id:0}, id: 7, end: {_id:3}, properties:{name:\"eee\"}}] AS row\n" +
+            "UNWIND [{start: {_id:0}, end: {_id:2}, properties:{name:\"aaa\"}}, {start: {_id:0}, end: {_id:3}, properties:{name:\"eee\"}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
-            "MERGE (start)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:row.id}]->(end) SET r += row.properties;\n" +
+            "MERGE (start)-[r:IS_TEAM_MEMBER_OF]->(end) SET r += row.properties;\n" +
             "UNWIND [{start: {_id:0}, id: 0, end: {_id:1}, properties:{id:1}}, {start: {_id:0}, id: 1, end: {_id:1}, properties:{id:2}}, {start: {_id:0}, id: 2, end: {_id:1}, properties:{id:2}}] AS row\n" +
             "MATCH (start:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.start._id})\n" +
             "MATCH (end:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`: row.end._id})\n" +
@@ -135,24 +133,15 @@ public class ExportCypherTestUtils {
             ":commit\n" +
             ":begin\n" +
             "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:1}) MERGE (n1)-[r:WORKS_FOR{`UNIQUE IMPORT ID REL`:5}]->(n2) ON CREATE SET r.id=5;\n" +
-            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:2}) MERGE (n1)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:6}]->(n2) ON CREATE SET r.name=\"aaa\";\n" +
-            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}) MERGE (n1)-[r:IS_TEAM_MEMBER_OF{`UNIQUE IMPORT ID REL`:7}]->(n2) ON CREATE SET r.name=\"eee\";\n" +
+            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:2}) MERGE (n1)-[r:IS_TEAM_MEMBER_OF]->(n2) ON CREATE SET r.name=\"aaa\";\n" +
+            "MATCH (n1:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:0}), (n2:`UNIQUE IMPORT LABEL`{`UNIQUE IMPORT ID`:3}) MERGE (n1)-[r:IS_TEAM_MEMBER_OF]->(n2) ON CREATE SET r.name=\"eee\";\n" +
             ":commit\n";
 
-    protected final static String CLEANUP = ":begin\n" +
+    protected final static String CLEANUP_SMALL_BATCH = ":begin\n" +
             "MATCH (n:`UNIQUE IMPORT LABEL`) WITH n LIMIT 5 REMOVE n:`UNIQUE IMPORT LABEL` REMOVE n.`UNIQUE IMPORT ID`;\n" +
             ":commit\n" +
             ":begin\n" +
             "DROP CONSTRAINT ON (node:`UNIQUE IMPORT LABEL`) ASSERT (node.`UNIQUE IMPORT ID`) IS UNIQUE;\n" +
-            ":commit\n" +
-            ":begin\n" +
-            "MATCH ()-[rel:WORKS_FOR]->() WHERE rel.`UNIQUE IMPORT ID REL` IS NOT NULL WITH rel LIMIT 5 REMOVE rel.`UNIQUE IMPORT ID REL`;\n" +
-            ":commit\n" +
-            ":begin\n" +
-            "MATCH ()-[rel:WORKS_FOR]->() WHERE rel.`UNIQUE IMPORT ID REL` IS NOT NULL WITH rel LIMIT 5 REMOVE rel.`UNIQUE IMPORT ID REL`;\n" +
-            ":commit\n" +
-            ":begin\n" +
-            "MATCH ()-[rel:IS_TEAM_MEMBER_OF]->() WHERE rel.`UNIQUE IMPORT ID REL` IS NOT NULL WITH rel LIMIT 5 REMOVE rel.`UNIQUE IMPORT ID REL`;\n" +
             ":commit\n";
 
     protected final static String CLEANUP_EMPTY = ":begin\n:commit\n:begin\n:commit\n";
