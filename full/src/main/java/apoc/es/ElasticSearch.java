@@ -137,8 +137,9 @@ public class ElasticSearch {
     @Procedure
     @Description("apoc.es.stats(host-url-Key) - elastic search statistics")
     public Stream<MapResult> stats(@Name("host") String hostOrKey) {
-        String url = getElasticSearchUrl(hostOrKey);
-        return LoadJson.loadJsonStream(url + "/_stats", null, null);
+        String url = "https://localhost:9200"; 
+//        String url = getElasticSearchUrl(hostOrKey);
+        return LoadJson.loadJsonStream(url /*+ "/_stats"*/, null, null);
     }
 
     @Procedure
