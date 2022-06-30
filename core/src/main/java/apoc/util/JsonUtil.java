@@ -79,20 +79,20 @@ public class JsonUtil {
     }
     
     public static Stream<Object> loadJson(String url, Map<String,Object> headers, String payload) {
-        return loadJson(url,headers,payload,"", true, null, null);
+        return loadJson(url,headers,payload,"", true, null, null, null);
     }
     
-    public static Stream<Object> loadJson(Object urlOrBinary, Map<String,Object> headers, String payload, String path, boolean failOnError, List<String> options) {
-        return loadJson(urlOrBinary, headers, payload, path, failOnError, null, options);
+    public static Stream<Object> loadJson(Object urlOrBinary, Map<String,Object> headers, String payload, String path, boolean failOnError, List<String> options, String certificateUrl) {
+        return loadJson(urlOrBinary, headers, payload, path, failOnError, null, options, certificateUrl);
     }
     
-    public static Stream<Object> loadJson(Object urlOrBinary, Map<String,Object> headers, String payload, String path, boolean failOnError, String compressionAlgo, List<String> options) {
+    public static Stream<Object> loadJson(Object urlOrBinary, Map<String,Object> headers, String payload, String path, boolean failOnError, String compressionAlgo, List<String> options, String certificateUrl) {
         try {
             if (urlOrBinary instanceof String) {
                 String url = (String) urlOrBinary;
                 urlOrBinary = Util.getLoadUrlByConfigFile("json", url, "url").orElse(url);
             }
-            InputStream input = FileUtils.inputStreamFor(urlOrBinary, headers, payload, compressionAlgo);
+            InputStream input = FileUtils.inputStreamFor(urlOrBinary, headers, payload, compressionAlgo, certificateUrl);
             JsonParser parser = OBJECT_MAPPER.getFactory().createParser(input);
             MappingIterator<Object> it = OBJECT_MAPPER.readValues(parser, Object.class);
             Stream<Object> stream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false);

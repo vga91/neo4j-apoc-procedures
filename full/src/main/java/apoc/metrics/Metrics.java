@@ -174,7 +174,7 @@ public class Metrics {
         CountingReader reader = null;
         try {
             reader = FileUtils.SupportedProtocols.file
-                    .getStreamConnection(url, null, null)
+                    .getStreamConnection(url, null, null, null)
                     .toCountingInputStream(CompressionAlgo.NONE.name())
                     .asReader();
             return new LoadCsv()

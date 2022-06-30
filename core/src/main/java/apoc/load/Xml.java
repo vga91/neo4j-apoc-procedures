@@ -159,7 +159,7 @@ public class Xml {
             String url = (String) urlOrBinary;
             apocConfig.checkReadAllowed(url);
             url = FileUtils.changeFileUrlIfImportDirectoryConstrained(url);
-            var sc = Util.openInputStream(url, null, null, null);
+            var sc = Util.openInputStream(url, null, null, null, null);
             inputStream = sc.getStream();
         } else if (urlOrBinary instanceof byte[]) {
             inputStream = getInputStreamFromBinary((byte[]) urlOrBinary, config.getCompressionAlgo());

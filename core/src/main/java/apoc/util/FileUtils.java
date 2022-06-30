@@ -61,7 +61,7 @@ public class FileUtils {
             this.urlStreamHandlerClassName = urlStreamHandlerClassName;
         }
 
-        public StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
+        public StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload, String certificateUrl) throws IOException {
             switch (this) {
                 case s3:
                     return FileUtils.openS3InputStream(urlAddress);
@@ -71,7 +71,7 @@ public class FileUtils {
                 case http:
                 case https:
                 case gs:
-                    return readHttpInputStream(urlAddress, headers, payload);
+                    return readHttpInputStream(urlAddress, headers, payload, certificateUrl);
                 default:
                     try {
                         return new StreamConnection.FileStreamConnection(URI.create(urlAddress));
@@ -166,16 +166,20 @@ public class FileUtils {
     }
 
     public static CountingReader readerFor(Object input, Map<String, Object> headers, String payload, String compressionAlgo) throws IOException {
-        return inputStreamFor(input, headers, payload, compressionAlgo).asReader();
+        return inputStreamFor(input, headers, payload, compressionAlgo, null).asReader();
     }
 
     public static CountingInputStream inputStreamFor(Object input, Map<String, Object> headers, String payload, String compressionAlgo) throws IOException {
+        return inputStreamFor(input, headers, payload, compressionAlgo, null);
+    }
+
+    public static CountingInputStream inputStreamFor(Object input, Map<String, Object> headers, String payload, String compressionAlgo, String certificateUrl) throws IOException {
         if (input == null) return null;
         if (input instanceof String) {
             String fileName = (String) input;
             apocConfig().checkReadAllowed(fileName);
             fileName = changeFileUrlIfImportDirectoryConstrained(fileName);
-            return Util.openInputStream(fileName, headers, payload, compressionAlgo);
+            return Util.openInputStream(fileName, headers, payload, compressionAlgo, certificateUrl);
         } else if (input instanceof byte[]) {
             return getInputStreamFromBinary((byte[]) input, compressionAlgo);
         } else {

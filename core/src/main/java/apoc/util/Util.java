@@ -40,7 +40,6 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
-import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
@@ -60,7 +59,6 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Paths;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -337,17 +335,7 @@ public class Util {
         }
     }
 
-    public static KeyStore getKeyStore (Certificate theCert) {
-        try {
-            String keyStoreType = KeyStore.getDefaultType();
-            KeyStore keyStore = KeyStore.getInstance(keyStoreType);
-            keyStore.load(null, null);
-            keyStore.setCertificateEntry("theCert", theCert);
-            return keyStore;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
+
     public static TrustManagerFactory getTrustManagerFactory (KeyStore keyStore) {
         try {
             TrustManagerFactory tmFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -358,63 +346,41 @@ public class Util {
         }
     }
 
-    public static URLConnection getConnection (String theUrl, Map <String, String> reqHeaders, SSLSocketFactory sslSocketFactory) throws IOException
-    {
-        URLConnection theConnection;
-        if (theUrl.toLowerCase ().startsWith ("https://"))
-        {
-                // We have an https:// URL with a certificate inside the SSL Socket Factory so we can authenticate the server
-                HttpsURLConnection secConnection = (HttpsURLConnection) new URL (theUrl).openConnection ();
-                secConnection.setSSLSocketFactory (sslSocketFactory);
-
-                String auth = "elastic" + ":" + "PleaseChangeMe"; // todo - mock
-                byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
-                secConnection.setRequestProperty("Authorization", "Basic " + new String(encodedAuth));
-
-//                String userpass = "elastic:PleaseChangeMe";
-//                Authenticator.setDefault (new Authenticator() {
-//                    protected PasswordAuthentication getPasswordAuthentication() {
-//                        return new PasswordAuthentication ("username", "password".toCharArray());
-//                    }
-//                });
-//                secConnection.setAuthenticator();
-                theConnection = secConnection;
-            
-        }
-        else
-        {
-            // We have a plain http:// URL
-            theConnection = new URL (theUrl).openConnection ();
-        }
-
-//        if (reqHeaders != null)
-//        {
-//            setHeaders (theConnection, reqHeaders);
-//        }
-
-        return theConnection;
-    }
-
-//    public static SSLSocketFactory getSSLSocketFactory (String certFile) {
-//        return getSSLSocketFactory (certFile, "TLS", "PKIX");
-//    }
-
-//    public static SSLSocketFactory getSSLSocketFactory (String theCert, String secureProtocol, String tmAlgorithm) throws CertificateException, IOException, KeyStoreException, NoSuchAlgorithmException
+//    public static URLConnection getConnection (String theUrl, Map <String, Object> reqHeaders, SSLSocketFactory sslSocketFactory) throws IOException
 //    {
-////        InputStream certStream = new BufferedInputStream(new FileInputStream("/Users/GiuseppeVillani/Downloads/elastic cert 2/certs/ca/ca.crt"));
-////        CertificateFactory fact = null;
-////        try
+//        URLConnection theConnection;
+//        if (theUrl.toLowerCase ().startsWith ("https://"))
+//        {
+//                // We have an https:// URL with a certificate inside the SSL Socket Factory so we can authenticate the server
+//                HttpsURLConnection secConnection = (HttpsURLConnection) new URL (theUrl).openConnection ();
+//                secConnection.setSSLSocketFactory (sslSocketFactory);
+//
+//                String auth = "elastic" + ":" + "PleaseChangeMe"; // todo - mock
+//                byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
+//                secConnection.setRequestProperty("Authorization", "Basic " + new String(encodedAuth));
+//
+////                String userpass = "elastic:PleaseChangeMe";
+////                Authenticator.setDefault (new Authenticator() {
+////                    protected PasswordAuthentication getPasswordAuthentication() {
+////                        return new PasswordAuthentication ("username", "password".toCharArray());
+////                    }
+////                });
+////                secConnection.setAuthenticator();
+//                theConnection = secConnection;
+//            
+//        }
+//        else
+//        {
+//            // We have a plain http:// URL
+//            theConnection = new URL (theUrl).openConnection ();
+//        }
+//
+////        if (reqHeaders != null)
 ////        {
-////            theCert = fact.generateCertificate (certStream);
-////            System.out.println("Util.openUrlConnection");
-////        } catch (CertificateException e) {
-////            throw new RuntimeException(e);
+////            setHeaders (theConnection, reqHeaders);
 ////        }
-////        Certificate theCertificate;
-////
-////        KeyStore keyStore = getKeyStore (theCertificate);
-////        TrustManagerFactory tmFactory = getTrustManagerFactory (keyStore);
-//        return getSSLSocketFactory (tmFactory, secureProtocol);
+//
+//        return theConnection;
 //    }
 
     public static SSLSocketFactory getSSLSocketFactory (TrustManagerFactory tmFactory, String secureProtocol) throws NoSuchAlgorithmException, KeyManagementException
@@ -433,24 +399,13 @@ public class Util {
         return sslContext.getSocketFactory ();
     }
 
-    public static URLConnection openUrlConnection(String url, Map<String, Object> headers) throws IOException {
+    public static URLConnection openUrlConnection(String url, Map<String, Object> headers, String keyUrl) throws IOException {
         URL src = new URL(url);
-        CertificateFactory fact = null;
-        try {
-            fact = CertificateFactory.getInstance("X.509");
-        } catch (CertificateException e) {
-            
-            
-            e.printStackTrace();
-        }
-//        InputStream is = context.getResources().getAssets().openAsset("somefolder/somecertificate.crt");
-//        InputStream caInput = new BufferedInputStream(is);
-        
-//        InputStream certStream = new FileInputStream ("ca.crt");
-        InputStream certStream = new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/certs/ca/ca.crt");
-//        InputStream certStream = new BufferedInputStream (new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/certs/ca/ca.crt"));
-        final String s = new String(certStream.readAllBytes());
-        Certificate theCert = null;
+
+//        InputStream certStream = new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/certs/ca/ca.crt");
+////        InputStream certStream = new BufferedInputStream (new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/certs/ca/ca.crt"));
+//        final String s = new String(certStream.readAllBytes());
+//        Certificate theCert = null;
 
 
 //        try {
@@ -461,36 +416,15 @@ public class Util {
 
 
 //        java.nio.file.Path trustStorePath = Paths.get("path/to/truststore/file.jks");
-        KeyStore keyStore = null;// getKeyStore (theCert);
-        try {
-            keyStore = KeyStore.getInstance("jks");
-        } catch (KeyStoreException e) {
-            throw new RuntimeException(e);
-        }
-        try {
-            keyStore.load(new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/my_keystore.jks"), "password".toCharArray());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-//        KeyStore keyStore = getKeyStore (theCert);
-        TrustManagerFactory tmFactory = getTrustManagerFactory (keyStore);
-        
-        // todo - mockato
-        SSLSocketFactory sslSocketFactory = null;
-        try {
-            sslSocketFactory = getSSLSocketFactory (tmFactory, "TLS");
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
 
-        URLConnection remoteConn = getConnection (url, new HashMap <String, String> (), sslSocketFactory);
+
+        URLConnection con = getUrlConnection(url, src,  keyUrl);
+//        URLConnection remoteConn = getConnection (url, headers, sslSocketFactory);
 //        String rawData = fetchUrlString (remoteConn);
 //        System.out.println (rawData);
         
         
-        System.out.println("Util.openUrlConnection");
-        URLConnection con = src.openConnection();
-        System.out.println("Util.openUrlConnection");
+//        URLConnection con = src.openConnection();
 
 //        String rawData = fetchUrlString (remoteConn);
 //        System.out.println("rawData = " + rawData);
@@ -512,7 +446,43 @@ public class Util {
         con.setConnectTimeout(apocConfig().getInt("apoc.http.timeout.connect",10_000));
         con.setReadTimeout(apocConfig().getInt("apoc.http.timeout.read",60_000));
         // todo - mock
-        return remoteConn;
+        return con;
+    }
+
+    private static URLConnection getUrlConnection(String url, URL src, String keyUrl) throws IOException {
+//        URLConnection con;
+        if (url.toLowerCase().startsWith("https://")) {
+            KeyStore keyStore = null;// getKeyStore (theCert);
+            try {
+                keyStore = KeyStore.getInstance("jks");
+            } catch (KeyStoreException e) {
+                throw new RuntimeException(e);
+            }
+            try {
+                keyStore.load(new FileInputStream (keyUrl), "password".toCharArray());
+//                keyStore.load(new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/my_keystore.jks"), "password".toCharArray());
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+//        KeyStore keyStore = getKeyStore (theCert);
+            TrustManagerFactory tmFactory = getTrustManagerFactory (keyStore);
+
+            // todo - mockato
+            SSLSocketFactory sslSocketFactory = null;
+            try {
+                sslSocketFactory = getSSLSocketFactory (tmFactory, "TLS");
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            
+            
+            HttpsURLConnection secConnection = (HttpsURLConnection) new URL (url).openConnection ();
+            secConnection.setSSLSocketFactory (sslSocketFactory);
+            return secConnection;
+        } // else {
+            return src.openConnection();
+//        }
+//        return con;
     }
 
     public static boolean isRedirect(HttpURLConnection con) throws IOException {
@@ -544,13 +514,17 @@ public class Util {
     }
 
     public static CountingInputStream openInputStream(Object input, Map<String, Object> headers, String payload, String compressionAlgo) throws IOException {
+        return openInputStream(input, headers, payload, compressionAlgo, null); 
+    }
+
+    public static CountingInputStream openInputStream(Object input, Map<String, Object> headers, String payload, String compressionAlgo, String certificateUrl) throws IOException {
         if (input instanceof String) {
             String urlAddress = (String) input;
             if (urlAddress.contains("!") && (urlAddress.contains(".zip") || urlAddress.contains(".tar") || urlAddress.contains(".tgz"))) {
-                return getStreamCompressedFile(urlAddress, headers, payload);
+                return getStreamCompressedFile(urlAddress, headers, payload, certificateUrl);
             }
 
-            StreamConnection sc = getStreamConnection(urlAddress, headers, payload);
+            StreamConnection sc = getStreamConnection(urlAddress, headers, payload, certificateUrl);
             return sc.toCountingInputStream(compressionAlgo);
         } else if (input instanceof byte[]) {
             return FileUtils.getInputStreamFromBinary((byte[]) input, compressionAlgo);
@@ -559,7 +533,7 @@ public class Util {
         }
     }
 
-    private static CountingInputStream getStreamCompressedFile(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
+    private static CountingInputStream getStreamCompressedFile(String urlAddress, Map<String, Object> headers, String payload, String certificateUrl) throws IOException {
         StreamConnection sc;
         InputStream stream;
         String[] tokens = urlAddress.split("!");
@@ -567,7 +541,7 @@ public class Util {
         String zipFileName;
         if(tokens.length == 2) {
             zipFileName = tokens[1];
-            sc = getStreamConnection(urlAddress, headers, payload);
+            sc = getStreamConnection(urlAddress, headers, payload, certificateUrl);
             stream = getFileStreamIntoCompressedFile(sc.getInputStream(), zipFileName);
         }else
             throw new IllegalArgumentException("filename can't be null or empty");
@@ -575,10 +549,10 @@ public class Util {
         return new CountingInputStream(stream, sc.getLength());
     }
 
-    private static StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
+    private static StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload, String certificateUrl) throws IOException {
         return FileUtils.SupportedProtocols
                 .from(urlAddress)
-                .getStreamConnection(urlAddress, headers, payload);
+                .getStreamConnection(urlAddress, headers, payload, certificateUrl);
     }
 
     private static InputStream getFileStreamIntoCompressedFile(InputStream is, String fileName) throws IOException {
@@ -595,18 +569,15 @@ public class Util {
         return null;
     }
 
-    public static StreamConnection readHttpInputStream(String urlAddress, Map<String, Object> headers, String payload) throws IOException {
+    public static StreamConnection readHttpInputStream(String urlAddress, Map<String, Object> headers, String payload, String certificateUrl) throws IOException {
         ApocConfig.apocConfig().checkReadAllowed(urlAddress);
-        URLConnection con = openUrlConnection(urlAddress, headers);
-        System.out.println("dio = ");
-        final InputStream inputStream = con.getInputStream();
-        System.out.println("inputStream = " + inputStream);
+        URLConnection con = openUrlConnection(urlAddress, headers, certificateUrl);
+//        final InputStream inputStream = con.getInputStream();
         writePayload(con, payload);
-        // todo - here
         String newUrl = handleRedirect(con, urlAddress);
         if (newUrl != null && !urlAddress.equals(newUrl)) {
             con.getInputStream().close();
-            return readHttpInputStream(newUrl, headers, payload);
+            return readHttpInputStream(newUrl, headers, payload, certificateUrl);
         }
 
         return new StreamConnection.UrlStreamConnection(con);

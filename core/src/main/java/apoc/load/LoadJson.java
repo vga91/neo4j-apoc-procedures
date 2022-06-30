@@ -31,7 +31,7 @@ public class LoadJson {
     @Procedure
     @Description("apoc.load.jsonArray('url') YIELD value - load array from JSON URL (e.g. web-api) to import JSON as stream of values")
     public Stream<ObjectResult> jsonArray(@Name("url") String url, @Name(value = "path",defaultValue = "") String path, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
-        return JsonUtil.loadJson(url, null, null, path, true, (List<String>) config.get("pathOptions"))
+        return JsonUtil.loadJson(url, null, null, path, true, (List<String>) config.get("pathOptions"), null)
                 .flatMap((value) -> {
                     if (value instanceof List) {
                         List list = (List) value;
@@ -57,18 +57,18 @@ public class LoadJson {
         boolean failOnError = (boolean) config.getOrDefault("failOnError", true);
         String compressionAlgo = (String) config.getOrDefault(COMPRESSION, CompressionAlgo.NONE.name());
         List<String> pathOptions = (List<String>) config.get("pathOptions");
-        return loadJsonStream(urlOrKeyOrBinary, headers, payload, path, failOnError, compressionAlgo, pathOptions);
+        return loadJsonStream(urlOrKeyOrBinary, headers, payload, path, failOnError, compressionAlgo, pathOptions, null);
     }
 
-    public static Stream<MapResult> loadJsonStream(@Name("url") Object url, @Name("headers") Map<String, Object> headers, @Name("payload") String payload) {
-        return loadJsonStream(url, headers, payload, "", true, null, null);
+    public static Stream<MapResult> loadJsonStream(@Name("url") Object url, @Name("headers") Map<String, Object> headers, @Name("payload") String payload, String certificateUrl) {
+        return loadJsonStream(url, headers, payload, "", true, null, null, certificateUrl);
     }
-    public static Stream<MapResult> loadJsonStream(@Name("urlOrKeyOrBinary") Object urlOrKeyOrBinary, @Name("headers") Map<String, Object> headers, @Name("payload") String payload, String path, boolean failOnError, String compressionAlgo, List<String> pathOptions) {
+    public static Stream<MapResult> loadJsonStream(@Name("urlOrKeyOrBinary") Object urlOrKeyOrBinary, @Name("headers") Map<String, Object> headers, @Name("payload") String payload, String path, boolean failOnError, String compressionAlgo, List<String> pathOptions, String certificateUrl) {
         if (urlOrKeyOrBinary instanceof String) {
             headers = null != headers ? headers : new HashMap<>();
             headers.putAll(Util.extractCredentialsIfNeeded((String) urlOrKeyOrBinary, failOnError));
         }
-        Stream<Object> stream = JsonUtil.loadJson(urlOrKeyOrBinary,headers,payload, path, failOnError, compressionAlgo, pathOptions);
+        Stream<Object> stream = JsonUtil.loadJson(urlOrKeyOrBinary,headers,payload, path, failOnError, compressionAlgo, pathOptions, certificateUrl);
         return stream.flatMap((value) -> {
             if (value instanceof Map) {
                 return Stream.of(new MapResult((Map) value));

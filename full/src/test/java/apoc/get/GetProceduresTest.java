@@ -20,6 +20,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 /**
  * @author mh
@@ -33,17 +34,6 @@ public class GetProceduresTest {
     @Before
     public void setUp() throws Exception {
         TestUtil.registerProcedure(db, GetProcedures.class, ElasticSearch.class);
-    }
-
-    @Test
-    public void shouldWriteSafeStrings() {
-        TestUtil.testCall(db, "CALL apoc.es.stats($host)", Map.of("host", "http://localhost:9200"), r -> {
-            System.out.println("GetProceduresTest.shouldWriteSafeStrings-------");
-            System.out.println(r.get("value"));
-
-//            Object numOfDocs = extractValueFromResponse(r, "$._all.total.docs.count");
-//            assertNotEquals(0, numOfDocs);
-        });
     }
 
     @Test
