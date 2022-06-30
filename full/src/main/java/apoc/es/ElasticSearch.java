@@ -137,15 +137,9 @@ public class ElasticSearch {
     @Procedure
     @Description("apoc.es.stats(host-url-Key) - elastic search statistics")
     public Stream<MapResult> stats(@Name("host") String hostOrKey, @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
-        // todo - create Config class
-        final Map<String, Object> header = (Map<String, Object>) config.get("header");
-        final String keyStoreUrl = (String) config.get("keyStoreUrl");
-        final String keyStorePassword = (String) config.get("keyStorePassword");
+        final ElasticConfig conf = new ElasticConfig(config);
         String url = getElasticSearchUrl(hostOrKey);
-        
-        // todo - instead of keyStoreUrl might be worth insert as a parameter e.g. a SecurityConfig
-        //  which could extend elasticsearch config and maybe other configs later
-        return LoadJson.loadJsonStream(url + "/_stats", header, null, keyStoreUrl);
+        return LoadJson.loadJsonStream(url + "/_stats", conf.getHeader(), null, conf);
     }
 
     @Procedure

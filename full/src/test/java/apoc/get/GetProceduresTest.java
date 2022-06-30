@@ -1,6 +1,5 @@
 package apoc.get;
 
-import apoc.es.ElasticSearch;
 import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
@@ -13,14 +12,10 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 import static apoc.util.MapUtil.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 /**
  * @author mh
@@ -33,7 +28,7 @@ public class GetProceduresTest {
 
     @Before
     public void setUp() throws Exception {
-        TestUtil.registerProcedure(db, GetProcedures.class, ElasticSearch.class);
+        TestUtil.registerProcedure(db, GetProcedures.class);
     }
 
     @Test

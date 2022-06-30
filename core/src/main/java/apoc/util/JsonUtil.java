@@ -3,6 +3,7 @@ package apoc.util;
 import apoc.export.util.DurationValueSerializer;
 import apoc.export.util.PointSerializer;
 import apoc.export.util.TemporalSerializer;
+import apoc.load.ConnectionConfig;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -82,17 +83,17 @@ public class JsonUtil {
         return loadJson(url,headers,payload,"", true, null, null, null);
     }
     
-    public static Stream<Object> loadJson(Object urlOrBinary, Map<String,Object> headers, String payload, String path, boolean failOnError, List<String> options, String certificateUrl) {
-        return loadJson(urlOrBinary, headers, payload, path, failOnError, null, options, certificateUrl);
+    public static Stream<Object> loadJson(Object urlOrBinary, Map<String,Object> headers, String payload, String path, boolean failOnError, List<String> options, ConnectionConfig config) {
+        return loadJson(urlOrBinary, headers, payload, path, failOnError, null, options, config);
     }
     
-    public static Stream<Object> loadJson(Object urlOrBinary, Map<String,Object> headers, String payload, String path, boolean failOnError, String compressionAlgo, List<String> options, String certificateUrl) {
+    public static Stream<Object> loadJson(Object urlOrBinary, Map<String,Object> headers, String payload, String path, boolean failOnError, String compressionAlgo, List<String> options, ConnectionConfig config) {
         try {
             if (urlOrBinary instanceof String) {
                 String url = (String) urlOrBinary;
                 urlOrBinary = Util.getLoadUrlByConfigFile("json", url, "url").orElse(url);
             }
-            InputStream input = FileUtils.inputStreamFor(urlOrBinary, headers, payload, compressionAlgo, certificateUrl);
+            InputStream input = FileUtils.inputStreamFor(urlOrBinary, headers, payload, compressionAlgo, config);
             JsonParser parser = OBJECT_MAPPER.getFactory().createParser(input);
             MappingIterator<Object> it = OBJECT_MAPPER.readValues(parser, Object.class);
             Stream<Object> stream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false);

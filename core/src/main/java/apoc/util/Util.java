@@ -5,6 +5,7 @@ import apoc.Pools;
 import apoc.convert.Convert;
 import apoc.export.util.CountingInputStream;
 import apoc.export.util.ExportConfig;
+import apoc.load.ConnectionConfig;
 import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
 import org.apache.commons.io.IOUtils;
@@ -50,22 +51,13 @@ import java.io.StringWriter;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigInteger;
-import java.net.Authenticator;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
-import java.net.PasswordAuthentication;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.security.KeyManagementException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalAccessor;
@@ -335,108 +327,15 @@ public class Util {
         }
     }
 
-
-    public static TrustManagerFactory getTrustManagerFactory (KeyStore keyStore) {
-        try {
-            TrustManagerFactory tmFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-            tmFactory.init(keyStore);
-            return tmFactory;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-//    public static URLConnection getConnection (String theUrl, Map <String, Object> reqHeaders, SSLSocketFactory sslSocketFactory) throws IOException
-//    {
-//        URLConnection theConnection;
-//        if (theUrl.toLowerCase ().startsWith ("https://"))
-//        {
-//                // We have an https:// URL with a certificate inside the SSL Socket Factory so we can authenticate the server
-//                HttpsURLConnection secConnection = (HttpsURLConnection) new URL (theUrl).openConnection ();
-//                secConnection.setSSLSocketFactory (sslSocketFactory);
-//
-//                String auth = "elastic" + ":" + "PleaseChangeMe"; // todo - mock
-//                byte[] encodedAuth = Base64.getEncoder().encode(auth.getBytes(StandardCharsets.UTF_8));
-//                secConnection.setRequestProperty("Authorization", "Basic " + new String(encodedAuth));
-//
-////                String userpass = "elastic:PleaseChangeMe";
-////                Authenticator.setDefault (new Authenticator() {
-////                    protected PasswordAuthentication getPasswordAuthentication() {
-////                        return new PasswordAuthentication ("username", "password".toCharArray());
-////                    }
-////                });
-////                secConnection.setAuthenticator();
-//                theConnection = secConnection;
-//            
-//        }
-//        else
-//        {
-//            // We have a plain http:// URL
-//            theConnection = new URL (theUrl).openConnection ();
-//        }
-//
-////        if (reqHeaders != null)
-////        {
-////            setHeaders (theConnection, reqHeaders);
-////        }
-//
-//        return theConnection;
-//    }
-
-    public static SSLSocketFactory getSSLSocketFactory (TrustManagerFactory tmFactory, String secureProtocol) throws NoSuchAlgorithmException, KeyManagementException
-    {
-        if (secureProtocol == null)
-        {
-            secureProtocol = "TLS";
-        }
-        SSLContext sslContext = SSLContext.getInstance (secureProtocol);
-        // System.out.println ("Created SSLContext using protocol [" + secureProtocol + "]");
-        try {
-            sslContext.init (null, tmFactory.getTrustManagers (), null);
-        } catch (KeyManagementException e) {
-            throw new RuntimeException(e);
-        }
-        return sslContext.getSocketFactory ();
-    }
-
-    public static URLConnection openUrlConnection(String url, Map<String, Object> headers, String keyUrl) throws IOException {
+    public static URLConnection openUrlConnection(String url, Map<String, Object> headers, ConnectionConfig config) throws IOException {
         URL src = new URL(url);
-
-//        InputStream certStream = new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/certs/ca/ca.crt");
-////        InputStream certStream = new BufferedInputStream (new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/certs/ca/ca.crt"));
-//        final String s = new String(certStream.readAllBytes());
-//        Certificate theCert = null;
-
-
-//        try {
-//            theCert = fact.generateCertificate (certStream);
-//        } catch (CertificateException e) {
-//            e.printStackTrace();
-//        }
-
-
-//        java.nio.file.Path trustStorePath = Paths.get("path/to/truststore/file.jks");
-
-
-        URLConnection con = getUrlConnection(url, src,  keyUrl);
-//        URLConnection remoteConn = getConnection (url, headers, sslSocketFactory);
-//        String rawData = fetchUrlString (remoteConn);
-//        System.out.println (rawData);
-        
-        
-//        URLConnection con = src.openConnection();
-
-//        String rawData = fetchUrlString (remoteConn);
-//        System.out.println("rawData = " + rawData);
-        
+        URLConnection con = getUrlConnection(src, config);
         con.setRequestProperty("User-Agent", "APOC Procedures for Neo4j");
         if (headers != null) {
             Object method = headers.get("method");
             if (method != null && con instanceof HttpURLConnection) {
                 HttpURLConnection http = (HttpURLConnection) con;
                 http.setRequestMethod(method.toString());
-                
-                
                 http.setChunkedStreamingMode(1024*1024);
                 http.setInstanceFollowRedirects(true);
             }
@@ -445,44 +344,31 @@ public class Util {
 //        con.setDoInput(true);
         con.setConnectTimeout(apocConfig().getInt("apoc.http.timeout.connect",10_000));
         con.setReadTimeout(apocConfig().getInt("apoc.http.timeout.read",60_000));
-        // todo - mock
         return con;
     }
 
-    private static URLConnection getUrlConnection(String url, URL src, String keyUrl) throws IOException {
-//        URLConnection con;
-        if (url.toLowerCase().startsWith("https://")) {
-            KeyStore keyStore = null;// getKeyStore (theCert);
-            try {
-                keyStore = KeyStore.getInstance("jks");
-            } catch (KeyStoreException e) {
-                throw new RuntimeException(e);
-            }
-            try {
-                keyStore.load(new FileInputStream (keyUrl), "password".toCharArray());
-//                keyStore.load(new FileInputStream ("/Users/GiuseppeVillani/Downloads/elasticcert2/my_keystore.jks"), "password".toCharArray());
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-//        KeyStore keyStore = getKeyStore (theCert);
-            TrustManagerFactory tmFactory = getTrustManagerFactory (keyStore);
-
-            // todo - mockato
-            SSLSocketFactory sslSocketFactory = null;
-            try {
-                sslSocketFactory = getSSLSocketFactory (tmFactory, "TLS");
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            
-            
-            HttpsURLConnection secConnection = (HttpsURLConnection) new URL (url).openConnection ();
-            secConnection.setSSLSocketFactory (sslSocketFactory);
-            return secConnection;
-        } // else {
+    private static URLConnection getUrlConnection(URL src, ConnectionConfig config) throws IOException {
+        if (!src.getProtocol().equalsIgnoreCase("https") || Optional.ofNullable(config).map(ConnectionConfig::getKeyStoreUrl).isEmpty()) {
             return src.openConnection();
-//        }
-//        return con;
+        }
+        
+        try {
+            KeyStore keyStore;
+            keyStore = KeyStore.getInstance(config.getKeyStoreType());
+            keyStore.load(new FileInputStream (config.getKeyStoreUrl()), config.getKeyStorePassword().toCharArray());
+            TrustManagerFactory tmFactory = TrustManagerFactory.getInstance(config.getTrustManagerAlgorithm());
+            tmFactory.init(keyStore);
+
+            SSLContext sslContext = SSLContext.getInstance(config.getSecureProtocol());
+            sslContext.init (null, tmFactory.getTrustManagers(), null);
+            SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+            
+            HttpsURLConnection secureConnection = (HttpsURLConnection) src.openConnection ();
+            secureConnection.setSSLSocketFactory(sslSocketFactory);
+            return secureConnection;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static boolean isRedirect(HttpURLConnection con) throws IOException {
@@ -517,14 +403,14 @@ public class Util {
         return openInputStream(input, headers, payload, compressionAlgo, null); 
     }
 
-    public static CountingInputStream openInputStream(Object input, Map<String, Object> headers, String payload, String compressionAlgo, String certificateUrl) throws IOException {
+    public static CountingInputStream openInputStream(Object input, Map<String, Object> headers, String payload, String compressionAlgo, ConnectionConfig config) throws IOException {
         if (input instanceof String) {
             String urlAddress = (String) input;
             if (urlAddress.contains("!") && (urlAddress.contains(".zip") || urlAddress.contains(".tar") || urlAddress.contains(".tgz"))) {
-                return getStreamCompressedFile(urlAddress, headers, payload, certificateUrl);
+                return getStreamCompressedFile(urlAddress, headers, payload, config);
             }
 
-            StreamConnection sc = getStreamConnection(urlAddress, headers, payload, certificateUrl);
+            StreamConnection sc = getStreamConnection(urlAddress, headers, payload, config);
             return sc.toCountingInputStream(compressionAlgo);
         } else if (input instanceof byte[]) {
             return FileUtils.getInputStreamFromBinary((byte[]) input, compressionAlgo);
@@ -533,7 +419,7 @@ public class Util {
         }
     }
 
-    private static CountingInputStream getStreamCompressedFile(String urlAddress, Map<String, Object> headers, String payload, String certificateUrl) throws IOException {
+    private static CountingInputStream getStreamCompressedFile(String urlAddress, Map<String, Object> headers, String payload, ConnectionConfig config) throws IOException {
         StreamConnection sc;
         InputStream stream;
         String[] tokens = urlAddress.split("!");
@@ -541,7 +427,7 @@ public class Util {
         String zipFileName;
         if(tokens.length == 2) {
             zipFileName = tokens[1];
-            sc = getStreamConnection(urlAddress, headers, payload, certificateUrl);
+            sc = getStreamConnection(urlAddress, headers, payload, config);
             stream = getFileStreamIntoCompressedFile(sc.getInputStream(), zipFileName);
         }else
             throw new IllegalArgumentException("filename can't be null or empty");
@@ -549,10 +435,10 @@ public class Util {
         return new CountingInputStream(stream, sc.getLength());
     }
 
-    private static StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload, String certificateUrl) throws IOException {
+    private static StreamConnection getStreamConnection(String urlAddress, Map<String, Object> headers, String payload, ConnectionConfig config) throws IOException {
         return FileUtils.SupportedProtocols
                 .from(urlAddress)
-                .getStreamConnection(urlAddress, headers, payload, certificateUrl);
+                .getStreamConnection(urlAddress, headers, payload, config);
     }
 
     private static InputStream getFileStreamIntoCompressedFile(InputStream is, String fileName) throws IOException {
@@ -569,15 +455,14 @@ public class Util {
         return null;
     }
 
-    public static StreamConnection readHttpInputStream(String urlAddress, Map<String, Object> headers, String payload, String certificateUrl) throws IOException {
+    public static StreamConnection readHttpInputStream(String urlAddress, Map<String, Object> headers, String payload, ConnectionConfig config) throws IOException {
         ApocConfig.apocConfig().checkReadAllowed(urlAddress);
-        URLConnection con = openUrlConnection(urlAddress, headers, certificateUrl);
-//        final InputStream inputStream = con.getInputStream();
+        URLConnection con = openUrlConnection(urlAddress, headers, config);
         writePayload(con, payload);
         String newUrl = handleRedirect(con, urlAddress);
         if (newUrl != null && !urlAddress.equals(newUrl)) {
             con.getInputStream().close();
-            return readHttpInputStream(newUrl, headers, payload, certificateUrl);
+            return readHttpInputStream(newUrl, headers, payload, config);
         }
 
         return new StreamConnection.UrlStreamConnection(con);
