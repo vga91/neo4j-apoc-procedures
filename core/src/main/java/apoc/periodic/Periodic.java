@@ -169,7 +169,8 @@ public class Periodic {
         Map<String,Object> params = (Map)config.getOrDefault("params", Collections.emptyMap());
         JobInfo info = submit(name, () -> {
             try {
-                db.executeTransactionally(statement, params);
+                // resultAsString in order to consume result
+                db.executeTransactionally(statement, params, Result::resultAsString);
             } catch(Exception e) {
                 log.warn("in background task via submit", e);
                 throw new RuntimeException(e);
@@ -184,7 +185,7 @@ public class Periodic {
         validateQuery(statement);
         Map<String,Object> params = (Map)config.getOrDefault("params", Collections.emptyMap());
         JobInfo info = schedule(name, () -> {
-            // resultAsString in order to consume result 
+            // resultAsString in order to consume result
             db.executeTransactionally(statement, params, Result::resultAsString);
         },0,rate);
         return Stream.of(info);

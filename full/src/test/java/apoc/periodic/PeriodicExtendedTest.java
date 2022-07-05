@@ -27,6 +27,7 @@ import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
+import static org.neo4j.test.assertion.Assert.assertEventually;
 
 public class PeriodicExtendedTest {
     public static AssertableLogProvider logProvider = new AssertableLogProvider();
@@ -42,25 +43,40 @@ public class PeriodicExtendedTest {
     // put this test here in order to register Logging.class, which is located in `full` module
     @Test
     public void testRepeatWithReturn() {
-        final String log1 = "ajeje";
-        db.executeTransactionally("CALL apoc.periodic.repeat('repeat-1', 'CALL apoc.log.info($log)', 2, {params: {log: $log}}) ", 
+        final String log1 = "repeat_no_return";
+        db.executeTransactionally("CALL apoc.periodic.repeat('repeat-1', 'CALL apoc.log.info($log)', 2, {params: {log: $log}})", 
                 map("log", log1));
-        final String log2 = "brazorf";
-        db.executeTransactionally("CALL apoc.periodic.repeat('repeat-2', 'CALL apoc.log.info($log) RETURN 1', 2, {params: {log: $log}}) ",
+        final String log2 = "repeat_return";
+        db.executeTransactionally("CALL apoc.periodic.repeat('repeat-2', 'CALL apoc.log.info($log) RETURN 1', 2, {params: {log: $log}})",
                 map("log", log2));
 
+        assertLogWithBackgroundJob(log1, log2);
+    }
+
+    @Test
+    public void testSubmitWithReturn() {
+        final String log1 = "submit_no_return";
+        db.executeTransactionally("CALL apoc.periodic.submit('submit-1', 'CALL apoc.log.info($log)', {params: {log: $log}})",
+                map("log", log1));
+        final String log2 = "submit_return";
+        db.executeTransactionally("CALL apoc.periodic.submit('submit-2', 'CALL apoc.log.info($log) RETURN 1', {params: {log: $log}})",
+                map("log", log2));
+
+        assertLogWithBackgroundJob(log1, log2);
+    }
+
+    private void assertLogWithBackgroundJob(String log1, String log2) {
         logProvider.print(System.out);
         final LogAssert logAssert = new LogAssert(logProvider);
-        
-        org.neo4j.test.assertion.Assert.assertEventually(() -> {
-                    try {
-                        logAssert.containsMessages(log1, log2);
-                        return true;
-                    } catch (AssertionError e) {
-                        return false;
-                    }
-                }, (value) -> value, 5L, TimeUnit.SECONDS);
-        
+
+        assertEventually(() -> {
+            try {
+                logAssert.containsMessages(log1, log2);
+                return true;
+            } catch (AssertionError e) {
+                return false;
+            }
+        }, (val) -> val, 5L, TimeUnit.SECONDS);
     }
 
     @Test
