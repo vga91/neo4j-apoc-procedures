@@ -38,9 +38,9 @@ public class CollExtended {
     }
 
     @UserFunction
-    @Description("apoc.coll.fillObject(item, count) - Returns a list with the given count of items")
+    @Description("apoc.coll.fillObject(item, size) - returns a list of equals items with the given size")
     public List<Object> fillObject(@Name(value = "item", defaultValue = "null") Object item, 
-                                   @Name(value = "count", defaultValue = "0") long count) {
-        return Collections.nCopies((int) count, item);
+                                   @Name(value = "size", defaultValue = "0") long size) {
+        return Collections.nCopies((int) size, item);
     }
 }

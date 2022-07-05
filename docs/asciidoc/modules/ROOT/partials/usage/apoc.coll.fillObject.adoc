@@ -1,0 +1,36 @@
+[source,cypher]
+----
+RETURN apoc.coll.fillObject() as value
+----
+
+.Results
+[opts="header"]
+|===
+| value
+| []
+|===
+
+
+[source,cypher]
+----
+RETURN apoc.coll.fillObject('abc',2) as value
+----
+
+.Results
+[opts="header"]
+|===
+| value
+| ['abc', 'abc']
+|===
+
+[source,cypher]
+----
+RETURN apoc.coll.fillObject(5,3) as value
+----
+
+.Results
+[opts="header"]
+|===
+| value
+| [5, 5, 5]
+|===
