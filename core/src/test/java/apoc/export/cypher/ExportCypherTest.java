@@ -153,25 +153,25 @@ public class ExportCypherTest {
                 map("file", fileName, "query", query, 
                         "config", configMap), (r) -> {});
         
-        assertEquals(EXPECTED_REL_ONLY, readFile(fileName));
-
-        // now the same config as above but with addRelNodes: true
-        configMap.put("addRelNodes", true);
-        TestUtil.testCall(db, "CALL apoc.export.cypher.query($query,$file,$config)",
-                map("file", fileName, "query", query, 
-                        "config", configMap), (r) -> {});
-
         final String expectedNodesWithAddRelNodes = String.format(EXPECTED_BEGIN_AND_FOO +
                 EXPECTED_BAR_END_NODE +
                 "COMMIT%n");
         assertEquals(expectedNodesWithAddRelNodes + EXPECTED_SCHEMA + EXPECTED_RELATIONSHIPS + EXPECTED_CLEAN_UP, readFile(fileName));
+
+        // now the same config as above but with addRelNodes: false
+        configMap.put("addRelNodes", false);
+        TestUtil.testCall(db, "CALL apoc.export.cypher.query($query,$file,$config)",
+                map("file", fileName, "query", query, 
+                        "config", configMap), (r) -> {});
+
+        assertEquals(EXPECTED_REL_ONLY, readFile(fileName));
     }
 
     @Test
     public void testExportQueryOnlyRelAndStartCypherForNeo4j() throws Exception {
         String fileName = "all.cypher";
         String query = "MATCH (start)-[rel]->(end) RETURN start, rel";
-        final Map<String, Object> configMap = map("useOptimizations", map("type", "none"), "format", "neo4j-shell");
+        final Map<String, Object> configMap = map("useOptimizations", map("type", "none"), "format", "neo4j-shell", "addRelNodes", false);
         TestUtil.testCall(db, "CALL apoc.export.cypher.query($query,$file,$config)",
                 map("file", fileName, "query", query, 
                         "config", configMap), (r) -> {});

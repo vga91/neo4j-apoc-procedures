@@ -128,7 +128,7 @@ public class ExportConfig extends CompressionConfig {
         this.samplingConfig = (Map<String, Object>) config.getOrDefault("samplingConfig", new HashMap<>());
         this.unwindBatchSize = ((Number)getOptimizations().getOrDefault("unwindBatchSize", DEFAULT_UNWIND_BATCH_SIZE)).intValue();
         this.awaitForIndexes = ((Number)config.getOrDefault("awaitForIndexes", 300)).longValue();
-        this.addRelNodes = toBoolean(config.get("addRelNodes"));
+        this.addRelNodes = toBoolean(config.getOrDefault("addRelNodes", true));
         this.source = new NodeConfig((Map<String, String>) config.get("source"));
         this.target = new NodeConfig((Map<String, String>) config.get("target"));
         validate();

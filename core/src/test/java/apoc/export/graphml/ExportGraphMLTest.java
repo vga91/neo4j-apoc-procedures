@@ -648,10 +648,10 @@ public class ExportGraphMLTest {
         String expectedWithoutNodes = String.format(HEADER + EDGES_KEYS_QUERY + GRAPH + EDGES_QUERY + FOOTER);
         
         testCall(db, query, map("conf", map( "stream", true)), 
-                r -> assertXMLEquals(r.get("data"), expectedWithoutNodes));
-        
-        testCall(db, query, map("conf", map("addRelNodes", true, "stream", true)), 
                 r -> assertXMLEquals(r.get("data"), EXPECTED));
+        
+        testCall(db, query, map("conf", map("addRelNodes", false, "stream", true)), 
+                r -> assertXMLEquals(r.get("data"), expectedWithoutNodes));
 
         db.executeTransactionally("match (n) detach delete n");
     }
@@ -668,11 +668,14 @@ public class ExportGraphMLTest {
         
         final String query2 = "CALL apoc.export.graphml.query('MATCH (start:Start)-[rel:REL]->(end:End) RETURN start, rel', null, $conf)\n" +
                 "YIELD  data";
-        
-        testCall(db, query2, map("conf", map("stream", true)),
+
+        final Map<String, Object> confMap = map("stream", true, "addRelNodes", false);
+        testCall(db, query2, map("conf", confMap),
                 r -> assertXMLEquals(r.get("data"), expectedWithoutEndNode));
 
-        testCall(db, query2, map("conf", map("nodesOfRelationships", true, "stream", true)),
+        // now the same config as above but with nodesOfRelationships: true
+        confMap.put("nodesOfRelationships", true);
+        testCall(db, query2, map("conf", confMap),
                 r -> assertXMLEquals(r.get("data"), EXPECTED));
         
         db.executeTransactionally("match (n) detach delete n");
