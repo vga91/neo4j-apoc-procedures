@@ -16,7 +16,7 @@ import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 import java.util.Collections;
 import java.util.Map;
 
-import static apoc.trigger.TriggerHandler.TRIGGER_PREVENT_PERSIST;
+import static apoc.trigger.TriggerHandler.TRIGGER_PERSIST;
 import static org.junit.Assert.assertTrue;
 
 public class TriggerRestartTest {
@@ -67,7 +67,7 @@ public class TriggerRestartTest {
 
     @Test
     public void testTriggerRunsAfterRestartWithoutPersist() {
-        ApocConfig.apocConfig().setProperty(TRIGGER_PREVENT_PERSIST, true);
+        ApocConfig.apocConfig().setProperty(TRIGGER_PERSIST, true);
 
         db.executeTransactionally("CALL apoc.trigger.add('myTrigger', 'UNWIND $createdNodes as n set n.trigger=true', {phase:'before'})");
         
