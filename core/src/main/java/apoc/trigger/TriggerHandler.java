@@ -308,7 +308,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     }
 
     public void ifPersistDo(Runnable runnable) { 
-        if (apocConfig.getBoolean(TRIGGER_PERSIST, false)) { 
+        if (!apocConfig.getBoolean(TRIGGER_PERSIST, true)) { 
             removeAll(); 
             return; 
         }

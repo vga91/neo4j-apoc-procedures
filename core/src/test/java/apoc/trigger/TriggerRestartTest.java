@@ -67,7 +67,7 @@ public class TriggerRestartTest {
 
     @Test
     public void testTriggerRunsAfterRestartWithoutPersist() {
-        ApocConfig.apocConfig().setProperty(TRIGGER_PERSIST, true);
+        ApocConfig.apocConfig().setProperty(TRIGGER_PERSIST, false);
 
         db.executeTransactionally("CALL apoc.trigger.add('myTrigger', 'UNWIND $createdNodes as n set n.trigger=true', {phase:'before'})");
         
