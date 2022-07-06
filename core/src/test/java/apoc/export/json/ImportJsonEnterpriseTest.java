@@ -53,9 +53,10 @@ public class ImportJsonEnterpriseTest {
                     r -> fail("Should fail due to missing constraint"));
         } catch (RuntimeException e) {
             assertTrue(e.getMessage().contains(MISSING_USER_CONSTRAINT));
+        } finally {
+            session.run("DROP CONSTRAINT userExistence");
         }
         
-        session.run("DROP CONSTRAINT userExistence");
     }
 
     @Test
@@ -71,9 +72,10 @@ public class ImportJsonEnterpriseTest {
                     r -> fail("Should fail due to missing constraint"));
         } catch (RuntimeException e) {
             assertTrue(e.getMessage().contains(MISSING_USER_CONSTRAINT));
+        } finally {
+            session.run("DROP CONSTRAINT userMultipleKeys");
         }
         
-        session.run("DROP CONSTRAINT userMultipleKeys");
     }
     
     @Test
@@ -82,12 +84,13 @@ public class ImportJsonEnterpriseTest {
 
         session.run("CREATE CONSTRAINT userNodeKey ON (n:User) assert (n.neo4jImportId) IS NODE KEY");
 
-        // when
-        testCall(session, "CALL apoc.import.json($file, $config)",
-                map("file", file, "config", map(COMPRESSION, CompressionAlgo.GZIP.name())),
-                r -> ImportJsonTest.assertionsAllJsonProgressInfo(r, true));
-
-        session.run("DROP CONSTRAINT userNodeKey");
-        
+        try {
+            // when
+            testCall(session, "CALL apoc.import.json($file, $config)",
+                    map("file", file, "config", map(COMPRESSION, CompressionAlgo.GZIP.name())),
+                    r -> ImportJsonTest.assertionsAllJsonProgressInfo(r, true));
+        } finally {
+            session.run("DROP CONSTRAINT userNodeKey");
+        }
     }
 }
