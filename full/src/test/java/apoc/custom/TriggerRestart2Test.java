@@ -32,6 +32,7 @@ import static apoc.ApocSettings.apoc_trigger_enabled;
 //import static apoc.MockApocSettings.apoc_trigger_enabled2;
 //import static apoc.custom.TriggerRestart2Test.MockApocSettings.apoc_trigger_enabled2;
 import static apoc.util.SystemDbUtil.KEY_CURRENT_DB;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.SettingImpl.newBuilder;
 import static org.neo4j.configuration.SettingValueParsers.BOOL;
@@ -162,12 +163,17 @@ public class TriggerRestart2Test {
 
 //        // TODO: 14/07/22 to delete 
         try (final Transaction transaction = ApocConfig.apocConfig().getSystemDb().beginTx()) {
-            final ResourceIterator<Node> nodes = transaction.findNodes(SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), "neo4j");
-            final Node next = nodes.next();
-            System.out.println("TriggerRestartTest " + next);
-            transaction.commit();
+            final ResourceIterator<Node> nodes = transaction.findNodes(SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+            assertFalse(nodes.hasNext());
+        }
+        
+        try (final Transaction transaction = db.beginTx()) {
+            final ResourceIterator<Node> nodes = transaction.findNodes(SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+            assertTrue(nodes.hasNext());
+            nodes.close(); // TODO - to change
         }
 
+        // TODO - assertions
         TestUtil.testCallCount(db, "call apoc.trigger.list()", Collections.emptyMap(), 1);
         
         db.executeTransactionally("CREATE (p:Person{id:2})");

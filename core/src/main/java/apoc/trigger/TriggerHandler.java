@@ -31,6 +31,7 @@ import org.neo4j.scheduler.JobScheduler;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -67,6 +68,22 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
 //            transaction.commit();
 //        }
 //    }
+    
+    static class ProvaMerge { // TODO - METTERLO IN SYSTEMDBUTILS???
+        public Label primaryLabel;
+        public Label additionalLabel;
+        public Pair<String, Object>[] pairs;
+        public Map<String, Object> onCreateMap;
+
+        public ProvaMerge(Label primaryLabel, Label additionalLabel, 
+                          Pair<String, Object>[] pairs, 
+                          Map<String, Object> onCreateMap) {
+            this.primaryLabel = primaryLabel;
+            this.additionalLabel = additionalLabel;
+            this.pairs = pairs;
+            this.onCreateMap = onCreateMap;
+        }
+    }
 
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
@@ -86,57 +103,76 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
 //        }
 
         // todo - forse conviene aprire una sola transazione...
-        final ResourceIterator<Node> nodes = withOtherDb(tx -> {
-            final ResourceIterator<Node> nodes11 = tx.findNodes(
-                    SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), db.databaseName());
-            return nodes11;
+        final List<ProvaMerge> nodes = withOtherDb(tx -> {
+            return tx.findNodes(
+                    SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), db.databaseName())
+                    .stream()
+                    .map(node -> {                       
+                        final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
+                            Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))};
+                        final Map<String, Object> allProperties = node.getAllProperties();
+                        
+                        // -- todo - qui cancello il nodo
+                        node.delete();
+                        
+                        // -- retrieve infos
+                        return new ProvaMerge(SystemLabels.ApocTrigger, null, pairs, allProperties);
+                    }).collect(Collectors.toList());
+//            return nodes11;
         });
         
-        final ResourceIterator<Node> metaNodes = withOtherDb(tx -> {
-            final ResourceIterator<Node> nodes1 = tx.findNodes(
-                    SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName());
-            return nodes1;
-        });
+        // TODO -DECOMMENTARE
+//        final ResourceIterator<Node> metaNodes = withOtherDb(tx -> {
+//            final ResourceIterator<Node> nodes1 = tx.findNodes(
+//                    SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName());
+//            return nodes1;
+//        });
 
         withDb(tx -> {
             try {
-                nodes.forEachRemaining(node -> {
+                nodes.forEach(node -> {
                     try {
+
+//                        final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
+//                                Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))};
                         
-                    final Node node1 = Util.mergeNode(tx, SystemLabels.ApocTrigger, null,
-                            Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
-                            Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))
-                    );
+                        // TODO - TODOSSIMO !!!!! COMMON!!!!!!!!!
+//                        final Node node1 = 
+                        Util.mergeNode(tx, node.primaryLabel, node.additionalLabel, node.onCreateMap, Map.of(), node.pairs);
                     System.out.println("TriggerHandler.databaseStart");
                     } catch (Exception e) {
+                        System.out.println("ERRORONEEEE e = " + e);
                         throw new RuntimeException(e);
                     }
 //                node.getAllProperties().forEach((k,v) -> node1.);
                 });
-
-                metaNodes.forEachRemaining(node -> {
-                    Util.mergeNode(tx, SystemLabels.ApocTriggerMeta, null,
-                            Pair.of(SystemPropertyKeys.database.name(), db.databaseName()));
-                });
+                
+                // TODO -TODOISSIMO - DEVO TESTARE ANCHE QUESTA!!!!!
+                // TODO -DECOMMENTARE
+//                metaNodes.forEachRemaining(node -> {
+//                    Util.mergeNode(tx, SystemLabels.ApocTriggerMeta, null,
+//                            Pair.of(SystemPropertyKeys.database.name(), db.databaseName()));
+//                });
                 return null;
             } catch (Exception e) {
+                System.out.println("ALTRO ERRORONEEEE e = " + e);
                 throw new RuntimeException(e); // todo - ok... non va, devo fare un altro modo...
             }
         });
 
         final ResourceIterator<Node> nodeResourceIterator = withDb(tx -> tx.findNodes(
                 SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
-        System.out.println("nodeResourceIterator = " + nodeResourceIterator);
+        System.out.println("nodeResourceIterator = " + nodeResourceIterator.stream().collect(Collectors.toList()));
 
-        // todo - metterlo a tutti
-        withOtherDb(tx -> {
-            nodes.forEachRemaining(Node::delete);
-            return null;
-        });
+        // todo - metterlo a tutti <-- COME SOPRA
+//        withOtherDb(tx -> {
+//            nodes.forEachRemaining(Node::delete);
+//            return null;
+//        });
 
         final ResourceIterator<Node> nodeResourceIteratorOther = withOtherDb(tx -> tx.findNodes(
                 SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
-        System.out.println("nodeResourceIteratorOther = " + nodeResourceIteratorOther);
+        System.out.println("nodeResourceIteratorOther = " + nodeResourceIteratorOther.stream().collect(Collectors.toList()));
         
 
         // -- as before

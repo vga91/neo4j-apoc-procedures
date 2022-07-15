@@ -91,10 +91,12 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static apoc.ApocConfig.apocConfig;
+import static apoc.create.Create.setProperties;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatProperties;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatToString;
 import static apoc.util.DateFormatUtil.getOrCreate;
 import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
 import static org.eclipse.jetty.util.URIUtil.encodePath;
 
 /**
@@ -478,7 +480,7 @@ public class Util {
     }
 
     public static Long runNumericQuery(Transaction tx, String query, Map<String, Object> params) {
-        if (params == null) params = Collections.emptyMap();
+        if (params == null) params = emptyMap();
         try (ResourceIterator<Long> it = tx.execute(query,params).<Long>columnAs("result")) {
             return it.next();
         }
@@ -570,7 +572,7 @@ public class Util {
     public static Map<String, Object> mapFromLists(List<String> keys, List<Object> values) {
         if (keys == null || values == null || keys.size() != values.size())
             throw new RuntimeException("keys and values lists have to be not null and of same size");
-        if (keys.isEmpty()) return Collections.emptyMap();
+        if (keys.isEmpty()) return emptyMap();
         if (keys.size()==1) return Collections.singletonMap(keys.get(0),values.get(0));
         ListIterator<Object> it = values.listIterator();
         Map<String, Object> res = new LinkedHashMap<>(keys.size());
@@ -581,7 +583,7 @@ public class Util {
     }
 
     public static Map<String, Object> mapFromPairs(List<List<Object>> pairs) {
-        if (pairs.isEmpty()) return Collections.emptyMap();
+        if (pairs.isEmpty()) return emptyMap();
         Map<String,Object> map = new LinkedHashMap<>(pairs.size());
         for (List<Object> pair : pairs) {
             if (pair.isEmpty()) continue;
@@ -872,10 +874,16 @@ public class Util {
                 .collect(Collectors.toList());
     }
 
-    public static Node mergeNode(Transaction tx, Label primaryLabel, Label addtionalLabel,
+    public static Node mergeNode(Transaction tx, Label primaryLabel, Label additionalLabel,
+                                 Pair<String, Object>... pairs) {
+        return mergeNode(tx, primaryLabel, additionalLabel, emptyMap(), emptyMap(), pairs);
+    }
+
+    public static Node mergeNode(Transaction tx, Label primaryLabel, Label additionalLabel, 
+                                 Map<String, Object> onCreateProps, Map<String, Object> onMatchProps,
                                  Pair<String, Object>... pairs) {
         Node node = Iterators.singleOrNull(tx.findNodes(primaryLabel, pairs[0].first(), pairs[0].other()).stream()
-                .filter(n -> addtionalLabel == null || n.hasLabel(addtionalLabel))
+                .filter(n -> additionalLabel == null || n.hasLabel(additionalLabel))
                 .filter( n -> {
                     for (int i=1; i<pairs.length; i++) {
                         if (!Objects.deepEquals(pairs[i].other(), n.getProperty(pairs[i].first(), null))) {
@@ -886,13 +894,20 @@ public class Util {
                 })
                 .iterator());
         if (node==null) {
-            Label[] labels = addtionalLabel == null ?
+            Label[] labels = additionalLabel == null ?
                     new Label[]{primaryLabel} :
-                    new Label[]{primaryLabel, addtionalLabel};
+                    new Label[]{primaryLabel, additionalLabel};
             node = tx.createNode(labels);
             for (int i=0; i<pairs.length; i++) {
                 node.setProperty(pairs[i].first(), pairs[i].other());
             }
+//            Node finalNode = node;
+//            onCreateProps.forEach((k, v)-> finalNode.setProperty(k,k));
+            setProperties(node, onCreateProps);
+        } else {
+            setProperties(node, onMatchProps);
+//            Node finalNode = node;
+//            onMatchProps.forEach((k, v)-> finalNode.setProperty(k,k));
         }
         return node;
     }
@@ -907,7 +922,7 @@ public class Util {
     }
 
     public static void validateQuery(GraphDatabaseService db, String statement, QueryExecutionType.QueryType... supportedQueryTypes) {
-        final boolean isValid = db.executeTransactionally("EXPLAIN " + statement, Collections.emptyMap(), result ->
+        final boolean isValid = db.executeTransactionally("EXPLAIN " + statement, emptyMap(), result ->
                 supportedQueryTypes == null || supportedQueryTypes.length == 0 || Stream.of(supportedQueryTypes)
                         .anyMatch(sqt -> sqt.equals(result.getQueryExecutionType().queryType())));
 
@@ -944,12 +959,12 @@ public class Util {
             }
         } catch (Exception e) {
             if(!failOnError)
-                return Collections.emptyMap();
+                return emptyMap();
             else
                 throw new RuntimeException(e);
         }
 
-        return Collections.emptyMap();
+        return emptyMap();
     }
 
     public static boolean isSelfRel(Relationship rel) {
