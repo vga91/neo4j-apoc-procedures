@@ -79,39 +79,76 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
 
         // final boolean isSystemDatabase = db.databaseName().equals(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
 
-        try(final Transaction transaction = db.beginTx()) {
-            final Node ccc = transaction.findNode(Label.label("ccc"), "a", 1);
-            System.out.println("ccc = " + ccc);
-            transaction.commit();
-        }
+//        try(final Transaction transaction = db.beginTx()) {
+//            final Node ccc = transaction.findNode(Label.label("ccc"), "a", 1);
+//            System.out.println("ccc = " + ccc);
+//            transaction.commit();
+//        }
 
         // todo - forse conviene aprire una sola transazione...
-        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
-                SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), db.databaseName()));
-        
-        final ResourceIterator<Node> metaNodes = withOtherDb(tx -> tx.findNodes(
-                SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
-
-        withDb(tx -> {
-            nodes.forEachRemaining(node -> {
-                Util.mergeNode(tx, SystemLabels.ApocTrigger, null,
-                        Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
-                        Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))
-                );
-            });
-
-            metaNodes.forEachRemaining(node -> {
-                Util.mergeNode(tx, SystemLabels.ApocTriggerMeta, null,
-                        Pair.of(SystemPropertyKeys.database.name(), db.databaseName()));
-            });
-            return null;
+        final ResourceIterator<Node> nodes = withOtherDb(tx -> {
+            final ResourceIterator<Node> nodes11 = tx.findNodes(
+                    SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), db.databaseName());
+            return nodes11;
         });
         
+        final ResourceIterator<Node> metaNodes = withOtherDb(tx -> {
+            final ResourceIterator<Node> nodes1 = tx.findNodes(
+                    SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName());
+            return nodes1;
+        });
+
+        withDb(tx -> {
+            try {
+                nodes.forEachRemaining(node -> {
+                    try {
+                        
+                    final Node node1 = Util.mergeNode(tx, SystemLabels.ApocTrigger, null,
+                            Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
+                            Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))
+                    );
+                    System.out.println("TriggerHandler.databaseStart");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+//                node.getAllProperties().forEach((k,v) -> node1.);
+                });
+
+                metaNodes.forEachRemaining(node -> {
+                    Util.mergeNode(tx, SystemLabels.ApocTriggerMeta, null,
+                            Pair.of(SystemPropertyKeys.database.name(), db.databaseName()));
+                });
+                return null;
+            } catch (Exception e) {
+                throw new RuntimeException(e); // todo - ok... non va, devo fare un altro modo...
+            }
+        });
+
+        final ResourceIterator<Node> nodeResourceIterator = withDb(tx -> tx.findNodes(
+                SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
+        System.out.println("nodeResourceIterator = " + nodeResourceIterator);
+
         // todo - metterlo a tutti
         withOtherDb(tx -> {
             nodes.forEachRemaining(Node::delete);
             return null;
         });
+
+        final ResourceIterator<Node> nodeResourceIteratorOther = withOtherDb(tx -> tx.findNodes(
+                SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
+        System.out.println("nodeResourceIteratorOther = " + nodeResourceIteratorOther);
+        
+
+        // -- as before
+        updateCache();
+        long refreshInterval = apocConfig().getInt(TRIGGER_REFRESH, 60000);
+        restoreTriggerHandler = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
+            if (getLastUpdate() > lastUpdate) {
+                updateCache();
+            }
+        }, refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
+        
+        
     }
 
     @Override
@@ -402,13 +439,13 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
 
 
 //        move() <-- todo: capire se fare generico per tuttele funzionalità o no...
-        updateCache();
-        long refreshInterval = apocConfig().getInt(TRIGGER_REFRESH, 60000);
-        restoreTriggerHandler = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
-            if (getLastUpdate() > lastUpdate) {
-                updateCache();
-            }
-        }, refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
+//        updateCache();
+//        long refreshInterval = apocConfig().getInt(TRIGGER_REFRESH, 60000);
+//        restoreTriggerHandler = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
+//            if (getLastUpdate() > lastUpdate) {
+//                updateCache();
+//            }
+//        }, refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
     }
 
     @Override

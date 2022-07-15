@@ -2,12 +2,10 @@ package apoc.custom;
 
 import apoc.ApocConfig;
 import apoc.SystemLabels;
-import apoc.custom.CypherProcedures;
+import apoc.SystemPropertyKeys;
 import apoc.trigger.Trigger;
 import apoc.util.TestUtil;
-import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -22,24 +20,19 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.config.Setting;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
-import org.neo4j.test.rule.DbmsRule;
-import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
-import static apoc.ApocConfig.APOC_TRIGGER_ENABLED;
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
 import static apoc.ApocSettings.apoc_trigger_enabled;
 //import static apoc.MockApocSettings.apoc_trigger_enabled2;
 //import static apoc.custom.TriggerRestart2Test.MockApocSettings.apoc_trigger_enabled2;
 import static apoc.util.SystemDbUtil.KEY_CURRENT_DB;
 import static org.junit.Assert.assertTrue;
-import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
 import static org.neo4j.configuration.SettingImpl.newBuilder;
 import static org.neo4j.configuration.SettingValueParsers.BOOL;
 
@@ -85,19 +78,14 @@ public class TriggerRestart2Test {
 //        }
 //    }
     
+    
+    
     @Before
     public void setUp() throws Exception {
-        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
-                .setConfig(newBuilder(KEY_CURRENT_DB, BOOL, true).build(), true)
-                .setConfig(MockApocSettings.apoc_trigger_enabled2, true)
-                .setConfig(apoc_trigger_enabled, true)
-                .build();
-        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
-//        assertTrue(db.isAvailable(1000)); TODO - DECOMMENTARE E CREARE COMMON METHOD
-        TestUtil.registerProcedure(db, Trigger.class, CypherProcedures.class);
-        
-        
-        
+//                .setConfig(newBuilder(KEY_CURRENT_DB, BOOL, true).build(), true)
+        startDb();
+
+
 //        final MockApocSettings mockApocSettings = new MockApocSettings();
 //        db = new ImpermanentDbmsRule()
 ////                .withSetting(newBuilder(APOC_TRIGGER_ENABLED, BOOL, false).build(), true)
@@ -124,6 +112,15 @@ public class TriggerRestart2Test {
 //        ApocConfig.apocConfig().setProperty("apoc.storecurrentdb", true);
     }
 
+    private void startDb() {
+        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
+                .setConfig(apoc_trigger_enabled, true)
+                .build();
+        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+        assertTrue(db.isAvailable(1000)); // TODO - DECOMMENTARE E CREARE COMMON METHOD
+        TestUtil.registerProcedure(db, Trigger.class, CypherProcedures.class);
+    }
+
 //    @After
 //    public void tearDown() {
 //        db.shutdown();
@@ -133,14 +130,9 @@ public class TriggerRestart2Test {
     private void restartDb() throws IOException {
 //        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
         databaseManagementService.shutdown();
-        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
-//                .setConfig(newBuilder(KEY_CURRENT_DB, BOOL, false).build(), true)
-                .build();
+        startDb();
 //        db.restartDatabase();// databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
 //        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
-        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
-        assertTrue(db.isAvailable(1000));
-        TestUtil.registerProcedure(db, Trigger.class, CypherProcedures.class);
     }
 
     @Test
@@ -158,8 +150,7 @@ public class TriggerRestart2Test {
 //        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
 
 //        db.execute("CALL apoc.trigger.add('myTrigger', 'unwind $createdNodes as n set n.trigger=true', {phase:'before'})");
-        TestUtil.testResult(db, "CALL apoc.trigge" +
-                        "r.add('myTrigger', 'unwind $createdNodes as n set n.trigger=true', {phase:'before'})",
+        TestUtil.testResult(db, "CALL apoc.trigger.add('myTrigger', 'unwind $createdNodes as n set n.trigger=true', {phase:'before'})",
                 result -> {
                     Map<String, Object> single = Iterators.single(result);
                     System.out.println(single);
@@ -171,12 +162,14 @@ public class TriggerRestart2Test {
 
 //        // TODO: 14/07/22 to delete 
         try (final Transaction transaction = ApocConfig.apocConfig().getSystemDb().beginTx()) {
-            final ResourceIterator<Node> nodes = transaction.findNodes(SystemLabels.ApocTrigger);
+            final ResourceIterator<Node> nodes = transaction.findNodes(SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), "neo4j");
             final Node next = nodes.next();
             System.out.println("TriggerRestartTest " + next);
             transaction.commit();
         }
 
+        TestUtil.testCallCount(db, "call apoc.trigger.list()", Collections.emptyMap(), 1);
+        
         db.executeTransactionally("CREATE (p:Person{id:2})");
         TestUtil.testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 2);
     }
