@@ -7,7 +7,10 @@ import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.event.DatabaseEventContext;
+import org.neo4j.graphdb.event.DatabaseEventListener;
 import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.logging.Log;
 
@@ -17,29 +20,34 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class DataVirtualizationCatalogHandler {
+import static apoc.util.SystemDbUtil.todoThisDb;
+
+// todo - questi non vengono fatti al riavvio
+public class DataVirtualizationCatalogHandler implements DatabaseEventListener { // todo - forse dovrei registrare anche questo??
+    private static final String NAME = "dv";
 
     private final GraphDatabaseService db;
-    private final GraphDatabaseService systemDb;
+//    private final GraphDatabaseService systemDb;
     private final Log log;
 
-    public DataVirtualizationCatalogHandler(GraphDatabaseService db, GraphDatabaseService systemDb, Log log) {
+    public DataVirtualizationCatalogHandler(GraphDatabaseService db, /*GraphDatabaseService systemDb, */Log log) {
         this.db = db;
-        this.systemDb = systemDb;
+//        this.systemDb = systemDb;
         this.log = log;
     }
 
 
-    private <T> T withSystemDb(Function<Transaction, T> action) {
-        try (Transaction tx = systemDb.beginTx()) {
-            T result = action.apply(tx);
-            tx.commit();
-            return result;
-        }
+    private <T> T todo4(Function<Transaction, T> action) {
+        return todoThisDb(db, NAME, action);
+//        try (Transaction tx = systemDb.beginTx()) {
+//            T result = action.apply(tx);
+//            tx.commit();
+//            return result;
+//        }
     }
 
     public VirtualizedResource add(VirtualizedResource vr) {
-        return withSystemDb(tx -> {
+        return todo4(tx -> {
             Node node = Util.mergeNode(tx, SystemLabels.DataVirtualizationCatalog, null,
                     Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
                     Pair.of(SystemPropertyKeys.name.name(), vr.name));
@@ -49,7 +57,7 @@ public class DataVirtualizationCatalogHandler {
     }
 
     public VirtualizedResource get(String name) {
-        return withSystemDb(tx -> {
+        return todo4(tx -> {
             final List<Node> nodes = tx.findNodes(SystemLabels.DataVirtualizationCatalog,
                     SystemPropertyKeys.database.name(), db.databaseName(),
                     SystemPropertyKeys.name.name(), name)
@@ -69,7 +77,7 @@ public class DataVirtualizationCatalogHandler {
     }
 
     public Stream<VirtualizedResource> remove(String name) {
-        withSystemDb(tx -> {
+        todo4(tx -> {
             tx.findNodes(SystemLabels.DataVirtualizationCatalog,
                     SystemPropertyKeys.database.name(), db.databaseName(),
                     SystemPropertyKeys.name.name(), name)
@@ -81,9 +89,9 @@ public class DataVirtualizationCatalogHandler {
     }
 
     public Stream<VirtualizedResource> list() {
-        return withSystemDb(tx ->
-                tx.findNodes(SystemLabels.DataVirtualizationCatalog,
-                    SystemPropertyKeys.database.name(), db.databaseName())
+        // todo - questo... è comune a tutti in realta
+        return todo4(tx ->
+                getNodes(tx)
                 .stream()
                 .map(node -> {
                     try {
@@ -96,5 +104,25 @@ public class DataVirtualizationCatalogHandler {
                 })
                 .collect(Collectors.toList())
                 .stream());
+    }
+
+    private ResourceIterator<Node> getNodes(Transaction tx) {
+        return tx.findNodes(SystemLabels.DataVirtualizationCatalog,
+                SystemPropertyKeys.database.name(), db.databaseName());
+    }
+
+    @Override
+    public void databaseStart(DatabaseEventContext eventContext) {
+        System.out.println("DataVirtualizationCatalogHandler.databaseStart" + eventContext.getDatabaseName());
+    }
+
+    @Override
+    public void databaseShutdown(DatabaseEventContext eventContext) {
+        System.out.println("DataVirtualizationCatalogHandler.databaseShutdown" + eventContext.getDatabaseName());
+    }
+
+    @Override
+    public void databasePanic(DatabaseEventContext eventContext) {
+        System.out.println("DataVirtualizationCatalogHandler.databasePanic" + eventContext.getDatabaseName());
     }
 }

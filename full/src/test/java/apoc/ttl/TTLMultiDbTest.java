@@ -15,6 +15,7 @@ import org.neo4j.driver.SessionConfig;
 
 import java.util.Map;
 
+import static apoc.util.SystemDbUtil.KEY_CURRENT_DB;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -42,6 +43,7 @@ public class TTLMultiDbTest {
                     .withEnv(Map.of("apoc.ttl.enabled." + DB_TEST, "false",
                             "apoc.ttl.enabled", "true",
                             "apoc.ttl.schedule", "2",
+                            KEY_CURRENT_DB, "true",
                             "apoc.ttl.schedule." + DB_FOO, "7",
                             "apoc.ttl.limit", "200",
                             "apoc.ttl.limit." + DB_BAR, "2000"));

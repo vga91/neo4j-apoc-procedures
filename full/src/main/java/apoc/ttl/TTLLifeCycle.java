@@ -3,6 +3,8 @@ package apoc.ttl;
 import apoc.ApocConfig;
 import apoc.TTLConfig;
 import apoc.util.Util;
+import org.neo4j.graphdb.event.DatabaseEventContext;
+import org.neo4j.graphdb.event.DatabaseEventListener;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
@@ -18,7 +20,7 @@ import java.util.concurrent.TimeUnit;
  * @author mh
  * @since 15.02.17
  */
-public class TTLLifeCycle extends LifecycleAdapter {
+public class TTLLifeCycle extends LifecycleAdapter implements DatabaseEventListener {
 
     public static final int INITIAL_DELAY = 30;
     public static final int DEFAULT_SCHEDULE = 60;
@@ -89,5 +91,20 @@ public class TTLLifeCycle extends LifecycleAdapter {
     public void stop() {
         if (ttlIndexJobHandle != null) ttlIndexJobHandle.cancel();
         if (ttlJobHandle != null) ttlJobHandle.cancel();
+    }
+
+    @Override
+    public void databaseStart(DatabaseEventContext eventContext) {
+        System.out.println("TTLLifeCycle.databaseStart");
+    }
+
+    @Override
+    public void databaseShutdown(DatabaseEventContext eventContext) {
+        System.out.println("TTLLifeCycle.databaseShutdown");
+    }
+
+    @Override
+    public void databasePanic(DatabaseEventContext eventContext) {
+        System.out.println("TTLLifeCycle.databasePanic");
     }
 }

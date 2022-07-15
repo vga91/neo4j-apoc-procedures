@@ -10,6 +10,8 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.event.DatabaseEventContext;
+import org.neo4j.graphdb.event.DatabaseEventListener;
 import org.neo4j.graphdb.event.LabelEntry;
 import org.neo4j.graphdb.event.PropertyEntry;
 import org.neo4j.graphdb.event.TransactionData;
@@ -34,9 +36,11 @@ import java.util.stream.StreamSupport;
 
 import static apoc.ApocConfig.APOC_UUID_ENABLED;
 import static apoc.ApocConfig.APOC_UUID_FORMAT;
+import static apoc.util.SystemDbUtil.isCurrentDb;
 
-public class UuidHandler extends LifecycleAdapter implements TransactionEventListener<Void> {
-
+public class UuidHandler extends LifecycleAdapter implements DatabaseEventListener, TransactionEventListener<Void> {
+    private static final String NAME = "uuid";
+    
     private final GraphDatabaseAPI db;
     private final Log log;
     private final DatabaseManagementService databaseManagementService;
@@ -182,7 +186,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
             sysTx.commit();
         }
     }
-
+    
     public Map<String, UuidConfig> list() {
         checkEnabled();
         return configuredLabelAndPropertyNames;
@@ -190,7 +194,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
 
     public void refresh() {
         configuredLabelAndPropertyNames.clear();
-        try (Transaction tx = apocConfig.getSystemDb().beginTx()) {
+        try (Transaction tx = getDb().beginTx()) {
             tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName())
                     .forEachRemaining(node -> {
                         final UuidConfig config =  new UuidConfig(Map.of(
@@ -203,7 +207,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
     public synchronized UuidConfig remove(String label) {
-        try (Transaction tx = apocConfig.getSystemDb().beginTx()) {
+        try (Transaction tx = getDb().beginTx()) {
             tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName(),
                     SystemPropertyKeys.label.name(), label)
                     .forEachRemaining(node -> node.delete());
@@ -215,7 +219,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     public synchronized Map<String, UuidConfig> removeAll() {
         Map<String, UuidConfig> retval = new HashMap<>(configuredLabelAndPropertyNames);
         configuredLabelAndPropertyNames.clear();
-        try (Transaction tx = apocConfig.getSystemDb().beginTx()) {
+        try (Transaction tx = getDb().beginTx()) {
             tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName() )
                     .forEachRemaining(node -> node.delete());
             tx.commit();
@@ -223,4 +227,22 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
         return retval;
     }
 
+    private GraphDatabaseService getDb() {
+        return isCurrentDb(db, NAME) ? db : apocConfig.getSystemDb();
+    }
+
+    @Override
+    public void databaseStart(DatabaseEventContext eventContext) {
+        System.out.println("UuidHandler.databaseStart");
+    }
+
+    @Override
+    public void databaseShutdown(DatabaseEventContext eventContext) {
+        System.out.println("UuidHandler.databaseShutdown");
+    }
+
+    @Override
+    public void databasePanic(DatabaseEventContext eventContext) {
+        System.out.println("UuidHandler.databasePanic");
+    }
 }

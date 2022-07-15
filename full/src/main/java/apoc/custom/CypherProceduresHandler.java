@@ -6,14 +6,19 @@ import apoc.SystemPropertyKeys;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import org.neo4j.collection.RawIterator;
+import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.function.ThrowingFunction;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.event.DatabaseEventContext;
+import org.neo4j.graphdb.event.DatabaseEventListener;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.helpers.collection.Pair;
 import org.neo4j.internal.kernel.api.exceptions.ProcedureException;
@@ -58,6 +63,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
+import static apoc.util.SystemDbUtil.todoThisDb;
+import static apoc.util.SystemDbUtil.todoOtherDb;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -81,7 +88,8 @@ import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTRelationship;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTString;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTTime;
 
-public class CypherProceduresHandler extends LifecycleAdapter implements AvailabilityListener {
+public class CypherProceduresHandler extends LifecycleAdapter implements AvailabilityListener, DatabaseEventListener {
+    public static final String NAME = "custom";
 
     public static final String PREFIX = "custom";
     public static final String FUNCTION = "function";
@@ -93,6 +101,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             "\nCheck the documentation to see possible values: https://neo4j.com/labs/apoc/4.1/cypher-execution/cypher-based-procedures-functions/";
 
     private final GraphDatabaseAPI api;
+    private final DatabaseManagementService dbms;
     private final Log log;
     private final GraphDatabaseService systemDb;
     private final GlobalProcedures globalProceduresRegistry;
@@ -105,8 +114,9 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     private JobHandle restoreProceduresHandle;
 
 
-    public CypherProceduresHandler(GraphDatabaseAPI db, JobScheduler jobScheduler, ApocConfig apocConfig, Log userLog, GlobalProcedures globalProceduresRegistry) {
+    public CypherProceduresHandler(GraphDatabaseAPI db, DatabaseManagementService dbms, JobScheduler jobScheduler, ApocConfig apocConfig, Log userLog, GlobalProcedures globalProceduresRegistry) {
         this.api = db;
+        this.dbms = dbms;
         this.log = userLog;
         this.jobScheduler = jobScheduler;
         this.systemDb = apocConfig.getSystemDb();
@@ -116,8 +126,57 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     @Override
-    public void available() {
-        restoreProceduresAndFunctions();
+    public void databaseStart(DatabaseEventContext eventContext) {
+        System.out.println("CypherProceduresHandler.databaseStart " + eventContext.getDatabaseName());
+        try (final Transaction transaction = api.beginTx()) {
+            final Node ajeje = transaction.createNode(Label.label("ajeje"));
+            System.out.println("ajeje = " + ajeje);
+            transaction.commit();
+        }
+
+        // todo - forse conviene aprire una sola transazione...
+        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
+                SystemLabels.ApocCypherProcedures, SystemPropertyKeys.database.name(), api.databaseName()));
+        
+        final ResourceIterator<Node> nodes2 = withOtherDb(tx -> tx.findNodes(
+                SystemLabels.ApocCypherProceduresMeta, SystemPropertyKeys.database.name(), api.databaseName()));
+        
+        withDb(tx -> {
+            nodes.forEachRemaining(node -> {
+                Util.mergeNode(tx, SystemLabels.ApocCypherProcedures, node.hasLabel(SystemLabels.Function) ? SystemLabels.Function : SystemLabels.Procedure,
+                        Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),
+                        Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name())),
+                        Pair.of(SystemPropertyKeys.prefix.name(), node.getProperty(SystemPropertyKeys.prefix.name()))
+                );
+            });
+
+            nodes2.forEachRemaining(node -> {
+                Util.mergeNode(tx, SystemLabels.ApocCypherProceduresMeta, null,
+                        Pair.of(SystemPropertyKeys.database.name(), api.databaseName()));
+            });
+            
+            return null;
+        });
+
+        //  TODO - common
+//        withOtherDb(tx -> tx.findNodes(
+//                SystemLabels.ApocCypherProcedures, SystemPropertyKeys.database.name(), api.databaseName())
+//                .forEachRemaining(node -> {
+//                    if (node.hasLabel(SystemLabels.Procedure)) {
+//                        Util.mergeNode(tx, )
+//                    } else if (node.hasLabel(SystemLabels.Function)) {
+//                        Util.mergeNode(tx, SystemLabels.ApocCypherProcedures, SystemLabels.Function,
+//                                Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),
+//                                Pair.of(SystemPropertyKeys.name.name(), signature.name().name()),
+//                                Pair.of(SystemPropertyKeys.prefix.name(), signature.name().namespace())
+//                        )
+//                    } else {
+//                        throw new RuntimeException("TODO");
+//                    }
+//                    
+//                })
+
+        restoreProceduresAndFunctions(); // todo - verificare in base alla config
         long refreshInterval = apocConfig().getInt(CUSTOM_PROCEDURES_REFRESH, 60000);
         restoreProceduresHandle = jobScheduler.scheduleRecurring(REFRESH_GROUP, () -> {
             if (getLastUpdate() > lastUpdate) {
@@ -127,10 +186,42 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     @Override
-    public void unavailable() {
+    public void databaseShutdown(DatabaseEventContext eventContext) {
+        System.out.println("CypherProceduresHandler.databaseShutdown");
         if (restoreProceduresHandle != null) {
             restoreProceduresHandle.cancel();
         }
+    }
+
+    @Override
+    public void databasePanic(DatabaseEventContext eventContext) {
+        System.out.println("CypherProceduresHandler.databasePanic");
+        if (restoreProceduresHandle != null) {
+            restoreProceduresHandle.cancel();
+        }
+    }
+    
+    @Override
+    public void start() throws Exception {
+        System.out.println("CypherProceduresHandler.start");
+        dbms.registerDatabaseEventListener(this);
+    }
+
+    @Override
+    public void available() {
+        // todo - questo funziona?
+        System.out.println("CypherProceduresHandler.available");
+        try (final Transaction transaction = api.beginTx()) {
+            final Node ugo = transaction.createNode(Label.label("ugo"));
+            System.out.println("ugo = " + ugo);
+            transaction.commit();
+        }
+
+    }
+
+    @Override
+    public void unavailable() {
+        System.out.println("CypherProceduresHandler.unavailable");
     }
 
     public Mode mode(String s) {
@@ -138,19 +229,20 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public Stream<ProcedureOrFunctionDescriptor> readSignatures() {
-        List<ProcedureOrFunctionDescriptor> descriptors;
-        try (Transaction tx = systemDb.beginTx()) {
-             descriptors = tx.findNodes(SystemLabels.ApocCypherProcedures, SystemPropertyKeys.database.name(), api.databaseName()).stream().map(node -> {
-                if (node.hasLabel(SystemLabels.Procedure)) {
-                    return procedureDescriptor(node);
-                } else if (node.hasLabel(SystemLabels.Function)) {
-                    return userFunctionDescriptor(node);
-                } else {
-                    throw new IllegalStateException("don't know what to do with systemdb node " + node);
-                }
-            }).collect(Collectors.toList());
-            tx.commit();
-        }
+        // todo - scegliere in base ad apoc config se da systemdb o dbcorrente
+        List<ProcedureOrFunctionDescriptor> descriptors = withDb(tx -> tx.findNodes(
+                SystemLabels.ApocCypherProcedures, SystemPropertyKeys.database.name(), api.databaseName())
+                .stream().map(node -> {
+                   if (node.hasLabel(SystemLabels.Procedure)) {
+                       return procedureDescriptor(node);
+                   } else if (node.hasLabel(SystemLabels.Function)) {
+                       return userFunctionDescriptor(node);
+                   } else {
+                       throw new IllegalStateException("don't know what to do with systemdb node " + node);
+                   }
+               }).collect(Collectors.toList()));
+//        try (Transaction tx = systemDb.beginTx()) {
+//        }
         return descriptors.stream();
     }
 
@@ -228,17 +320,35 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         api.executeTransactionally("call db.clearQueryCaches()");
     }
 
-    private <T> T withSystemDb(Function<Transaction, T> action) {
-        try (Transaction tx = systemDb.beginTx()) {
-            T result = action.apply(tx);
-            tx.commit();
-            return result;
-        }
+    // todo - creare common function che se c'è l'impostazione allora lo salva. Altrimenti no.
+    // apoc.storecurrentdb=true --> salva tutto
+    // apoc.storecurrentdb.<db_name>=true --> salva tutto nel db impostato
+    // apoc.storecurrentdb.<db_name>.<feature_name>=true --> salva solo la specifica feature nel 
+    private <T> T withDb(Function<Transaction, T> action) {
+        return todoThisDb(api, NAME, action);
+//        try (Transaction tx = systemDb.beginTx()) {
+//            T result = action.apply(tx);
+//            tx.commit();
+//            return result;
+//        }
+    }
+
+    private <T> T withOtherDb(Function<Transaction, T> action) {
+        return todoOtherDb(api, NAME, action);
+//        try (Transaction tx = systemDb.beginTx()) {
+//            T result = action.apply(tx);
+//            tx.commit();
+//            return result;
+//        }
     }
 
     public void storeFunction(UserFunctionSignature signature, String statement, boolean forceSingle) {
-        withSystemDb(tx -> {
+        // todo - dovrei togliere api.databaseName() ??
+        withDb(tx -> {
+            
+            // todo -> se il nodo esiste sta appost, altrimenti lo creo
             Node node = Util.mergeNode(tx, SystemLabels.ApocCypherProcedures, SystemLabels.Function,
+                    // todo - forse posso accomunare questa parte...
                     Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),
                     Pair.of(SystemPropertyKeys.name.name(), signature.name().name()),
                     Pair.of(SystemPropertyKeys.prefix.name(), signature.name().namespace())
@@ -256,7 +366,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public void storeProcedure(ProcedureSignature signature, String statement) {
-        withSystemDb(tx -> {
+        withDb(tx -> {
             Node node = Util.mergeNode(tx, SystemLabels.ApocCypherProcedures, SystemLabels.Procedure,
                     Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),
                     Pair.of(SystemPropertyKeys.name.name(), signature.name().name()),
@@ -302,6 +412,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         }).collect(Collectors.toList());
     }
 
+    // todo - qui<--- 
     private void setLastUpdate(Transaction tx) {
         Node node = tx.findNode(SystemLabels.ApocCypherProceduresMeta, SystemPropertyKeys.database.name(), api.databaseName());
         if (node == null) {
@@ -312,7 +423,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     private long getLastUpdate() {
-        return withSystemDb( tx -> {
+        return withDb(tx -> {
             Node node = tx.findNode(SystemLabels.ApocCypherProceduresMeta, SystemPropertyKeys.database.name(), api.databaseName());
             return node == null ? 0L : (long) node.getProperty(SystemPropertyKeys.lastUpdated.name());
         });
@@ -613,7 +724,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public void removeProcedure(String name) {
-        withSystemDb(tx -> {
+        withDb(tx -> {
             QualifiedName qName = qualifiedName(name);
             tx.findNodes(SystemLabels.ApocCypherProcedures,
                     SystemPropertyKeys.database.name(), api.databaseName(),
@@ -631,7 +742,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public void removeFunction(String name) {
-        withSystemDb(tx -> {
+        withDb(tx -> {
             QualifiedName qName = qualifiedName(name);
             tx.findNodes(SystemLabels.ApocCypherProcedures,
                     SystemPropertyKeys.database.name(), api.databaseName(),
