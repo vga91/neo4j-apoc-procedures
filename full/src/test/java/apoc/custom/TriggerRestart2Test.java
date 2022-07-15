@@ -87,21 +87,13 @@ public class TriggerRestart2Test {
     
     @Before
     public void setUp() throws Exception {
-        final MockApocSettings mockApocSettings = new MockApocSettings();
-
-        final File file1 = store_dir.newFolder("conf");
-        final File file = store_dir.newFile("conf" + File.separator + "apoc.conf");
-        System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + file1.getAbsolutePath());
-        try (FileWriter writer = new FileWriter(file)) {
-            writer.write(KEY_CURRENT_DB + "=true");
-        }
-
-
         databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
                 .setConfig(newBuilder(KEY_CURRENT_DB, BOOL, true).build(), true)
                 .setConfig(MockApocSettings.apoc_trigger_enabled2, true)
+                .setConfig(apoc_trigger_enabled, true)
                 .build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+//        assertTrue(db.isAvailable(1000)); TODO - DECOMMENTARE E CREARE COMMON METHOD
         TestUtil.registerProcedure(db, Trigger.class, CypherProcedures.class);
         
         
@@ -140,17 +132,29 @@ public class TriggerRestart2Test {
     // todo - provare a mettere un parametro. Se 
     private void restartDb() throws IOException {
 //        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
-//        databaseManagementService.shutdown();
-//        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
+        databaseManagementService.shutdown();
+        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
 //                .setConfig(newBuilder(KEY_CURRENT_DB, BOOL, false).build(), true)
-//                .build();
+                .build();
 //        db.restartDatabase();// databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
 //        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
-//        assertTrue(db.isAvailable(5000));
+        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+        assertTrue(db.isAvailable(1000));
+        TestUtil.registerProcedure(db, Trigger.class, CypherProcedures.class);
     }
 
     @Test
     public void testTriggerRunsAfterRestart() throws Exception {
+        
+        // create apoc.conf
+        final File file1 = store_dir.newFolder("conf");
+        final File file = store_dir.newFile("conf" + File.separator + "apoc.conf");
+        System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + file1.getAbsolutePath());
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(KEY_CURRENT_DB + "=true");
+        }
+        
+        
 //        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
 
 //        db.execute("CALL apoc.trigger.add('myTrigger', 'unwind $createdNodes as n set n.trigger=true', {phase:'before'})");
@@ -164,7 +168,6 @@ public class TriggerRestart2Test {
         TestUtil.testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 1);
 
         restartDb();
-        System.out.println("restarted = ");
 
 //        // TODO: 14/07/22 to delete 
         try (final Transaction transaction = ApocConfig.apocConfig().getSystemDb().beginTx()) {
