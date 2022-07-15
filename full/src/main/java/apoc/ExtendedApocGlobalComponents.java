@@ -53,8 +53,8 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
                 dependencies.apocConfig(),
                 dependencies.globalProceduresRegistry());
         
+        // todo - forse cambiarlo e mettere getDbListeners(dependencies)
         final DataVirtualizationCatalogHandler dvHandler = new DataVirtualizationCatalogHandler(db, dependencies.log().getUserLog(DataVirtualizationCatalog.class));
-        
         lists = List.of(ttlLifeCycle, uuidHandler, dvHandler);
         
         return MapUtil.genericMap(
@@ -67,8 +67,8 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
                         dependencies.log().getUserLog(LoadDirectory.class),
                         dependencies.pools()),
 
-                "cypherProcedures", cypherProcedureHandler, 
-                "dvHandler", dvHandler
+                "cypherProcedures", cypherProcedureHandler
+                // , "dvHandler", dvHandler
 //                , "dataVirtualizationAvailabilityHandler", new DataVirtualizationAvailabilityHandler(dependencies.databaseManagementService())
         );
     }

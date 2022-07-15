@@ -9,6 +9,7 @@ import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.DatabaseEventContext;
 import org.neo4j.graphdb.event.DatabaseEventListener;
@@ -177,6 +178,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
         configuredLabelAndPropertyNames.put(label, config);
 
         try (Transaction sysTx = apocConfig.getSystemDb().beginTx()) {
+            // todo - common
             Node node = Util.mergeNode(sysTx, SystemLabels.ApocUuid, null,
                     Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
                     Pair.of(SystemPropertyKeys.label.name(), label),
@@ -220,6 +222,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
         Map<String, UuidConfig> retval = new HashMap<>(configuredLabelAndPropertyNames);
         configuredLabelAndPropertyNames.clear();
         try (Transaction tx = getDb().beginTx()) {
+            // todo - common
             tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName() )
                     .forEachRemaining(node -> node.delete());
             tx.commit();
@@ -231,9 +234,35 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
         return isCurrentDb(db, NAME) ? db : apocConfig.getSystemDb();
     }
 
+    private GraphDatabaseService getOtherDb() {
+        return isCurrentDb(db, NAME) ? apocConfig.getSystemDb() : db;
+    }
+
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("UuidHandler.databaseStart");
+
+        final ResourceIterator<Node> nodes;
+        try (Transaction tx = getDb().beginTx()) {
+            // todo - common
+            nodes = tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName());
+            tx.commit();
+        }
+
+        try (Transaction tx = getDb().beginTx()) {
+            nodes.forEachRemaining(node -> {
+                // todo - common, magari creare un array Pairs[] e aggiungere cose.
+                Util.mergeNode(tx, SystemLabels.ApocUuid, null,
+                        Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
+                        Pair.of(SystemPropertyKeys.label.name(), node.getProperty(SystemPropertyKeys.label.name())),
+                        Pair.of(SystemPropertyKeys.propertyName.name(), node.getProperty(SystemPropertyKeys.propertyName.name()))
+                );
+            });
+            tx.commit();
+        }
+//        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
+//                SystemLabels.DataVirtualizationCatalog, SystemPropertyKeys.database.name(), db.databaseName()));
+        
     }
 
     @Override

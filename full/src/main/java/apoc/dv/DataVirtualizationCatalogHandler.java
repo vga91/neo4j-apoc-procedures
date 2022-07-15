@@ -20,6 +20,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static apoc.util.SystemDbUtil.todoOtherDb;
 import static apoc.util.SystemDbUtil.todoThisDb;
 
 // todo - questi non vengono fatti al riavvio
@@ -36,8 +37,11 @@ public class DataVirtualizationCatalogHandler implements DatabaseEventListener {
         this.log = log;
     }
 
+    private <T> T withOtherDb(Function<Transaction, T> action) {
+        return todoOtherDb(db, NAME, action);
+    }
 
-    private <T> T todo4(Function<Transaction, T> action) {
+    private <T> T withThisDb(Function<Transaction, T> action) {
         return todoThisDb(db, NAME, action);
 //        try (Transaction tx = systemDb.beginTx()) {
 //            T result = action.apply(tx);
@@ -47,7 +51,8 @@ public class DataVirtualizationCatalogHandler implements DatabaseEventListener {
     }
 
     public VirtualizedResource add(VirtualizedResource vr) {
-        return todo4(tx -> {
+        return withThisDb(tx -> {
+            // todo - common
             Node node = Util.mergeNode(tx, SystemLabels.DataVirtualizationCatalog, null,
                     Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
                     Pair.of(SystemPropertyKeys.name.name(), vr.name));
@@ -57,7 +62,7 @@ public class DataVirtualizationCatalogHandler implements DatabaseEventListener {
     }
 
     public VirtualizedResource get(String name) {
-        return todo4(tx -> {
+        return withThisDb(tx -> {
             final List<Node> nodes = tx.findNodes(SystemLabels.DataVirtualizationCatalog,
                     SystemPropertyKeys.database.name(), db.databaseName(),
                     SystemPropertyKeys.name.name(), name)
@@ -77,7 +82,7 @@ public class DataVirtualizationCatalogHandler implements DatabaseEventListener {
     }
 
     public Stream<VirtualizedResource> remove(String name) {
-        todo4(tx -> {
+        withThisDb(tx -> {
             tx.findNodes(SystemLabels.DataVirtualizationCatalog,
                     SystemPropertyKeys.database.name(), db.databaseName(),
                     SystemPropertyKeys.name.name(), name)
@@ -90,7 +95,7 @@ public class DataVirtualizationCatalogHandler implements DatabaseEventListener {
 
     public Stream<VirtualizedResource> list() {
         // todo - questo... è comune a tutti in realta
-        return todo4(tx ->
+        return withThisDb(tx ->
                 getNodes(tx)
                 .stream()
                 .map(node -> {
@@ -114,6 +119,19 @@ public class DataVirtualizationCatalogHandler implements DatabaseEventListener {
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("DataVirtualizationCatalogHandler.databaseStart" + eventContext.getDatabaseName());
+
+        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
+                SystemLabels.DataVirtualizationCatalog, SystemPropertyKeys.database.name(), db.databaseName()));
+
+        withThisDb(tx -> {
+            nodes.forEachRemaining(node -> {
+                Util.mergeNode(tx, SystemLabels.DataVirtualizationCatalog, null,
+                        Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
+                        Pair.of(SystemPropertyKeys.name.name(), node.getProperties(SystemPropertyKeys.name.name())));
+            });
+            return null;
+        });
+
     }
 
     @Override

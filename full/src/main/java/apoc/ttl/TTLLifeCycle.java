@@ -1,8 +1,12 @@
 package apoc.ttl;
 
 import apoc.ApocConfig;
+import apoc.SystemLabels;
+import apoc.SystemPropertyKeys;
 import apoc.TTLConfig;
 import apoc.util.Util;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.event.DatabaseEventContext;
 import org.neo4j.graphdb.event.DatabaseEventListener;
 import org.neo4j.internal.helpers.collection.Iterators;
@@ -96,6 +100,10 @@ public class TTLLifeCycle extends LifecycleAdapter implements DatabaseEventListe
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("TTLLifeCycle.databaseStart");
+
+//        // todo - in realtà qua non serve
+//        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
+//                SystemLabels.DataVirtualizationCatalog, SystemPropertyKeys.database.name(), db.databaseName()));
     }
 
     @Override

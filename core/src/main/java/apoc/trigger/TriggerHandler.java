@@ -71,9 +71,11 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("TriggerHandler.databaseStart " + eventContext.getDatabaseName());
-        
+
+        final boolean aBoolean = apocConfig.getBoolean(KEY_CURRENT_DB, false);
+        final boolean aBoolean1 = apocConfig.getBoolean(APOC_TRIGGER_ENABLED, false);
+        System.out.println("trigger key databaseStart= " + aBoolean);
         System.out.println("trigger key aaa= " + apocConfig.getBoolean("apoc.trigger.persist", true));
-        System.out.println("trigger key databaseStart= " + apocConfig.getBoolean(KEY_CURRENT_DB, false));
 
         // final boolean isSystemDatabase = db.databaseName().equals(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
 
@@ -104,11 +106,17 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
             });
             return null;
         });
+        
+        // todo - metterlo a tutti
+        withOtherDb(tx -> {
+            nodes.forEachRemaining(Node::delete);
+            return null;
+        });
     }
 
     @Override
     public void databaseShutdown(DatabaseEventContext eventContext) {
-
+        // todo - investigate
     }
 
     @Override
