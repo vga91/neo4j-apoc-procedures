@@ -14,7 +14,6 @@ import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
@@ -24,35 +23,40 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
 import static apoc.ApocSettings.apoc_trigger_enabled;
 //import static apoc.MockApocSettings.apoc_trigger_enabled2;
 //import static apoc.custom.TriggerRestart2Test.MockApocSettings.apoc_trigger_enabled2;
 import static apoc.util.SystemDbUtil.KEY_THIS_DB;
-import static java.util.Collections.emptyList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 
-public class TriggerRestart2Test {
+
+// todo - rinominarlo RestartCoreTest
+public class StoreThisDbCoreTest {
+    // todo - ma col beforeClass???
     
     @Rule
     public TemporaryFolder storeDir = new TemporaryFolder();
 
     private GraphDatabaseService db;
     private DatabaseManagementService databaseManagementService;
+    private File file;
+    
     
     
     @Before
     public void setUp() throws Exception {
         startDb();
+        file = storeDir.newFile("apoc.conf");
+        System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + storeDir.getRoot().getAbsolutePath());
     }
+    
+    // todo - fare @After in cui faccio cose...
 
     private void restartDb() throws IOException {
         databaseManagementService.shutdown();
@@ -64,7 +68,7 @@ public class TriggerRestart2Test {
                 .setConfig(apoc_trigger_enabled, true)
                 .build();
         db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
-        assertTrue(db.isAvailable(1000)); // TODO - DECOMMENTARE E CREARE COMMON METHOD
+        assertTrue(db.isAvailable(1000));
         TestUtil.registerProcedure(db, Trigger.class, CypherProcedures.class);
     }
 
@@ -72,8 +76,8 @@ public class TriggerRestart2Test {
     public void testTriggerRunsAfterRestart() throws Exception {
         
         // create apoc.conf via sun.java.command, because with embedded db, via apocConfig() the configs are recognized too late
-        final File file = storeDir.newFile("apoc.conf");
-        System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + storeDir.getRoot().getAbsolutePath());
+//        final File file = storeDir.newFile("apoc.conf");
+//        System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + storeDir.getRoot().getAbsolutePath());
         try (FileWriter writer = new FileWriter(file)) {
             writer.write(KEY_THIS_DB + "=true");
         }
@@ -98,14 +102,14 @@ public class TriggerRestart2Test {
 
         final String phaseBefore = Util.toJson(Map.of("phase", "before"));
         try (final Transaction tx = ApocConfig.apocConfig().getSystemDb().beginTx()) {
-            final Iterator<Node> nodes = withIterator(tx, SystemLabels.ApocTrigger);
+            final Iterator<Node> nodes = nodeIterator(tx, SystemLabels.ApocTrigger);
             nodeAssertions(nodes.next(),
                     name, statement, phaseBefore, "{}");
             nodeAssertions(nodes.next(),
                     nameOther, statementOtherBefore, Util.toJson(Map.of("phase", "after")), Util.toJson(Map.of("alpha", "beta")));
             assertFalse(nodes.hasNext());
 
-            final Iterator<Node> nodesMeta = withIterator(tx, SystemLabels.ApocTriggerMeta);
+            final Iterator<Node> nodesMeta = nodeIterator(tx, SystemLabels.ApocTriggerMeta);
             assertTrue(nodesMeta.next().hasProperty(SystemPropertyKeys.lastUpdated.name()));
             assertFalse(nodesMeta.hasNext());
         }
@@ -117,8 +121,8 @@ public class TriggerRestart2Test {
         final String paramsOtherAfter = Util.toJson(Map.of("foo", "bar"));
         try (final Transaction tx = db.beginTx()) {
 
-            assertFalse(withIterator(tx, SystemLabels.ApocTrigger).hasNext());
-            assertFalse(withIterator(tx, SystemLabels.ApocTriggerMeta).hasNext());
+            assertFalse(nodeIterator(tx, SystemLabels.ApocTrigger).hasNext());
+            assertFalse(nodeIterator(tx, SystemLabels.ApocTriggerMeta).hasNext());
 
             // mock a trigger creation, this takes precedence over the other trigger
             final Node node = tx.createNode(SystemLabels.ApocTrigger);
@@ -144,12 +148,12 @@ public class TriggerRestart2Test {
         restartDb();
 
         try (final Transaction tx = ApocConfig.apocConfig().getSystemDb().beginTx()) {
-            assertFalse(withIterator(tx, SystemLabels.ApocTrigger).hasNext());
-            assertFalse(withIterator(tx, SystemLabels.ApocTriggerMeta).hasNext());
+            assertFalse(nodeIterator(tx, SystemLabels.ApocTrigger).hasNext());
+            assertFalse(nodeIterator(tx, SystemLabels.ApocTriggerMeta).hasNext());
         }
         
         try (final Transaction tx = db.beginTx()) {
-            final Iterator<Node> nodes = withIterator(tx, SystemLabels.ApocTrigger);
+            final Iterator<Node> nodes = nodeIterator(tx, SystemLabels.ApocTrigger);
             nodeAssertions(nodes.next(), 
                     nameBaz, statementBaz, phaseBefore, paramsBaz);
             nodeAssertions(nodes.next(), 
@@ -158,7 +162,7 @@ public class TriggerRestart2Test {
                     nameOther, statementOtherAfter, phaseBefore, paramsOtherAfter);
             assertFalse(nodes.hasNext());
 
-            final Iterator<Node> nodesMeta = withIterator(tx, SystemLabels.ApocTriggerMeta);
+            final Iterator<Node> nodesMeta = nodeIterator(tx, SystemLabels.ApocTriggerMeta);
             assertTrue(nodesMeta.next().hasProperty(SystemPropertyKeys.lastUpdated.name()));
             assertFalse(nodesMeta.hasNext());
         }
@@ -180,7 +184,8 @@ public class TriggerRestart2Test {
     // test con config specifica
     // test solo con funzionalità
 
-    private Iterator<Node> withIterator(Transaction tx, Label label) {//}, Consumer<ResourceIterator<Node>> consumer) {
+    
+    private Iterator<Node> nodeIterator(Transaction tx, Label label) {//}, Consumer<ResourceIterator<Node>> consumer) {
         return tx.findNodes(label,
                 SystemPropertyKeys.database.name(), DEFAULT_DATABASE_NAME).stream()
                 .sorted(Comparator.comparing(i -> (String) i.getProperty(SystemPropertyKeys.name.name())))

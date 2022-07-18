@@ -68,7 +68,7 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
                         dependencies.pools()),
 
                 "cypherProcedures", cypherProcedureHandler
-                // , "dvHandler", dvHandler
+                 , "dvHandler", dvHandler
 //                , "dataVirtualizationAvailabilityHandler", new DataVirtualizationAvailabilityHandler(dependencies.databaseManagementService())
         );
     }

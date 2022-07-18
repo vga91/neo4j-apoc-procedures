@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.APOC_TRIGGER_ENABLED;
 import static apoc.ApocConfig.apocConfig;
-import static apoc.util.SystemDbUtil.getProvaMergeStream;
+import static apoc.util.SystemDbUtil.getListNodeInfos;
 import static apoc.util.SystemDbUtil.todoThisDb;
 
 public class TriggerHandler extends LifecycleAdapter implements DatabaseEventListener, TransactionEventListener<Void> {
@@ -61,8 +61,8 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
 //                            final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName())};
 //                            return new SystemDbUtil.ProvaMerge(SystemLabels.ApocTriggerMeta, null, pairs, allProperties);
 //                        }).stream().collect(Collectors.toList()));
-        SystemDbUtil.migrateInfos(db, SystemLabels.ApocTrigger, node -> null,
-                tx -> getProvaMergeStream(tx, db, SystemLabels.ApocTriggerMeta, n -> null, n -> List.of()));
+        SystemDbUtil.migrateInfos(db, SystemLabels.ApocTrigger, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))), n -> null,
+                tx -> getListNodeInfos(tx, db, SystemLabels.ApocTriggerMeta, n -> null, n -> List.of()));
 //                tx -> tx.findNodes(
 //                        SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName())
 //                        .stream()

@@ -63,7 +63,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
-import static apoc.util.SystemDbUtil.getProvaMergeStream;
+import static apoc.util.SystemDbUtil.getListNodeInfos;
 import static apoc.util.SystemDbUtil.todoThisDb;
 import static apoc.util.SystemDbUtil.todoOtherDb;
 import static java.util.Collections.singletonList;
@@ -129,15 +129,15 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("CypherProceduresHandler.databaseStart " + eventContext.getDatabaseName());
-        try (final Transaction transaction = api.beginTx()) {
-            final Node ajeje = transaction.createNode(Label.label("ajeje"));
-            System.out.println("ajeje = " + ajeje);
-            transaction.commit();
-        }
+//        try (final Transaction transaction = api.beginTx()) {
+//            final Node ajeje = transaction.createNode(Label.label("ajeje"));
+//            System.out.println("ajeje = " + ajeje);
+//            transaction.commit();
+//        }
 
-        SystemDbUtil.migrateInfos(api, SystemLabels.ApocCypherProcedures, 
+        SystemDbUtil.migrateInfos(api, SystemLabels.ApocCypherProcedures, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))),
                 (node) -> node.hasLabel(SystemLabels.Function) ? SystemLabels.Function : SystemLabels.Procedure,
-              tx -> getProvaMergeStream(tx, api, SystemLabels.ApocCypherProceduresMeta, n -> null, n -> List.of())
+              tx -> getListNodeInfos(tx, api, SystemLabels.ApocCypherProceduresMeta, n -> null, n -> List.of())
         );
 //                tx -> tx.findNodes(
 //                        SystemLabels.ApocCypherProceduresMeta, SystemPropertyKeys.database.name(), api.databaseName())

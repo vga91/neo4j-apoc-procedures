@@ -13,6 +13,7 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.DatabaseEventContext;
 import org.neo4j.graphdb.event.DatabaseEventListener;
 import org.neo4j.internal.helpers.collection.Pair;
+import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
 
 import java.util.List;
@@ -25,7 +26,7 @@ import static apoc.util.SystemDbUtil.todoOtherDb;
 import static apoc.util.SystemDbUtil.todoThisDb;
 
 // todo - questi non vengono fatti al riavvio
-public class DataVirtualizationCatalogHandler implements DatabaseEventListener { // todo - forse dovrei registrare anche questo??
+public class DataVirtualizationCatalogHandler extends LifecycleAdapter implements DatabaseEventListener { // todo - forse dovrei registrare anche questo??
     private static final String NAME = "dv";
 
     private final GraphDatabaseService db;
@@ -121,6 +122,7 @@ public class DataVirtualizationCatalogHandler implements DatabaseEventListener {
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("DataVirtualizationCatalogHandler.databaseStart" + eventContext.getDatabaseName());
 
+        System.out.println("aaaaa");
         SystemDbUtil.migrateInfos(db, SystemLabels.DataVirtualizationCatalog);
     }
 

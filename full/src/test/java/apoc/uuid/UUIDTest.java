@@ -2,41 +2,76 @@ package apoc.uuid;
 
 import apoc.ApocSettings;
 import apoc.create.Create;
+import apoc.custom.CypherProcedures;
 import apoc.periodic.Periodic;
+import apoc.trigger.Trigger;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.apache.commons.lang.exception.ExceptionUtils;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.dbms.api.DatabaseManagementService;
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.ApocSettings.apoc_trigger_enabled;
+import static apoc.ApocSettings.apoc_uuid_enabled;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 
 /**
  * @author ab-larus
  * @since 05.09.18
  */
+
+// todo - creare altro test RestartFullTest
 public class UUIDTest {
 
     @Rule
-    public DbmsRule db = new ImpermanentDbmsRule()
-            .withSetting(GraphDatabaseSettings.auth_enabled, true)
-            .withSetting(ApocSettings.apoc_uuid_enabled, true);
+    public TemporaryFolder storeDir = new TemporaryFolder();
+
+    private GraphDatabaseService db;
+    private DatabaseManagementService databaseManagementService;
+
+//    @Rule
+//    public DbmsRule db = new ImpermanentDbmsRule()
+//            .withSetting(GraphDatabaseSettings.auth_enabled, true)
+//            .withSetting(ApocSettings.apoc_uuid_enabled, true);
 
     private static final String UUID_TEST_REGEXP = "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 
     @Before
     public void setUp() throws Exception {
+        startDb();
+//        TestUtil.registerProcedure(db, Uuid.class, Create.class, Periodic.class);
+    }
+    
+    private void restartDb() throws IOException {
+        databaseManagementService.shutdown();
+        startDb();
+    }
+
+    private void startDb() {
+        databaseManagementService = new TestDatabaseManagementServiceBuilder(storeDir.getRoot().toPath())
+                .setConfig(apoc_uuid_enabled, true)
+                .setConfig(GraphDatabaseSettings.auth_enabled, true)
+                .build();
+        db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
+        Assert.assertTrue(db.isAvailable(1000)); // TODO - DECOMMENTARE E CREARE COMMON METHOD
         TestUtil.registerProcedure(db, Uuid.class, Create.class, Periodic.class);
     }
 

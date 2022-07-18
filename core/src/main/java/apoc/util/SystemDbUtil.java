@@ -19,16 +19,15 @@ import static apoc.ApocConfig.apocConfig;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
 public class SystemDbUtil {
-    
-    public static class ProvaMerge { // TODO - METTERLO IN SYSTEMDBUTILS???
+    public static class NodeInfo {
         public Label primaryLabel;
         public Label additionalLabel;
         public Pair<String, Object>[] pairs;
         public Map<String, Object> onCreateMap;
 
-        public ProvaMerge(Label primaryLabel, Label additionalLabel,
-                          Pair<String, Object>[] pairs,
-                          Map<String, Object> onCreateMap) {
+        public NodeInfo(Label primaryLabel, Label additionalLabel,
+                        Pair<String, Object>[] pairs,
+                        Map<String, Object> onCreateMap) {
             this.primaryLabel = primaryLabel;
             this.additionalLabel = additionalLabel;
             this.pairs = pairs;
@@ -36,13 +35,7 @@ public class SystemDbUtil {
         }
     }
     
-    public static final String KEY_THIS_DB = "apoc.storethisdb"; // todo - e se lo chiamassi storethisdb????
-    
-//    public static final 
-    
-    // todo - SystemLabel.ApocCypherProcedures --> appartiene a tutti, posso prendere questo come feature
-    // todo - creare un enum o qualcosa di simiie con le key
-//    private static final Map<String, SystemLabels> featureMap = Map.of("custom", )
+    public static final String KEY_THIS_DB = "apoc.storethisdb";
 
     public static boolean isCurrentDb(GraphDatabaseService db, String featureName) {
         // todo - forse non serve.. verificare
@@ -59,22 +52,30 @@ public class SystemDbUtil {
     }
 
     public static void migrateInfos(GraphDatabaseService db, SystemLabels label) {
-        migrateInfos(db, label, node -> null, tx -> Collections.emptyList());
+        // todo - node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))) alla fine, può essere il default...
+        migrateInfos(db, label, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))));
     }
 
-    public static void migrateInfos(GraphDatabaseService db, SystemLabels label, Function<Node, Label> additionalLabel, Function<Transaction, List<ProvaMerge>> action) {
+    public static void migrateInfos(GraphDatabaseService db, SystemLabels label, Function<Node, List<Pair>> mergePairs) {
+        migrateInfos(db, label, mergePairs, node -> null, tx -> Collections.emptyList());
+    }
+
+    public static void migrateInfos(GraphDatabaseService db, SystemLabels label, Function<Node, List<Pair>> mergePairs, Function<Node, Label> additionalLabel, Function<Transaction, List<NodeInfo>> action) {
         final String featureName = label.getFeatureName();
 
-        final List<ProvaMerge> nodes = todoOtherDb(db, featureName, tx -> {
-            List<ProvaMerge> collect = action.apply(tx);
-
-            final List<ProvaMerge> collect1 = getProvaMergeStream(tx, db, label, additionalLabel, 
-                    node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))));
-//                    .collect(Collectors.toList());
-
-            // todo - decommentare
-            collect.addAll(collect1);
-            return collect;
+        final List<NodeInfo> nodes = todoOtherDb(db, featureName, tx -> {
+            try {
+                final List<NodeInfo> collectCommon = getListNodeInfos(tx, db, label, additionalLabel, mergePairs);
+    
+                List<NodeInfo> collect = action.apply(tx);
+                collectCommon.addAll(collect);
+                System.out.println("collect = " + collect);
+                return collectCommon;
+            } catch (Exception e) {
+                // todo - log...
+                System.out.println("AJEJEEEE e = " + e);
+                throw new RuntimeException(e);
+            }
         });
         
         todoThisDb(db, featureName, tx -> {
@@ -83,36 +84,43 @@ public class SystemDbUtil {
             });
             return null;
         });
+        System.out.println("SystemDbUtil.migrateInfos");
     }
 
-    public static List<ProvaMerge> getProvaMergeStream(Transaction tx, GraphDatabaseService db, SystemLabels label, Function<Node, Label> additionalLabel, Function<Node, List<Pair>> mergePairs) {
+    public static List<NodeInfo> getListNodeInfos(Transaction tx, GraphDatabaseService db, SystemLabels label, Function<Node, Label> additionalLabelFun, Function<Node, List<Pair>> mergePairs) {
         return tx.findNodes(label,SystemPropertyKeys.database.name(), db.databaseName())
                 .stream()
                 .map(node -> {
-                    final List<Pair> pairs = new ArrayList<>(mergePairs.apply(node));
-                    pairs.add(Pair.of(SystemPropertyKeys.database.name(), db.databaseName()));
-//                    final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
-//                            Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))};
-                    final Map<String, Object> allProperties = node.getAllProperties();
+                    try {
+                        final List<Pair> pairs = new ArrayList<>(mergePairs.apply(node));
+                        pairs.add(Pair.of(SystemPropertyKeys.database.name(), db.databaseName()));
 
-                    node.delete();
+                        final Map<String, Object> allProperties = node.getAllProperties();
+                        final Label additionalLabel = additionalLabelFun.apply(node);
+                        
+                        // delete source node
+                        node.delete();
 
-                    // -- retrieve infos
-                    return new ProvaMerge(label, additionalLabel.apply(node), pairs.toArray(Pair[]::new), allProperties);
+                        // -- retrieve infos
+                        return new NodeInfo(label, additionalLabel, pairs.toArray(Pair[]::new), allProperties);
+                    } catch (Exception e) {
+                        System.out.println("ERRORONEE e = " + e);
+                        // todo - mettere log error?
+                        throw new RuntimeException(e);
+                    }
                 })
                 .collect(Collectors.toList());
     }
 
-    //CALL apoc.refactor.mergeNodes([f,b])
-
     public static <T> T todoOtherDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
+        System.out.println("SystemDbUtil.todoOtherDb");
         final GraphDatabaseService currentDb = isCurrentDb(db, featureName)
                 ? apocConfig().getSystemDb() : db;
 
-        return getT(action, currentDb);
+        return getTransaction(action, currentDb);
     }
 
-    private static <T> T getT(Function<Transaction, T> action, GraphDatabaseService currentDb) {
+    private static <T> T getTransaction(Function<Transaction, T> action, GraphDatabaseService currentDb) {
         try (Transaction tx = currentDb.beginTx()) {
             T result = action.apply(tx);
             tx.commit();
@@ -126,19 +134,6 @@ public class SystemDbUtil {
         final GraphDatabaseService currentDb = isCurrentDb(db, featureName)
                 ? db : apocConfig().getSystemDb();
 
-        return getT(action, currentDb);
-//        try (Transaction tx = currentDb.beginTx()) {
-//            T result = action.apply(tx);
-//            tx.commit();
-//            return result;
-//        }
+        return getTransaction(action, currentDb);
     }
-
-//    private static  <T> T withSystemDb(Function<Transaction, T> action) {
-//        try (Transaction tx = apocConfig.getSystemDb().beginTx()) {
-//            T result = action.apply(tx);
-//            tx.commit();
-//            return result;
-//        }
-//    }
 }

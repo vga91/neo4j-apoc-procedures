@@ -250,7 +250,10 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
 //            tx.commit();
 //        }
 
-        SystemDbUtil.migrateInfos(db, SystemLabels.ApocUuid);
+        SystemDbUtil.migrateInfos(db, SystemLabels.ApocUuid, node -> List.of(
+                Pair.of(SystemPropertyKeys.label.name(), node.getProperty(SystemPropertyKeys.label.name())), 
+                Pair.of(SystemPropertyKeys.propertyName.name(), node.getProperty(SystemPropertyKeys.propertyName.name())))
+        );
 
 //        try (Transaction tx = getDb().beginTx()) {
 //            nodes.forEachRemaining(node -> {
