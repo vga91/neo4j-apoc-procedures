@@ -3,6 +3,7 @@ package apoc.dv;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
 import apoc.util.JsonUtil;
+import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -120,18 +121,7 @@ public class DataVirtualizationCatalogHandler implements DatabaseEventListener {
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("DataVirtualizationCatalogHandler.databaseStart" + eventContext.getDatabaseName());
 
-        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
-                SystemLabels.DataVirtualizationCatalog, SystemPropertyKeys.database.name(), db.databaseName()));
-
-        withThisDb(tx -> {
-            nodes.forEachRemaining(node -> {
-                Util.mergeNode(tx, SystemLabels.DataVirtualizationCatalog, null,
-                        Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
-                        Pair.of(SystemPropertyKeys.name.name(), node.getProperties(SystemPropertyKeys.name.name())));
-            });
-            return null;
-        });
-
+        SystemDbUtil.migrateInfos(db, SystemLabels.DataVirtualizationCatalog);
     }
 
     @Override

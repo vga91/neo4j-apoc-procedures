@@ -4,13 +4,12 @@ import apoc.ApocConfig;
 import apoc.Pools;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
+import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.function.ThrowingFunction;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.DatabaseEventContext;
@@ -41,128 +40,101 @@ import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.APOC_TRIGGER_ENABLED;
 import static apoc.ApocConfig.apocConfig;
-import static apoc.util.SystemDbUtil.KEY_CURRENT_DB;
+import static apoc.util.SystemDbUtil.getProvaMergeStream;
 import static apoc.util.SystemDbUtil.todoThisDb;
-import static apoc.util.SystemDbUtil.todoOtherDb;
 
 public class TriggerHandler extends LifecycleAdapter implements DatabaseEventListener, TransactionEventListener<Void> {
-    private static final String NAME = "trigger";
-
-//    @Override
-//    public void available() {
-//        System.out.println("trigger key available= " + apocConfig.getBoolean(KEY_CURRENT_DB, false));
-//    }
-//
-//    @Override
-//    public void unavailable() {
-//
-//    }
-//
-//    @Override
-//    public void init() {
-//        System.out.println("trigger key init= " + apocConfig.getBoolean(KEY_CURRENT_DB, false));
-//        System.out.println("TriggerHandler.init");
-//        try(final Transaction transaction = db.beginTx()) {
-//            final Node bbb = transaction.findNode(Label.label("bbb"), "a", 1);
-//            System.out.println("bbb = " + bbb);
-//            transaction.commit();
-//        }
-//    }
-    
-    static class ProvaMerge { // TODO - METTERLO IN SYSTEMDBUTILS???
-        public Label primaryLabel;
-        public Label additionalLabel;
-        public Pair<String, Object>[] pairs;
-        public Map<String, Object> onCreateMap;
-
-        public ProvaMerge(Label primaryLabel, Label additionalLabel, 
-                          Pair<String, Object>[] pairs, 
-                          Map<String, Object> onCreateMap) {
-            this.primaryLabel = primaryLabel;
-            this.additionalLabel = additionalLabel;
-            this.pairs = pairs;
-            this.onCreateMap = onCreateMap;
-        }
-    }
 
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("TriggerHandler.databaseStart " + eventContext.getDatabaseName());
 
-        final boolean aBoolean = apocConfig.getBoolean(KEY_CURRENT_DB, false);
-        final boolean aBoolean1 = apocConfig.getBoolean(APOC_TRIGGER_ENABLED, false);
-        System.out.println("trigger key databaseStart= " + aBoolean);
-        System.out.println("trigger key aaa= " + apocConfig.getBoolean("apoc.trigger.persist", true));
 
-        // final boolean isSystemDatabase = db.databaseName().equals(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
-
-//        try(final Transaction transaction = db.beginTx()) {
-//            final Node ccc = transaction.findNode(Label.label("ccc"), "a", 1);
-//            System.out.println("ccc = " + ccc);
-//            transaction.commit();
-//        }
-
-        // todo - forse conviene aprire una sola transazione...
-        final List<ProvaMerge> nodes = withOtherDb(tx -> {
-            return tx.findNodes(
-                    SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), db.databaseName())
-                    .stream()
-                    .map(node -> {                       
-                        final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
-                            Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))};
-                        final Map<String, Object> allProperties = node.getAllProperties();
-                        
-                        // -- todo - qui cancello il nodo
-                        node.delete();
-                        
-                        // -- retrieve infos
-                        return new ProvaMerge(SystemLabels.ApocTrigger, null, pairs, allProperties);
-                    }).collect(Collectors.toList());
-//            return nodes11;
-        });
+//        SystemDbUtil.migrateInfos(db, SystemLabels.ApocTrigger, n -> null,
+//                tx -> tx.findNodes(
+//                        SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName())
+//                        .map(node -> {
+//                            final Map<String, Object> allProperties = node.getAllProperties();
+//
+//                            node.delete();
+//
+//                            final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName())};
+//                            return new SystemDbUtil.ProvaMerge(SystemLabels.ApocTriggerMeta, null, pairs, allProperties);
+//                        }).stream().collect(Collectors.toList()));
+        SystemDbUtil.migrateInfos(db, SystemLabels.ApocTrigger, node -> null,
+                tx -> getProvaMergeStream(tx, db, SystemLabels.ApocTriggerMeta, n -> null, n -> List.of()));
+//                tx -> tx.findNodes(
+//                        SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName())
+//                        .stream()
+//                        .map(node -> {
+//                            final Map<String, Object> allProperties = node.getAllProperties();
+//    
+//                            node.delete();
+//    
+//                            final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName())};
+//                            return new SystemDbUtil.ProvaMerge(SystemLabels.ApocTriggerMeta, null, pairs, allProperties);
+//                        }).collect(Collectors.toList()));
         
-        // TODO -DECOMMENTARE
-//        final ResourceIterator<Node> metaNodes = withOtherDb(tx -> {
-//            final ResourceIterator<Node> nodes1 = tx.findNodes(
-//                    SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName());
-//            return nodes1;
-//        });
-
-        withDb(tx -> {
-            try {
-                nodes.forEach(node -> {
-                    try {
-
+        // todo - forse conviene aprire una sola transazione...
+//        final List<SystemDbUtil.ProvaMerge> nodes = withOtherDb(tx -> {
+//            // todo - decommentare
+//            final List<SystemDbUtil.ProvaMerge> collect = tx.findNodes(
+//                    SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName())
+//                    .map(node -> {
+//                        final Map<String, Object> allProperties = node.getAllProperties();
+//
+//                        node.delete();
+//
+//                        final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName())};
+//                        return new SystemDbUtil.ProvaMerge(SystemLabels.ApocTriggerMeta, null, pairs, allProperties);
+//                    }).stream().collect(Collectors.toList());
+//
+//            final List<SystemDbUtil.ProvaMerge> collect1 = tx.findNodes(
+//                    SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), db.databaseName())
+//                    .stream()
+//                    .map(node -> {
 //                        final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
 //                                Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))};
-                        
-                        // TODO - TODOSSIMO !!!!! COMMON!!!!!!!!!
-//                        final Node node1 = 
-                        Util.mergeNode(tx, node.primaryLabel, node.additionalLabel, node.onCreateMap, Map.of(), node.pairs);
-                    System.out.println("TriggerHandler.databaseStart");
-                    } catch (Exception e) {
-                        System.out.println("ERRORONEEEE e = " + e);
-                        throw new RuntimeException(e);
-                    }
-//                node.getAllProperties().forEach((k,v) -> node1.);
-                });
-                
-                // TODO -TODOISSIMO - DEVO TESTARE ANCHE QUESTA!!!!!
-                // TODO -DECOMMENTARE
-//                metaNodes.forEachRemaining(node -> {
-//                    Util.mergeNode(tx, SystemLabels.ApocTriggerMeta, null,
-//                            Pair.of(SystemPropertyKeys.database.name(), db.databaseName()));
+//                        final Map<String, Object> allProperties = node.getAllProperties();
+//
+//                        node.delete();
+//
+//                        // -- retrieve infos
+//                        return new SystemDbUtil.ProvaMerge(SystemLabels.ApocTrigger, null, pairs, allProperties);
+//                    }).collect(Collectors.toList());
+//            
+//                    // todo - decommentare
+//            collect.addAll(collect1);
+//            return collect;
+//        });
+//        withDb(tx -> {
+//                nodes.forEach(node -> {
+//                    try {
+//
+////                        final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
+////                                Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))};
+//                        
+//                        // TODO - TODOSSIMO !!!!! COMMON!!!!!!!!!
+////                        final Node node1 = 
+//                        Util.mergeNode(tx, node.primaryLabel, node.additionalLabel, node.onCreateMap, Map.of(), node.pairs);
+//                    } catch (Exception e) {
+//                        throw new RuntimeException(e);
+//                    }
+////                node.getAllProperties().forEach((k,v) -> node1.);
 //                });
-                return null;
-            } catch (Exception e) {
-                System.out.println("ALTRO ERRORONEEEE e = " + e);
-                throw new RuntimeException(e); // todo - ok... non va, devo fare un altro modo...
-            }
-        });
+//                
+//                // TODO -TODOISSIMO - DEVO TESTARE ANCHE QUESTA!!!!!
+//                // TODO -DECOMMENTARE
+////                metaNodes.forEachRemaining(node -> {
+////                    Util.mergeNode(tx, SystemLabels.ApocTriggerMeta, null,
+////                            Pair.of(SystemPropertyKeys.database.name(), db.databaseName()));
+////                });
+//                return null;
+//        });
 
-        final ResourceIterator<Node> nodeResourceIterator = withDb(tx -> tx.findNodes(
-                SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
-        System.out.println("nodeResourceIterator = " + nodeResourceIterator.stream().collect(Collectors.toList()));
+//        final ResourceIterator<Node> nodeResourceIterator = withDb(tx -> tx.findNodes(
+//                SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
+//        System.out.println("nodeResourceIterator = " + nodeResourceIterator.stream().collect(Collectors.toList()));
 
         // todo - metterlo a tutti <-- COME SOPRA
 //        withOtherDb(tx -> {
@@ -170,9 +142,9 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
 //            return null;
 //        });
 
-        final ResourceIterator<Node> nodeResourceIteratorOther = withOtherDb(tx -> tx.findNodes(
-                SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
-        System.out.println("nodeResourceIteratorOther = " + nodeResourceIteratorOther.stream().collect(Collectors.toList()));
+//        final ResourceIterator<Node> nodeResourceIteratorOther = withOtherDb(tx -> tx.findNodes(
+//                SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), db.databaseName()));
+//        System.out.println("nodeResourceIteratorOther = " + nodeResourceIteratorOther.stream().collect(Collectors.toList()));
         
 
         // -- as before
@@ -251,19 +223,33 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
         // todo - ma forse... nel start non va bene... bensì nel available
 
         withDb(tx -> {
-            // todo - db.databaseName() è un info che non serve in current db
-            tx.findNodes(SystemLabels.ApocTrigger,
-                    SystemPropertyKeys.database.name(), db.databaseName()).forEachRemaining(
-                    node -> activeTriggers.put(
-                            (String) node.getProperty(SystemPropertyKeys.name.name()),
-                            MapUtil.map(
-                                    "statement", node.getProperty(SystemPropertyKeys.statement.name()),
-                                    "selector", Util.fromJson((String) node.getProperty(SystemPropertyKeys.selector.name()), Map.class),
-                                    "params", Util.fromJson((String) node.getProperty(SystemPropertyKeys.params.name()), Map.class),
-                                    "paused", node.getProperty(SystemPropertyKeys.paused.name())
-                            )
-                    )
-            );
+            try {
+                // todo - db.databaseName() è un info che non serve in current db
+                tx.findNodes(SystemLabels.ApocTrigger,
+                        SystemPropertyKeys.database.name(), db.databaseName()).forEachRemaining(
+                        node -> {
+                            try {
+                                
+                            activeTriggers.put(
+                                    (String) node.getProperty(SystemPropertyKeys.name.name()),
+                                    MapUtil.map(
+                                            "statement", node.getProperty(SystemPropertyKeys.statement.name()),
+                                            "selector", Util.fromJson((String) node.getProperty(SystemPropertyKeys.selector.name()), Map.class),
+                                            "params", Util.fromJson((String) node.getProperty(SystemPropertyKeys.params.name()), Map.class),
+                                            "paused", node.getProperty(SystemPropertyKeys.paused.name())
+                                    )
+                            );
+                            System.out.println("TriggerHandler.updateCache");
+                            } catch (Exception e) {
+                                System.out.println("ALTRO ERRORONE 2 e = " + e);
+                                throw new RuntimeException(e);
+                            }
+                        }
+                );
+            } catch (Exception e) {
+                System.out.println("ALTRO ERRORONE 1 e = " + e);
+                throw new RuntimeException(e);
+            }
             return null;
         });
 
@@ -445,48 +431,8 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
         return Phase.valueOf(selector.getOrDefault("phase", "before").toString()) == phase;
     }
 
-
-//    public void ifPersistDo(Runnable runnable) {
-//        if (!apocConfig.getBoolean(TRIGGER_PERSIST, true)) {
-//            removeAll();
-//            return;
-//        }
-//        runnable.run();
-//    }
-
-    @Override
-    public void start() throws Exception {
-        System.out.println("trigger key start aaa= " + apocConfig.getBoolean("apoc.trigger.persist", true));
-
-
-        final boolean aBoolean = apocConfig.getBoolean(KEY_CURRENT_DB, false);
-        System.out.println("trigger key = " + aBoolean);
-
-//        databaseManagementService.registerDatabaseEventListener(this);
-
-        // non è che ci passa più volte???
-
-//        try(final Transaction transaction = db.beginTx()) {
-//            final Node aaa = transaction.findNode(Label.label("aaa"), "a", 1);
-//            System.out.println("aaa = " + aaa);
-//            transaction.commit();
-//        }
-
-
-
-//        move() <-- todo: capire se fare generico per tuttele funzionalità o no...
-//        updateCache();
-//        long refreshInterval = apocConfig().getInt(TRIGGER_REFRESH, 60000);
-//        restoreTriggerHandler = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
-//            if (getLastUpdate() > lastUpdate) {
-//                updateCache();
-//            }
-//        }, refreshInterval, refreshInterval, TimeUnit.MILLISECONDS);
-    }
-
     @Override
     public void stop() {
-        System.out.println("trigger key stop aaa= " + apocConfig.getBoolean("apoc.trigger.persist", true));
 
         if(registeredWithKernel.compareAndSet(true, false)) {
             databaseManagementService.unregisterTransactionEventListener(db.databaseName(), this);
@@ -494,25 +440,10 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
         if (restoreTriggerHandler != null) {
             restoreTriggerHandler.cancel();
         }
-//        databaseManagementService.unregisterDatabaseEventListener(this);
     }
 
     private <T> T withDb(Function<Transaction, T> action) {
-        return todoThisDb(db, NAME, action);
-//        try (Transaction tx = apocConfig.getSystemDb().beginTx()) {
-//            T result = action.apply(tx);
-//            tx.commit();
-//            return result;
-//        }
-    }
-
-    private <T> T withOtherDb(Function<Transaction, T> action) {
-        return todoOtherDb(db, NAME, action);
-//        try (Transaction tx = apocConfig.getSystemDb().beginTx()) {
-//            T result = action.apply(tx);
-//            tx.commit();
-//            return result;
-//        }
+        return todoThisDb(db, SystemLabels.ApocTrigger.getFeatureName(), action);
     }
 
     private long getLastUpdate() {

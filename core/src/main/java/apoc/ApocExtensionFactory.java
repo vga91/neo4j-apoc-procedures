@@ -153,6 +153,12 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
                         userLog.error("failed to stop service " + key, e);
                     }
                 });
+
+                // todo - va bene qui?
+                for (ApocGlobalComponents c: apocGlobalComponents) {
+                    c.getDbListeners()
+                            .forEach(item -> dependencies.databaseManagementService().unregisterDatabaseEventListener(item));
+                }
             });
         }
     }

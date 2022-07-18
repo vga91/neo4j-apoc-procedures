@@ -20,7 +20,7 @@ import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 import java.util.Collections;
 import java.util.Map;
 
-import static apoc.util.SystemDbUtil.KEY_CURRENT_DB;
+import static apoc.util.SystemDbUtil.KEY_THIS_DB;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.SettingImpl.newBuilder;
 import static org.neo4j.configuration.SettingValueParsers.BOOL;
@@ -36,7 +36,7 @@ public class TriggerRestartTest {
     @Before
     public void setUp() {
         databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
-                .setConfig(newBuilder(KEY_CURRENT_DB, BOOL, false).build(), true)
+                .setConfig(newBuilder(KEY_THIS_DB, BOOL, false).build(), true)
                 .build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
 //        assertTrue(db.isAvailable(5000));
@@ -58,7 +58,7 @@ public class TriggerRestartTest {
 //        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
         databaseManagementService.shutdown();
         databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
-                .setConfig(newBuilder(KEY_CURRENT_DB, BOOL, false).build(), true)
+                .setConfig(newBuilder(KEY_THIS_DB, BOOL, false).build(), true)
                 .build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
 //        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);

@@ -13,7 +13,6 @@ import java.time.Duration;
 import java.util.List;
 
 import static apoc.ApocConfig.*;
-import static apoc.util.SystemDbUtil.KEY_CURRENT_DB;
 import static org.neo4j.configuration.SettingImpl.newBuilder;
 import static org.neo4j.configuration.SettingValueParsers.*;
 

@@ -3,7 +3,7 @@ package apoc;
 import org.neo4j.graphdb.Label;
 
 public enum SystemLabels implements Label {
-    ApocCypherProcedures("aaa"),
+    ApocCypherProcedures("custom"),
     ApocCypherProceduresMeta(""), // TODO - esportare anche questo, anche se credo che in realta lo faccia già, nell setLastUpdate !!!!!!!
     Procedure(""),
     Function(""),
@@ -12,13 +12,13 @@ public enum SystemLabels implements Label {
     ApocTrigger("trigger"),
     DataVirtualizationCatalog("dv");
 
-    private final String value;
+    private final String featureName;
     
-    SystemLabels(String value) {
-        this.value = value;
+    SystemLabels(String featureName) {
+        this.featureName = featureName;
     }
 
-    public String getValue() {
-        return value;
+    public String getFeatureName() {
+        return featureName;
     }
 }

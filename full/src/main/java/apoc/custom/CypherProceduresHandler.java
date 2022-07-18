@@ -4,6 +4,7 @@ import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
 import apoc.util.JsonUtil;
+import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.neo4j.collection.RawIterator;
 import org.neo4j.dbms.api.DatabaseManagementService;
@@ -14,7 +15,6 @@ import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.QueryExecutionException;
-import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.DatabaseEventContext;
@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
+import static apoc.util.SystemDbUtil.getProvaMergeStream;
 import static apoc.util.SystemDbUtil.todoThisDb;
 import static apoc.util.SystemDbUtil.todoOtherDb;
 import static java.util.Collections.singletonList;
@@ -134,29 +135,48 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             transaction.commit();
         }
 
-        // todo - forse conviene aprire una sola transazione...
-        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
-                SystemLabels.ApocCypherProcedures, SystemPropertyKeys.database.name(), api.databaseName()));
-        
-        final ResourceIterator<Node> nodes2 = withOtherDb(tx -> tx.findNodes(
-                SystemLabels.ApocCypherProceduresMeta, SystemPropertyKeys.database.name(), api.databaseName()));
-        
-        withDb(tx -> {
-            nodes.forEachRemaining(node -> {
-                Util.mergeNode(tx, SystemLabels.ApocCypherProcedures, node.hasLabel(SystemLabels.Function) ? SystemLabels.Function : SystemLabels.Procedure,
-                        Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),
-                        Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name())),
-                        Pair.of(SystemPropertyKeys.prefix.name(), node.getProperty(SystemPropertyKeys.prefix.name()))
-                );
-            });
+        SystemDbUtil.migrateInfos(api, SystemLabels.ApocCypherProcedures, 
+                (node) -> node.hasLabel(SystemLabels.Function) ? SystemLabels.Function : SystemLabels.Procedure,
+              tx -> getProvaMergeStream(tx, api, SystemLabels.ApocCypherProceduresMeta, n -> null, n -> List.of())
+        );
+//                tx -> tx.findNodes(
+//                        SystemLabels.ApocCypherProceduresMeta, SystemPropertyKeys.database.name(), api.databaseName())
+//                        .stream()
+//                        .map(getNodeProvaMergeFunction(api, SystemLabels.ApocCypherProceduresMeta, n -> null))
+////                        .map(node -> {
+////                            final Map<String, Object> allProperties = node.getAllProperties();
+////
+////                            node.delete();
+////
+////                            final Pair[] pairs = {Pair.of(SystemPropertyKeys.database.name(), api.databaseName())};
+////                            return new SystemDbUtil.ProvaMerge(SystemLabels.ApocCypherProceduresMeta, null, pairs, allProperties);
+////                        })
+//                        .collect(Collectors.toList())
+//        );
 
-            nodes2.forEachRemaining(node -> {
-                Util.mergeNode(tx, SystemLabels.ApocCypherProceduresMeta, null,
-                        Pair.of(SystemPropertyKeys.database.name(), api.databaseName()));
-            });
-            
-            return null;
-        });
+//        // todo - forse conviene aprire una sola transazione...
+//        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
+//                SystemLabels.ApocCypherProcedures, SystemPropertyKeys.database.name(), api.databaseName()));
+//        
+//        final ResourceIterator<Node> nodes2 = withOtherDb(tx -> tx.findNodes(
+//                SystemLabels.ApocCypherProceduresMeta, SystemPropertyKeys.database.name(), api.databaseName()));
+//        
+//        withDb(tx -> {
+//            nodes.forEachRemaining(node -> {
+//                Util.mergeNode(tx, SystemLabels.ApocCypherProcedures, node.hasLabel(SystemLabels.Function) ? SystemLabels.Function : SystemLabels.Procedure,
+//                        Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),
+//                        Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name())),
+//                        Pair.of(SystemPropertyKeys.prefix.name(), node.getProperty(SystemPropertyKeys.prefix.name()))
+//                );
+//            });
+//
+//            nodes2.forEachRemaining(node -> {
+//                Util.mergeNode(tx, SystemLabels.ApocCypherProceduresMeta, null,
+//                        Pair.of(SystemPropertyKeys.database.name(), api.databaseName()));
+//            });
+//            
+//            return null;
+//        });
 
         //  TODO - common
 //        withOtherDb(tx -> tx.findNodes(

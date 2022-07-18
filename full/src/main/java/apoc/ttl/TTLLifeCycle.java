@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  * @author mh
  * @since 15.02.17
  */
-public class TTLLifeCycle extends LifecycleAdapter implements DatabaseEventListener {
+public class TTLLifeCycle extends LifecycleAdapter implements DatabaseEventListener { // todo - mi sa che qua non serve...
 
     public static final int INITIAL_DELAY = 30;
     public static final int DEFAULT_SCHEDULE = 60;

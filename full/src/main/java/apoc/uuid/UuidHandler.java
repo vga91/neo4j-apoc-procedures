@@ -3,6 +3,7 @@ package apoc.uuid;
 import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
+import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.apache.commons.collections4.IterableUtils;
 import org.neo4j.dbms.api.DatabaseManagementService;
@@ -243,23 +244,25 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
         System.out.println("UuidHandler.databaseStart");
 
         final ResourceIterator<Node> nodes;
-        try (Transaction tx = getDb().beginTx()) {
-            // todo - common
-            nodes = tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName());
-            tx.commit();
-        }
+//        try (Transaction tx = getDb().beginTx()) {
+//            // todo - common
+//            nodes = tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName());
+//            tx.commit();
+//        }
 
-        try (Transaction tx = getDb().beginTx()) {
-            nodes.forEachRemaining(node -> {
-                // todo - common, magari creare un array Pairs[] e aggiungere cose.
-                Util.mergeNode(tx, SystemLabels.ApocUuid, null,
-                        Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
-                        Pair.of(SystemPropertyKeys.label.name(), node.getProperty(SystemPropertyKeys.label.name())),
-                        Pair.of(SystemPropertyKeys.propertyName.name(), node.getProperty(SystemPropertyKeys.propertyName.name()))
-                );
-            });
-            tx.commit();
-        }
+        SystemDbUtil.migrateInfos(db, SystemLabels.ApocUuid);
+
+//        try (Transaction tx = getDb().beginTx()) {
+//            nodes.forEachRemaining(node -> {
+//                // todo - common, magari creare un array Pairs[] e aggiungere cose.
+//                Util.mergeNode(tx, SystemLabels.ApocUuid, null,
+//                        Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
+//                        Pair.of(SystemPropertyKeys.label.name(), node.getProperty(SystemPropertyKeys.label.name())),
+//                        Pair.of(SystemPropertyKeys.propertyName.name(), node.getProperty(SystemPropertyKeys.propertyName.name()))
+//                );
+//            });
+//            tx.commit();
+//        }
 //        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
 //                SystemLabels.DataVirtualizationCatalog, SystemPropertyKeys.database.name(), db.databaseName()));
         
