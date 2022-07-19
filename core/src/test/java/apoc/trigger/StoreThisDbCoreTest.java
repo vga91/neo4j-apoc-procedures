@@ -1,4 +1,4 @@
-package apoc.custom;
+package apoc.trigger;
 
 import apoc.ApocConfig;
 import apoc.SystemLabels;
@@ -30,6 +30,8 @@ import static apoc.ApocSettings.apoc_trigger_enabled;
 //import static apoc.MockApocSettings.apoc_trigger_enabled2;
 //import static apoc.custom.TriggerRestart2Test.MockApocSettings.apoc_trigger_enabled2;
 import static apoc.util.SystemDbUtil.KEY_THIS_DB;
+import static apoc.util.TestUtil.testCallCount;
+import static apoc.util.TestUtil.writeFile;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -39,57 +41,54 @@ import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAM
 // todo - rinominarlo RestartCoreTest
 public class StoreThisDbCoreTest {
     // todo - ma col beforeClass???
-    
+
     @Rule
     public TemporaryFolder storeDir = new TemporaryFolder();
 
     private GraphDatabaseService db;
     private DatabaseManagementService databaseManagementService;
     private File file;
-    
-    
-    
+
+
+
     @Before
     public void setUp() throws Exception {
         startDb();
+
+        // create apoc.conf via sun.java.command, because with embedded db, via apocConfig() the configs are recognized too late
         file = storeDir.newFile("apoc.conf");
         System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + storeDir.getRoot().getAbsolutePath());
     }
-    
+
     // todo - fare @After in cui faccio cose...
 
-    private void restartDb() throws IOException {
+    private void restartDb() {
         databaseManagementService.shutdown();
         startDb();
     }
 
+    // todo - test util??
     private void startDb() {
         databaseManagementService = new TestDatabaseManagementServiceBuilder(storeDir.getRoot().toPath())
                 .setConfig(apoc_trigger_enabled, true)
                 .build();
         db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
         assertTrue(db.isAvailable(1000));
-        TestUtil.registerProcedure(db, Trigger.class, CypherProcedures.class);
+        TestUtil.registerProcedure(db, Trigger.class);
     }
 
     @Test
     public void testTriggerRunsAfterRestart() throws Exception {
-        
-        // create apoc.conf via sun.java.command, because with embedded db, via apocConfig() the configs are recognized too late
-//        final File file = storeDir.newFile("apoc.conf");
-//        System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + storeDir.getRoot().getAbsolutePath());
-        try (FileWriter writer = new FileWriter(file)) {
-            writer.write(KEY_THIS_DB + "=true");
-        }
-        
+        writeFile(file, KEY_THIS_DB + "=true");
+
         String name = "myTrigger";
         String statement = "unwind $createdNodes as n set n.trigger=true";
-        
+
         db.executeTransactionally("CALL apoc.trigger.add($name, $statement, {phase:'before'})",
                 Map.of("name", name, "statement", statement));
 
         db.executeTransactionally("CREATE (p:Person{id:1})");
-        TestUtil.testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 1);
+        testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 1);
 
         String nameOther = "other";
         final String statementOtherBefore = "RETURN 'something' as row";
@@ -98,7 +97,7 @@ public class StoreThisDbCoreTest {
                 Map.of("name", nameOther, "statement", statementOtherBefore));
 
 
-        TestUtil.testCallCount(db, "call apoc.trigger.list()", Collections.emptyMap(), 2);
+        testCallCount(db, "call apoc.trigger.list()", Collections.emptyMap(), 2);
 
         final String phaseBefore = Util.toJson(Map.of("phase", "before"));
         try (final Transaction tx = ApocConfig.apocConfig().getSystemDb().beginTx()) {
@@ -141,7 +140,7 @@ public class StoreThisDbCoreTest {
             nodeBaz.setProperty(SystemPropertyKeys.selector.name(), phaseBefore);
             nodeBaz.setProperty(SystemPropertyKeys.params.name(), paramsBaz);
             nodeBaz.setProperty(SystemPropertyKeys.paused.name(), false);
-            
+
             tx.commit();
         }
 
@@ -151,14 +150,14 @@ public class StoreThisDbCoreTest {
             assertFalse(nodeIterator(tx, SystemLabels.ApocTrigger).hasNext());
             assertFalse(nodeIterator(tx, SystemLabels.ApocTriggerMeta).hasNext());
         }
-        
+
         try (final Transaction tx = db.beginTx()) {
             final Iterator<Node> nodes = nodeIterator(tx, SystemLabels.ApocTrigger);
-            nodeAssertions(nodes.next(), 
+            nodeAssertions(nodes.next(),
                     nameBaz, statementBaz, phaseBefore, paramsBaz);
-            nodeAssertions(nodes.next(), 
+            nodeAssertions(nodes.next(),
                     name, statement, phaseBefore, "{}");
-            nodeAssertions(nodes.next(), 
+            nodeAssertions(nodes.next(),
                     nameOther, statementOtherAfter, phaseBefore, paramsOtherAfter);
             assertFalse(nodes.hasNext());
 
@@ -167,10 +166,10 @@ public class StoreThisDbCoreTest {
             assertFalse(nodesMeta.hasNext());
         }
 
-        TestUtil.testCallCount(db, "call apoc.trigger.list()", Collections.emptyMap(), 3);
-        
+        testCallCount(db, "call apoc.trigger.list()", Collections.emptyMap(), 3);
+
         db.executeTransactionally("CREATE (p:Person{id:2})");
-        TestUtil.testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 2);
+        testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 2);
     }
 
     private void nodeAssertions(Node node, String nameBaz, String statementBaz, String selectorBaz, String paramsBaz) {
@@ -184,13 +183,13 @@ public class StoreThisDbCoreTest {
     // test con config specifica
     // test solo con funzionalità
 
-    
+
     private Iterator<Node> nodeIterator(Transaction tx, Label label) {//}, Consumer<ResourceIterator<Node>> consumer) {
         return tx.findNodes(label,
                 SystemPropertyKeys.database.name(), DEFAULT_DATABASE_NAME).stream()
                 .sorted(Comparator.comparing(i -> (String) i.getProperty(SystemPropertyKeys.name.name())))
                 .iterator();
-        
+
 //        try (ResourceIterator<Node> nodes = tx.findNodes(label, 
 //                SystemPropertyKeys.database.name(), DEFAULT_DATABASE_NAME)) {
 //            consumer.accept(nodes);

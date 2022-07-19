@@ -59,6 +59,7 @@ public class UUIDMultiDbTest {
 
         try (Session session = driver.session()) {
             session.writeTransaction(tx -> tx.run(String.format("CREATE DATABASE %s;", dbTest)));
+            session.writeTransaction(tx -> tx.run(String.format("CREATE DATABASE %s;", dbAnother)));
         }
     }
 

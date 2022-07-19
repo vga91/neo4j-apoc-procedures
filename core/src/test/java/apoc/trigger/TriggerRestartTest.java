@@ -1,7 +1,6 @@
 package apoc.trigger;
 
 import apoc.ApocConfig;
-import apoc.SystemLabels;
 import apoc.util.TestUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -11,19 +10,13 @@ import org.junit.rules.TemporaryFolder;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.ResourceIterator;
-import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.util.Collections;
 import java.util.Map;
 
-import static apoc.util.SystemDbUtil.KEY_THIS_DB;
 import static org.junit.Assert.assertTrue;
-import static org.neo4j.configuration.SettingImpl.newBuilder;
-import static org.neo4j.configuration.SettingValueParsers.BOOL;
 
 public class TriggerRestartTest {
 
@@ -35,16 +28,9 @@ public class TriggerRestartTest {
 
     @Before
     public void setUp() {
-        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
-                .setConfig(newBuilder(KEY_THIS_DB, BOOL, false).build(), true)
-                .build();
+        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath()).build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
-//        assertTrue(db.isAvailable(5000));
-        
-        
         ApocConfig.apocConfig().setProperty("apoc.trigger.enabled", "true");
-//        ApocConfig.apocConfig().setProperty("apoc.storecurrentdb", true);
-//        ApocConfig.apocConfig().setProperty("apoc.storecurrentdb", true);
         TestUtil.registerProcedure(db, Trigger.class);
     }
 
@@ -53,25 +39,18 @@ public class TriggerRestartTest {
         databaseManagementService.shutdown();
     }
 
-    // todo - provare a mettere un parametro. Se 
     private void restartDb() {
-//        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
         databaseManagementService.shutdown();
-        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath())
-                .setConfig(newBuilder(KEY_THIS_DB, BOOL, false).build(), true)
-                .build();
+        databaseManagementService = new TestDatabaseManagementServiceBuilder(store_dir.getRoot().toPath()).build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
-//        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
         assertTrue(db.isAvailable(1000));
     }
 
     @Test
     public void testTriggerRunsAfterRestart() throws Exception {
-//        ApocConfig.apocConfig().setProperty(KEY_CURRENT_DB, true);
-        
+
 //        db.execute("CALL apoc.trigger.add('myTrigger', 'unwind $createdNodes as n set n.trigger=true', {phase:'before'})");
-        TestUtil.testResult(db, "CALL apoc.trigge" +
-                        "r.add('myTrigger', 'unwind $createdNodes as n set n.trigger=true', {phase:'before'})",
+        TestUtil.testResult(db, "CALL apoc.trigger.add('myTrigger', 'unwind $createdNodes as n set n.trigger=true', {phase:'before'})",
                 result -> {
                     Map<String, Object> single = Iterators.single(result);
                     System.out.println(single);
@@ -80,35 +59,8 @@ public class TriggerRestartTest {
         TestUtil.testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 1);
 
         restartDb();
-        System.out.println("restarted = ");
-
-//        // TODO: 14/07/22 to delete 
-        try (final Transaction transaction = ApocConfig.apocConfig().getSystemDb().beginTx()) {
-            final ResourceIterator<Node> nodes = transaction.findNodes(SystemLabels.ApocTrigger);
-            final Node next = nodes.next();
-            System.out.println("TriggerRestartTest " + next);
-            transaction.commit();
-        }
 
         db.executeTransactionally("CREATE (p:Person{id:2})");
         TestUtil.testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 2);
-    }
-    
-    // test con config specifica
-
-
-    @Test
-    public void testTriggerRunsAfterRestartWithoutPersist() {
-        ApocConfig.apocConfig().setProperty("apoc.trigger.persist", false);
-
-        db.executeTransactionally("CALL apoc.trigger.add('myTrigger', 'UNWIND $createdNodes as n set n.trigger=true', {phase:'before'})");
-
-        db.executeTransactionally("CREATE (p:Person)");
-        TestUtil.testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 1);
-
-        restartDb();
-
-        db.executeTransactionally("CREATE (p:Person)");
-        TestUtil.testCallCount(db, "match (n:Person{trigger:true}) return n", Collections.emptyMap(), 1);
     }
 }

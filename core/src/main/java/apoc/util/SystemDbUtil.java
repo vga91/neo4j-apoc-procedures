@@ -66,6 +66,7 @@ public class SystemDbUtil {
 
         final List<NodeInfo> nodes = todoOtherDb(db, featureName, tx -> {
             try {
+//                final List<NodeInfo> collectCommon = getListNodeInfos(tx, db, label, additionalLabel, mergePairs);
                 final List<NodeInfo> collectCommon = getListNodeInfos(tx, db, label, additionalLabel, mergePairs);
     
                 List<NodeInfo> collect = action.apply(tx);

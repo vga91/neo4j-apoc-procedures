@@ -12,7 +12,9 @@ import org.neo4j.driver.types.Node;
 import org.neo4j.internal.helpers.collection.MapUtil;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
@@ -26,9 +28,10 @@ public class TriggerClusterTest {
     public static void setupCluster() {
         assumeFalse(isRunningInCI());
         TestUtil.ignoreException(() ->  cluster = TestContainerUtil
-                .createEnterpriseCluster(3, 1, Collections.emptyMap(), MapUtil.stringMap(
+                .createEnterpriseCluster(3, 1, Map.of(), MapUtil.stringMap(
                         "apoc.trigger.refresh", "100",
-                        "apoc.trigger.enabled", "true"
+                        "apoc.trigger.enabled", "true",
+                        "causal_clustering.leadership_balancing", "EQUAL_BALANCING"
                 )),
                 Exception.class);
         Assume.assumeNotNull(cluster);
@@ -51,6 +54,9 @@ public class TriggerClusterTest {
 
     @Test
     public void testTimeStampTriggerForUpdatedProperties() throws Exception {
+        System.out.println("clusterssssss " + cluster.getSession().run("call dbms.cluster.overview() yield databases return databases").stream()
+                .collect(Collectors.toList()));
+        
         cluster.getSession().run("CALL apoc.trigger.add('timestamp','UNWIND apoc.trigger.nodesByLabel($assignedNodeProperties,null) AS n SET n.ts = timestamp()',{})");
         cluster.getSession().run("CREATE (f:Foo) SET f.foo='bar'");
         TestContainerUtil.testCall(cluster.getSession(), "MATCH (f:Foo) RETURN f", (row) -> {
