@@ -96,7 +96,6 @@ import static apoc.export.cypher.formatter.CypherFormatterUtils.formatProperties
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatToString;
 import static apoc.util.DateFormatUtil.getOrCreate;
 import static java.lang.String.format;
-import static java.util.Collections.emptyMap;
 import static org.eclipse.jetty.util.URIUtil.encodePath;
 
 /**
@@ -480,7 +479,7 @@ public class Util {
     }
 
     public static Long runNumericQuery(Transaction tx, String query, Map<String, Object> params) {
-        if (params == null) params = emptyMap();
+        if (params == null) params = Collections.emptyMap();
         try (ResourceIterator<Long> it = tx.execute(query,params).<Long>columnAs("result")) {
             return it.next();
         }
@@ -572,7 +571,7 @@ public class Util {
     public static Map<String, Object> mapFromLists(List<String> keys, List<Object> values) {
         if (keys == null || values == null || keys.size() != values.size())
             throw new RuntimeException("keys and values lists have to be not null and of same size");
-        if (keys.isEmpty()) return emptyMap();
+        if (keys.isEmpty()) return Collections.emptyMap();
         if (keys.size()==1) return Collections.singletonMap(keys.get(0),values.get(0));
         ListIterator<Object> it = values.listIterator();
         Map<String, Object> res = new LinkedHashMap<>(keys.size());
@@ -583,7 +582,7 @@ public class Util {
     }
 
     public static Map<String, Object> mapFromPairs(List<List<Object>> pairs) {
-        if (pairs.isEmpty()) return emptyMap();
+        if (pairs.isEmpty()) return Collections.emptyMap();
         Map<String,Object> map = new LinkedHashMap<>(pairs.size());
         for (List<Object> pair : pairs) {
             if (pair.isEmpty()) continue;
@@ -876,7 +875,7 @@ public class Util {
 
     public static Node mergeNode(Transaction tx, Label primaryLabel, Label additionalLabel,
                                  Pair<String, Object>... pairs) {
-        return mergeNode(tx, primaryLabel, additionalLabel, emptyMap(), emptyMap(), pairs);
+        return mergeNode(tx, primaryLabel, additionalLabel, Collections.emptyMap(), Collections.emptyMap(), pairs);
     }
 
     public static Node mergeNode(Transaction tx, Label primaryLabel, Label additionalLabel, 
@@ -901,13 +900,9 @@ public class Util {
             for (int i=0; i<pairs.length; i++) {
                 node.setProperty(pairs[i].first(), pairs[i].other());
             }
-//            Node finalNode = node;
-//            onCreateProps.forEach((k, v)-> finalNode.setProperty(k,k));
             setProperties(node, onCreateProps);
         } else {
             setProperties(node, onMatchProps);
-//            Node finalNode = node;
-//            onMatchProps.forEach((k, v)-> finalNode.setProperty(k,k));
         }
         return node;
     }
@@ -922,7 +917,7 @@ public class Util {
     }
 
     public static void validateQuery(GraphDatabaseService db, String statement, QueryExecutionType.QueryType... supportedQueryTypes) {
-        final boolean isValid = db.executeTransactionally("EXPLAIN " + statement, emptyMap(), result ->
+        final boolean isValid = db.executeTransactionally("EXPLAIN " + statement, Collections.emptyMap(), result ->
                 supportedQueryTypes == null || supportedQueryTypes.length == 0 || Stream.of(supportedQueryTypes)
                         .anyMatch(sqt -> sqt.equals(result.getQueryExecutionType().queryType())));
 
@@ -959,12 +954,12 @@ public class Util {
             }
         } catch (Exception e) {
             if(!failOnError)
-                return emptyMap();
+                return Collections.emptyMap();
             else
                 throw new RuntimeException(e);
         }
 
-        return emptyMap();
+        return Collections.emptyMap();
     }
 
     public static boolean isSelfRel(Relationship rel) {

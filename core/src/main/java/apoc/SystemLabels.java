@@ -4,11 +4,11 @@ import org.neo4j.graphdb.Label;
 
 public enum SystemLabels implements Label {
     ApocCypherProcedures("custom"),
-    ApocCypherProceduresMeta(""), // TODO - esportare anche questo, anche se credo che in realta lo faccia già, nell setLastUpdate !!!!!!!
+    ApocCypherProceduresMeta(""),
     Procedure(""),
     Function(""),
     ApocUuid("uuid"),
-    ApocTriggerMeta(""), // TODO - esportare anche questo !!!!!!!
+    ApocTriggerMeta(""),
     ApocTrigger("trigger"),
     DataVirtualizationCatalog("dv");
 

@@ -232,11 +232,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
     }
 
     private GraphDatabaseService getDb() {
-        return isCurrentDb(db, NAME) ? db : apocConfig.getSystemDb();
-    }
-
-    private GraphDatabaseService getOtherDb() {
-        return isCurrentDb(db, NAME) ? apocConfig.getSystemDb() : db;
+        return isCurrentDb(db.databaseName(), NAME) ? db : apocConfig.getSystemDb();
     }
 
     @Override

@@ -14,6 +14,7 @@ import org.neo4j.kernel.api.procedure.GlobalProcedures;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -192,6 +193,12 @@ public class TestUtil {
             return Files.toString(file, charset);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public static void writeFile(File file, String content) throws IOException {
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(content);
         }
     }
 

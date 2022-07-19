@@ -36,6 +36,7 @@ import static apoc.util.SystemDbUtil.KEY_THIS_DB;
 import static apoc.util.TestUtil.getUrlFileName;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testCallCount;
+import static apoc.util.TestUtil.writeFile;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -84,9 +85,7 @@ public class StoreThisDbFullTest {
         db.executeTransactionally("CALL apoc.uuid.install($label, {uuidProperty: $propertyName,addToSetLabels:$addToSetLabels}) YIELD label RETURN label",
                 Map.of("label", label, "propertyName", propertyName, "addToSetLabels", addToSetLabel));
 
-        try (FileWriter writer = new FileWriter(file)) {
-            writer.write(KEY_THIS_DB + "=true");
-        }
+        writeFile(file, KEY_THIS_DB + "=true");
 
         try (Transaction tx = apocConfig().getSystemDb().beginTx()) {
             final Iterator<Node> nodes = nodeUuidIterator(tx);
@@ -110,6 +109,9 @@ public class StoreThisDbFullTest {
             assertFalse(nodes.hasNext());
         }
     }
+    
+    
+    // todo - test come sopra con altra feature
     
     
 

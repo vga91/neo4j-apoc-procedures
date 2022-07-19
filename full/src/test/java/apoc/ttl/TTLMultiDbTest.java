@@ -43,7 +43,6 @@ public class TTLMultiDbTest {
                     .withEnv(Map.of("apoc.ttl.enabled." + DB_TEST, "false",
                             "apoc.ttl.enabled", "true",
                             "apoc.ttl.schedule", "2",
-                            KEY_THIS_DB, "true",
                             "apoc.ttl.schedule." + DB_FOO, "7",
                             "apoc.ttl.limit", "200",
                             "apoc.ttl.limit." + DB_BAR, "2000"));

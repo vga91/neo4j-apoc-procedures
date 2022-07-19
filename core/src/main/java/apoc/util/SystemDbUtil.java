@@ -37,13 +37,14 @@ public class SystemDbUtil {
     
     public static final String KEY_THIS_DB = "apoc.storethisdb";
 
-    public static boolean isCurrentDb(GraphDatabaseService db, String featureName) {
+    // todo - testo questa qua.. todo2 - ma in fondo non mi serve GraphDatabaseService, posso fare in SystemDbUtilsTest
+    public static boolean isCurrentDb(String dbName, String featureName) {
         // todo - forse non serve.. verificare
-        if (db.databaseName().equals(SYSTEM_DATABASE_NAME)) {
+        if (dbName.equals(SYSTEM_DATABASE_NAME)) {
             return false;
         }
-        final String currentDbNameKey = String.format("%s.%s", KEY_THIS_DB, db.databaseName());
-        final String currentDbAndFeatureKey = String.format("%s.%s.%s", KEY_THIS_DB, db.databaseName(), featureName);
+        final String currentDbNameKey = String.format("%s.%s", KEY_THIS_DB, dbName);
+        final String currentDbAndFeatureKey = String.format("%s.%s.%s", KEY_THIS_DB, dbName, featureName);
 
         return apocConfig().getBoolean(currentDbAndFeatureKey,
                 apocConfig().getBoolean(currentDbNameKey,
@@ -114,7 +115,7 @@ public class SystemDbUtil {
 
     public static <T> T todoOtherDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
         System.out.println("SystemDbUtil.todoOtherDb");
-        final GraphDatabaseService currentDb = isCurrentDb(db, featureName)
+        final GraphDatabaseService currentDb = isCurrentDb(db.databaseName(), featureName)
                 ? apocConfig().getSystemDb() : db;
 
         return getTransaction(action, currentDb);
@@ -131,7 +132,7 @@ public class SystemDbUtil {
     }
 
     public static <T> T todoThisDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
-        final GraphDatabaseService currentDb = isCurrentDb(db, featureName)
+        final GraphDatabaseService currentDb = isCurrentDb(db.databaseName(), featureName)
                 ? db : apocConfig().getSystemDb();
 
         return getTransaction(action, currentDb);

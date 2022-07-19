@@ -1,5 +1,6 @@
 package apoc.uuid;
 
+import apoc.SystemLabels;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestUtil;
 import org.junit.AfterClass;
@@ -17,6 +18,9 @@ import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.APOC_UUID_ENABLED;
 import static apoc.ApocConfig.APOC_UUID_ENABLED_DB;
+import static apoc.SystemLabels.ApocUuid;
+import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
+import static apoc.util.SystemDbUtil.KEY_THIS_DB;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.uuid.UuidHandler.NOT_ENABLED_ERROR;
@@ -26,12 +30,14 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
+
 // todo - testare questo
 public class UUIDMultiDbTest {
 
     private static Neo4jContainerExtension neo4jContainer;
     private static Driver driver;
     private static String dbTest = "dbtest";
+    private static String dbAnother = "dbanother";
 
     @BeforeClass
     public static void setupContainer() {
@@ -39,7 +45,11 @@ public class UUIDMultiDbTest {
         TestUtil.ignoreException(() -> {
             neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
                     .withEnv(Map.of(String.format(APOC_UUID_ENABLED_DB, dbTest), "false",
-                            APOC_UUID_ENABLED, "true"));
+                            APOC_UUID_ENABLED, "true",
+                            KEY_THIS_DB, "false",
+                            KEY_THIS_DB + "." + dbAnother, "true",
+                            KEY_THIS_DB + "." + DEFAULT_DATABASE_NAME, "true",
+                            KEY_THIS_DB + "." + DEFAULT_DATABASE_NAME + "." + ApocUuid.getFeatureName(), "false"));
             neo4jContainer.start();
         }, Exception.class);
         assumeNotNull(neo4jContainer);
