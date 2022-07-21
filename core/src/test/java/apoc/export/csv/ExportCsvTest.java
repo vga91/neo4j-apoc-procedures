@@ -195,6 +195,22 @@ public class ExportCsvTest {
                 (r) -> assertResults(fileName, r, "database"));
         assertEquals(EXPECTED, readFile(fileName));
     }
+    
+    @Test
+    public void testExportAllCsvWithDotInName() {
+        String fileName = "all.with.dot.filename.csv";
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileName),
+                (r) -> assertResults(fileName, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName));
+    }
+
+    @Test
+    public void testExportAllCsvWithoutExtension() {
+        String fileName = "all";
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($file,null)", map("file", fileName),
+                (r) -> assertResults(fileName, r, "database"));
+        assertEquals(EXPECTED, readFile(fileName));
+    }
 
     @Test
     public void testExportAllCsvWithSample() throws IOException {
