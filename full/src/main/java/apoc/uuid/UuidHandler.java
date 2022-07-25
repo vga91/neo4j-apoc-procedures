@@ -10,7 +10,6 @@ import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.event.DatabaseEventContext;
 import org.neo4j.graphdb.event.DatabaseEventListener;
@@ -63,10 +62,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
 
     @Override
     public void start() {
-        if (isEnabled()) {
-            refresh();
-            databaseManagementService.registerTransactionEventListener(db.databaseName(), this);
-        }
+        System.out.println("UuidHandler.start");
     }
 
     private boolean isEnabled() {
@@ -76,9 +72,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
 
     @Override
     public void stop() {
-        if (isEnabled()) {
-            databaseManagementService.unregisterTransactionEventListener(db.databaseName(), this);
-        }
+        System.out.println("UuidHandler.stop");
     }
 
     private void checkAndRestoreUuidProperty(Iterable<PropertyEntry<Node>> nodeProperties, String label, String uuidProperty) {
@@ -237,39 +231,26 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
 
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
-        System.out.println("UuidHandler.databaseStart");
+        System.out.println("UuidHandler.databaseStart " + eventContext.getDatabaseName());
 
-        final ResourceIterator<Node> nodes;
-//        try (Transaction tx = getDb().beginTx()) {
-//            // todo - common
-//            nodes = tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName());
-//            tx.commit();
-//        }
-
-        SystemDbUtil.migrateInfos(db, SystemLabels.ApocUuid, node -> List.of(
+        SystemDbUtil.migrateInfo(db, SystemLabels.ApocUuid, node -> List.of(
                 Pair.of(SystemPropertyKeys.label.name(), node.getProperty(SystemPropertyKeys.label.name())), 
                 Pair.of(SystemPropertyKeys.propertyName.name(), node.getProperty(SystemPropertyKeys.propertyName.name())))
         );
 
-//        try (Transaction tx = getDb().beginTx()) {
-//            nodes.forEachRemaining(node -> {
-//                // todo - common, magari creare un array Pairs[] e aggiungere cose.
-//                Util.mergeNode(tx, SystemLabels.ApocUuid, null,
-//                        Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
-//                        Pair.of(SystemPropertyKeys.label.name(), node.getProperty(SystemPropertyKeys.label.name())),
-//                        Pair.of(SystemPropertyKeys.propertyName.name(), node.getProperty(SystemPropertyKeys.propertyName.name()))
-//                );
-//            });
-//            tx.commit();
-//        }
-//        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
-//                SystemLabels.DataVirtualizationCatalog, SystemPropertyKeys.database.name(), db.databaseName()));
-        
+        if (isEnabled()) {
+            refresh();
+            databaseManagementService.registerTransactionEventListener(db.databaseName(), this);
+        }
     }
 
     @Override
     public void databaseShutdown(DatabaseEventContext eventContext) {
         System.out.println("UuidHandler.databaseShutdown");
+
+        if (isEnabled()) {
+            databaseManagementService.unregisterTransactionEventListener(db.databaseName(), this);
+        }
     }
 
     @Override

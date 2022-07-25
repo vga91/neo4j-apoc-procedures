@@ -46,7 +46,6 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
         );
         cypherProcedureHandlers.put(db, cypherProcedureHandler);
 
-        final TTLLifeCycle ttlLifeCycle = new TTLLifeCycle(dependencies.scheduler(), db, dependencies.apocConfig(), dependencies.ttlConfig(), dependencies.log().getUserLog(TTLLifeCycle.class));
         final UuidHandler uuidHandler = new UuidHandler(db,
                 dependencies.databaseManagementService(),
                 dependencies.log().getUserLog(Uuid.class),
@@ -55,11 +54,11 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
         
         // todo - forse cambiarlo e mettere getDbListeners(dependencies)
         final DataVirtualizationCatalogHandler dvHandler = new DataVirtualizationCatalogHandler(db, dependencies.log().getUserLog(DataVirtualizationCatalog.class));
-        lists = List.of(ttlLifeCycle, uuidHandler, dvHandler);
+        lists = List.of(uuidHandler, dvHandler);
         
         return MapUtil.genericMap(
 
-                "ttl", ttlLifeCycle,
+                "ttl", new TTLLifeCycle(dependencies.scheduler(), db, dependencies.apocConfig(), dependencies.ttlConfig(), dependencies.log().getUserLog(TTLLifeCycle.class)),
 
                 "uuid", uuidHandler,
 
@@ -80,7 +79,7 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
 
     @Override
     public Iterable<AvailabilityListener> getListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) { // todo - credo qua...
-//        return List.of(); todo - valutare, credo non serva...
+        // todo - valutare, credo non serva...
         CypherProceduresHandler cypherProceduresHandler = cypherProcedureHandlers.get(db);
         return cypherProceduresHandler==null ? Collections.emptyList() : List.of(cypherProceduresHandler);
     }

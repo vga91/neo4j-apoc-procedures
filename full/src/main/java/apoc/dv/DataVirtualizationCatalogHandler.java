@@ -122,7 +122,7 @@ public class DataVirtualizationCatalogHandler extends LifecycleAdapter implement
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("DataVirtualizationCatalogHandler.databaseStart" + eventContext.getDatabaseName());
 
-        SystemDbUtil.migrateInfos(db, SystemLabels.DataVirtualizationCatalog);
+        SystemDbUtil.migrateInfo(db, SystemLabels.DataVirtualizationCatalog);
     }
 
     @Override

@@ -77,7 +77,6 @@ public class ApocSettings implements SettingsDeclaration {
     public static final Setting<Long> apoc_ttl_limit = newBuilder(APOC_TTL_LIMIT, LONG, 1000L ).build();
 
     public static final Setting<Boolean> apoc_trigger_enabled = newBuilder(APOC_TRIGGER_ENABLED, BOOL, false ).build();
-//    public static final Setting<Boolean> apoc_trigger_enabled2 = newBuilder(KEY_CURRENT_DB, BOOL, false ).build();
 
     public static final Setting<Boolean> apoc_uuid_enabled = newBuilder(APOC_UUID_ENABLED, BOOL, false ).build();
 

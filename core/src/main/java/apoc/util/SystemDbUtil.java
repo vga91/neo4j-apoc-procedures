@@ -52,21 +52,24 @@ public class SystemDbUtil {
         );
     }
 
-    public static void migrateInfos(GraphDatabaseService db, SystemLabels label) {
+    public static void migrateInfo(GraphDatabaseService db, SystemLabels label) {
         // todo - node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))) alla fine, può essere il default...
-        migrateInfos(db, label, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))));
+        migrateInfo(db, label, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))));
     }
 
-    public static void migrateInfos(GraphDatabaseService db, SystemLabels label, Function<Node, List<Pair>> mergePairs) {
-        migrateInfos(db, label, mergePairs, node -> null, tx -> Collections.emptyList());
+    public static void migrateInfo(GraphDatabaseService db, SystemLabels label, Function<Node, List<Pair>> mergePairs) {
+        migrateInfo(db, label, mergePairs, node -> null, tx -> Collections.emptyList());
     }
 
-    public static void migrateInfos(GraphDatabaseService db, SystemLabels label, Function<Node, List<Pair>> mergePairs, Function<Node, Label> additionalLabel, Function<Transaction, List<NodeInfo>> action) {
+    public static void migrateInfo(GraphDatabaseService db, SystemLabels label, Function<Node, List<Pair>> mergePairs, Function<Node, Label> additionalLabel, Function<Transaction, List<NodeInfo>> action) {
+        if (!Util.isWriteableInstance(db)) {
+            return;
+        }
+        
         final String featureName = label.getFeatureName();
 
         final List<NodeInfo> nodes = todoOtherDb(db, featureName, tx -> {
             try {
-//                final List<NodeInfo> collectCommon = getListNodeInfos(tx, db, label, additionalLabel, mergePairs);
                 final List<NodeInfo> collectCommon = getListNodeInfos(tx, db, label, additionalLabel, mergePairs);
     
                 List<NodeInfo> collect = action.apply(tx);
@@ -74,8 +77,7 @@ public class SystemDbUtil {
                 System.out.println("collect = " + collect);
                 return collectCommon;
             } catch (Exception e) {
-                // todo - log...
-                System.out.println("AJEJEEEE e = " + e);
+                System.out.println("migrateInfos e = " + e);
                 throw new RuntimeException(e);
             }
         });
@@ -90,6 +92,7 @@ public class SystemDbUtil {
     }
 
     public static List<NodeInfo> getListNodeInfos(Transaction tx, GraphDatabaseService db, SystemLabels label, Function<Node, Label> additionalLabelFun, Function<Node, List<Pair>> mergePairs) {
+        System.out.println("SystemDbUtil.getListNodeInfos -- init");
         return tx.findNodes(label,SystemPropertyKeys.database.name(), db.databaseName())
                 .stream()
                 .map(node -> {
@@ -106,8 +109,7 @@ public class SystemDbUtil {
                         // -- retrieve infos
                         return new NodeInfo(label, additionalLabel, pairs.toArray(Pair[]::new), allProperties);
                     } catch (Exception e) {
-                        System.out.println("ERRORONEE e = " + e);
-                        // todo - mettere log error?
+                        System.out.println("getListNodeInfos e = " + e);
                         throw new RuntimeException(e);
                     }
                 })
@@ -115,7 +117,6 @@ public class SystemDbUtil {
     }
 
     public static <T> T todoOtherDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
-        System.out.println("SystemDbUtil.todoOtherDb");
         final GraphDatabaseService currentDb = isCurrentDb(db.databaseName(), featureName)
                 ? apocConfig().getSystemDb() : db;
 
@@ -128,6 +129,7 @@ public class SystemDbUtil {
             tx.commit();
             return result;
         } catch (Exception e) {
+            System.out.println("getTransaction e = " + e);
             throw new RuntimeException(e);
         }
     }

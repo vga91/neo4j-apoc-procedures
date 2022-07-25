@@ -11,7 +11,6 @@ import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.function.ThrowingFunction;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.QueryExecutionException;
@@ -129,13 +128,8 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
         System.out.println("CypherProceduresHandler.databaseStart " + eventContext.getDatabaseName());
-//        try (final Transaction transaction = api.beginTx()) {
-//            final Node ajeje = transaction.createNode(Label.label("ajeje"));
-//            System.out.println("ajeje = " + ajeje);
-//            transaction.commit();
-//        }
 
-        SystemDbUtil.migrateInfos(api, SystemLabels.ApocCypherProcedures, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))),
+        SystemDbUtil.migrateInfo(api, SystemLabels.ApocCypherProcedures, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))),
                 (node) -> node.hasLabel(SystemLabels.Function) ? SystemLabels.Function : SystemLabels.Procedure,
               tx -> getListNodeInfos(tx, api, SystemLabels.ApocCypherProceduresMeta, n -> null, n -> List.of())
         );
@@ -231,12 +225,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     public void available() {
         // todo - questo funziona?
         System.out.println("CypherProceduresHandler.available");
-        try (final Transaction transaction = api.beginTx()) {
-            final Node ugo = transaction.createNode(Label.label("ugo"));
-            System.out.println("ugo = " + ugo);
-            transaction.commit();
-        }
-
     }
 
     @Override
@@ -346,11 +334,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     // apoc.storecurrentdb.<db_name>.<feature_name>=true --> salva solo la specifica feature nel 
     private <T> T withDb(Function<Transaction, T> action) {
         return todoThisDb(api, NAME, action);
-//        try (Transaction tx = systemDb.beginTx()) {
-//            T result = action.apply(tx);
-//            tx.commit();
-//            return result;
-//        }
     }
 
     private <T> T withOtherDb(Function<Transaction, T> action) {

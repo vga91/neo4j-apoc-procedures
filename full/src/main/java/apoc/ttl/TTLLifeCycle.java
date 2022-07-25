@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  * @author mh
  * @since 15.02.17
  */
-public class TTLLifeCycle extends LifecycleAdapter implements DatabaseEventListener { // todo - mi sa che qua non serve...
+public class TTLLifeCycle extends LifecycleAdapter { // todo - mi sa che qua non serve...
 
     public static final int INITIAL_DELAY = 30;
     public static final int DEFAULT_SCHEDULE = 60;
@@ -95,24 +95,5 @@ public class TTLLifeCycle extends LifecycleAdapter implements DatabaseEventListe
     public void stop() {
         if (ttlIndexJobHandle != null) ttlIndexJobHandle.cancel();
         if (ttlJobHandle != null) ttlJobHandle.cancel();
-    }
-
-    @Override
-    public void databaseStart(DatabaseEventContext eventContext) {
-        System.out.println("TTLLifeCycle.databaseStart");
-
-//        // todo - in realtà qua non serve
-//        final ResourceIterator<Node> nodes = withOtherDb(tx -> tx.findNodes(
-//                SystemLabels.DataVirtualizationCatalog, SystemPropertyKeys.database.name(), db.databaseName()));
-    }
-
-    @Override
-    public void databaseShutdown(DatabaseEventContext eventContext) {
-        System.out.println("TTLLifeCycle.databaseShutdown");
-    }
-
-    @Override
-    public void databasePanic(DatabaseEventContext eventContext) {
-        System.out.println("TTLLifeCycle.databasePanic");
     }
 }

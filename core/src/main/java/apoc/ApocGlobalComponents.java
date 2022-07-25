@@ -19,7 +19,4 @@ public interface ApocGlobalComponents {
     Iterable<AvailabilityListener> getListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies);
 
     List<DatabaseEventListener> getDbListeners(/*GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies*/);
-//    List<DatabaseEventListener> getDbListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies);
-
-//    Iterable<DatabaseEventListener> getDbListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies);
 }
