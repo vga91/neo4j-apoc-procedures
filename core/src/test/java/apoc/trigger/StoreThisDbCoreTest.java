@@ -3,7 +3,6 @@ package apoc.trigger;
 import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
-import apoc.trigger.Trigger;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.junit.Before;
@@ -18,8 +17,6 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
@@ -27,8 +24,6 @@ import java.util.Map;
 
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
 import static apoc.ApocSettings.apoc_trigger_enabled;
-//import static apoc.MockApocSettings.apoc_trigger_enabled2;
-//import static apoc.custom.TriggerRestart2Test.MockApocSettings.apoc_trigger_enabled2;
 import static apoc.util.SystemDbUtil.KEY_THIS_DB;
 import static apoc.util.TestUtil.testCallCount;
 import static apoc.util.TestUtil.writeFile;
@@ -38,9 +33,7 @@ import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 
 
-// todo - rinominarlo RestartCoreTest
 public class StoreThisDbCoreTest {
-    // todo - ma col beforeClass???
 
     @Rule
     public TemporaryFolder storeDir = new TemporaryFolder();
@@ -60,14 +53,14 @@ public class StoreThisDbCoreTest {
         System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + storeDir.getRoot().getAbsolutePath());
     }
 
-    // todo - fare @After in cui faccio cose...
+    // todo - @After if needed
 
     private void restartDb() {
         databaseManagementService.shutdown();
         startDb();
     }
 
-    // todo - test util??
+    // todo - test util
     private void startDb() {
         databaseManagementService = new TestDatabaseManagementServiceBuilder(storeDir.getRoot().toPath())
                 .setConfig(apoc_trigger_enabled, true)
@@ -180,8 +173,8 @@ public class StoreThisDbCoreTest {
         assertEquals(false, node.getProperty(SystemPropertyKeys.paused.name()));
     }
 
-    // test con config specifica
-    // test solo con funzionalità
+    // test with specific config specifica
+    // test with single functionality
 
 
     private Iterator<Node> nodeIterator(Transaction tx, Label label) {//}, Consumer<ResourceIterator<Node>> consumer) {

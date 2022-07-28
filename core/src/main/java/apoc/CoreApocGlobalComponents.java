@@ -20,9 +20,6 @@ public class CoreApocGlobalComponents implements ApocGlobalComponents {
     
     @Override
     public Map<String,Lifecycle> getServices(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
-        // potrei mettere qua o DataVirtualization, oppure un generico.... !!! però se metto il generico non sono sicuro che venga garantito l'ordine
-        //  o c'è un modo??? TODO TODO TODO
-
         final TriggerHandler triggerHandler = new TriggerHandler(db,
                 dependencies.databaseManagementService(),
                 dependencies.apocConfig(),
@@ -39,7 +36,6 @@ public class CoreApocGlobalComponents implements ApocGlobalComponents {
         return Collections.singleton(TriggerHandler.class);
     }
 
-    // todo - forse devo registrarlo il listener...
     @Override
     public Iterable<AvailabilityListener> getListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
         return Collections.singleton(new CypherInitializer(db, dependencies.log().getUserLog(CypherInitializer.class)));

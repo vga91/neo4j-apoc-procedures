@@ -38,7 +38,6 @@ import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAM
  * @since 05.09.18
  */
 
-// todo - creare altro test RestartFullTest
 public class UUIDTest {
 
     @Rule
@@ -65,13 +64,14 @@ public class UUIDTest {
         startDb();
     }
 
+    // todo - common testUtil method
     private void startDb() {
         databaseManagementService = new TestDatabaseManagementServiceBuilder(storeDir.getRoot().toPath())
                 .setConfig(apoc_uuid_enabled, true)
                 .setConfig(GraphDatabaseSettings.auth_enabled, true)
                 .build();
         db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
-        Assert.assertTrue(db.isAvailable(1000)); // TODO - DECOMMENTARE E CREARE COMMON METHOD
+        Assert.assertTrue(db.isAvailable(1000));
         TestUtil.registerProcedure(db, Uuid.class, Create.class, Periodic.class);
     }
 

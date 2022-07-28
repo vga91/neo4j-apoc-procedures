@@ -22,11 +22,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static apoc.util.SystemDbUtil.todoOtherDb;
-import static apoc.util.SystemDbUtil.todoThisDb;
+import static apoc.util.SystemDbUtil.otherDb;
+import static apoc.util.SystemDbUtil.ThisDb;
 
-// todo - questi non vengono fatti al riavvio
-public class DataVirtualizationCatalogHandler extends LifecycleAdapter implements DatabaseEventListener { // todo - forse dovrei registrare anche questo??
+public class DataVirtualizationCatalogHandler extends LifecycleAdapter implements DatabaseEventListener {
     private static final String NAME = "dv";
 
     private final GraphDatabaseService db;
@@ -40,11 +39,11 @@ public class DataVirtualizationCatalogHandler extends LifecycleAdapter implement
     }
 
     private <T> T withOtherDb(Function<Transaction, T> action) {
-        return todoOtherDb(db, NAME, action);
+        return otherDb(db, NAME, action);
     }
 
     private <T> T withThisDb(Function<Transaction, T> action) {
-        return todoThisDb(db, NAME, action);
+        return ThisDb(db, NAME, action);
 //        try (Transaction tx = systemDb.beginTx()) {
 //            T result = action.apply(tx);
 //            tx.commit();
@@ -96,7 +95,6 @@ public class DataVirtualizationCatalogHandler extends LifecycleAdapter implement
     }
 
     public Stream<VirtualizedResource> list() {
-        // todo - questo... è comune a tutti in realta
         return withThisDb(tx ->
                 getNodes(tx)
                 .stream()

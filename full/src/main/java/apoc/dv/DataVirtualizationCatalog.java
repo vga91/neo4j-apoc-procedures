@@ -22,7 +22,6 @@ import java.util.stream.Stream;
 
 @Extended
 public class DataVirtualizationCatalog {
-    // TODO - forse vale la pena renderlo coerente???
 
     @Context
     public Transaction tx;

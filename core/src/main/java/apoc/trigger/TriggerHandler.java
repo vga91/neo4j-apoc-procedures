@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 import static apoc.ApocConfig.APOC_TRIGGER_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.util.SystemDbUtil.getListNodeInfos;
-import static apoc.util.SystemDbUtil.todoThisDb;
+import static apoc.util.SystemDbUtil.ThisDb;
 
 public class TriggerHandler extends LifecycleAdapter implements DatabaseEventListener, TransactionEventListener<Void> {
 
@@ -71,7 +71,7 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
 
     @Override
     public void databasePanic(DatabaseEventContext eventContext) {
-        // todo - maybe do nothing
+        // todo - investigate
     }
 
     private enum Phase {before, after, rollback, afterAsync}
@@ -118,18 +118,13 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
         }
     }
 
-    // todo - all'inizio dev'essere un moveOn currentDb
     private void updateCache() {
         activeTriggers.clear();
 
         lastUpdate = System.currentTimeMillis();
 
-        // todo - forse si dovrebbe aspettare che sia disponibile il db...
-        // todo - ma forse... nel start non va bene... bensì nel available
-
         withDb(tx -> {
             try {
-                // todo - db.databaseName() è un info che non serve in current db
                 tx.findNodes(SystemLabels.ApocTrigger,
                         SystemPropertyKeys.database.name(), db.databaseName()).forEachRemaining(
                         node -> {
@@ -146,13 +141,12 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
                             );
                             System.out.println("TriggerHandler.updateCache");
                             } catch (Exception e) {
-                                System.out.println("ALTRO ERRORONE 2 e = " + e);
+                                System.out.println("Error during cache update e = " + e);
                                 throw new RuntimeException(e);
                             }
                         }
                 );
             } catch (Exception e) {
-                System.out.println("ALTRO ERRORONE 1 e = " + e);
                 throw new RuntimeException(e);
             }
             return null;
@@ -187,7 +181,6 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
         return add(name, statement, selector, Collections.emptyMap());
     }
 
-    // todo - potrei usare questo merge node,,,
     public Map<String, Object> add(String name, String statement, Map<String,Object> selector, Map<String,Object> params) {
         checkEnabled();
         Map<String, Object> previous = activeTriggers.get(name);
@@ -348,7 +341,7 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
     }
 
     private <T> T withDb(Function<Transaction, T> action) {
-        return todoThisDb(db, SystemLabels.ApocTrigger.getFeatureName(), action);
+        return ThisDb(db, SystemLabels.ApocTrigger.getFeatureName(), action);
     }
 
     private long getLastUpdate() {

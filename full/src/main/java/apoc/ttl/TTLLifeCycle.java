@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
  * @author mh
  * @since 15.02.17
  */
-public class TTLLifeCycle extends LifecycleAdapter { // todo - mi sa che qua non serve...
+public class TTLLifeCycle extends LifecycleAdapter { // todo - check if LifecycleAdapter is needed
 
     public static final int INITIAL_DELAY = 30;
     public static final int DEFAULT_SCHEDULE = 60;

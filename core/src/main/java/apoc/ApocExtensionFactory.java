@@ -33,7 +33,7 @@ import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME
  * @since 14.05.16
  */
 @ServiceProvider
-public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.Dependencies> { // todo - ma forse va bene anche qua e basta...
+public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.Dependencies> {
 
     static {
         try {
@@ -96,7 +96,6 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
 
         @Override
         public void init() throws Exception {
-            // todo - withNonSystemDatabase sembra quello che mi serve
             withNonSystemDatabase(db, aVoid -> {
                 for (ApocGlobalComponents c: apocGlobalComponents) {
                     services.putAll(c.getServices(db, dependencies));
@@ -113,7 +112,6 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
 
         @Override
         public void start() {
-            // todo -- effettivamente potrebbe farlo anche con il non system...
             withNonSystemDatabase(db, aVoid -> {
                 services.forEach((key, value) -> {
                     try {
@@ -123,18 +121,16 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
                     }
                 });
                 
-                // todo - capire se metterlo qua o fuori, o uguale, o sull'init
+                // todo - check if it's correct here
                 for (ApocGlobalComponents c: apocGlobalComponents) {
                     c.getDbListeners()
                             .forEach(item -> dependencies.databaseManagementService().registerDatabaseEventListener(item));
                 }
-                
-//                dependencies.databaseManagementService().registerDatabaseEventListener(new );
 
             });
             
 
-            // todo - uso la publicApi
+            // with @PublicApi usage
             AvailabilityGuard availabilityGuard = dependencies.availabilityGuard();
             for (ApocGlobalComponents c: apocGlobalComponents) {
                 for (AvailabilityListener listener: c.getListeners(db, dependencies)) {
@@ -154,7 +150,7 @@ public class ApocExtensionFactory extends ExtensionFactory<ApocExtensionFactory.
                     }
                 });
 
-                // todo - va bene qui?
+                // todo - check if it's correct here
                 for (ApocGlobalComponents c: apocGlobalComponents) {
                     c.getDbListeners()
                             .forEach(item -> dependencies.databaseManagementService().unregisterDatabaseEventListener(item));

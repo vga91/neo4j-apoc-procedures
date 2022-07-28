@@ -38,7 +38,7 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
 
         CypherProceduresHandler cypherProcedureHandler = new CypherProceduresHandler(
                 db,
-                dependencies.databaseManagementService(), // todo - forse si può rimuovere
+                dependencies.databaseManagementService(),
                 dependencies.scheduler(),
                 dependencies.apocConfig(),
                 dependencies.log().getUserLog(CypherProcedures.class),
@@ -52,7 +52,7 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
                 dependencies.apocConfig(),
                 dependencies.globalProceduresRegistry());
         
-        // todo - forse cambiarlo e mettere getDbListeners(dependencies)
+        // todo - try with getDbListeners(dependencies)
         final DataVirtualizationCatalogHandler dvHandler = new DataVirtualizationCatalogHandler(db, dependencies.log().getUserLog(DataVirtualizationCatalog.class));
         lists = List.of(uuidHandler, dvHandler);
         
@@ -78,14 +78,14 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
     }
 
     @Override
-    public Iterable<AvailabilityListener> getListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) { // todo - credo qua...
-        // todo - valutare, credo non serva...
+    public Iterable<AvailabilityListener> getListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
+        // todo - evaluate, maybe unnecessary
         CypherProceduresHandler cypherProceduresHandler = cypherProcedureHandlers.get(db);
         return cypherProceduresHandler==null ? Collections.emptyList() : List.of(cypherProceduresHandler);
     }
 
     @Override
-    public List<DatabaseEventListener> getDbListeners() { // todo - credo qua...
+    public List<DatabaseEventListener> getDbListeners() {
         return lists;
 //        return List.of();
 //        CypherProceduresHandler cypherProceduresHandler = cypherProcedureHandlers.get(db);

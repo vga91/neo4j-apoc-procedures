@@ -37,9 +37,8 @@ public class SystemDbUtil {
     
     public static final String KEY_THIS_DB = "apoc.storethisdb";
 
-    // todo - testo questa qua.. todo2 - ma in fondo non mi serve GraphDatabaseService, posso fare in SystemDbUtilsTest
     public static boolean isCurrentDb(String dbName, String featureName) {
-        // todo - forse non serve.. verificare
+        // todo - maybe unnecessary
         if (dbName.equals(SYSTEM_DATABASE_NAME)) {
             return false;
         }
@@ -53,7 +52,7 @@ public class SystemDbUtil {
     }
 
     public static void migrateInfo(GraphDatabaseService db, SystemLabels label) {
-        // todo - node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))) alla fine, può essere il default...
+        // todo - List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))) can be the default
         migrateInfo(db, label, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))));
     }
 
@@ -68,7 +67,7 @@ public class SystemDbUtil {
         
         final String featureName = label.getFeatureName();
 
-        final List<NodeInfo> nodes = todoOtherDb(db, featureName, tx -> {
+        final List<NodeInfo> nodes = otherDb(db, featureName, tx -> {
             try {
                 final List<NodeInfo> collectCommon = getListNodeInfos(tx, db, label, additionalLabel, mergePairs);
     
@@ -82,17 +81,15 @@ public class SystemDbUtil {
             }
         });
         
-        todoThisDb(db, featureName, tx -> {
+        ThisDb(db, featureName, tx -> {
             nodes.forEach(node -> {
                 Util.mergeNode(tx, node.primaryLabel, node.additionalLabel, node.onCreateMap, Map.of(), node.pairs);
             });
             return null;
         });
-        System.out.println("SystemDbUtil.migrateInfos");
     }
 
     public static List<NodeInfo> getListNodeInfos(Transaction tx, GraphDatabaseService db, SystemLabels label, Function<Node, Label> additionalLabelFun, Function<Node, List<Pair>> mergePairs) {
-        System.out.println("SystemDbUtil.getListNodeInfos -- init");
         return tx.findNodes(label,SystemPropertyKeys.database.name(), db.databaseName())
                 .stream()
                 .map(node -> {
@@ -116,7 +113,7 @@ public class SystemDbUtil {
                 .collect(Collectors.toList());
     }
 
-    public static <T> T todoOtherDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
+    public static <T> T otherDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
         final GraphDatabaseService currentDb = isCurrentDb(db.databaseName(), featureName)
                 ? apocConfig().getSystemDb() : db;
 
@@ -134,7 +131,7 @@ public class SystemDbUtil {
         }
     }
 
-    public static <T> T todoThisDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
+    public static <T> T ThisDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
         final GraphDatabaseService currentDb = isCurrentDb(db.databaseName(), featureName)
                 ? db : apocConfig().getSystemDb();
 
