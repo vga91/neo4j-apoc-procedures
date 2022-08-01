@@ -1,10 +1,6 @@
 package apoc.schema;
 
 import apoc.result.AssertSchemaResult;
-import apoc.result.CompareIdxToCons;
-import apoc.result.CompareIdxToConsNodes;
-import apoc.result.CompareIdxToConsRels;
-import apoc.result.IndexConstraintEntityInfo;
 import apoc.result.IndexConstraintNodeInfo;
 import apoc.result.IndexConstraintRelationshipInfo;
 import org.apache.commons.lang3.StringUtils;
@@ -20,7 +16,6 @@ import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.schema.IndexType;
 import org.neo4j.graphdb.schema.Schema;
 import org.neo4j.internal.helpers.collection.Iterables;
-import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.internal.kernel.api.InternalIndexState;
 import org.neo4j.internal.kernel.api.SchemaRead;
 import org.neo4j.internal.kernel.api.TokenRead;
@@ -46,11 +41,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
@@ -91,85 +84,6 @@ public class Schemas {
     @Description("CALL apoc.schema.relationships([config]) yield name, startLabel, type, endLabel, properties, status")
     public Stream<IndexConstraintRelationshipInfo> relationships(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
         return indexesAndConstraintsForRelationships(config);
-    }
-
-    @Procedure(value = "apoc.schema.node.compareIndexesAndConstraints", mode = Mode.SCHEMA)
-    @Description("CALL apoc.schema.node.compareIndexesAndConstraints([config]) - to compare constraint and indexes")
-    public Stream<CompareIdxToConsNodes> compareIndexesAndConstraints(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
-        return indexesAndConstraintsForNode(config,
-                compareConstraintIdxFunction(CompareIdxToConsNodes.class));
-    }
-
-    @Procedure(value = "apoc.schema.relationship.compareIndexesAndConstraints", mode = Mode.SCHEMA)
-    @Description("CALL apoc.schema.relationship.compareIndexesAndConstraints([config]) - to compare constraint and indexes")
-    public Stream<CompareIdxToConsRels> compareIndexesAndConstraintsForRelationships(@Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
-        return indexesAndConstraintsForRelationships(config, compareConstraintIdxFunction(CompareIdxToConsRels.class));
-    }
-
-    private <T extends IndexConstraintEntityInfo, R extends CompareIdxToCons> BiFunction<Stream<T>, Stream<T>, Stream<R>> compareConstraintIdxFunction(Class<R> clazz) {
-        return (constraintNodeInfoStream, indexNodeInfoStream) -> {
-            final List<T> constraints = constraintNodeInfoStream.collect(Collectors.toList());
-            final List<T> indexes = indexNodeInfoStream.collect(Collectors.toList());
-
-            Map<String, R> map = new TreeMap<>();
-            
-            indexes.forEach(i -> {
-                final Object labelOrType = getInfoLabelOrType(i);
-                if (labelOrType instanceof String) {
-                    addCommonAndOnlyIdProps(constraints, addObjectIfAbsent(map, (String) labelOrType, clazz), i);
-                }
-                if (labelOrType instanceof List) {
-                    final List<String> label1 = (List<String>) labelOrType;
-                    label1.forEach(lbl -> {
-                        addCommonAndOnlyIdProps(constraints, addObjectIfAbsent(map, lbl, clazz), i);
-                    });
-                }
-            });
-
-            constraints.forEach(i -> {
-                final Object labelOrType = getInfoLabelOrType(i);
-                addObjectIfAbsent(map, (String) labelOrType, clazz).putOnlyConstraintsProps(i.properties, i.name);
-            });
-
-            return map.values().stream();
-        };
-    }
-
-    private <T extends IndexConstraintEntityInfo> Object getInfoLabelOrType(T i) {
-        return i instanceof IndexConstraintNodeInfo
-                ? ((IndexConstraintNodeInfo) i).label
-                : ((IndexConstraintRelationshipInfo) i).type;
-    }
-
-    private <T extends CompareIdxToCons> T addObjectIfAbsent(Map<String, T> map, String label, Class<T> clazz) {
-        
-        return map.compute(label,
-                (k, v) -> Objects.requireNonNullElseGet(v, () -> {
-                    try {
-                        return clazz.getConstructor(String.class).newInstance(label);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }));
-    }
-    
-    private <T extends IndexConstraintEntityInfo> void addCommonAndOnlyIdProps(List<T> constraints, CompareIdxToCons compareIdxToCons, IndexConstraintEntityInfo i) {
-        final List<String> props = i.properties;
-        if (i instanceof IndexConstraintNodeInfo && ((IndexConstraintNodeInfo) i).type.equals("UNIQUENESS")) {
-            compareIdxToCons.addCommonProps(props);
-        } else {
-            constraints.stream().filter(cons -> {
-                final Object idxLabelOrType = getInfoLabelOrType(i);
-                final Object constraintLabelOrType = getInfoLabelOrType(cons);
-                return idxLabelOrType.equals(constraintLabelOrType);
-            }).findFirst()
-                    .ifPresentOrElse(pres -> {
-                        compareIdxToCons.addCommonProps(props);
-                        constraints.remove(pres);
-                    }, 
-                    () -> compareIdxToCons.putOnlyIdxProps(props, i.name)
-                    );
-        }
     }
 
     @UserFunction(value = "apoc.schema.node.indexExists")
@@ -405,11 +319,11 @@ public class Schemas {
      * @return
      */
     private Stream<IndexConstraintNodeInfo> indexesAndConstraintsForNode(Map<String,Object> config) {
-        return indexesAndConstraintsForNode(config, 
+        return indexesAndConstraintsForNode(config, ktx,
                 (constraintNodeInfoStream, indexNodeInfoStream) -> Stream.of(constraintNodeInfoStream, indexNodeInfoStream).flatMap(e -> e));
     }
 
-    private <T> T indexesAndConstraintsForNode(Map<String,Object> config, BiFunction<Stream<IndexConstraintNodeInfo>, Stream<IndexConstraintNodeInfo>, T> function) {
+    public static  <T> T indexesAndConstraintsForNode(Map<String,Object> config, KernelTransaction ktx, BiFunction<Stream<IndexConstraintNodeInfo>, Stream<IndexConstraintNodeInfo>, T> function) {
 
         SchemaConfig schemaConfig = new SchemaConfig(config);
         Set<String> includeLabels = schemaConfig.getLabels();
@@ -469,18 +383,18 @@ public class Schemas {
 
             Stream<IndexConstraintNodeInfo> constraintNodeInfoStream = StreamSupport.stream(constraintsIterator.spliterator(), false)
                     .filter(constraintDescriptor -> constraintDescriptor.type().equals(org.neo4j.internal.schema.ConstraintType.EXISTS))
-                    .map(constraintDescriptor -> this.nodeInfoFromConstraintDescriptor(constraintDescriptor, tokenRead))
+                    .map(constraintDescriptor -> nodeInfoFromConstraintDescriptor(constraintDescriptor, tokenRead))
                     .sorted(Comparator.comparing(i -> i.label.toString()));
 
             Stream<IndexConstraintNodeInfo> indexNodeInfoStream = StreamSupport.stream(indexesIterator.spliterator(), false)
-                    .map(indexDescriptor -> this.nodeInfoFromIndexDefinition(indexDescriptor, schemaRead, tokenRead))
+                    .map(indexDescriptor -> nodeInfoFromIndexDefinition(indexDescriptor, schemaRead, tokenRead))
                     .sorted(Comparator.comparing(i -> i.label.toString()));
-            
+
             return function.apply(constraintNodeInfoStream, indexNodeInfoStream);
         }
     }
 
-    private List<IndexDescriptor> getIndexesFromSchema(Iterator<IndexDescriptor> allIndex, Predicate<IndexDescriptor> indexDescriptorPredicate) {
+    private static List<IndexDescriptor> getIndexesFromSchema(Iterator<IndexDescriptor> allIndex, Predicate<IndexDescriptor> indexDescriptorPredicate) {
         return StreamSupport.stream(Spliterators.spliteratorUnknownSize(allIndex, Spliterator.ORDERED), false)
                 .filter(indexDescriptorPredicate).collect(Collectors.toList());
     }
@@ -491,12 +405,12 @@ public class Schemas {
      * @return
      */
     private Stream<IndexConstraintRelationshipInfo> indexesAndConstraintsForRelationships(Map<String,Object> config) {
-        return indexesAndConstraintsForRelationships(config,
+        return indexesAndConstraintsForRelationships(config, tx, ktx,
                 (constraintRelationshipInfoStream, indexRelationshipInfoStream) -> Stream.of(constraintRelationshipInfoStream, indexRelationshipInfoStream).flatMap(e -> e));
     }
     
     
-    private <T> T indexesAndConstraintsForRelationships(Map<String,Object> config, BiFunction<Stream<IndexConstraintRelationshipInfo>, Stream<IndexConstraintRelationshipInfo>, T> function) {
+    public static  <T> T indexesAndConstraintsForRelationships(Map<String,Object> config, Transaction tx, KernelTransaction ktx, BiFunction<Stream<IndexConstraintRelationshipInfo>, Stream<IndexConstraintRelationshipInfo>, T> function) {
         Schema schema = tx.schema();
 
         SchemaConfig schemaConfig = new SchemaConfig(config);
@@ -542,7 +456,7 @@ public class Schemas {
             }
 
             Stream<IndexConstraintRelationshipInfo> constraintRelationshipInfoStream = StreamSupport.stream(constraintsIterator.spliterator(), false)
-                    .map(this::relationshipInfoFromConstraintDefinition);
+                    .map(Schemas::relationshipInfoFromConstraintDefinition);
 
             Stream<IndexConstraintRelationshipInfo> indexRelationshipInfoStream = StreamSupport.stream(indexesIterator.spliterator(), false)
                     .map(index -> relationshipInfoFromIndexDescription(index, tokenRead, schemaRead));
@@ -558,7 +472,7 @@ public class Schemas {
      * @param tokens
      * @return
      */
-    private IndexConstraintNodeInfo nodeInfoFromConstraintDescriptor(ConstraintDescriptor constraintDescriptor, TokenNameLookup tokens) {
+    private static IndexConstraintNodeInfo nodeInfoFromConstraintDescriptor(ConstraintDescriptor constraintDescriptor, TokenNameLookup tokens) {
         String labelName =  tokens.labelGetName(constraintDescriptor.schema().getLabelId());
         List<String> properties = new ArrayList<>();
         Arrays.stream(constraintDescriptor.schema().getPropertyIds()).forEach((i) -> properties.add(tokens.propertyKeyGetName(i)));
@@ -585,7 +499,7 @@ public class Schemas {
      * @param tokens
      * @return
      */
-    private IndexConstraintNodeInfo nodeInfoFromIndexDefinition(IndexDescriptor indexDescriptor, SchemaRead schemaRead, TokenNameLookup tokens){
+    private static IndexConstraintNodeInfo nodeInfoFromIndexDefinition(IndexDescriptor indexDescriptor, SchemaRead schemaRead, TokenNameLookup tokens){
         int[] labelIds = indexDescriptor.schema().getEntityTokenIds();
         int length = labelIds.length;
         final Object labelName;
@@ -632,7 +546,7 @@ public class Schemas {
         }
     }
 
-    private IndexConstraintRelationshipInfo relationshipInfoFromIndexDescription(IndexDescriptor indexDescriptor, TokenNameLookup tokens, SchemaRead schemaRead) {
+    private static IndexConstraintRelationshipInfo relationshipInfoFromIndexDescription(IndexDescriptor indexDescriptor, TokenNameLookup tokens, SchemaRead schemaRead) {
         int[] relIds = indexDescriptor.schema().getEntityTokenIds();
         int length = relIds.length;
         // to handle LOOKUP indexes
@@ -668,7 +582,7 @@ public class Schemas {
      * @param constraintDefinition
      * @return
      */
-    private IndexConstraintRelationshipInfo relationshipInfoFromConstraintDefinition(ConstraintDefinition constraintDefinition) {
+    private static IndexConstraintRelationshipInfo relationshipInfoFromConstraintDefinition(ConstraintDefinition constraintDefinition) {
         return new IndexConstraintRelationshipInfo(
                 String.format("CONSTRAINT %s", constraintDefinition.toString()),
                 constraintDefinition.getConstraintType().name(),
@@ -677,7 +591,7 @@ public class Schemas {
         );
     }
 
-    private String getSchemaInfoName(Object labelOrType, List<String> properties) {
+    private static String getSchemaInfoName(Object labelOrType, List<String> properties) {
         final String labelOrTypeAsString = labelOrType instanceof String ? (String) labelOrType : StringUtils.join(labelOrType, ",");
         return String.format(":%s(%s)", labelOrTypeAsString, StringUtils.join(properties, ","));
     }
