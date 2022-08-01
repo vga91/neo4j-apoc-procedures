@@ -7,15 +7,19 @@ import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.apache.commons.lang.exception.ExceptionUtils;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -80,13 +84,13 @@ public class ExportCsvNeo4jAdminTest {
         directory.mkdirs();
     }
 
-    @ClassRule
-    public static DbmsRule db = new ImpermanentDbmsRule()
+    @Rule
+    public DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath())
             .withSetting(ApocSettings.apoc_export_file_enabled, true);
 
-    @BeforeClass
-    public static void setUp() throws Exception {
+    @Before
+    public void before() throws Exception {
         TestUtil.registerProcedure(db, ExportCSV.class, Graphs.class);
         db.executeTransactionally("CREATE (f:User1:User {name:'foo',age:42,male:true,kids:['a','b','c']})-[:KNOWS]->(b:User {name:'bar',age:42}),(c:User {age:12})");
         db.executeTransactionally("CREATE (f:Address1:Address {name:'Andrea', city: 'Milano', street:'Via Garibaldi, 7'})-[:NEXT_DELIVERY]->(a:Address {name: 'Bar Sport'}), (b:Address {street: 'via Benni'})");
@@ -208,11 +212,11 @@ public class ExportCsvNeo4jAdminTest {
         assertFileEquals(file,EXPECTED_NEO4J_ADMIN_IMPORT_HEADER_RELATIONSHIP_NEXT_DELIVERY + EXPECTED_NEO4J_ADMIN_IMPORT_RELATIONSHIP_NEXT_DELIVERY, fileBaseName + ".relationships.NEXT_DELIVERY" + fileExpectedExt, separator);
     }
 
-    public static void assertFileEquals(String base, String expected, String file) {
+    private static void assertFileEquals(String base, String expected, String file) {
         assertFileEquals(base, expected, file, ",",  CompressionAlgo.NONE);
     }
 
-    public static void assertFileEquals(String base, String expected, String file, CompressionAlgo algo) {
+    private static void assertFileEquals(String base, String expected, String file, CompressionAlgo algo) {
         assertFileEquals(base, expected, file, ",",  algo);
     }
 
@@ -266,6 +270,44 @@ public class ExportCsvNeo4jAdminTest {
         assertEquals(fileName, r.get("file"));
         assertEquals("csv", r.get("format"));
         assertTrue("Should get time greater than 0",((long) r.get("time")) >= 0);
+    }
+
+    @Test
+    public void testExportCypherWithIdField() throws Exception {
+        // given
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+        final Map<String, Object> map = db.executeTransactionally("CREATE (source:User:Larus{id: 1, name: 'Andrea'})-[:KNOWS{id: 10}]->(target:User:Neo4j{id: 2, name: 'Michael'})\n" +
+                "RETURN id(source) as sourceId, id(target) as targetId", Collections.emptyMap(), result ->  Iterators.single(result) );
+        final String fileName = "export_id_field";
+        String fileNameWithExtension = fileName + ".csv";
+        File dir = new File(directory, fileNameWithExtension);
+
+        // when
+        TestUtil.testCall(db, "CALL apoc.export.csv.all($fileNameWithExtension,{bulkImport: true})",
+                map("fileNameWithExtension", fileNameWithExtension), r -> {
+                    // then
+                    assertEquals(20000L, r.get("batchSize"));
+                    assertEquals(1L, r.get("batches"));
+                    assertEquals(2L, r.get("nodes"));
+                    assertEquals(3L, r.get("rows"));
+                    assertEquals(1L, r.get("relationships"));
+                    assertEquals(5L, r.get("properties"));
+                    assertTrue("Should get time greater than 0",
+                            ((long) r.get("time")) >= 0);
+
+                    String file = dir.getParent() + File.separator;
+                    String expectedNodesLarus = String.format(":ID,name,id:long,:LABEL%n"
+                            + "%s,Andrea,1,User;Larus%n", map.get("sourceId"));
+                    String expectedNodesNeo4j = String.format(":ID,name,id:long,:LABEL%n"
+                            +"%s,Michael,2,User;Neo4j%n", map.get("targetId"));
+                    String expectedRelsNeo4j = String.format(":START_ID,:END_ID,:TYPE,id:long%n"
+                            + "%s,%s,KNOWS,10%n", map.get("sourceId"), map.get("targetId"));
+
+                    assertFileEquals(file, expectedNodesLarus, fileName + ".nodes.User.Larus.csv");
+                    assertFileEquals(file, expectedNodesNeo4j, fileName + ".nodes.User.Neo4j.csv");
+                    assertFileEquals(file, expectedRelsNeo4j, fileName + ".relationships.KNOWS.csv");
+                }
+        );
     }
 }
 
