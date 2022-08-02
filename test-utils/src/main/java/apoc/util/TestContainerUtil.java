@@ -38,11 +38,19 @@ public class TestContainerUtil {
     }
 
     public static Neo4jContainerExtension createEnterpriseDB(boolean withLogging)  {
-        return createEnterpriseDB(baseDir, withLogging);
+        return createEnterpriseDB(baseDir, withLogging, Collections.emptyList());
     }
 
-    public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging)  {
+    public static Neo4jContainerExtension createEnterpriseDB(boolean withLogging, List<File> additionalFiles)  {
+        return createEnterpriseDB(baseDir, withLogging, additionalFiles);
+    }
+
+    public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging, List<File> additionalFiles)  {
+        System.out.println("baseDir " + baseDir.getAbsolutePath());
         executeGradleTasks(baseDir, "shadowJar");
+        final File baseDir1 = new File("../extra-dependencies");
+        System.out.println("baseDir1.getAbsolutePath() = " + baseDir1.getAbsolutePath());
+        executeGradleTasks(baseDir1, "shadowJar");
         // We define the container with external volumes
         File importFolder = new File("import");
         importFolder.mkdirs();
@@ -55,6 +63,7 @@ public class TestContainerUtil {
         pluginsFolder.mkdirs();
 
         Collection<File> files = FileUtils.listFiles(new File(baseDir, "build/libs"), new WildcardFileFilter(Arrays.asList("*-all.jar", "*-core.jar")), null);
+        files.addAll(additionalFiles);
         for (File file: files) {
             try {
                 FileUtils.copyFileToDirectory(file, pluginsFolder);

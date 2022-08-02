@@ -248,10 +248,6 @@ public class ApocConfig extends LifecycleAdapter {
         this.rateLimiter = rateLimiter;
     }
 
-//    public DatabaseManagementService getDatabaseManagementService() {
-//        return databaseManagementService;
-//    }
-
     public <T> T withDb(String dbName, Function<Transaction, T> action) {
         try (Transaction tx = getDb(dbName).beginTx()) {
             T result = action.apply(tx);
@@ -260,7 +256,6 @@ public class ApocConfig extends LifecycleAdapter {
         }
     }
     
-    // todo - potrei cambiare questo...
     public GraphDatabaseService getDb(String dbName) {
         return databaseManagementService.database(dbName);
     }

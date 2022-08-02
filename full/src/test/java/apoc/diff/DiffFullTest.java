@@ -4,6 +4,7 @@ import apoc.bolt.Bolt;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestUtil;
+import apoc.version.Version;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -18,6 +19,7 @@ import org.neo4j.driver.SessionConfig;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.nio.file.Paths;
 import java.time.OffsetTime;
 import java.util.Collections;
 import java.util.List;
@@ -46,7 +48,7 @@ public class DiffFullTest {
 
     @BeforeClass
     public static void setup() throws Exception {
-        neo4jContainer = createEnterpriseDB(true)
+        neo4jContainer = createEnterpriseDB(true, List.of(Paths.get("../extra-dependencies/bolt/build/libs", "apoc-bolt-dependencies-" + Version.class.getPackage().getImplementationVersion() + ".jar").toFile()))
                 .withInitScript("init_neo4j_diff.cypher")
                 .withLogging()
                 .withoutAuthentication();

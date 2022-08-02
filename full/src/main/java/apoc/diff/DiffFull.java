@@ -62,8 +62,6 @@ public class DiffFull {
         SubGraph sourceGraph = toSubGraph(source, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("source"))/*, tx*/);
         SubGraph destGraph = toSubGraph(dest, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("dest"))/*, tx*/);
         
-        // TODO...
-
         Function<Map<String, Long>, Long> sum = (map) -> map.values().stream().reduce(0L, (x, y) -> x + y);
         final SourceDestResult labelNodeCount = sourceDestCountByLabel(sourceGraph, destGraph);
         final SourceDestResult nodeCount = labelNodeCount.areSourceAndDestEqual() ?
