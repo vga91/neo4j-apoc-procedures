@@ -9,16 +9,13 @@ import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
 import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.poi.ss.formula.functions.T;
 import org.neo4j.cypher.export.CypherResultSubGraph;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
-import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
@@ -126,7 +123,7 @@ public class DiffFull {
         }
     }
 
-    private SubGraph toSubGraph(Object input, Map<String, Object> config, SourceDestConfig sourceDestConfig/*, Transaction tx*/) {
+    private SubGraph toSubGraph(Object input, Map<String, Object> config, SourceDestConfig sourceDestConfig) {
         if (input == null) {
             throw new NullPointerException("Input data is null");
         }
@@ -154,6 +151,7 @@ public class DiffFull {
                             return toSubGraph(graph, config, null/*, tx*/);
                         case DATABASE:
                             // TODO - POTREI PROVARE CON EXECUTETRANSACTIONALLI(.... , RES -> RES....)
+                            // todo --> tx -> .... as a Function<>, so that i can apply
                             
                             return apocConfig().withDb(targetValue, transaction -> {
                                 final Result result = transaction.execute(inputString, sourceDestConfig.getParams());
@@ -167,49 +165,9 @@ public class DiffFull {
                                         .execute(boltQuery).<List<Object>>columnAs("schema")
                                         .stream().findFirst()
                                         .ifPresent((schema) -> baseMapFromOtherDb.put("schema", schema));
-//                                subGraph = CypherResultSubGraph.from(transaction, result, Util.toBoolean(config.getOrDefault("relsInBetween", false)));
-//                                System.out.println("subGraph = " + subGraph.getNodes());
-//                                transaction.commit();
-                                System.out.println("DiffFull.toSubGraph");
+
                                 return toSubGraph(baseMapFromOtherDb, config, null);
                             });
-                            
-//                            final SubGraph subGraph;
-//                            try (final Transaction transaction = apocConfig().getDb(targetValue).beginTx()) {
-//                                final Result result = transaction.execute(inputString, sourceDestConfig.getParams());
-////                                System.out.println("result.toString() = " + result.toString());
-//                                final Map<String, List<Object>> baseMapFromOtherDb = createBaseMapFromOtherDb(result, true);
-//                                // todo - toVirtual....
-//                                String boltQuery = "CALL db.indexes() YIELD labelsOrTypes, properties, state, uniqueness\n" +
-//                                        "WHERE state = 'ONLINE' AND uniqueness = 'UNIQUE'\n" +
-//                                        "RETURN collect({labels: labelsOrTypes, properties: properties, type: uniqueness}) AS schema\n";
-//
-//                                transaction
-//                                        .execute(boltQuery).<List<Object>>columnAs("schema")
-//                                        .stream().findFirst()
-//                                        .ifPresent((schema) -> baseMapFromOtherDb.put("schema", schema));
-////                                subGraph = CypherResultSubGraph.from(transaction, result, Util.toBoolean(config.getOrDefault("relsInBetween", false)));
-////                                System.out.println("subGraph = " + subGraph.getNodes());
-//                                transaction.commit();
-//                                System.out.println("DiffFull.toSubGraph");
-//                                return toSubGraph(baseMapFromOtherDb, config, null);
-//                            }
-
-//                            }
-                            // todo --> tx -> .... as a Function<>, so that i can apply 
-//                            return withTransactionAndRebind(withDb(apocConfig().getDb(targetValue), tx transaction ->
-//                                    Stream.of(transaction.execute(inputString, sourceDestConfig.getParams())), config, null, transaction));
-                            
-                            
-                            
-//                            try(final Transaction transaction = apocConfig().getDb(targetValue).beginTx()) {
-//                                return toSubGraph(transaction.execute(inputString, sourceDestConfig.getParams()), config, null);
-//                                transaction.commit();
-//                            }
-//                            return retryInTx(NullLog.getInstance(), apocConfig().getDb(targetValue), 
-//                                    (tx) -> tx.execute()) 
-//                    toSubGraph(apocConfig().getDb(targetValue)
-//                                    .executeTransactionally(inputString, sourceDestConfig.getParams(), r -> r), config, null);
                     }
                 } else {
                     return toSubGraph(tx.execute(inputString, sourceDestConfig.getParams()), config, null/*, tx*/);
@@ -232,16 +190,8 @@ public class DiffFull {
     private Map<String, List<Object>> createMapFromRemoteDb(String inputString, Map<String, Object> boltConfig, String url, Map<String, Object> params) {
         params = params == null ? Collections.emptyMap() : params;
         String boltLoadQuery = "CALL apoc.bolt.load($url, $boltQuery, $params, $boltConfig) YIELD row";
-//        final Map<String, Object> boltConfig = boltConfig;
-//        final Map<String, Object> boltConfig = map("virtual", true, "withRelationshipNodeProperties", true);
-        // todo ... --> here i've to add boltConfig...
-//        final Map<String, Object> boltConfig = 
-                //map("virtual", true, "withRelationshipNodeProperties", true);
-        // this should be forced?
         boltConfig.putIfAbsent("virtual", true);
-        // this should be forced?
         boltConfig.putIfAbsent("withRelationshipNodeProperties", true);
-        System.out.println("boltConfig = " + boltConfig);
 
         final Result execute = tx.execute(boltLoadQuery, map("boltConfig", boltConfig, "boltQuery", inputString, "url", url, "params", params));
 
@@ -323,13 +273,6 @@ public class DiffFull {
         if (input instanceof Node || input instanceof Relationship || input instanceof Path) {
             return input;
         }
-//        if (input instanceof Path) {
-//            final Path path = (Path) input;
-//            return Stream.concat(
-//                    StreamSupport.stream(path.nodes().spliterator(), false),
-//                    StreamSupport.stream(path.relationships().spliterator(), false)
-//            );//.collect(Collectors.toList());
-//        }
         throw new RuntimeException("Type not managed: " + input.getClass().getSimpleName());
     }
 
