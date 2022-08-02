@@ -125,12 +125,9 @@ public class ProgressReporter implements Reporter {
         acceptBatch();
     }
 
-<<<<<<< HEAD
-=======
     private void updateStatus() {
         if (this.tx != null) {
             setKernelStatusMap(tx, JsonUtil.convertToMap(this.progressInfo));
         }
     }
->>>>>>> f28d658d4 (var adds)
 }

@@ -1,5 +1,8 @@
 package apoc.result;
 
+import apoc.export.util.ExportConfig;
+import apoc.util.Util;
+
 import java.io.StringWriter;
 
 /**

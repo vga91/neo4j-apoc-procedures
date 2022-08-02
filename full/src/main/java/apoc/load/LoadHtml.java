@@ -4,6 +4,7 @@ import apoc.Extended;
 import apoc.result.MapResult;
 import apoc.util.MissingDependencyException;
 import apoc.util.FileUtils;
+import apoc.util.Util;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Attribute;
 import org.jsoup.nodes.Document;
@@ -124,7 +125,6 @@ public class LoadHtml {
                 else {
                     if(element.hasText()) result.put("text", element.text());
                 }
-                Util.setKernelStatus(tx, "rows", rows++);
                 elementList.add(result);
                 return null;
             });

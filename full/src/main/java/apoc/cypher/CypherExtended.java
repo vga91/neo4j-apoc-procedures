@@ -21,6 +21,7 @@ import org.neo4j.procedure.Procedure;
 import org.neo4j.procedure.TerminationGuard;
 import org.parboiled.common.StringUtils;
 
+import javax.ws.rs.HEAD;
 import java.io.IOException;
 import java.io.Reader;
 import java.util.ArrayList;
@@ -102,11 +103,7 @@ public class CypherExtended {
         var result = fileNames.stream().flatMap(fileName -> {
             final Reader reader = readerForFile(fileName);
             final Scanner scanner = createScannerFor(reader);
-<<<<<<< HEAD
-            return runManyStatements(scanner, parameters, schemaOperation, addStatistics, timeout, queueCapacity)
-=======
-            final Stream<RowResult> stream = runManyStatements(scanner, parameters, schemaOperation, addStatistics, timeout, queueCapacity, currentStatus)
->>>>>>> f28d658d4 (var adds)
+            return runManyStatements(scanner, parameters, schemaOperation, addStatistics, timeout, queueCapacity, currentStatus)
                     .onClose(() -> Util.close(scanner, (e) -> log.info("Cannot close the scanner for file " + fileName + " because the following exception", e)));
         });
 

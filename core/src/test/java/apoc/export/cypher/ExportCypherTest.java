@@ -26,11 +26,8 @@ import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.export.cypher.ExportCypherTest.ExportCypherResults.*;
 import static apoc.export.util.ExportFormat.*;
-<<<<<<< HEAD
 import static apoc.util.BinaryTestUtil.getDecompressedData;
-=======
 import static apoc.kernel.KernelTestUtils.checkStatusDetails;
->>>>>>> f28d658d4 (var adds)
 import static apoc.util.Util.map;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.*;
