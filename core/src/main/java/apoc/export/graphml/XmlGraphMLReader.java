@@ -214,7 +214,14 @@ public class XmlGraphMLReader {
         try {
 
             while (reader.hasNext()) {
-                XMLEvent event = (XMLEvent) reader.next();
+                XMLEvent event;
+                try {
+                    event = (XMLEvent) reader.next();
+                } catch (Exception e) {
+                    // in case of unicode unrecognized chars
+                    continue;
+                }
+//                XMLEvent event = (XMLEvent) reader.next();
                 if (event.isStartElement()) {
 
                     StartElement element = event.asStartElement();

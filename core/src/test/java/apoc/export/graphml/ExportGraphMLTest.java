@@ -229,6 +229,58 @@ public class ExportGraphMLTest {
     }
     
     @Test
+    public void testRoundtripUnicode() {
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+        
+        String fileName = new File(directory, "allUnicode.graphml").getAbsolutePath();
+        final String query = "CALL apoc.export.graphml.all($file, null)";
+
+        testRoundtripUnicodeCommon(query, fileName);
+    }
+
+    @Test
+    public void testRoundtripUnicodeWithExportQuery() {
+        String fileName = new File(directory, "allQuery.graphml").getAbsolutePath();
+        // trello issue case: https://trello.com/c/6GboqUau/1070-s3cast-software-issue-with-apocimportgraphml
+        final String query = "CALL apoc.export.graphml.query('MATCH (n:Unicode) RETURN n', $file, {useTypes: true, readLabels:true})";
+        
+        testRoundtripUnicodeCommon(query, fileName);
+    }
+
+    private void testRoundtripUnicodeCommon(String query, String fileName) {
+        db.executeTransactionally("CREATE (n:Unicode {propOne: '1628\\u000e–30', propTwo: 'abcd\\u001e', propThree: 'aj\\u0000eje'})");
+
+        TestUtil.testCall(db, query, map("file", fileName),
+                (r) -> assertEquals(1L, r.get("nodes")));
+
+        db.executeTransactionally("MATCH (n:Unicode) DETACH DELETE n");
+
+        TestUtil.testCall(db, "CALL apoc.import.graphml($file, {readLabels:true})",  map("file", fileName),
+                r -> assertEquals(1L, r.get("nodes")));
+
+        TestUtil.testCall(db, "MATCH (n:Unicode) RETURN n", r -> {
+            final Node n = (Node) r.get("n");
+            assertEquals("1628–30", n.getProperty("propOne"));
+            assertEquals("abcd", n.getProperty("propTwo"));
+            assertEquals("ajeje", n.getProperty("propThree"));
+        });
+
+        db.executeTransactionally("MATCH (n:Unicode) DETACH DELETE n");
+    }
+    
+    @Test
+    public void testImportUnicodeFile() {
+        final String file = ClassLoader.getSystemResource("fileWithUnicode.graphml").toString();
+        TestUtil.testCall(db, "CALL apoc.import.graphml($file,{readLabels:true})", map("file", file),
+                (r) -> assertEquals(true, r.get("done")));
+
+        TestUtil.testCall(db, "MATCH (n:Unicode) RETURN n",
+                r -> assertEquals("1628", ((Node) r.get("n")).getProperty("prop")));
+
+        db.executeTransactionally("MATCH (n:Unicode) DETACH DELETE n");
+    }
+    
+    @Test
     public void testRoundTripWithSeparatedImport() {
         Map<String, Object> exportConfig = map("useTypes", true);
 

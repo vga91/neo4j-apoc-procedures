@@ -196,6 +196,7 @@ public class XmlGraphMLWriter {
         writer.writeAttribute("key", prop);
         if (value != null) {
             writer.writeCharacters(FormatUtils.toString(value));
+//            writer.writeCharacters(FormatUtils.toXmlString(value));
         }
         writer.writeEndElement();
     }

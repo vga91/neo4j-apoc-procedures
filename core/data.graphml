@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+<key id="propOne" for="node" attr.name="propOne"/>
+<key id="propThree" for="node" attr.name="propThree"/>
+<key id="propTwo" for="node" attr.name="propTwo"/>
+<key id="labels" for="node" attr.name="labels"/>
+<graph id="G" edgedefault="directed">
+<node id="n3" labels=":Unicode"><data key="labels">:Unicode</data><data key="propOne">1628
