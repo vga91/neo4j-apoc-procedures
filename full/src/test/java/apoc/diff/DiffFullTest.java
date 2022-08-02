@@ -2,6 +2,7 @@ package apoc.diff;
 
 import apoc.bolt.Bolt;
 import apoc.util.Neo4jContainerExtension;
+import apoc.util.TestContainerUtil;
 import apoc.util.TestUtil;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -9,6 +10,11 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.neo4j.driver.AuthTokens;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -34,6 +40,9 @@ public class DiffFullTest {
     public static DbmsRule db = new ImpermanentDbmsRule();
 
     private static Neo4jContainerExtension neo4jContainer;
+    private static Driver driver;
+    
+    private static String secondDb = "secondDb";
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -45,6 +54,20 @@ public class DiffFullTest {
 
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         TestUtil.registerProcedure(db, Bolt.class, DiffFull.class);
+
+
+        driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.none());
+
+        try (Session session = driver.session()) {
+            session.writeTransaction(tx -> tx.run(String.format("CREATE DATABASE %s;", secondDb)));
+        }
+        try (Session session = driver.session(SessionConfig.forDatabase(secondDb))) {
+            session.writeTransaction(tx -> tx.run("CREATE CONSTRAINT IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE;"));
+            session.writeTransaction(tx -> tx.run("CREATE (m:Person {name: 'Michael Jordan', age: 54}), \n" +
+                    "(q:Person {name: 'Jerry Burton', age: 23}), \n" +
+                    "(p:Person {name: 'Jack William', age: 22}), \n" +
+                    "(q)-[:KNOWS{since:1999, time:time('125035.556+0100')}]->(p);"));
+        }
     }
 
     @AfterClass
@@ -73,7 +96,74 @@ public class DiffFullTest {
     public void after() {
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
     }
+
+    @Test
+    public void shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById() {
+        // with target type = "DATABASE"
+        TestUtil.testCallEmpty(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)", 
+                Map.of("querySourceDest", "MATCH p = (start)-[rel:KNOWS]->(end) RETURN start, rel, end", 
+                        "conf", Map.of("source", Map.of(), 
+                                "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", "neo4j")), 
+                                "findById", true
+                        )));
+        
+        // with target type = "URL"
+        TestContainerUtil.testResult(driver.session(), "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+                Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
+                        "conf", Map.of("dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())),
+                                "findById", true
+                        )),
+                r -> assertFalse(r.hasNext()));
+    }
+
+    @Test
+    public void shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById1() {
+        TestContainerUtil.testResult(driver.session(), "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+                Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
+                        "conf", Map.of("boltConfig", Map.of("databaseName", secondDb),
+                                "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())),
+                                "findById", true
+                        )),
+                    r -> {
+                        final Map<String, Object> next = r.next();
+                        System.out.println("DiffFullTest.shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById1");
+                        assertFalse(r.hasNext());
+                    });
+    }
+
+//    @Test
+//    public void shouldCompare
     
+    @Test
+    public void testWithSpecificDatabaseWithTTLDisabled() throws Exception {
+        try (Session session = driver.session(SessionConfig.forDatabase(secondDb))) {
+            session.writeTransaction(tx -> tx.run("CREATE (q:Person {name: 'Alpha', age: 23})\n" +
+                    "CREATE (p:Person {name: 'Beta', age: 22})\n" +
+                    "CREATE (q)-[:KNOWS{since:2016, time:time('125035.556+0100')}]->(p);"));
+        }
+
+        // when
+        final String localQuery = "MATCH p = ()-[:KNOWS]->() RETURN p";
+        final String remoteQuery = "MATCH p = ()-[:KNOWS]->() RETURN p";
+        TestUtil.testResult(db, "CALL apoc.diff.graphs($localQuery, $remoteQuery, $diffConfig) YIELD difference, entityType, id, sourceLabel, destLabel, source, dest\n" +
+                        "RETURN difference, entityType, id, sourceLabel, destLabel, source, dest",
+                map("localQuery", localQuery, "remoteQuery", remoteQuery,
+                        "diffConfig", Map.of("dest", map("target", Map.of("value", neo4jContainer.getBoltUrl())))),
+                (r) -> {
+                    // then
+                    final Map<String, Object> expected = map("entityType", "Relationship", "sourceLabel", "KNOWS", "difference", "Destination Entity not found", "id", 0L, "source", map(
+                            "start", map("name", "Tom Burton"),
+                            "end", map("name", "John William"),
+                            "properties", map("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2000L)
+                    ), "dest", null, "destLabel", null);
+                    assertTrue(r.hasNext()); // the relationships have different properties
+                    final Map<String, Object> next = r.next();
+                    getMapAssertions(expected, next);
+                    assertFalse(r.hasNext());
+                });
+    }
+
+
     @Test
     public void shouldCompareTwoEqualGraphsByQuery() {
         // when
@@ -93,7 +183,8 @@ public class DiffFullTest {
                         "boltQuery", boltQuery,
                         "url", neo4jContainer.getBoltUrl(),
                         "boltConfig", map("virtual", true, "withRelationshipNodeProperties", true),
-                        "diffConfig", Collections.emptyMap()),
+                        "diffConfig", Collections.emptyMap()
+                ),
                 (r) -> {
                     // then
                     assertFalse(r.hasNext()); // the two graphs are equal
