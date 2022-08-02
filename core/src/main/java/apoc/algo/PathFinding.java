@@ -14,7 +14,6 @@ import org.neo4j.procedure.Procedure;
 import org.neo4j.values.storable.PointValue;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -74,17 +73,6 @@ public class PathFinding {
 
     @Context
     public Transaction tx;
-
-    @Procedure
-    @Description("apoc.algo.travellingSalesman(nodes,  $config) - resolve travelling salesman problem via simulated annealing algo")
-    public Stream<TravellingSalesman.Result> travellingSalesman(@Name("startNode") List<Node> nodes, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        if (nodes.isEmpty()) {
-            throw new RuntimeException("The nodes parameter must have at least 3 nodes");
-        }
-        TravellingSalesman.Config conf = new TravellingSalesman.Config(config);
-        return Stream.of(TravellingSalesman.Algo.simulateAnnealing(nodes, conf));
-    }
-
 
     @Procedure
     @Description("apoc.algo.aStar(startNode, endNode, 'KNOWS|<WORKS_WITH|IS_MANAGER_OF>', 'distance','lat','lon') " +
