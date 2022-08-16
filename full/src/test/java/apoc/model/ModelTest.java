@@ -34,11 +34,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assume.*;
 
 public class ModelTest {
 
@@ -50,21 +48,14 @@ public class ModelTest {
 
     @BeforeClass
     public static void setUpContainer() {
-        assumeFalse(isRunningInCI());
-        TestUtil.ignoreException(() -> {
-            mysql = new MySQLContainer().withInitScript("init_mysql.sql");
-            mysql.start();
-        },Exception.class);
-        assumeNotNull("MySQL container has to exist", mysql);
-        assumeTrue("MySQL must be running", mysql.isRunning());
+        mysql = new MySQLContainer().withInitScript("init_mysql.sql");
+        mysql.start();
         JDBC_URL = mysql.getJdbcUrl() + "?useSSL=false";
     }
 
     @AfterClass
     public static void tearDownContainer() {
-        if (mysql != null) {
-            mysql.stop();
-        }
+        mysql.stop();
     }
 
     @Rule

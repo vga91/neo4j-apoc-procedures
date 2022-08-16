@@ -27,7 +27,6 @@ import org.junit.Assert
 import org.junit.Assert.assertTrue
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.hasItem
-import org.junit.Assume.assumeTrue
 import org.junit.BeforeClass
 import org.junit.ClassRule
 import org.junit.Test
@@ -50,7 +49,6 @@ class GCPProceduresAPIWithDummyClientTest {
         @JvmStatic
         fun beforeClass() {
             TestUtil.registerProcedure(neo4j, GCPProcedures::class.java)
-            assumeTrue(apiKey != null)
         }
     }
 

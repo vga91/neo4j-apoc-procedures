@@ -73,20 +73,13 @@ public class DataVirtualizationCatalogTest {
 
     @BeforeClass
     public static void setUpContainer() {
-        assumeFalse(isRunningInCI());
-        TestUtil.ignoreException(() -> {
-            mysql = new MySQLContainer().withInitScript("init_mysql.sql");
-            mysql.start();
-        },Exception.class);
-        assumeNotNull("MySQL container has to exist", mysql);
-        assumeTrue("MySQL must be running", mysql.isRunning());
+        mysql = new MySQLContainer().withInitScript("init_mysql.sql");
+        mysql.start();
     }
 
     @AfterClass
     public static void tearDownContainer() {
-        if (mysql != null) {
-            mysql.stop();
-        }
+        mysql.stop();
     }
 
     @Test

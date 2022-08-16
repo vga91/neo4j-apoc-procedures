@@ -19,7 +19,7 @@
 package apoc.full.it;
 
 import apoc.util.TestContainerUtil;
-import apoc.util.TestUtil;
+import apoc.util.TestContainerUtil.ApocPackage;
 import apoc.util.TestcontainersCausalCluster;
 import org.junit.*;
 import org.neo4j.driver.Session;
@@ -33,8 +33,6 @@ import java.util.Map;
 import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 public class CypherProceduresClusterTest {
 
@@ -42,19 +40,17 @@ public class CypherProceduresClusterTest {
 
     @BeforeClass
     public static void setupCluster() {
-        assumeFalse(isRunningInCI());
-        TestUtil.ignoreException(() ->  cluster = TestContainerUtil
-                .createEnterpriseCluster(List.of(TestContainerUtil.ApocPackage.FULL), 3, 1, Collections.emptyMap(), MapUtil.stringMap("apoc.custom.procedures.refresh", "100")),
-                Exception.class);
-        Assume.assumeNotNull(cluster);
-        assumeTrue("Neo4j Cluster should be up-and-running", cluster.isRunning());
+        cluster = TestContainerUtil.createEnterpriseCluster(
+                List.of(ApocPackage.FULL),
+                3,
+                1,
+                Collections.emptyMap(),
+                MapUtil.stringMap("apoc.custom.procedures.refresh", "100"));
     }
 
     @AfterClass
     public static void bringDownCluster() {
-        if (cluster != null) {
-            cluster.close();
-        }
+        cluster.close();
     }
 
     @Test

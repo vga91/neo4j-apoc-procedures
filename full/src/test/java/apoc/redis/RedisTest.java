@@ -67,25 +67,19 @@ public class RedisTest {
 
     @BeforeClass
     public static void beforeClass() {
-        assumeFalse(isRunningInCI());
-        TestUtil.ignoreException(() -> {
-            redis = new GenericContainer("redis:" + REDIS_VERSION)
-                    .withCommand("redis-server --requirepass " + PASSWORD)
-                    .withExposedPorts(REDIS_DEFAULT_PORT);
-            redis.start();
-        }, Exception.class);
+        redis = new GenericContainer("redis:" + REDIS_VERSION)
+                .withCommand("redis-server --requirepass " + PASSWORD)
+                .withExposedPorts(REDIS_DEFAULT_PORT);
+        redis.start();
         TestUtil.registerProcedure(db, Redis.class);
-        assumeNotNull(redis);
-        assumeTrue("Redis must be running", redis.isRunning());
         URI = String.format("redis://%s@%s:%s", PASSWORD, redis.getHost(), redis.getMappedPort(REDIS_DEFAULT_PORT));
         BEFORE_CONNECTION = getNumConnections();
     }
 
     @AfterClass
     public static void tearDown() {
-        if (redis != null) {
-            redis.stop();
-        }
+        redis.stop();
+        db.shutdown();
     }
 
     @After

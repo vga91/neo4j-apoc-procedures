@@ -29,7 +29,6 @@ import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers
 import org.hamcrest.Matchers.hasItem
 import org.hamcrest.collection.IsMapContaining
-import org.junit.Assume.assumeTrue
 import org.junit.BeforeClass
 import org.junit.ClassRule
 import org.junit.Test
@@ -54,8 +53,6 @@ class AWSProceduresAPIWithDummyClientTest {
         @JvmStatic
         fun beforeClass() {
             TestUtil.registerProcedure(neo4j, AWSProcedures::class.java)
-            assumeTrue(apiKey != null)
-            assumeTrue(apiSecret != null)
         }
 
     }

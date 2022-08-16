@@ -68,13 +68,8 @@ public class ElasticSearchTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        assumeFalse(isRunningInCI());
-        TestUtil.ignoreException(() -> {
-            elastic = new ElasticsearchContainer();
-            elastic.start();
-        }, Exception.class);
-        assumeNotNull(elastic);
-        assumeTrue("Elastic Search must be running", elastic.isRunning());
+        elastic = new ElasticsearchContainer();
+        elastic.start();
         defaultParams.put("host", elastic.getHttpHostAddress());
         TestUtil.registerProcedure(db, ElasticSearch.class);
         insertDocuments();
@@ -82,9 +77,8 @@ public class ElasticSearchTest {
 
     @AfterClass
     public static void tearDown() {
-        if (elastic != null) {
-            elastic.stop();
-        }
+        elastic.stop();
+        db.shutdown();
     }
 
     /**

@@ -33,11 +33,9 @@ import org.testcontainers.containers.CassandraContainer;
 import java.sql.SQLException;
 import java.util.Map;
 
-import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assume.*;
 
 public class CassandraJdbcTest extends AbstractJdbcTest {
 
@@ -48,14 +46,9 @@ public class CassandraJdbcTest extends AbstractJdbcTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        assumeFalse(isRunningInCI());
-        TestUtil.ignoreException(() -> {
-            cassandra = new CassandraContainer();
-            cassandra.withInitScript("init_cassandra.cql");
-            cassandra.start();
-        },Exception.class);
-        assumeNotNull("Cassandra container has to exist", cassandra);
-        assumeTrue("Cassandra must be running", cassandra.isRunning());
+        cassandra = new CassandraContainer();
+        cassandra.withInitScript("init_cassandra.cql");
+        cassandra.start();
 
         TestUtil.registerProcedure(db, Jdbc.class);
         db.executeTransactionally("CALL apoc.load.driver('com.github.adejanovski.cassandra.jdbc.CassandraDriver')");
@@ -63,9 +56,8 @@ public class CassandraJdbcTest extends AbstractJdbcTest {
 
     @AfterClass
     public static void tearDown() throws SQLException {
-        if (cassandra != null) {
-            cassandra.stop();
-        }
+        cassandra.stop();
+        db.shutdown();
     }
 
     @Test

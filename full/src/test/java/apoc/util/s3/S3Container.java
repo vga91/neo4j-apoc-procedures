@@ -20,7 +20,6 @@ package apoc.util.s3;
 
 import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
-import apoc.util.Util;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
@@ -45,26 +44,21 @@ public class S3Container implements AutoCloseable {
 
 
     public S3Container() {
-        TestUtil.ignoreException(() -> {
-            localstack = new LocalStackContainer("0.8.10")
-                    .withStartupAttempts(3)
-                    .withServices(S3);
-            localstack.start();
-        }, Exception.class);
-        if (localstack != null) {
-            s3 = AmazonS3ClientBuilder
-                    .standard()
-                    .withEndpointConfiguration(getEndpointConfiguration())
-                    .withCredentials(getCredentialsProvider())
-                    .build();
-            s3.createBucket(getBucket());
-        } else {
-            s3 = null;
-        }
+        localstack = new LocalStackContainer("0.8.10")
+                .withStartupAttempts(3)
+                .withServices(S3);
+        localstack.start();
+        s3 = AmazonS3ClientBuilder
+                .standard()
+                .withEndpointConfiguration(getEndpointConfiguration())
+                .withCredentials(getCredentialsProvider())
+                .build();
+        s3.createBucket(getBucket());
     }
 
     public void close() {
-        Util.close(localstack);
+        localstack.close();
+        s3.shutdown();
     }
 
     public AwsClientBuilder.EndpointConfiguration getEndpointConfiguration() {
