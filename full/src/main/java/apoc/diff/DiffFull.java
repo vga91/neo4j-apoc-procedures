@@ -243,7 +243,7 @@ public class DiffFull {
                         if (dbDestType) {
                             final Relationship rel = (Relationship) value;
                             final Node startNode = rel.getStartNode();
-                            final Node endNode = rel.getStartNode();
+                            final Node endNode = rel.getEndNode();
                             final Label[] labelsEnd = StreamSupport.stream(endNode.getLabels().spliterator(), false).toArray(Label[]::new);
                             final Label[] labelsStart = StreamSupport.stream(startNode.getLabels().spliterator(), false).toArray(Label[]::new);
                             VirtualNode start = new VirtualNode(startNode.getId(), labelsStart, startNode.getAllProperties());

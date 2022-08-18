@@ -42,9 +42,10 @@ public class DiffFullTest {
     public static DbmsRule db = new ImpermanentDbmsRule();
 
     private static Neo4jContainerExtension neo4jContainer;
+    private static Session session;
     private static Driver driver;
     
-    private static String secondDb = "secondDb";
+    private static final String secondDb = "secondDb";
 
     @BeforeClass
     public static void setup() throws Exception {
@@ -59,6 +60,7 @@ public class DiffFullTest {
 
 
         driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.none());
+        session = neo4jContainer.getSession();
 
         try (Session session = driver.session()) {
             session.writeTransaction(tx -> tx.run(String.format("CREATE DATABASE %s;", secondDb)));
@@ -101,34 +103,40 @@ public class DiffFullTest {
 
     @Test
     public void shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById() {
-        // with target type = "DATABASE"
         TestUtil.testCallEmpty(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)", 
                 Map.of("querySourceDest", "MATCH p = (start)-[rel:KNOWS]->(end) RETURN start, rel, end", 
                         "conf", Map.of("source", Map.of(), 
                                 "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", "neo4j")), 
                                 "findById", true
                         )));
-        
-        // with target type = "URL"
-        TestContainerUtil.testResult(neo4jContainer.getSession(), "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+    }
+
+    @Test
+    public void shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById22() {
+        TestContainerUtil.testResult(session, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
                 Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
-                        "conf", Map.of("dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())),
+                        "conf", Map.of("boltConfig", Map.of("databaseName", secondDb),
+                                "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", secondDb)),
                                 "findById", true
                         )),
-                r -> assertFalse(r.hasNext()));
+                r -> {
+                    final Map<String, Object> next = r.next();
+                    System.out.println("shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById22" + next);
+                    assertFalse(r.hasNext());
+                });
     }
 
     @Test
     public void shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById1() {
-        TestContainerUtil.testResult(neo4jContainer.getSession(), "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+        TestUtil.testResult(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
                 Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
                         "conf", Map.of("boltConfig", Map.of("databaseName", secondDb),
-                                "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())),
+                                "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", secondDb)),
                                 "findById", true
                         )),
                     r -> {
                         final Map<String, Object> next = r.next();
-                        System.out.println("DiffFullTest.shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById1");
+                        System.out.println("shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById1" + next);
                         assertFalse(r.hasNext());
                     });
     }
