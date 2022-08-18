@@ -38,14 +38,18 @@ public class TestContainerUtil {
     }
 
     public static Neo4jContainerExtension createEnterpriseDB(boolean withLogging)  {
-        return createEnterpriseDB(baseDir, withLogging, Collections.emptyList());
+        return createEnterpriseDB(baseDir, withLogging);
     }
 
     public static Neo4jContainerExtension createEnterpriseDB(boolean withLogging, List<File> additionalFiles)  {
         return createEnterpriseDB(baseDir, withLogging, additionalFiles);
     }
 
-    public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging, List<File> additionalFiles)  {
+    public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging)  {
+        return createEnterpriseDB(baseDir, withLogging, Collections.emptyList());
+    }
+
+    public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging, List<File> additionalFiles) {
         System.out.println("baseDir " + baseDir.getAbsolutePath());
         executeGradleTasks(baseDir, "shadowJar");
         final File baseDir1 = Paths.get("../extra-dependencies").toFile();
