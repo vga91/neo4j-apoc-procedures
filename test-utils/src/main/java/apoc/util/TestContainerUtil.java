@@ -48,7 +48,7 @@ public class TestContainerUtil {
     public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging, List<File> additionalFiles)  {
         System.out.println("baseDir " + baseDir.getAbsolutePath());
         executeGradleTasks(baseDir, "shadowJar");
-        final File baseDir1 = new File("../extra-dependencies");
+        final File baseDir1 = Paths.get("../extra-dependencies").toFile();
         System.out.println("baseDir1.getAbsolutePath() = " + baseDir1.getAbsolutePath());
         executeGradleTasks(baseDir1, "shadowJar");
         // We define the container with external volumes

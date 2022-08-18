@@ -110,7 +110,7 @@ public class DiffFullTest {
                         )));
         
         // with target type = "URL"
-        TestContainerUtil.testResult(driver.session(), "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+        TestContainerUtil.testResult(neo4jContainer.getSession(), "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
                 Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
                         "conf", Map.of("dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())),
                                 "findById", true
@@ -120,7 +120,7 @@ public class DiffFullTest {
 
     @Test
     public void shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById1() {
-        TestContainerUtil.testResult(driver.session(), "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+        TestContainerUtil.testResult(neo4jContainer.getSession(), "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
                 Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
                         "conf", Map.of("boltConfig", Map.of("databaseName", secondDb),
                                 "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())),
