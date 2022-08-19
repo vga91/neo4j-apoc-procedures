@@ -30,6 +30,7 @@ import java.util.stream.IntStream;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.util.TestContainerUtil.EXTRA_DEPENDENCIES;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.Util.map;
 import static org.junit.Assert.assertEquals;
@@ -49,7 +50,7 @@ public class DiffFullTest {
 
     @BeforeClass
     public static void setup() throws Exception {
-        neo4jContainer = createEnterpriseDB(true, List.of(Paths.get("../extra-dependencies/bolt/build/libs", "apoc-bolt-dependencies-" + Version.class.getPackage().getImplementationVersion() + ".jar").toFile()))
+        neo4jContainer = createEnterpriseDB(true, List.of(Paths.get(EXTRA_DEPENDENCIES, "bolt/build/libs", "apoc-bolt-dependencies-" + Version.class.getPackage().getImplementationVersion() + ".jar").toFile()))
                 .withInitScript("init_neo4j_diff.cypher")
                 .withLogging()
                 .withoutAuthentication();
