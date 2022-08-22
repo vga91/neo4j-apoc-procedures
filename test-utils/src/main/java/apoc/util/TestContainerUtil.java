@@ -53,7 +53,6 @@ public class TestContainerUtil {
 
     public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging, List<File> extraDepsJars) {
         executeGradleTasks(baseDir, "shadowJar");
-
         // We define the container with external volumes
         File importFolder = new File("import");
         importFolder.mkdirs();

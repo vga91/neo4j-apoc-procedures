@@ -23,6 +23,7 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.time.OffsetTime;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -36,6 +37,7 @@ import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.Util.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 public class DiffFullTest {
@@ -122,29 +124,37 @@ public class DiffFullTest {
                         "conf", Map.of("dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", secondDb)),
                                 "findById", true
                         )),
-                r -> {
-                    Map<String, Object> row = r.next();
-                    Map<String, Object> expected = map("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null,
-                            "source", 2L, "dest", 4L, "destLabel", null);
-                    assertEquals(expected, row);
+                this::secondDbAssertions);
+    }
 
-                    row = r.next();
-                    Map<String, Object> expected2 = map("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
-                            "source", Map.of("Person", 2L), "dest", Map.of("Person", 4L), "destLabel", null);
-                    assertEquals(expected2, row);
-                    
-                    row = r.next();
-                    Map<String, Object> expected3 = map("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null,
-                            "source", 1L, "dest", 2L, "destLabel", null);
-                    assertEquals(expected3, row);
-                    
-                    row = r.next();
-                    Map<String, Object> expected4 = map("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
-                            "source", Map.of("Person", 1L), "dest", Map.of("Person", 2L), "destLabel", null);
-                    assertEquals(expected4, row);
-                    
-                    assertFalse(r.hasNext());
-                });
+    private void secondDbAssertions(Iterator<Map<String, Object>> r) {
+        Map<String, Object> row = r.next();
+        assertEquals("Node", row.get("entityType"));
+        assertEquals("Person", row.get("sourceLabel"));
+        assertEquals("Destination Entity not found", row.get("difference"));
+        assertEquals(map("name", "Tom Burton"), row.get("source"));
+        assertNull(row.get("dest"));
+        assertTrue(row.get("id") instanceof Long);
+
+        row = r.next();
+        assertEquals("Node", row.get("entityType"));
+        assertEquals("Person", row.get("sourceLabel"));
+        assertEquals("Destination Entity not found", row.get("difference"));
+        assertEquals(map("name", "John William"), row.get("source"));
+        assertNull(row.get("dest"));
+        assertTrue(row.get("id") instanceof Long);
+
+        row = r.next();
+        assertEquals("Relationship", row.get("entityType"));
+        assertEquals("KNOWS", row.get("sourceLabel"));
+        assertEquals("Destination Entity not found", row.get("difference"));
+        final Map<String, Object> sourceRel = Map.of("start", Map.of("name", "Tom Burton"),
+                "end", Map.of("name", "John William"),
+                "properties", Map.of("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2016L));
+        assertEquals(sourceRel, row.get("source"));
+        assertNull(row.get("dest"));
+        assertTrue(row.get("id") instanceof Long);
+        assertFalse(r.hasNext());
     }
 
     @Test
@@ -161,25 +171,33 @@ public class DiffFullTest {
                         "conf", Map.of("boltConfig", Map.of("databaseName", secondDb),
                                 "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl()))
                         )),
-                    r -> {
-                        Map<String, Object> row = r.next();
-                        Map<String, Object> expected = map("entityType", "Node", "sourceLabel", "Person", "difference", "Destination Entity not found", "id", 7L,
-                                "source", Map.of("name", "Tom Burton"), "dest", null, "destLabel", null);
-                        assertEquals(expected, row);
-
-                        row = r.next();
-                        Map<String, Object> expected2 = map("entityType", "Node", "sourceLabel", "Person", "difference", "Destination Entity not found", "id", 5L,
-                                "source", Map.of("name", "John William"), "dest", null, "destLabel", null);
-                        assertEquals(expected2, row);
-
-                        row = r.next();
-                        Map<String, Object> expected3 = map("entityType", "Relationship", "sourceLabel", "KNOWS", "difference", "Destination Entity not found", "id", 1L,
-                                "source", Map.of("start", Map.of("name", "Tom Burton"), "end", Map.of("name", "John William"), "properties", Map.of("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2016L)), "dest", null, "destLabel", null);
-                        assertEquals(expected3, row);
-                        assertFalse(r.hasNext());
-                    });
+                this::secondDbAssertions);
     }
 
+    @Test
+    public void shouldFindDifferencesInTheSameDb() {
+        db.executeTransactionally("MATCH (n:Person {name: 'Michael Jordan'}) SET n:Other");
+
+        TestUtil.testResult(db, "CALL apoc.diff.graphs($querySource, $queryDest, $conf)",
+                Map.of("querySource", "MATCH (node:Other) RETURN node",
+                        "queryDest", "MATCH (node:Person) RETURN node",
+                        "conf", Map.of("source", Collections.emptyMap(),
+                                "dest", Collections.emptyMap())
+                ),
+                r -> {
+                    Map<String, Object> row = r.next();
+                    final Map<String, Object> expected = map("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null, "source", 2L, "dest", 4L, "destLabel", null);
+                    assertEquals(expected, row);
+                    row = r.next();
+                    final Map<String, Object> expected2 = map("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
+                            "source", map("Person", 1L, "Other", 1L),
+                            "dest", map("Person", 3L, "Other", 1L), "destLabel", null);
+                    assertEquals(expected2, row);
+                    assertFalse(r.hasNext());
+                });
+
+        db.executeTransactionally("MATCH (n:Person:Other) REMOVE n:Other");
+    }
 
     @Test
     public void shouldCompareTwoEqualGraphsByQuery() {

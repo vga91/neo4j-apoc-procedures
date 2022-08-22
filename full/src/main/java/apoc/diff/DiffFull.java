@@ -61,11 +61,10 @@ public class DiffFull {
     public Stream<SourceDestResult> compare(@Name(value = "source") Object source,
                                             @Name(value = "dest") Object dest,
                                             @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
-        
         config = config == null ? Collections.emptyMap() : config;
         SubGraph sourceGraph = toSubGraph(source, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("source")));
         SubGraph destGraph = toSubGraph(dest, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("dest")));
-        
+
         Function<Map<String, Long>, Long> sum = (map) -> map.values().stream().reduce(0L, (x, y) -> x + y);
         final SourceDestResult labelNodeCount = sourceDestCountByLabel(sourceGraph, destGraph);
         final SourceDestResult nodeCount = labelNodeCount.areSourceAndDestEqual() ?
@@ -209,7 +208,6 @@ public class DiffFull {
                 .findFirst();
     }
 
-    
     private Map<String, List<Object>> createBaseMapFromOtherDb(Result execute, boolean dbDestType) {
         return execute.stream()
                 .map(row -> dbDestType ? row : row.get("row"))
