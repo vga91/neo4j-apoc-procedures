@@ -124,23 +124,23 @@ public class DiffFullTest {
                         )),
                 r -> {
                     Map<String, Object> row = r.next();
-                    Map<String, Object> expected = Map.of("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null,
+                    Map<String, Object> expected = map("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null,
                             "source", 2L, "dest", 4L, "destLabel", null);
                     assertEquals(expected, row);
 
                     row = r.next();
-                    Map<String, Object> expected2 = Map.of("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
+                    Map<String, Object> expected2 = map("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
                             "source", Map.of("Person", 2L), "dest", Map.of("Person", 4L), "destLabel", null);
                     assertEquals(expected2, row);
                     
                     row = r.next();
-                    Map<String, Object> expected3 = Map.of("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
-                            "source", Map.of("Person", 2L), "dest", Map.of("Person", 4L), "destLabel", null);
+                    Map<String, Object> expected3 = map("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null,
+                            "source", 1L, "dest", 2L, "destLabel", null);
                     assertEquals(expected3, row);
                     
                     row = r.next();
-                    Map<String, Object> expected4 = Map.of("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
-                            "source", Map.of("Person", 2L), "dest", Map.of("Person", 4L), "destLabel", null);
+                    Map<String, Object> expected4 = map("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
+                            "source", Map.of("Person", 1L), "dest", Map.of("Person", 2L), "destLabel", null);
                     assertEquals(expected4, row);
                     
                     assertFalse(r.hasNext());
@@ -155,7 +155,7 @@ public class DiffFullTest {
     }
 
     @Test
-    public void shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById1() {
+    public void shouldNotFindDifferencesInASecondDbUsingUrlConfig() {
         TestUtil.testResult(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
                 Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
                         "conf", Map.of("boltConfig", Map.of("databaseName", secondDb),
@@ -163,45 +163,21 @@ public class DiffFullTest {
                         )),
                     r -> {
                         Map<String, Object> row = r.next();
-                        Map<String, Object> expected = Map.of("entityType", "Node", "sourceLabel", "Person", "difference", "Destination Entity not found", "id", 4L,
+                        Map<String, Object> expected = map("entityType", "Node", "sourceLabel", "Person", "difference", "Destination Entity not found", "id", 7L,
                                 "source", Map.of("name", "Tom Burton"), "dest", null, "destLabel", null);
                         assertEquals(expected, row);
 
                         row = r.next();
-                        Map<String, Object> expected2 = Map.of("entityType", "Node", "sourceLabel", "Person", "difference", "Destination Entity not found", "id", 5L,
+                        Map<String, Object> expected2 = map("entityType", "Node", "sourceLabel", "Person", "difference", "Destination Entity not found", "id", 5L,
                                 "source", Map.of("name", "John William"), "dest", null, "destLabel", null);
                         assertEquals(expected2, row);
 
                         row = r.next();
-                        Map<String, Object> expected3 = Map.of("entityType", "Relationship", "sourceLabel", "KNOWS", "difference", "Destination Entity not found", "id", 1L,
+                        Map<String, Object> expected3 = map("entityType", "Relationship", "sourceLabel", "KNOWS", "difference", "Destination Entity not found", "id", 1L,
                                 "source", Map.of("start", Map.of("name", "Tom Burton"), "end", Map.of("name", "John William"), "properties", Map.of("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2016L)), "dest", null, "destLabel", null);
                         assertEquals(expected3, row);
                         assertFalse(r.hasNext());
                     });
-    }
-    
-    @Test
-    public void testWithSpecificDatabaseWithTTLDisabled() throws Exception {
-        try (Session session = driver.session(SessionConfig.forDatabase(secondDb))) {
-            session.writeTransaction(tx -> tx.run("CREATE (q:Person {name: 'Alpha', age: 23})\n" +
-                    "CREATE (p:Person {name: 'Beta', age: 22})\n" +
-                    "CREATE (q)-[:KNOWS{since:2016, time:time('125035.556+0100')}]->(p);"));
-        }
-
-        // when
-        final String localQuery = "MATCH p = ()-[:KNOWS]->() RETURN p";
-        final String remoteQuery = "MATCH p = ()-[:KNOWS]->() RETURN p";
-        TestUtil.testResult(db, "CALL apoc.diff.graphs($localQuery, $remoteQuery, $diffConfig) YIELD difference, entityType, id, sourceLabel, destLabel, source, dest\n" +
-                        "RETURN difference, entityType, id, sourceLabel, destLabel, source, dest",
-                Map.of("localQuery", localQuery, "remoteQuery", remoteQuery,
-                        "diffConfig", Map.of("dest", Map.of("target", Map.of("value", neo4jContainer.getBoltUrl())))),
-                (r) -> {
-                    r.forEachRemaining(row2 -> {
-                        System.out.println("testWithSpecificDatabaseWithTTLDisabled = " + row2);
-                    });
-
-                    assertFalse(r.hasNext());
-                });
     }
 
 
