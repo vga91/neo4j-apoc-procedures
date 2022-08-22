@@ -21,7 +21,7 @@ import java.util.stream.Stream;
  */
 @Extended
 public class Bolt {
-
+// test
     @Context
     public GraphDatabaseService db;
 
