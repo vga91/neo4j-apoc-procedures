@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -48,7 +49,10 @@ public class DiffFull {
     public static final String NODE = "Node";
     public static final String RELATIONSHIP = "Relationship";
     public static final String DESTINATION_ENTITY_NOT_FOUND = "Destination Entity not found";
-    
+    private static final String BOLT_SCHEMA_QUERY = "CALL db.indexes() YIELD labelsOrTypes, properties, state, uniqueness\n" +
+            "WHERE state = 'ONLINE' AND uniqueness = 'UNIQUE'\n" +
+            "RETURN collect({labels: labelsOrTypes, properties: properties, type: uniqueness}) AS schema\n";
+
     @Context
     public Transaction tx;
 
@@ -59,8 +63,8 @@ public class DiffFull {
                                             @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
         
         config = config == null ? Collections.emptyMap() : config;
-        SubGraph sourceGraph = toSubGraph(source, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("source"))/*, tx*/);
-        SubGraph destGraph = toSubGraph(dest, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("dest"))/*, tx*/);
+        SubGraph sourceGraph = toSubGraph(source, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("source")));
+        SubGraph destGraph = toSubGraph(dest, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("dest")));
         
         Function<Map<String, Long>, Long> sum = (map) -> map.values().stream().reduce(0L, (x, y) -> x + y);
         final SourceDestResult labelNodeCount = sourceDestCountByLabel(sourceGraph, destGraph);
@@ -146,23 +150,15 @@ public class DiffFull {
                                     (Map<String, Object>) config.getOrDefault("boltConfig", new HashMap<>()),
                                     targetValue,
                                     sourceDestConfig.getParams());
-                            return toSubGraph(graph, config, null/*, tx*/);
+                            return toSubGraph(graph, config, null);
                         case DATABASE:
-                            // TODO - POTREI PROVARE CON EXECUTETRANSACTIONALLI(.... , RES -> RES....)
-                            // todo --> tx -> .... as a Function<>, so that i can apply
-                            
                             return apocConfig().withDb(targetValue, transaction -> {
                                 final Result result = transaction.execute(inputString, sourceDestConfig.getParams());
-                                final Map<String, List<Object>> baseMapFromOtherDb = createBaseMapFromOtherDb(result, true);
-                                // todo - toVirtual....
-                                String boltQuery = "CALL db.indexes() YIELD labelsOrTypes, properties, state, uniqueness\n" +
-                                        "WHERE state = 'ONLINE' AND uniqueness = 'UNIQUE'\n" +
-                                        "RETURN collect({labels: labelsOrTypes, properties: properties, type: uniqueness}) AS schema\n";
-
-                                transaction
-                                        .execute(boltQuery).<List<Object>>columnAs("schema")
-                                        .stream().findFirst()
-                                        .ifPresent((schema) -> baseMapFromOtherDb.put("schema", schema));
+                                
+                                final Map<String, List<Object>> baseMapFromOtherDb = createMapAndSchema(result, true,
+                                        () -> transaction
+                                                .execute(BOLT_SCHEMA_QUERY).<List<Object>>columnAs("schema")
+                                                .stream().findFirst());
 
                                 return toSubGraph(baseMapFromOtherDb, config, null);
                             });
@@ -191,12 +187,14 @@ public class DiffFull {
         boltConfig.putIfAbsent("virtual", true);
         boltConfig.putIfAbsent("withRelationshipNodeProperties", true);
 
-        final Result execute = tx.execute(boltLoadQuery, map("boltConfig", boltConfig, "boltQuery", inputString, "url", url, "params", params));
-
-        // todo - common...
-        final Map<String, List<Object>> graph = createBaseMapFromOtherDb(execute, false);
-
-        final Optional<List<Object>> schemaOpt = retrieveSchemaFromOtherDB(boltLoadQuery, boltConfig, url);
+        final Result result = tx.execute(boltLoadQuery, map("boltConfig", boltConfig, "boltQuery", inputString, "url", url, "params", params));
+        
+        return createMapAndSchema(result, false, () -> retrieveSchemaFromOtherDB(boltLoadQuery, boltConfig, url));
+    }
+    
+    private Map<String, List<Object>> createMapAndSchema(Result result, boolean dbDestType, Supplier<Optional<List<Object>>> retrieveSchemaSuppl) {
+        final Map<String, List<Object>> graph = createBaseMapFromOtherDb(result, dbDestType);
+        final Optional<List<Object>> schemaOpt = retrieveSchemaSuppl.get();
         schemaOpt.ifPresent((schema) -> graph.put("schema", schema));
         return graph;
     }
@@ -204,10 +202,7 @@ public class DiffFull {
     private Optional<List<Object>> retrieveSchemaFromOtherDB(String boltLoadQuery,
                                                              Map<String, Object> boltConfig,
                                                              String url) {
-        String boltQuery = "CALL db.indexes() YIELD labelsOrTypes, properties, state, uniqueness\n" +
-                "WHERE state = 'ONLINE' AND uniqueness = 'UNIQUE'\n" +
-                "RETURN collect({labels: labelsOrTypes, properties: properties, type: uniqueness}) AS schema\n";
-        return tx.execute(boltLoadQuery, map("boltConfig", boltConfig, "boltQuery", boltQuery, "url", url, "params", Collections.emptyMap()))
+        return tx.execute(boltLoadQuery, map("boltConfig", boltConfig, "boltQuery", BOLT_SCHEMA_QUERY, "url", url, "params", Collections.emptyMap()))
                 .stream()
                 .map(row -> (Map<String, Object>) row.get("row"))
                 .map(row -> (List<Object>) row.get("schema"))
@@ -215,7 +210,6 @@ public class DiffFull {
     }
 
     
-    // todo - here??
     private Map<String, List<Object>> createBaseMapFromOtherDb(Result execute, boolean dbDestType) {
         return execute.stream()
                 .map(row -> dbDestType ? row : row.get("row"))
