@@ -29,7 +29,7 @@ import static org.junit.Assert.assertTrue;
 
 public class TestContainerUtil {
 
-    public static final String EXTRA_DEPENDENCIES = "../extra-dependencies";
+    public static final String EXTRA_DEPS_PATH = "../extra-dependencies";
 
     private TestContainerUtil() {}
 
@@ -51,7 +51,7 @@ public class TestContainerUtil {
         return createEnterpriseDB(baseDir, withLogging, Collections.emptyList());
     }
 
-    public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging, List<File> additionalFiles) {
+    public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging, List<File> extraDepsJars) {
         System.out.println("baseDir " + baseDir.getAbsolutePath());
         executeGradleTasks(baseDir, "shadowJar");
 
@@ -67,12 +67,11 @@ public class TestContainerUtil {
         pluginsFolder.mkdirs();
 
         Collection<File> files = FileUtils.listFiles(new File(baseDir, "build/libs"), new WildcardFileFilter(Arrays.asList("*-all.jar", "*-core.jar")), null);
-        if (!additionalFiles.isEmpty()) {
-            final File baseDir1 = Paths.get(EXTRA_DEPENDENCIES).toFile();
-            System.out.println("baseDir1.getAbsolutePath() = " + baseDir1.getAbsolutePath());
+        if (!extraDepsJars.isEmpty()) {
+            final File baseDir1 = Paths.get(EXTRA_DEPS_PATH).toFile();
             executeGradleTasks(baseDir1, "shadowJar");
         }
-        files.addAll(additionalFiles);
+        files.addAll(extraDepsJars);
         for (File file: files) {
             try {
                 FileUtils.copyFileToDirectory(file, pluginsFolder);

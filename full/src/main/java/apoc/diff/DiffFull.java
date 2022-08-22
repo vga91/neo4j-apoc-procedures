@@ -168,10 +168,10 @@ public class DiffFull {
                             });
                     }
                 } else {
-                    return toSubGraph(tx.execute(inputString, sourceDestConfig.getParams()), config, null/*, tx*/);
+                    return toSubGraph(tx.execute(inputString, sourceDestConfig.getParams()), config, null);
                 }
             }
-            return toSubGraph(tx.execute(inputString), config, null/*, tx*/);
+            return toSubGraph(tx.execute(inputString), config, null);
         }
         if (input instanceof Result) {
             Result result = (Result) input;
@@ -305,7 +305,6 @@ public class DiffFull {
     private Node findNode(Iterable<Node> it, Node node, SubGraph graph, DiffConfig config) {
         ConstraintDefinition constraintDefinition = getConstraint(node, graph);
         if (constraintDefinition == null) {
-            // todo... document it..
             return config.isFindById() ? findEntityById(it, node.getId()) : null;
         }
         Map<String, Object> keys = getNodeKeys(node, constraintDefinition);
