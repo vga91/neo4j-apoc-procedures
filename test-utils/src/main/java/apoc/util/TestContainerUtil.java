@@ -29,8 +29,6 @@ import static org.junit.Assert.assertTrue;
 
 public class TestContainerUtil {
 
-    public static final String EXTRA_DEPS_PATH = "../extra-dependencies";
-
     private TestContainerUtil() {}
 
     private static File baseDir = Paths.get(".").toFile();
@@ -43,15 +41,7 @@ public class TestContainerUtil {
         return createEnterpriseDB(baseDir, withLogging);
     }
 
-    public static Neo4jContainerExtension createEnterpriseDB(boolean withLogging, List<File> additionalFiles)  {
-        return createEnterpriseDB(baseDir, withLogging, additionalFiles);
-    }
-
     public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging)  {
-        return createEnterpriseDB(baseDir, withLogging, Collections.emptyList());
-    }
-
-    public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging, List<File> extraDepsJars) {
         executeGradleTasks(baseDir, "shadowJar");
         // We define the container with external volumes
         File importFolder = new File("import");
@@ -65,12 +55,6 @@ public class TestContainerUtil {
         pluginsFolder.mkdirs();
 
         Collection<File> files = FileUtils.listFiles(new File(baseDir, "build/libs"), new WildcardFileFilter(Arrays.asList("*-all.jar", "*-core.jar")), null);
-        // in order to use extra-dependencies, e.g. bolt-dependencies, besides the apoc jar
-        if (!extraDepsJars.isEmpty()) {
-            final File extraDepsDir = Paths.get(EXTRA_DEPS_PATH).toFile();
-            executeGradleTasks(extraDepsDir, "shadowJar");
-        }
-        files.addAll(extraDepsJars);
         for (File file: files) {
             try {
                 FileUtils.copyFileToDirectory(file, pluginsFolder);

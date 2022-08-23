@@ -4,7 +4,6 @@ import apoc.bolt.Bolt;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestUtil;
-import apoc.version.Version;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -19,8 +18,6 @@ import org.neo4j.driver.SessionConfig;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
-import java.io.File;
-import java.nio.file.Paths;
 import java.time.OffsetTime;
 import java.util.Collections;
 import java.util.Iterator;
@@ -32,7 +29,6 @@ import java.util.stream.IntStream;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
-import static apoc.util.TestContainerUtil.EXTRA_DEPS_PATH;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.Util.map;
 import static org.junit.Assert.assertEquals;
@@ -53,9 +49,7 @@ public class DiffFullTest {
 
     @BeforeClass
     public static void setup() throws Exception {
-        final File boltJarFile = Paths.get(EXTRA_DEPS_PATH, "bolt/build/libs", "apoc-bolt-dependencies-" + Version.class.getPackage().getImplementationVersion() + ".jar")
-                .toFile();
-        neo4jContainer = createEnterpriseDB(true, List.of(boltJarFile))
+        neo4jContainer = createEnterpriseDB(true)
                 .withInitScript("init_neo4j_diff.cypher")
                 .withLogging()
                 .withoutAuthentication();
@@ -110,9 +104,8 @@ public class DiffFullTest {
     @Test
     public void shouldNotFindDifferencesInTheSameDbUsingDatabaseTypeAndFindById() {
         TestUtil.testCallEmpty(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)", 
-                Map.of("querySourceDest", "MATCH p = (start)-[rel:KNOWS]->(end) RETURN start, rel, end", 
-                        "conf", Map.of("source", Map.of(), 
-                                "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", "neo4j")), 
+                map("querySourceDest", "MATCH p = (start)-[rel:KNOWS]->(end) RETURN start, rel, end", 
+                        "conf", map("dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", "neo4j")), 
                                 "findById", true
                         )));
     }
@@ -120,8 +113,8 @@ public class DiffFullTest {
     @Test
     public void shouldFindDifferencesUsingDatabaseTypeAndFindById() {
         TestContainerUtil.testResult(session, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
-                Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
-                        "conf", Map.of("dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", secondDb)),
+                map("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
+                        "conf", map("dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.DATABASE.name(), "value", secondDb)),
                                 "findById", true
                         )),
                 this::secondDbAssertions);
@@ -148,9 +141,9 @@ public class DiffFullTest {
         assertEquals("Relationship", row.get("entityType"));
         assertEquals("KNOWS", row.get("sourceLabel"));
         assertEquals("Destination Entity not found", row.get("difference"));
-        final Map<String, Object> sourceRel = Map.of("start", Map.of("name", "Tom Burton"),
-                "end", Map.of("name", "John William"),
-                "properties", Map.of("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2016L));
+        final Map<String, Object> sourceRel = map("start", map("name", "Tom Burton"),
+                "end", map("name", "John William"),
+                "properties", map("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2016L));
         assertEquals(sourceRel, row.get("source"));
         assertNull(row.get("dest"));
         assertTrue(row.get("id") instanceof Long);
@@ -160,16 +153,16 @@ public class DiffFullTest {
     @Test
     public void shouldNotFindDifferencesInTheSameDataset() {
         TestUtil.testCallEmpty(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
-                Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
-                        "conf", Map.of("dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())))));
+                map("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
+                        "conf", map("dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())))));
     }
 
     @Test
     public void shouldNotFindDifferencesInASecondDbUsingUrlConfig() {
         TestUtil.testResult(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
-                Map.of("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
-                        "conf", Map.of("boltConfig", Map.of("databaseName", secondDb),
-                                "dest", Map.of("target", Map.of("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl()))
+                map("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
+                        "conf", map("boltConfig", map("databaseName", secondDb),
+                                "dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl()))
                         )),
                 this::secondDbAssertions);
     }
@@ -179,9 +172,9 @@ public class DiffFullTest {
         db.executeTransactionally("MATCH (n:Person {name: 'Michael Jordan'}) SET n:Other");
 
         TestUtil.testResult(db, "CALL apoc.diff.graphs($querySource, $queryDest, $conf)",
-                Map.of("querySource", "MATCH (node:Other) RETURN node",
+                map("querySource", "MATCH (node:Other) RETURN node",
                         "queryDest", "MATCH (node:Person) RETURN node",
-                        "conf", Map.of("source", Collections.emptyMap(),
+                        "conf", map("source", Collections.emptyMap(),
                                 "dest", Collections.emptyMap())
                 ),
                 r -> {
@@ -214,7 +207,7 @@ public class DiffFullTest {
         TestUtil.testResult(db, "CALL apoc.bolt.load($url, $boltQuery, {}, $boltConfig) YIELD row\n" +
                         "CALL apoc.diff.graphs($sourceQuery, row.graph, $diffConfig) YIELD difference, entityType, id, sourceLabel, destLabel, source, dest\n" +
                         "RETURN difference, entityType, id, sourceLabel, destLabel, source, dest",
-                Map.of("sourceQuery", query,
+                map("sourceQuery", query,
                         "boltQuery", boltQuery,
                         "url", neo4jContainer.getBoltUrl(),
                         "boltConfig", map("virtual", true, "withRelationshipNodeProperties", true),
