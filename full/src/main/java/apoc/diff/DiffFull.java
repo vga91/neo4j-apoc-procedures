@@ -62,8 +62,9 @@ public class DiffFull {
                                             @Name(value = "dest") Object dest,
                                             @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
         config = config == null ? Collections.emptyMap() : config;
-        SubGraph sourceGraph = toSubGraph(source, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("source")));
-        SubGraph destGraph = toSubGraph(dest, config, SourceDestConfig.fromMap((Map<String, Object>) config.get("dest")));
+        DiffConfig diffConfig = new DiffConfig(config);
+        SubGraph sourceGraph = toSubGraph(source, diffConfig, SourceDestConfig.fromMap((Map<String, Object>) config.get("source")));
+        SubGraph destGraph = toSubGraph(dest, diffConfig, SourceDestConfig.fromMap((Map<String, Object>) config.get("dest")));
 
         Function<Map<String, Long>, Long> sum = (map) -> map.values().stream().reduce(0L, (x, y) -> x + y);
         final SourceDestResult labelNodeCount = sourceDestCountByLabel(sourceGraph, destGraph);
@@ -79,7 +80,6 @@ public class DiffFull {
                 nodeCount, nodeCount != null ? labelNodeCount : null,
                 relCount, relCount != null ? typeRelCount : null)
                 .filter(Objects::nonNull);
-        DiffConfig diffConfig = new DiffConfig(config);
         final Stream<SourceDestResult> nodeStream = compareNodes(sourceGraph, destGraph, diffConfig);
         final Stream<SourceDestResult> relStream = compareRels(sourceGraph, destGraph);
         return Stream.of(generalStream, nodeStream, relStream)
@@ -124,7 +124,7 @@ public class DiffFull {
         }
     }
 
-    private SubGraph toSubGraph(Object input, Map<String, Object> config, SourceDestConfig sourceDestConfig) {
+    private SubGraph toSubGraph(Object input, DiffConfig config, SourceDestConfig sourceDestConfig) {
         if (input == null) {
             throw new NullPointerException("Input data is null");
         }
@@ -146,7 +146,7 @@ public class DiffFull {
                     switch (sourceDestConfig.getTarget().getType()) {
                         case URL:
                             final Map<String, List<Object>> graph = createMapFromRemoteDb(inputString,
-                                    (Map<String, Object>) config.getOrDefault("boltConfig", new HashMap<>()),
+                                    config.getBoltConfig(),
                                     targetValue,
                                     sourceDestConfig.getParams());
                             return toSubGraph(graph, config, null);
@@ -170,7 +170,7 @@ public class DiffFull {
         }
         if (input instanceof Result) {
             Result result = (Result) input;
-            return CypherResultSubGraph.from(tx, result, Util.toBoolean(config.getOrDefault("relsInBetween", false)));
+            return CypherResultSubGraph.from(tx, result, Util.toBoolean(config.isRelsInBetween()));
         }
         if (input instanceof Path) {
             Path path = (Path) input;

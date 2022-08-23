@@ -65,6 +65,7 @@ public class TestContainerUtil {
         pluginsFolder.mkdirs();
 
         Collection<File> files = FileUtils.listFiles(new File(baseDir, "build/libs"), new WildcardFileFilter(Arrays.asList("*-all.jar", "*-core.jar")), null);
+        // in order to use extra-dependencies, e.g. bolt-dependencies, besides the apoc jar
         if (!extraDepsJars.isEmpty()) {
             final File extraDepsDir = Paths.get(EXTRA_DEPS_PATH).toFile();
             executeGradleTasks(extraDepsDir, "shadowJar");
