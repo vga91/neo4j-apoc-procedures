@@ -1,10 +1,9 @@
 == `apoc.diff.graphs` procedure
 
-The procedure accept 2 string argument, the `source` and the `dest`, representing 2 queries to compare,
+The procedure accepts 2 string argument, the `source` and the `dest`, representing 2 queries to compare,
 and an optional `config` map as a 3rd parameter.
 
-The procedure compares the `source` and `dest` two graphs and returns the differences in term of:
-
+The procedure compares the `source` and `dest` two graphs and returns the differences in terms of:
 
 * same node count
 * same count per label
@@ -15,7 +14,7 @@ For each node in the `source` graph with a certain label, find the same node (in
 * compare all labels
 * compare all properties
 
-Please note that the node comparison leverage the existing constraint to find an equivalent node. To find a node using the internal id you can use `findById:true` config.
+Please note that the node finding leverage the existing constraint to find an equivalent node. To find a node using the internal id you can use `findById:true` config (see below).
 
 For each relationship in the `source` graph we'll get the two nodes of the relationship and look into the `dest`
 graph if there is a relationship with the same properties and the same start/end node.
@@ -92,7 +91,8 @@ If we create another dataset in a new `secondDb` database:
 ----
 CREATE CONSTRAINT IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE;
 CREATE (m:Person:Other {name: 'Michael Jordan', age: 54}), 
-    (q:Person {name: 'Jerry Burton', age: 23}), 
+    (n:Person {name: 'Tom Burton', age: 47}),
+    (q:Person:Other {name: 'Jerry Burton', age: 23}), 
     (p:Person {name: 'Jack William', age: 22}), 
   (q)-[:KNOWS{since:1999, time:time('125035.556+0100')}]->(p);
 ----
@@ -100,7 +100,9 @@ CREATE (m:Person:Other {name: 'Michael Jordan', age: 54}),
 We can execute, in the `neo4j` database:
 [source,cypher]
 ----
-CALL apoc.diff.graphs("MATCH p = (start:Person)-[rel:KNOWS]->(end) RETURN start, rel, end", "MATCH p = (start)-[rel:KNOWS]->(end) RETURN start, rel, end", {dest: {target: {type: "DATABASE", value: "secondDb"}}})
+CALL apoc.diff.graphs("MATCH p = (start:Person)-[rel:KNOWS]->(end) RETURN start, rel, end", 
+  "MATCH p = (start)-[rel:KNOWS]->(end) RETURN start, rel, end", 
+  {dest: {target: {type: "DATABASE", value: "secondDb"}}})
 ----
 
 .Results
@@ -113,23 +115,26 @@ CALL apoc.diff.graphs("MATCH p = (start:Person)-[rel:KNOWS]->(end) RETURN start,
 |===
 
 
-Vice versa, in the `secondDb` database:
-
+Vice versa, we can compare 2 dataset starting from the `secondDb` database:
 
 [source,cypher]
 ----
-CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015185T19:32:24'), place:point({latitude: 13.1, longitude: 33.46789})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42}),(c:User {age:12}),(d:Another {foo: 'bar'})
+CALL apoc.diff.graphs("MATCH (node:Person) RETURN node", 
+  "MATCH (node:Person) RETURN node", 
+  {dest: {target: {type: "DATABASE", value: "neo4j"}}})
 ----
 
 .Results
 [opts="header"]
 |===
 | difference | 	entityType | 	id | 	sourceLabel | 	destLabel | 	source	 | dest
-| "Destination Entity not found" | "Node" | 1 | "Person" | null	 | {"name": "Jerry Burton" } | null
-| "Destination Entity not found" | "Node" | 2 | "Person" | null	 |{"name": "Jack William"}| null
-| "Destination Entity not found" | 	"Relationship"	| 0	| "KNOWS" | 	null	 | {"start":{"name":"Jerry Burton"},"end":{"name":"Jack William"} "properties":{"time":"12:50:35.556000000+01:00","since":1999}} | null
+| "Total count" | "Node" |	null |	null |	null |	6 |	3 |
+| "Count by Label" |	"Node" |	null |	null |	null |{"Person": 4, "Other": 2 }  | {"Person": 3 }
+| "Different Labels" |	"Node" |	0 |	"Person" |	"Person" |	["Other", "Person"] |	["Person"]
+| "Different Properties" |	"Node" |	1 |	"Person" |	"Person" |{"age": 47 } | {"age": 23 }
+| "Destination Entity not found" |	"Node" |	2 |	"Person" |	null | {"name": "Jerry Burton" }  | null
+| "Destination Entity not found" |	"Node" |	7 |	"Person" |	null | {"name": "Jack William" }  |null
 |===
-
 
 
 

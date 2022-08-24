@@ -29,6 +29,14 @@ import java.util.stream.IntStream;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.diff.DiffFull.COUNT_BY_LABEL;
+import static apoc.diff.DiffFull.COUNT_BY_TYPE;
+import static apoc.diff.DiffFull.DESTINATION_ENTITY_NOT_FOUND;
+import static apoc.diff.DiffFull.DIFFERENT_LABELS;
+import static apoc.diff.DiffFull.DIFFERENT_PROPS;
+import static apoc.diff.DiffFull.NODE;
+import static apoc.diff.DiffFull.RELATIONSHIP;
+import static apoc.diff.DiffFull.TOTAL_COUNT;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.Util.map;
 import static org.junit.Assert.assertEquals;
@@ -43,8 +51,7 @@ public class DiffFullTest {
 
     private static Neo4jContainerExtension neo4jContainer;
     private static Session session;
-    private static Driver driver;
-    
+
     private static final String secondDb = "secondDb";
 
     @BeforeClass
@@ -57,9 +64,8 @@ public class DiffFullTest {
 
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         TestUtil.registerProcedure(db, Bolt.class, DiffFull.class);
-
-
-        driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.none());
+        
+        Driver driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.none());
         session = neo4jContainer.getSession();
 
         try (Session session = driver.session()) {
@@ -67,7 +73,7 @@ public class DiffFullTest {
         }
         try (Session session = driver.session(SessionConfig.forDatabase(secondDb))) {
             session.writeTransaction(tx -> tx.run("CREATE CONSTRAINT IF NOT EXISTS FOR (p:Person) REQUIRE p.name IS UNIQUE;"));
-            session.writeTransaction(tx -> tx.run("CREATE (m:Person {name: 'Michael Jordan', age: 54}), \n" +
+            session.writeTransaction(tx -> tx.run("CREATE (m:Person:Other {name: 'Michael Jordan', age: 54}), \n" +
                     "(q:Person {name: 'Jerry Burton', age: 23}), \n" +
                     "(p:Person {name: 'Jack William', age: 22}), \n" +
                     "(q)-[:KNOWS{since:1999, time:time('125035.556+0100')}]->(p);"));
@@ -120,27 +126,45 @@ public class DiffFullTest {
                 this::secondDbAssertions);
     }
 
+    @Test
+    public void shouldNotFindDifferencesInTheSameDataset() {
+        TestUtil.testCallEmpty(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+                map("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
+                        "conf", map("dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())))));
+    }
+
+    @Test
+    public void shouldFindDifferencesInASecondDbUsingUrlConfig() {
+        TestUtil.testResult(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+                map("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
+                        "conf", map("boltConfig", map("databaseName", secondDb),
+                                "dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl()))
+                        )),
+                this::secondDbAssertions);
+    }
+
+
     private void secondDbAssertions(Iterator<Map<String, Object>> r) {
         Map<String, Object> row = r.next();
-        assertEquals("Node", row.get("entityType"));
+        assertEquals(NODE, row.get("entityType"));
         assertEquals("Person", row.get("sourceLabel"));
-        assertEquals("Destination Entity not found", row.get("difference"));
+        assertEquals(DESTINATION_ENTITY_NOT_FOUND, row.get("difference"));
         assertEquals(map("name", "Tom Burton"), row.get("source"));
         assertNull(row.get("dest"));
         assertTrue(row.get("id") instanceof Long);
 
         row = r.next();
-        assertEquals("Node", row.get("entityType"));
+        assertEquals(NODE, row.get("entityType"));
         assertEquals("Person", row.get("sourceLabel"));
-        assertEquals("Destination Entity not found", row.get("difference"));
+        assertEquals(DESTINATION_ENTITY_NOT_FOUND, row.get("difference"));
         assertEquals(map("name", "John William"), row.get("source"));
         assertNull(row.get("dest"));
         assertTrue(row.get("id") instanceof Long);
 
         row = r.next();
-        assertEquals("Relationship", row.get("entityType"));
+        assertEquals(RELATIONSHIP, row.get("entityType"));
         assertEquals("KNOWS", row.get("sourceLabel"));
-        assertEquals("Destination Entity not found", row.get("difference"));
+        assertEquals(DESTINATION_ENTITY_NOT_FOUND, row.get("difference"));
         final Map<String, Object> sourceRel = map("start", map("name", "Tom Burton"),
                 "end", map("name", "John William"),
                 "properties", map("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2016L));
@@ -151,41 +175,52 @@ public class DiffFullTest {
     }
 
     @Test
-    public void shouldNotFindDifferencesInTheSameDataset() {
-        TestUtil.testCallEmpty(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
-                map("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
-                        "conf", map("dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl())))));
-    }
-
-    @Test
-    public void shouldNotFindDifferencesInASecondDbUsingUrlConfig() {
+    public void shouldFindLabelDifferences() {
         TestUtil.testResult(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
-                map("querySourceDest", "MATCH p = ()-[:KNOWS]->() RETURN p",
+                map("querySourceDest", "MATCH (node:Person {name: 'Michael Jordan'}) RETURN node",
                         "conf", map("boltConfig", map("databaseName", secondDb),
                                 "dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl()))
                         )),
-                this::secondDbAssertions);
+                r -> {
+                    Map<String, Object> row = r.next();
+                    final Map<String, Object> expectedTotalCont = map("entityType", NODE, "sourceLabel", null, "difference", TOTAL_COUNT, "id", null, "source", 1L, "dest", 2L, "destLabel", null);
+                    assertEquals(expectedTotalCont, row);
+                    row = r.next();
+                    final Map<String, Object> expectedCountLabel = map("entityType", NODE, "sourceLabel", null, 
+                            "difference", COUNT_BY_LABEL, 
+                            "id", null, 
+                            "source", map("Person", 1L), 
+                            "dest", map("Person", 1L, "Other", 1L), 
+                            "destLabel", null);
+                    assertEquals(expectedCountLabel, row);
+                    row = r.next();
+                    assertEquals(NODE, row.get("entityType"));
+                    assertEquals(DIFFERENT_LABELS, row.get("difference"));
+                    assertEquals("Person", row.get("sourceLabel"));
+                    assertEquals("Person", row.get("destLabel"));
+                    assertEquals(List.of("Person"), row.get("source"));
+                    assertEquals(List.of("Other", "Person"), row.get("dest"));
+                    assertTrue(row.get("id") instanceof Long);
+                    assertFalse(r.hasNext());
+                });
     }
 
     @Test
     public void shouldFindDifferencesInTheSameDb() {
         db.executeTransactionally("MATCH (n:Person {name: 'Michael Jordan'}) SET n:Other");
 
-        TestUtil.testResult(db, "CALL apoc.diff.graphs($querySource, $queryDest, $conf)",
+        TestUtil.testResult(db, "CALL apoc.diff.graphs($querySource, $queryDest, {})",
                 map("querySource", "MATCH (node:Other) RETURN node",
-                        "queryDest", "MATCH (node:Person) RETURN node",
-                        "conf", map("source", Collections.emptyMap(),
-                                "dest", Collections.emptyMap())
-                ),
+                        "queryDest", "MATCH (node:Person) RETURN node"),
                 r -> {
                     Map<String, Object> row = r.next();
-                    final Map<String, Object> expected = map("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null, "source", 2L, "dest", 4L, "destLabel", null);
-                    assertEquals(expected, row);
+                    final Map<String, Object> expectedTotCount = map("entityType", NODE, "sourceLabel", null, "difference", TOTAL_COUNT, "id", null, "source", 2L, "dest", 4L, "destLabel", null);
+                    assertEquals(expectedTotCount, row);
                     row = r.next();
-                    final Map<String, Object> expected2 = map("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
+                    final Map<String, Object> expectedCountLabel = map("entityType", NODE, "sourceLabel", null, "difference", COUNT_BY_LABEL, "id", null,
                             "source", map("Person", 1L, "Other", 1L),
                             "dest", map("Person", 3L, "Other", 1L), "destLabel", null);
-                    assertEquals(expected2, row);
+                    assertEquals(expectedCountLabel, row);
                     assertFalse(r.hasNext());
                 });
 
@@ -243,13 +278,13 @@ public class DiffFullTest {
                 (r) -> {
                     // then
                     final List<Map<String, Object>> expectedRows = List.of(
-                            map("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null, "source", 3L, "dest", 1L, "destLabel", null),
-                            map("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null, "source", map("Person", 3L), "dest", map("Person", 1L), "destLabel", null),
-                            map("entityType", "Relationship", "sourceLabel", null, "difference", "Total count", "id", null, "source", 1L, "dest", 0L, "destLabel", null),
-                            map("entityType", "Relationship", "sourceLabel", null, "difference", "Count by Type", "id", null, "source", map("KNOWS", 1L), "dest", map(), "destLabel", null),
-                            map("entityType", "Node", "sourceLabel", "Person", "difference", "Destination Entity not found", "id", 20L, "source", map("name", "Tom Burton"), "dest", null, "destLabel", null),
-                            map("entityType", "Node", "sourceLabel", "Person", "difference", "Destination Entity not found", "id", 21L, "source", map("name", "John William"), "dest", null, "destLabel", null),
-                            map("entityType", "Relationship", "sourceLabel", "KNOWS", "difference", "Destination Entity not found", "id", 0L, "source", map("start", map("name", "Tom Burton"),
+                            map("entityType", NODE, "sourceLabel", null, "difference", TOTAL_COUNT, "id", null, "source", 3L, "dest", 1L, "destLabel", null),
+                            map("entityType", NODE, "sourceLabel", null, "difference", COUNT_BY_LABEL, "id", null, "source", map("Person", 3L), "dest", map("Person", 1L), "destLabel", null),
+                            map("entityType", RELATIONSHIP, "sourceLabel", null, "difference", TOTAL_COUNT, "id", null, "source", 1L, "dest", 0L, "destLabel", null),
+                            map("entityType", RELATIONSHIP, "sourceLabel", null, "difference", COUNT_BY_TYPE, "id", null, "source", map("KNOWS", 1L), "dest", map(), "destLabel", null),
+                            map("entityType", NODE, "sourceLabel", "Person", "difference", DESTINATION_ENTITY_NOT_FOUND, "id", 20L, "source", map("name", "Tom Burton"), "dest", null, "destLabel", null),
+                            map("entityType", NODE, "sourceLabel", "Person", "difference", DESTINATION_ENTITY_NOT_FOUND, "id", 21L, "source", map("name", "John William"), "dest", null, "destLabel", null),
+                            map("entityType", RELATIONSHIP, "sourceLabel", "KNOWS", "difference", DESTINATION_ENTITY_NOT_FOUND, "id", 0L, "source", map("start", map("name", "Tom Burton"),
                                     "end", map("name", "John William"),
                                     "properties", map("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2016L)
                             ), "dest", null, "destLabel", null)
@@ -288,7 +323,7 @@ public class DiffFullTest {
                         "diffConfig", Collections.emptyMap()),
                 (r) -> {
                     // then
-                    final Map<String, Object> expected = map("entityType", "Node", "sourceLabel", "Person", "difference", "Different Properties", "id", 0L, "source", map("age", 55L), "dest", map("age", 54L), "destLabel", "Person");
+                    final Map<String, Object> expected = map("entityType", NODE, "sourceLabel", "Person", "difference", DIFFERENT_PROPS, "id", 0L, "source", map("age", 55L), "dest", map("age", 54L), "destLabel", "Person");
                     assertTrue(r.hasNext()); // the two nodes have different properties
                     getMapAssertions(expected, r.next());
                     assertFalse(r.hasNext());
@@ -316,7 +351,7 @@ public class DiffFullTest {
                         "diffConfig", Collections.emptyMap()),
                 (r) -> {
                     // then
-                    final Map<String, Object> expected = map("entityType", "Relationship", "sourceLabel", "KNOWS", "difference", "Destination Entity not found", "id", 0L, "source", map(
+                    final Map<String, Object> expected = map("entityType", RELATIONSHIP, "sourceLabel", "KNOWS", "difference", DESTINATION_ENTITY_NOT_FOUND, "id", 0L, "source", map(
                             "start", map("name", "Tom Burton"),
                             "end", map("name", "John William"),
                             "properties", map("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2000L)
@@ -341,7 +376,7 @@ public class DiffFullTest {
                         "diffConfig", Collections.singletonMap("dest", map("target", Collections.singletonMap("value", neo4jContainer.getBoltUrl())))),
                 (r) -> {
                     // then
-                    final Map<String, Object> expected = map("entityType", "Relationship", "sourceLabel", "KNOWS", "difference", "Destination Entity not found", "id", 0L, "source", map(
+                    final Map<String, Object> expected = map("entityType", RELATIONSHIP, "sourceLabel", "KNOWS", "difference", DESTINATION_ENTITY_NOT_FOUND, "id", 0L, "source", map(
                             "start", map("name", "Tom Burton"),
                             "end", map("name", "John William"),
                             "properties", map("time", OffsetTime.parse("12:50:35.556+01:00"), "since", 2000L)
@@ -380,26 +415,26 @@ public class DiffFullTest {
                     3 rows
                      */
 
-                    Map<String, Object> expected = map("entityType", "Node", "sourceLabel", null, "difference", "Total count", "id", null,
+                    Map<String, Object> expected = map("entityType", NODE, "sourceLabel", null, "difference", TOTAL_COUNT, "id", null,
                             "source", 0L, "dest", 2L, "destLabel", null);
                     assertTrue(r.hasNext()); // the relationships have different properties
                     Map<String, Object> next = r.next();
                     getMapAssertions(expected, next);
 
                     assertTrue(r.hasNext()); // the relationships have different properties
-                    expected = map("entityType", "Node", "sourceLabel", null, "difference", "Count by Label", "id", null,
+                    expected = map("entityType", NODE, "sourceLabel", null, "difference", COUNT_BY_LABEL, "id", null,
                             "source", Collections.emptyMap(), "dest", Collections.singletonMap("Person", 2L), "destLabel", null);
                     next = r.next();
                     getMapAssertions(expected, next);
 
                     assertTrue(r.hasNext()); // the relationships have different properties
-                    expected = map("entityType", "Relationship", "sourceLabel", null, "difference", "Total count", "id", null,
+                    expected = map("entityType", RELATIONSHIP, "sourceLabel", null, "difference", TOTAL_COUNT, "id", null,
                             "source", 0L, "dest", 1L, "destLabel", null);
                     next = r.next();
                     getMapAssertions(expected, next);
 
                     assertTrue(r.hasNext()); // the relationships have different properties
-                    expected = map("entityType", "Relationship", "sourceLabel", null, "difference", "Count by Type", "id", null,
+                    expected = map("entityType", RELATIONSHIP, "sourceLabel", null, "difference", COUNT_BY_TYPE, "id", null,
                             "source", Collections.emptyMap(), "dest", Collections.singletonMap("KNOWS", 1L), "destLabel", null);
                     next = r.next();
                     getMapAssertions(expected, next);

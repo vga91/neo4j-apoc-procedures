@@ -49,6 +49,12 @@ public class DiffFull {
     public static final String NODE = "Node";
     public static final String RELATIONSHIP = "Relationship";
     public static final String DESTINATION_ENTITY_NOT_FOUND = "Destination Entity not found";
+    public static final String DIFFERENT_LABELS = "Different Labels";
+    public static final String DIFFERENT_PROPS = "Different Properties";
+    public static final String COUNT_BY_LABEL = "Count by Label";
+    public static final String COUNT_BY_TYPE = "Count by Type";
+    public static final String TOTAL_COUNT = "Total count";
+    
     private static final String BOLT_SCHEMA_QUERY = "CALL db.indexes() YIELD labelsOrTypes, properties, state, uniqueness\n" +
             "WHERE state = 'ONLINE' AND uniqueness = 'UNIQUE'\n" +
             "RETURN collect({labels: labelsOrTypes, properties: properties, type: uniqueness}) AS schema\n";
@@ -69,11 +75,11 @@ public class DiffFull {
         Function<Map<String, Long>, Long> sum = (map) -> map.values().stream().reduce(0L, (x, y) -> x + y);
         final SourceDestResult labelNodeCount = sourceDestCountByLabel(sourceGraph, destGraph);
         final SourceDestResult nodeCount = labelNodeCount.areSourceAndDestEqual() ?
-                null : new SourceDestResult("Total count", NODE,
+                null : new SourceDestResult(TOTAL_COUNT, NODE,
                 sum.apply((Map<String, Long>) labelNodeCount.source), sum.apply((Map<String, Long>) labelNodeCount.dest));
         final SourceDestResult typeRelCount = sourceDestCountByType(sourceGraph, destGraph);
         final SourceDestResult relCount = typeRelCount.areSourceAndDestEqual() ?
-                null : new SourceDestResult("Total count", RELATIONSHIP,
+                null : new SourceDestResult(TOTAL_COUNT, RELATIONSHIP,
                 sum.apply((Map<String, Long>) typeRelCount.source), sum.apply((Map<String, Long>) typeRelCount.dest));
 
         final Stream<SourceDestResult> generalStream = Stream.of(
@@ -280,11 +286,11 @@ public class DiffFull {
     }
 
     private SourceDestResult sourceDestCountByLabel(SubGraph source, SubGraph dest) {
-        return new SourceDestResult("Count by Label", NODE, countByLabel(source), countByLabel(dest));
+        return new SourceDestResult(COUNT_BY_LABEL, NODE, countByLabel(source), countByLabel(dest));
     }
 
     private SourceDestResult sourceDestCountByType(SubGraph source, SubGraph dest) {
-        return new SourceDestResult("Count by Type", RELATIONSHIP, countByType(source), countByType(dest));
+        return new SourceDestResult(COUNT_BY_TYPE, RELATIONSHIP, countByType(source), countByType(dest));
     }
 
     private <T extends Entity> T findEntityById(Iterable<T> it, long id) {
@@ -402,13 +408,13 @@ public class DiffFull {
                         List<String> sourceLabels = FormatUtils.getLabelsSorted(sourceNode);
                         List<String> destLabels = FormatUtils.getLabelsSorted(destNode);
                         if (!sourceLabels.equals(destLabels)) {
-                            diffs.add(new SourceDestResult("Different Labels", NODE, id, sourceLabel, destLabel, sourceLabels, destLabels));
+                            diffs.add(new SourceDestResult(DIFFERENT_LABELS, NODE, id, sourceLabel, destLabel, sourceLabels, destLabels));
                         } else {
                             final Map<String, Map<String, Object>> propDiff = getPropertiesDiffering(sourceNode.getAllProperties(),
                                     destNode.getAllProperties());
                             if (!propDiff.isEmpty()) {
                                 final SourceDestDTO sourceDestDTO = transformDiff(propDiff);
-                                diffs.add(new SourceDestResult("Different Properties", NODE, id, sourceLabel, destLabel, sourceDestDTO.source, sourceDestDTO.dest));
+                                diffs.add(new SourceDestResult(DIFFERENT_PROPS, NODE, id, sourceLabel, destLabel, sourceDestDTO.source, sourceDestDTO.dest));
                             } else { // if the two nodes are equal lets compare the relationships
                                 return diffs.stream();
                             }
