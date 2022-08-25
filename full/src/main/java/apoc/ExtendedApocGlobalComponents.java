@@ -34,8 +34,6 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
     @Override
     public Map<String, Lifecycle> getServices(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
 
-//        dependencies.databaseManagementService().registerDatabaseEventListener(new DataVirtualizationAvailabilityHandler());
-
         CypherProceduresHandler cypherProcedureHandler = new CypherProceduresHandler(
                 db,
                 dependencies.databaseManagementService(),
@@ -68,7 +66,6 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
 
                 "cypherProcedures", cypherProcedureHandler
                  , "dvHandler", dvHandler
-//                , "dataVirtualizationAvailabilityHandler", new DataVirtualizationAvailabilityHandler(dependencies.databaseManagementService())
         );
     }
 
@@ -79,7 +76,7 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
 
     @Override
     public Iterable<AvailabilityListener> getListeners(GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies) {
-        // todo - evaluate, maybe unnecessary
+        // todo - evaluate, maybe unnecessary because of getDbListeners() [which uses @PublicApi]
         CypherProceduresHandler cypherProceduresHandler = cypherProcedureHandlers.get(db);
         return cypherProceduresHandler==null ? Collections.emptyList() : List.of(cypherProceduresHandler);
     }
@@ -87,8 +84,5 @@ public class ExtendedApocGlobalComponents implements ApocGlobalComponents {
     @Override
     public List<DatabaseEventListener> getDbListeners() {
         return lists;
-//        return List.of();
-//        CypherProceduresHandler cypherProceduresHandler = cypherProcedureHandlers.get(db);
-//        return cypherProceduresHandler==null ? Collections.emptyList() : List.of(cypherProceduresHandler);
     }
 }

@@ -143,9 +143,7 @@ public class StoreThisDbFullTest {
         }
     }
     
-    
-    // todo - test come sopra con altra feature
-    
+    // todo - test as above with other features
     
 
     @Test
@@ -361,7 +359,6 @@ public class StoreThisDbFullTest {
         return tx.findNodes(label,
                 SystemPropertyKeys.database.name(), DEFAULT_DATABASE_NAME).stream()
                 .sorted(Comparator.comparing(i -> (String) i.getProperty(propSort)))
-//                .sorted(Comparator.comparing(i -> (String) i.getProperty(SystemPropertyKeys.name.name())))
                 .iterator();
     }
 
@@ -369,7 +366,6 @@ public class StoreThisDbFullTest {
         return nodeIterator(tx, SystemLabels.ApocUuid, SystemPropertyKeys.label.name());
     }
 
-    // todo - questo privato che richiama il common
     private Iterator<Node> nodeDvIterator(Transaction tx) {
         return nodeIterator(tx, SystemLabels.DataVirtualizationCatalog, SystemPropertyKeys.name.name());
     }
@@ -413,6 +409,5 @@ public class StoreThisDbFullTest {
         assertEquals(label, node.getProperty(SystemPropertyKeys.label.name()));
         assertEquals(propertyName, node.getProperty(SystemPropertyKeys.propertyName.name()));
         assertEquals(addToSetLabel, node.getProperty(SystemPropertyKeys.addToSetLabel.name()));
-//        assertEquals(statementBaz, JsonUtil.parse((String) node.getProperty(SystemPropertyKeys.data.name()), "", Map.class));
     }
 }

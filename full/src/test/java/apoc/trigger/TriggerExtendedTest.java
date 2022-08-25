@@ -6,8 +6,6 @@ import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.neo4j.configuration.SettingValueParser;
-import org.neo4j.configuration.SettingValueParsers;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -20,11 +18,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static apoc.ApocConfig.APOC_TRIGGER_ENABLED;
 import static apoc.ApocSettings.apoc_trigger_enabled;
 import static org.junit.Assert.assertEquals;
 import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
-import static org.neo4j.configuration.SettingImpl.newBuilder;
+
 /**
  * @author mh
  * @since 20.09.16
@@ -34,7 +31,6 @@ public class TriggerExtendedTest {
     public DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(procedure_unrestricted, List.of("apoc*"))
             .withSetting(apoc_trigger_enabled, true);  // need to use settings here, apocConfig().setProperty in `setUp` is too late
-//            .withSetting(newBuilder(APOC_TRIGGER_ENABLED, SettingValueParsers.BOOL, false ).build(), true);  // need to use settings here, apocConfig().setProperty in `setUp` is too late
 
     private long start;
 

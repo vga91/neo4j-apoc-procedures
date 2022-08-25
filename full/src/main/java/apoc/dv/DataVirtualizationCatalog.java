@@ -35,23 +35,18 @@ public class DataVirtualizationCatalog {
     @Context
     public DataVirtualizationCatalogHandler handler;
 
-//    @Context
-//    public ApocConfig apocConfig;
-
     @Procedure(name = "apoc.dv.catalog.add", mode = Mode.WRITE)
     @Description("Add a virtualized resource configuration")
     public Stream<VirtualizedResource.VirtualizedResourceDTO> add(
             @Name("name") String name,
             @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
         return Stream.of(handler.add(VirtualizedResource.from(name, config)))
-//        return Stream.of(new DataVirtualizationCatalogHandler(db, /*apocConfig.getSystemDb(),*/ log).add(VirtualizedResource.from(name, config)))
                 .map(VirtualizedResource::toDTO);
     }
 
     @Procedure(name = "apoc.dv.catalog.remove", mode = Mode.WRITE)
     @Description("Remove a virtualized resource config by name")
     public Stream<VirtualizedResource.VirtualizedResourceDTO> remove(@Name("name") String name) {
-//        return new DataVirtualizationCatalogHandler(db, /*apocConfig.getSystemDb(),*/ log)
         return handler
                 .remove(name)
                 .map(VirtualizedResource::toDTO);
@@ -60,7 +55,6 @@ public class DataVirtualizationCatalog {
     @Procedure(name = "apoc.dv.catalog.list", mode = Mode.READ)
     @Description("List all virtualized resource configuration")
     public Stream<VirtualizedResource.VirtualizedResourceDTO> list() {
-//        return new DataVirtualizationCatalogHandler(db, /*apocConfig.getSystemDb(),*/ log).list()
         return handler.list()
                 .map(VirtualizedResource::toDTO);
     }
@@ -70,7 +64,6 @@ public class DataVirtualizationCatalog {
     public Stream<NodeResult> query(@Name("name") String name,
                                     @Name(value = "params", defaultValue = "{}") Object params,
                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-//        VirtualizedResource vr = new DataVirtualizationCatalogHandler(db, /*apocConfig.getSystemDb(),*/ log).get(name);
         VirtualizedResource vr = handler.get(name);
         final Pair<String, Map<String, Object>> procedureCallWithParams = vr.getProcedureCallWithParams(params, config);
         return tx.execute(procedureCallWithParams.first(), procedureCallWithParams.other())

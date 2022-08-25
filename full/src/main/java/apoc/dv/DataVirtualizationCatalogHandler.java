@@ -22,19 +22,17 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static apoc.util.SystemDbUtil.currentDb;
 import static apoc.util.SystemDbUtil.otherDb;
-import static apoc.util.SystemDbUtil.ThisDb;
 
 public class DataVirtualizationCatalogHandler extends LifecycleAdapter implements DatabaseEventListener {
     private static final String NAME = "dv";
 
     private final GraphDatabaseService db;
-//    private final GraphDatabaseService systemDb;
     private final Log log;
 
-    public DataVirtualizationCatalogHandler(GraphDatabaseService db, /*GraphDatabaseService systemDb, */Log log) {
+    public DataVirtualizationCatalogHandler(GraphDatabaseService db, Log log) {
         this.db = db;
-//        this.systemDb = systemDb;
         this.log = log;
     }
 
@@ -43,12 +41,7 @@ public class DataVirtualizationCatalogHandler extends LifecycleAdapter implement
     }
 
     private <T> T withThisDb(Function<Transaction, T> action) {
-        return ThisDb(db, NAME, action);
-//        try (Transaction tx = systemDb.beginTx()) {
-//            T result = action.apply(tx);
-//            tx.commit();
-//            return result;
-//        }
+        return currentDb(db, NAME, action);
     }
 
     public VirtualizedResource add(VirtualizedResource vr) {

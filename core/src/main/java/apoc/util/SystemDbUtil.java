@@ -52,7 +52,7 @@ public class SystemDbUtil {
     }
 
     public static void migrateInfo(GraphDatabaseService db, SystemLabels label) {
-        // todo - List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))) can be the default
+        // todo - check if List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))) can be the default
         migrateInfo(db, label, node -> List.of(Pair.of(SystemPropertyKeys.name.name(), node.getProperty(SystemPropertyKeys.name.name()))));
     }
 
@@ -73,15 +73,13 @@ public class SystemDbUtil {
     
                 List<NodeInfo> collect = action.apply(tx);
                 collectCommon.addAll(collect);
-                System.out.println("collect = " + collect);
                 return collectCommon;
             } catch (Exception e) {
-                System.out.println("migrateInfos e = " + e);
                 throw new RuntimeException(e);
             }
         });
         
-        ThisDb(db, featureName, tx -> {
+        currentDb(db, featureName, tx -> {
             nodes.forEach(node -> {
                 Util.mergeNode(tx, node.primaryLabel, node.additionalLabel, node.onCreateMap, Map.of(), node.pairs);
             });
@@ -126,12 +124,11 @@ public class SystemDbUtil {
             tx.commit();
             return result;
         } catch (Exception e) {
-            System.out.println("getTransaction e = " + e);
             throw new RuntimeException(e);
         }
     }
 
-    public static <T> T ThisDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
+    public static <T> T currentDb(GraphDatabaseService db, String featureName, Function<Transaction, T> action) {
         final GraphDatabaseService currentDb = isCurrentDb(db.databaseName(), featureName)
                 ? db : apocConfig().getSystemDb();
 

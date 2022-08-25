@@ -41,8 +41,7 @@ public class StoreThisDbCoreTest {
     private GraphDatabaseService db;
     private DatabaseManagementService databaseManagementService;
     private File file;
-
-
+    
 
     @Before
     public void setUp() throws Exception {
@@ -173,20 +172,17 @@ public class StoreThisDbCoreTest {
         assertEquals(false, node.getProperty(SystemPropertyKeys.paused.name()));
     }
 
-    // test with specific config specifica
-    // test with single functionality
+    // todo - test with specific config
+    
+    // todo - test with single functionality
 
 
-    private Iterator<Node> nodeIterator(Transaction tx, Label label) {//}, Consumer<ResourceIterator<Node>> consumer) {
+    private Iterator<Node> nodeIterator(Transaction tx, Label label) {
         return tx.findNodes(label,
                 SystemPropertyKeys.database.name(), DEFAULT_DATABASE_NAME).stream()
                 .sorted(Comparator.comparing(i -> (String) i.getProperty(SystemPropertyKeys.name.name())))
                 .iterator();
 
-//        try (ResourceIterator<Node> nodes = tx.findNodes(label, 
-//                SystemPropertyKeys.database.name(), DEFAULT_DATABASE_NAME)) {
-//            consumer.accept(nodes);
-//        }
     }
 
 }

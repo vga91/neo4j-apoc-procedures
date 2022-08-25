@@ -62,7 +62,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
 
     @Override
     public void start() {
-        System.out.println("UuidHandler.start");
+        // todo - maybe replaceable by databaseStart
     }
 
     private boolean isEnabled() {
@@ -72,7 +72,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
 
     @Override
     public void stop() {
-        System.out.println("UuidHandler.stop");
+        // todo - maybe replaceable by databaseShutdown
     }
 
     private void checkAndRestoreUuidProperty(Iterable<PropertyEntry<Node>> nodeProperties, String label, String uuidProperty) {
@@ -173,7 +173,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
         configuredLabelAndPropertyNames.put(label, config);
 
         try (Transaction sysTx = apocConfig.getSystemDb().beginTx()) {
-            // todo - common
+            // todo - commonize
             Node node = Util.mergeNode(sysTx, SystemLabels.ApocUuid, null,
                     Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
                     Pair.of(SystemPropertyKeys.label.name(), label),
@@ -217,7 +217,7 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
         Map<String, UuidConfig> retval = new HashMap<>(configuredLabelAndPropertyNames);
         configuredLabelAndPropertyNames.clear();
         try (Transaction tx = getDb().beginTx()) {
-            // todo - common
+            // todo - commonize
             tx.findNodes(SystemLabels.ApocUuid, SystemPropertyKeys.database.name(), db.databaseName() )
                     .forEachRemaining(node -> node.delete());
             tx.commit();
@@ -231,7 +231,6 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
 
     @Override
     public void databaseStart(DatabaseEventContext eventContext) {
-        System.out.println("UuidHandler.databaseStart " + eventContext.getDatabaseName());
 
         SystemDbUtil.migrateInfo(db, SystemLabels.ApocUuid, node -> List.of(
                 Pair.of(SystemPropertyKeys.label.name(), node.getProperty(SystemPropertyKeys.label.name())), 
@@ -246,7 +245,6 @@ public class UuidHandler extends LifecycleAdapter implements DatabaseEventListen
 
     @Override
     public void databaseShutdown(DatabaseEventContext eventContext) {
-        System.out.println("UuidHandler.databaseShutdown");
 
         if (isEnabled()) {
             databaseManagementService.unregisterTransactionEventListener(db.databaseName(), this);

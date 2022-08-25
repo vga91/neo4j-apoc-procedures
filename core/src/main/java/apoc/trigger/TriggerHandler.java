@@ -40,6 +40,7 @@ import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.APOC_TRIGGER_ENABLED;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.util.SystemDbUtil.currentDb;
 import static apoc.util.SystemDbUtil.getListNodeInfos;
 import static apoc.util.SystemDbUtil.ThisDb;
 
@@ -139,9 +140,7 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
                                             "paused", node.getProperty(SystemPropertyKeys.paused.name())
                                     )
                             );
-                            System.out.println("TriggerHandler.updateCache");
                             } catch (Exception e) {
-                                System.out.println("Error during cache update e = " + e);
                                 throw new RuntimeException(e);
                             }
                         }
@@ -341,7 +340,7 @@ public class TriggerHandler extends LifecycleAdapter implements DatabaseEventLis
     }
 
     private <T> T withDb(Function<Transaction, T> action) {
-        return ThisDb(db, SystemLabels.ApocTrigger.getFeatureName(), action);
+        return currentDb(db, SystemLabels.ApocTrigger.getFeatureName(), action);
     }
 
     private long getLastUpdate() {

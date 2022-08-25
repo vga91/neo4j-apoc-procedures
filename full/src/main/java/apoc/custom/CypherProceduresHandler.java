@@ -62,8 +62,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
+import static apoc.util.SystemDbUtil.currentDb;
 import static apoc.util.SystemDbUtil.getListNodeInfos;
-import static apoc.util.SystemDbUtil.ThisDb;
 import static apoc.util.SystemDbUtil.otherDb;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
@@ -161,19 +161,17 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     
     @Override
     public void start() throws Exception {
-        System.out.println("CypherProceduresHandler.start");
         dbms.registerDatabaseEventListener(this);
     }
 
     @Override
     public void available() {
-        // todo - remove
-        System.out.println("CypherProceduresHandler.available");
+        // todo - remove if unnecessary (due to databaseStart(...))
     }
 
     @Override
     public void unavailable() {
-        System.out.println("CypherProceduresHandler.unavailable");
+        // todo - remove if unnecessary (due to databaseShutdown(...))
     }
 
     public Mode mode(String s) {
@@ -192,8 +190,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                        throw new IllegalStateException("don't know what to do with systemdb node " + node);
                    }
                }).collect(Collectors.toList()));
-//        try (Transaction tx = systemDb.beginTx()) {
-//        }
+        
         return descriptors.stream();
     }
 
@@ -276,23 +273,18 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     // apoc.storecurrentdb.<db_name>=true --> salva everything in db_name
     // apoc.storecurrentdb.<db_name>.<feature_name>=true --> only specific feature
     private <T> T withDb(Function<Transaction, T> action) {
-        return ThisDb(api, NAME, action);
+        return currentDb(api, NAME, action);
     }
 
     private <T> T withOtherDb(Function<Transaction, T> action) {
         return otherDb(api, NAME, action);
-//        try (Transaction tx = systemDb.beginTx()) {
-//            T result = action.apply(tx);
-//            tx.commit();
-//            return result;
-//        }
     }
 
     public void storeFunction(UserFunctionSignature signature, String statement, boolean forceSingle) {
         withDb(tx -> {
             
             Node node = Util.mergeNode(tx, SystemLabels.ApocCypherProcedures, SystemLabels.Function,
-                    // todo - maybe i can common this part
+                    // todo - maybe i can commonize this part
                     Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),
                     Pair.of(SystemPropertyKeys.name.name(), signature.name().name()),
                     Pair.of(SystemPropertyKeys.prefix.name(), signature.name().namespace())

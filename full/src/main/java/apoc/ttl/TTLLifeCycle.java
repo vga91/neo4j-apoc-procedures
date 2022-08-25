@@ -1,14 +1,8 @@
 package apoc.ttl;
 
 import apoc.ApocConfig;
-import apoc.SystemLabels;
-import apoc.SystemPropertyKeys;
 import apoc.TTLConfig;
 import apoc.util.Util;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.ResourceIterator;
-import org.neo4j.graphdb.event.DatabaseEventContext;
-import org.neo4j.graphdb.event.DatabaseEventListener;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
@@ -24,7 +18,7 @@ import java.util.concurrent.TimeUnit;
  * @author mh
  * @since 15.02.17
  */
-public class TTLLifeCycle extends LifecycleAdapter { // todo - check if LifecycleAdapter is needed
+public class TTLLifeCycle extends LifecycleAdapter {
 
     public static final int INITIAL_DELAY = 30;
     public static final int DEFAULT_SCHEDULE = 60;

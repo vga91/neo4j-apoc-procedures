@@ -42,7 +42,7 @@ public class CoreApocGlobalComponents implements ApocGlobalComponents {
     }
 
     @Override
-    public List<DatabaseEventListener> getDbListeners(/*GraphDatabaseAPI db, ApocExtensionFactory.Dependencies dependencies*/) {
+    public List<DatabaseEventListener> getDbListeners() {
         return lists;
     }
 }
