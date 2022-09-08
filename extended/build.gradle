@@ -94,6 +94,8 @@ dependencies {
     compileOnly group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: '1.6.0'
 
     // These dependencies affect the tests only, they will not be packaged in the resulting .jar
+    testImplementation group: 'org.neo4j', name: 'neo4j', version: neo4jVersionEffective
+    
     testImplementation group: 'org.neo4j.procedure', name: 'apoc-common', version: '5.0.0-rc02-tests'
     testImplementation group: 'org.neo4j.procedure', name: 'apoc-test-utils', version: '5.0.0-rc02'
     testImplementation group: 'org.neo4j.procedure', name: 'apoc-core', version: '5.0.0-rc02'

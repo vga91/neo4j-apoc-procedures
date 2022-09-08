@@ -152,3 +152,14 @@ apoc.trigger.propertiesByKey
 apoc.trigger.toNode
 apoc.trigger.toRelationship
 apoc.ttl.config
+
+
+CREATE (b:City {name:'Berlin', coords: point({latitude:52.52464,longitude:13.40514}), lat:52.52464,lon:13.40514})
+CREATE (m:City {name:'München', coords: point({latitude:48.1374,longitude:11.5755, height: 1}), lat:48.1374,lon:11.5755})
+CREATE (f:City {name:'Frankfurt',coords: point({latitude:50.1167,longitude:8.68333, height: 1}), lat:50.1167,lon:8.68333})
+CREATE (h:City {name:'Hamburg', coords: point({latitude:53.554423,longitude:9.994583, height: 1}), lat:53.554423,lon:9.994583})
+CREATE (b)-[:DIRECT {dist:255.64*1000}]->(h)
+CREATE (b)-[:DIRECT {dist:504.47*1000}]->(m)
+CREATE (b)-[:DIRECT {dist:424.12*1000}]->(f)
+CREATE (f)-[:DIRECT {dist:304.28*1000}]->(m)
+CREATE (f)-[:DIRECT {dist:393.15*1000}]->(h)

@@ -113,9 +113,10 @@ public class Signatures {
 
         String deprecated = "";
         boolean caseInsensitive = true;
+        String[] allowed = new String[0];
         boolean isBuiltIn = false;
         boolean internal = false;
-        return new UserFunctionSignature(name, inputSignatures, type, deprecated, description, "apoc.custom", caseInsensitive, isBuiltIn, internal);
+        return new UserFunctionSignature(name, inputSignatures, type, deprecated, allowed, description, "apoc.custom",caseInsensitive);
     }
 
     private DefaultParameterValue defaultValue(SignatureParser.DefaultValueContext defaultValue, Neo4jTypes.AnyType type) {

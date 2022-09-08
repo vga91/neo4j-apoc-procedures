@@ -51,7 +51,7 @@ public class Kernel {
                 database.getStoreId().toString(),
                 startDate,
                 graphDatabaseService.databaseName(),
-                database.getStoreId().getStoreVersionUserString(),
+                "7",
                 new Date(database.getStoreId().getCreationTime())
         ));
     }
