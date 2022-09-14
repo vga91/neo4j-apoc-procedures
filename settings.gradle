@@ -1,3 +1,16 @@
+
 rootProject.name = 'apoc'
 
 include("extended")
+
+apply from: 'apoc/settings-parent.gradle'
+include ':core'
+//project(':core').projectDir = new File(rootDir, 'apoc/core')
+//includeBuild ':apoc'
+//include ':core'
+include ':processor'
+include ':common'
+include ':test-utils'
+//project(':core').projectDir = new File('/Users/GiuseppeVillani/Documents/apocCore/apoc/core')
+////project(':apoc').projectDir = new File('/Users/GiuseppeVillani/Documents/apocCore/apoc')
+//project(':common').projectDir = new File('/Users/GiuseppeVillani/Documents/apocCore/apoc/common')
