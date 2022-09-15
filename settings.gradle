@@ -1,4 +1,3 @@
-
 rootProject.name = 'apoc'
 
 include("extended")
@@ -8,8 +7,8 @@ include("extended")
 include ':core', ':common', ':processor', ':test-utils'
 project(':core').projectDir = new File(rootDir, 'apoc/core')
 project(':common').projectDir = new File(rootDir, 'apoc/common')
-//project(':processor').projectDir = new File(rootDir, 'apoc/processor')
-//project(':test-utils').projectDir = new File(rootDir, 'apoc/test-utils')
+project(':processor').projectDir = new File(rootDir, 'apoc/processor')
+project(':test-utils').projectDir = new File(rootDir, 'apoc/test-utils')
 ////includeBuild ':apoc'
 ////include ':core'
 //include ':processor'
