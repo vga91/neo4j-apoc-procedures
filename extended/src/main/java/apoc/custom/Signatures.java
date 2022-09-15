@@ -115,8 +115,7 @@ public class Signatures {
         boolean caseInsensitive = true;
         boolean isBuiltIn = false;
         boolean internal = false;
-        boolean threadsafe = false;
-        return new UserFunctionSignature(name, inputSignatures, type, deprecated, description, "apoc.custom", caseInsensitive, isBuiltIn, internal, threadsafe);
+        return new UserFunctionSignature(name, inputSignatures, type, deprecated, description, "apoc.custom", caseInsensitive, isBuiltIn, internal, false);
     }
 
     private DefaultParameterValue defaultValue(SignatureParser.DefaultValueContext defaultValue, Neo4jTypes.AnyType type) {
