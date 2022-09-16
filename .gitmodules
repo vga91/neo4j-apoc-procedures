@@ -1,3 +1,4 @@
-[submodule "apoc"]
+[submodule "apocCore"]
 	path = apoc
-	url = https://github.com/neo4j/apoc
+	url = https://github.com/vga91/apoc
+	branch = test_remote_1

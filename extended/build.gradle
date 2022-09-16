@@ -18,7 +18,7 @@ spotless {
 
 archivesBaseName = "apoc"
 
-"git submodule update".execute().text.trim()
+"git submodule update --remote".execute().text.trim()
 
 jar {
     manifest {
