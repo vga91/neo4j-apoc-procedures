@@ -415,3 +415,55 @@ The procedures support the following config parameters:
 | streamStatements | false | to batch results across multiple rows by configuring the `batchSize` config.
 | stream | false | equivalent to `streamStatements` config
 |===
+
+==== Quotes config example
+
+Given this node: `CREATE (:Quote {name: 'foo,bar,baz', array:["a","b","c"], other: 123})`,
+we can export without quotes:
+
+[source,cypher]
+----
+CALL apoc.export.csv.all("fileNoQuote.csv", {quotes: 'none'}
+----
+
+The produced csv is:
+
+.fileNoQuote.csv
+[source,csv]
+----
+_id,_labels,array,name,other,_start,_end,_type
+5,:Quote,["a","b","c"],foo,bar,baz,123,,,
+----
+
+Otherwise, always using quotes:
+
+[source,cypher]
+----
+CALL apoc.export.csv.all("fileAlwaysQuote.csv", {quotes: 'always'})
+----
+
+With the following csv:
+
+.fileAlwaysQuote.csv
+[source,csv]
+----
+"_id","_labels","array","name","other","_start","_end","_type"
+"5",":Quote","[""a"",""b"",""c""]","foo,bar,baz","123",,,
+----
+
+Or else, using quotes only when is needed, 
+in this case to wrap only `foo,bar,baz` and `["a","b","c"]`, in order to escape the separator character:
+
+[source,cypher]
+----
+CALL apoc.export.csv.all("fileIfNeededQuote.csv", {quotes: 'ifNeeded'})
+----
+
+With the following csv:
+
+fileIfNeededQuote.csv
+[source,csv]
+----
+_id,_labels,array,name,other,_start,_end,_type
+5,:Quote,"["a","b","c"]","foo,bar,baz",123,,,
+----
