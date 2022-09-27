@@ -26,11 +26,7 @@ import static org.junit.Assert.assertFalse;
 import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 
-/**
- * @author mh
- * @since 20.09.16
- */
-public class TriggerTest {
+public class TriggerNewProceduresTest {
 
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule()
@@ -49,10 +45,10 @@ public class TriggerTest {
     public void testListTriggers() throws Exception {
         String query = "MATCH (c:Counter) SET c.count = c.count + size([f IN $deletedNodes WHERE id(f) > 0])";
 
-        TestUtil.testCallCount(db, "CALL apoc.trigger.add('count-removals',$query,{}) YIELD name RETURN name",
+        TestUtil.testCallCount(db, "CALL apoc.trigger.add('neo4j','count-removals',$query,{}) YIELD name RETURN name",
                 map("query", query),
                 1);
-        TestUtil.testCall(db, "CALL apoc.trigger.list()", (row) -> {
+        TestUtil.testCall(db, "CALL apoc.trigger.list('neo4j')", (row) -> {
             assertEquals("count-removals", row.get("name"));
             assertEquals(query, row.get("query"));
             assertEquals(true, row.get("installed"));
@@ -250,10 +246,10 @@ public class TriggerTest {
                 "MERGE (a)-[:R2]->(z)");
 
         org.neo4j.test.assertion.Assert.assertEventually(() ->
-            db.executeTransactionally("MATCH ()-[r:R1]->() RETURN r", Map.of(),
-                    result -> (boolean) result.<Relationship>columnAs("r").next()
-                            .getProperty("triggerAfterAsync", false))
-            , (value) -> value, 30L, TimeUnit.SECONDS);
+                        db.executeTransactionally("MATCH ()-[r:R1]->() RETURN r", Map.of(),
+                                result -> (boolean) result.<Relationship>columnAs("r").next()
+                                        .getProperty("triggerAfterAsync", false))
+                , (value) -> value, 30L, TimeUnit.SECONDS);
     }
 
     @Test
@@ -288,8 +284,8 @@ public class TriggerTest {
         final String query = "UNWIND $deletedNodes AS n\n" +
                 "MATCH (a)-[r1:R1]->(z)\n" +
                 "SET a.alpha = apoc.any.property(n, \"alpha\"), r1.triggerAfterAsync = size($deletedNodes) > 0, r1.size = size($deletedNodes), r1.deleted = apoc.node.labels(n)[0] RETURN *";
-        
-        db.executeTransactionally("CALL apoc.trigger.add('trigger-after-async-3', $query, {phase: 'afterAsync'})", 
+
+        db.executeTransactionally("CALL apoc.trigger.add('trigger-after-async-3', $query, {phase: 'afterAsync'})",
                 map("query", query));
 
         // delete node
@@ -302,17 +298,17 @@ public class TriggerTest {
         final String query = "UNWIND $deletedNodes AS n\n" +
                 "CREATE (a:A)-[r1:R1 {omega: 3}]->(z:Z)\n" +
                 "SET a.alpha = apoc.any.property(n, \"alpha\"), r1.triggerAfterAsync = size($deletedNodes) > 0, r1.size = size($deletedNodes), r1.deleted = apoc.node.labels(n)[0] RETURN *";
-        
-        db.executeTransactionally("CALL apoc.trigger.add('trigger-after-async-4', $query, {phase: 'afterAsync'})", 
+
+        db.executeTransactionally("CALL apoc.trigger.add('trigger-after-async-4', $query, {phase: 'afterAsync'})",
                 map("query", query));
 
         // delete node
         commonDeleteAfterAsync("MATCH (n:R2) DELETE n");
     }
-    
+
     private void commonDeleteAfterAsync(String deleteQuery) {
         db.executeTransactionally(deleteQuery);
-        
+
         final Map<String, Object> expectedProps = Map.of("deleted", "R2",
                 "triggerAfterAsync", true,
                 "size", 1L,
@@ -346,6 +342,5 @@ public class TriggerTest {
                                 })
                 , (value) -> value, 30L, TimeUnit.SECONDS);
     }
-
 
 }
