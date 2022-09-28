@@ -70,7 +70,7 @@ public class Trigger {
     }
 
     @Deprecated
-    @Procedure(mode = Mode.WRITE)
+    @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.trigger.install")
     @Description("add a trigger kernelTransaction under a name, in the kernelTransaction you can use {createdNodes}, {deletedNodes} etc., the selector is {phase:'before/after/rollback/afterAsync'} returns previous and new trigger information. Takes in an optional configuration.")
     public Stream<TriggerInfo> add(@Name("name") String name, @Name("kernelTransaction") String statement, @Name(value = "selector"/*, defaultValue = "{}"*/)  Map<String,Object> selector, @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
         preprocessDeprecatedProcedures();
@@ -89,7 +89,7 @@ public class Trigger {
     }
 
     @Deprecated
-    @Procedure(mode = Mode.WRITE)
+    @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.trigger.drop")
     @Description("remove previously added trigger, returns trigger information")
     public Stream<TriggerInfo> remove(@Name("name")String name) {
         preprocessDeprecatedProcedures();
@@ -102,7 +102,7 @@ public class Trigger {
     }
 
     @Deprecated
-    @Procedure(mode = Mode.WRITE)
+    @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.trigger.dropAll")
     @Description("removes all previously added trigger, returns trigger information")
     public Stream<TriggerInfo> removeAll() {
         preprocessDeprecatedProcedures();
