@@ -24,7 +24,6 @@ import java.util.stream.Stream;
 public class Trigger {
 
     public static class TriggerInfo {
-
         public String name;
         public String query;
         public Map<String,Object> selector;
@@ -48,7 +47,6 @@ public class Trigger {
             this.installed = installed;
             this.paused = paused;
         }
-
     }
 
     @Context public GraphDatabaseService db;
@@ -59,14 +57,14 @@ public class Trigger {
 
     private void preprocessDeprecatedProcedures() {
         final String msgDeprecation =
-                "use the `apoc.trigger.install`, `apoc.trigger.drop`, `apoc.trigger.dropAll`, `apoc.trigger.stop`, and `apoc.trigger.start` procedures instead of, respectively, \n" + 
-                "the `apoc.trigger.add`, `apoc.trigger.remove`, `apoc.trigger.removeAll`, `apoc.trigger.pause`, and `apoc.trigger.resume` ones";
+                "use the `apoc.trigger.install`, `apoc.trigger.drop`, `apoc.trigger.dropAll`, `apoc.trigger.stop`, and `apoc.trigger.start` procedures \n" + 
+                "instead of, respectively, `apoc.trigger.add`, `apoc.trigger.remove`, `apoc.trigger.removeAll`, `apoc.trigger.pause`, and `apoc.trigger.resume`.";
                 
         log.warn("Please note that the current procedure is deprecated, \n" + msgDeprecation);
         
         if (!Util.isWriteableInstance(db, GraphDatabaseSettings.SYSTEM_DATABASE_NAME)) {
-            throw new RuntimeException("It's not possible to write into a cluster member with a non-LEADER database system.\n" +
-                    "Either the procedure using the bolt against un core protocol with system db equals to LEADER, \n" +
+            throw new RuntimeException("It's not possible to write into a cluster member with a non-LEADER system database.\n" +
+                    "Either the procedure using the bolt against a core protocol with LEADER system database, \n" +
                     "or " + msgDeprecation);
         }
     }
@@ -170,7 +168,7 @@ public class Trigger {
     @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.trigger.install(databaseName, name, statement, selector, config) | add a trigger kernelTransaction under a name, in the kernelTransaction you can use {createdNodes}, {deletedNodes} etc., the selector is {phase:'before/after/rollback/afterAsync'} returns previous and new trigger information. Takes in an optional configuration.")
-    public Stream<TriggerInfo> install(@Name("databaseName") String databaseName, @Name("name") String name, @Name("kernelTransaction") String statement, @Name(value = "selector"/*, defaultValue = "{}"*/)  Map<String,Object> selector, @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
+    public Stream<TriggerInfo> install(@Name("databaseName") String databaseName, @Name("name") String name, @Name("kernelTransaction") String statement, @Name(value = "selector")  Map<String,Object> selector, @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
         Util.validateQuery(ApocConfig.apocConfig().getDatabase(databaseName), statement);
 
         Map<String,Object> params = (Map)config.getOrDefault("params", Collections.emptyMap());
@@ -190,7 +188,7 @@ public class Trigger {
     @SystemProcedure
     @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.trigger.stop")
     @Description("CALL apoc.trigger.stop(databaseName, name) | remove previously added trigger, returns trigger information")
-    public Stream<TriggerInfo> drop(@Name("databaseName")String databaseName, @Name("name")String name) {
+    public Stream<TriggerInfo> drop(@Name("databaseName") String databaseName, @Name("name")String name) {
         Map<String, Object> removed = TriggerUtils.remove(databaseName, name);
         triggerHandler.updateCache();
         if (removed.isEmpty()) {
@@ -204,7 +202,7 @@ public class Trigger {
     @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.trigger.dropAll(databaseName) | removes all previously added trigger, returns trigger information")
-    public Stream<TriggerInfo> dropAll(@Name("databaseName")String databaseName) {
+    public Stream<TriggerInfo> dropAll(@Name("databaseName") String databaseName) {
         Map<String, Object> removed = TriggerUtils.removeAll(databaseName);
         // always remove transaction listener
         triggerHandler.reconcileKernelRegistration(false);
@@ -215,7 +213,7 @@ public class Trigger {
     @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.trigger.stop(databaseName, name) | it pauses the trigger")
-    public Stream<TriggerInfo> stop(@Name("databaseName")String databaseName, @Name("name")String name) {
+    public Stream<TriggerInfo> stop(@Name("databaseName") String databaseName, @Name("name")String name) {
         Map<String, Object> paused = TriggerUtils.updatePaused(databaseName, name, true);
 
         return Stream.of(new TriggerInfo(name,
@@ -228,7 +226,7 @@ public class Trigger {
     @SystemProcedure
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.trigger.start(databaseName, name) | it resumes the paused trigger")
-    public Stream<TriggerInfo> start(@Name("databaseName")String databaseName, @Name("name")String name) {
+    public Stream<TriggerInfo> start(@Name("databaseName") String databaseName, @Name("name")String name) {
         Map<String, Object> resume = TriggerUtils.updatePaused(databaseName, name, false);
 
         return Stream.of(new TriggerInfo(name,

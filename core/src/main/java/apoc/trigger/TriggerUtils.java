@@ -9,7 +9,7 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Pair;
 
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -21,28 +21,17 @@ public class TriggerUtils {
             " Set 'apoc.trigger.enabled=true' in your apoc.conf file located in the $NEO4J_HOME/conf/ directory.";
 
     public static Map<String, Object> toTriggerInfo(Node node) {
-        HashSet<String> nodeKeys = new HashSet();
-        node.getPropertyKeys().iterator().forEachRemaining(key -> nodeKeys.add( key ));
-        HashMap<String, Object> result = new HashMap();
-
-        if (nodeKeys.contains("statement"))
-        {
-            result.put( "statement", node.getProperty( SystemPropertyKeys.statement.name() ) );
-        }
-        if (nodeKeys.contains("selector"))
-        {
-            result.put( "selector", Util.fromJson((String) node.getProperty(SystemPropertyKeys.selector.name()), Map.class));
-        }
-        if (nodeKeys.contains("params"))
-        {
-            result.put( "params", Util.fromJson((String) node.getProperty(SystemPropertyKeys.params.name()), Map.class));
-        }
-        if (nodeKeys.contains("paused"))
-        {
-            result.put( "paused", node.getProperty(SystemPropertyKeys.paused.name()));
-        }
-
-        return result;
+        return node.getAllProperties()
+                .entrySet().stream()
+                .filter(e -> !List.of(SystemPropertyKeys.name.name(), SystemPropertyKeys.database.name()).contains(e.getKey()))
+                .collect(HashMap::new, // workaround for https://bugs.openjdk.java.net/browse/JDK-8148463
+                        (mapAccumulator, e) -> {
+                            Object value = List.of(SystemPropertyKeys.selector.name(), SystemPropertyKeys.params.name()).contains(e.getKey()) 
+                                    ? Util.fromJson((String) e.getValue(), Map.class) 
+                                    : e.getValue();
+                            
+                            mapAccumulator.put(e.getKey(), value);
+                    }, HashMap::putAll);
     }
 
     private static boolean isEnabled() {
@@ -57,7 +46,7 @@ public class TriggerUtils {
 
     public static Map<String, Object> add(String databaseName, String triggerName, String statement, Map<String,Object> selector, Map<String,Object> params) {
         checkEnabled();
-        HashMap<String, Object> previous = new HashMap();
+        final HashMap<String, Object> previous = new HashMap<>();
 
         withSystemDb(tx -> {
             Node node = Util.mergeNode(tx, SystemLabels.ApocTrigger, null,
@@ -77,14 +66,11 @@ public class TriggerUtils {
 
     public static Map<String, Object> remove(String databaseName, String triggerName) {
         checkEnabled();
-        HashMap<String, Object> previous = new HashMap();
+        final HashMap<String, Object> previous = new HashMap<>();
 
         withSystemDb(tx -> {
-            tx.findNodes(SystemLabels.ApocTrigger,
-                            SystemPropertyKeys.database.name(), databaseName,
-                            SystemPropertyKeys.name.name(), triggerName)
-                    .forEachRemaining(node ->
-                            {
+            getTriggerNodes(databaseName, tx, triggerName)
+                    .forEachRemaining(node -> {
                                 previous.putAll(TriggerUtils.toTriggerInfo(node));
                                 node.delete();
                             }
@@ -99,14 +85,11 @@ public class TriggerUtils {
 
     public static Map<String, Object> updatePaused(String databaseName, String name, boolean paused) {
         checkEnabled();
-        HashMap<String, Object> result = new HashMap();
+        HashMap<String, Object> result = new HashMap<>();
 
         withSystemDb(tx -> {
-            tx.findNodes(SystemLabels.ApocTrigger,
-                            SystemPropertyKeys.database.name(), databaseName,
-                            SystemPropertyKeys.name.name(), name)
-                    .forEachRemaining(node ->
-                    {
+            getTriggerNodes(databaseName, tx, name)
+                    .forEachRemaining(node -> {
                         node.setProperty( SystemPropertyKeys.paused.name(), paused );
                         result.putAll(TriggerUtils.toTriggerInfo(node));
                     });
@@ -122,7 +105,7 @@ public class TriggerUtils {
 
     public static Map<String, Object> removeAll(String databaseName) {
         checkEnabled();
-        HashMap<String, Object> previous = new HashMap();
+        HashMap<String, Object> previous = new HashMap<>();
 
         withSystemDb(tx -> {
             getTriggerNodes(databaseName, tx)
@@ -140,9 +123,17 @@ public class TriggerUtils {
     }
 
     public static ResourceIterator<Node> getTriggerNodes(String databaseName, Transaction tx) {
-        return tx.findNodes(
-                SystemLabels.ApocTrigger, SystemPropertyKeys.database.name(), 
-                databaseName);
+        return getTriggerNodes(databaseName, tx, null);
+    }
+    
+    public static ResourceIterator<Node> getTriggerNodes(String databaseName, Transaction tx, String name) {
+        final SystemLabels label = SystemLabels.ApocTrigger;
+        final String dbNameKey = SystemPropertyKeys.database.name();
+        if (name == null) {
+            return tx.findNodes(label, dbNameKey, databaseName);
+        }
+        return tx.findNodes(label, dbNameKey, databaseName,
+                SystemPropertyKeys.name.name(), name);
     }
 
     public static <T> T withSystemDb(Function<Transaction, T> action) {
@@ -161,26 +152,5 @@ public class TriggerUtils {
         }
         node.setProperty(SystemPropertyKeys.lastUpdated.name(), System.currentTimeMillis());
     }
-    // todo - made
-//    private void updateCache() {
-//        activeTriggers.clear();
-//        System.out.println("updates cache");
-//        lastUpdate = System.currentTimeMillis();
-//
-//        withSystemDb(tx -> {
-//            tx.findNodes(SystemLabels.ApocTrigger,
-//                    SystemPropertyKeys.database.name(), db.databaseName()).forEachRemaining(
-//                    node -> {
-//                        System.out.println("there are nodes to update the cache");
-//                        activeTriggers.put(
-//                                (String) node.getProperty(SystemPropertyKeys.name.name()),
-//                                TriggerUtils.toTriggerInfo(node)
-//                        );
-//                    }
-//            );
-//            return null;
-//        });
-//
-//        reconcileKernelRegistration();
-//    }
+    
 }

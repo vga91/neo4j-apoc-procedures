@@ -65,4 +65,28 @@ public class TriggerDisabledTest {
     public void testTriggerDisabledPause() {
         db.executeTransactionally("CALL apoc.trigger.pause('test-trigger')");
     }
+
+    @Test
+    public void testTriggerDisabledInstall() {
+        db.executeTransactionally("CALL apoc.trigger.install('neo4j', 'test-trigger', 'RETURN 1', {phase: 'before'})");
+    }
+    @Test
+    public void testTriggerDisabledDrop() {
+        db.executeTransactionally("CALL apoc.trigger.drop('neo4j', 'test-trigger')");
+    }
+    
+    @Test
+    public void testTriggerDisabledDropAll() {
+        db.executeTransactionally("CALL apoc.trigger.dropAll('neo4j')");
+    }
+
+    @Test
+    public void testTriggerDisabledStart() {
+        db.executeTransactionally("CALL apoc.trigger.start('neo4j', 'test-trigger')");
+    }
+
+    @Test
+    public void testTriggerDisabledStop() {
+        db.executeTransactionally("CALL apoc.trigger.stop('neo4j', 'test-trigger')");
+    }
 }

@@ -1,6 +1,5 @@
 package apoc.trigger;
 
-import apoc.ApocConfig;
 import apoc.Pools;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
@@ -24,6 +23,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static apoc.ApocConfig.apocConfig;
 import static apoc.trigger.TriggerUtils.getTriggerNodes;
@@ -39,7 +40,6 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     private final Log log;
     private final GraphDatabaseService db;
     private final DatabaseManagementService databaseManagementService;
-    private final ApocConfig apocConfig;
     private final Pools pools;
     private final JobScheduler jobScheduler;
 
@@ -50,11 +50,9 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     private final AtomicBoolean registeredWithKernel = new AtomicBoolean(false);
 
     public TriggerHandler(GraphDatabaseService db, DatabaseManagementService databaseManagementService,
-                          ApocConfig apocConfig, Log log,
-                          Pools pools, JobScheduler jobScheduler) {
+                          Log log, Pools pools, JobScheduler jobScheduler) {
         this.db = db;
         this.databaseManagementService = databaseManagementService;
-        this.apocConfig = apocConfig;
         this.log = log;
         this.pools = pools;
         this.jobScheduler = jobScheduler;
@@ -62,7 +60,6 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
 
     public void updateCache() {
-        System.out.println("TriggerHandler.updateCache");
         final boolean hasTriggers = withSystemDb(tx -> getTriggerNodes(db.databaseName(), tx)
                 .hasNext());
         reconcileKernelRegistration(hasTriggers);
@@ -94,19 +91,23 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     public Map<String,Map<String,Object>> list() {
         TriggerUtils.checkEnabled();
-        HashMap<String, Map<String, Object>> result = new HashMap();
+        return getTriggers();
+    }
 
-        // todo - serve il return ed il result???
-        withSystemDb(tx -> {
-            getTriggerNodes(db.databaseName(), tx)
-                    .forEachRemaining( node -> 
-                    {
-                        String triggerName = (String) node.getProperty( SystemPropertyKeys.name.name() );
-                        result.put( triggerName, TriggerUtils.toTriggerInfo( node ) );
-                    });
-            return null;
-        });
-        return result;
+    private Map<String, Map<String, Object>> getTriggers() {
+        Map<String, Map<String, Object>> result = new HashMap<>();
+
+        // TODO - in `dev` change StreamSupport.stream with Iterators.stream 
+        //      depends on https://github.com/neo4j/apoc/pull/187/files
+        return withSystemDb(
+                tx -> StreamSupport.stream(
+                        getTriggerNodes(db.databaseName(), tx).stream().spliterator(), 
+                                false)
+                        .collect(Collectors.toMap(
+                                node -> (String) node.getProperty( SystemPropertyKeys.name.name() ),
+                                        TriggerUtils::toTriggerInfo)
+                        )
+        );
     }
 
     @Override
@@ -149,7 +150,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
     }
 
     private boolean hasPhase(Phase phase) {
-        return list().values().stream()
+        return getTriggers().values().stream()
                 .map(data -> (Map<String, Object>) data.get("selector"))
                 .anyMatch(selector -> when(selector, phase));
     }
@@ -160,7 +161,7 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     private void executeTriggers(Transaction tx, TriggerMetadata triggerMetadata, Phase phase) {
         Map<String,String> exceptions = new LinkedHashMap<>();
-        list().forEach((name, data) -> {
+        getTriggers().forEach((name, data) -> {
             Map<String, Object> params = triggerMetadata.toMap();
             if (data.get("params") != null) {
                 params.putAll((Map<String, Object>) data.get("params"));
@@ -189,9 +190,8 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     @Override
     public void start() throws Exception {
-        System.out.println("startDatabase " + db.databaseName());
         updateCache();
-        long refreshInterval = apocConfig().getInt(TRIGGER_REFRESH, 150);
+        long refreshInterval = apocConfig().getInt(TRIGGER_REFRESH, 60000);
         restoreTriggerHandler = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
             if (getLastUpdate() > lastUpdate) {
                 updateCache();
@@ -201,7 +201,6 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     @Override
     public void stop() {
-        System.out.println("stopDatabase " + db.databaseName());
         if(registeredWithKernel.compareAndSet(true, false)) {
             databaseManagementService.unregisterTransactionEventListener(db.databaseName(), this);
         }
