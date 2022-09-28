@@ -1,10 +1,8 @@
 package apoc.trigger;
 
 import apoc.util.TestContainerUtil;
-import apoc.util.TestUtil;
 import apoc.util.TestcontainersCausalCluster;
 import org.junit.AfterClass;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -14,9 +12,7 @@ import org.neo4j.internal.helpers.collection.MapUtil;
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
-import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeFalse;
 
 public class TriggerClusterTest {
 
