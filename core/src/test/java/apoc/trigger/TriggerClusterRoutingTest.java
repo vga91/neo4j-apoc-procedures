@@ -37,25 +37,32 @@ public class TriggerClusterRoutingTest {
     }
 
     @Test
-    public void testTimeStampTriggerForUpdatedProperties() {
+    public void testTriggerAddAllowedOnlyInLeaderMember() {
         System.out.println("TriggerClusterRoutingTest.testTimeStampTriggerForUpdatedProperties");
         for (Neo4jContainerExtension container: cluster.getClusterMembers()){
-            final String systemRole = TestContainerUtil.singleResultFirstColumn(cluster.getSession(), "CALL dbms.cluster.role('system')");
-            if (systemRole.equals("LEADER")) {
+            System.out.println("container.getContainerName() = " + container.getContainerName());
+            // we skip READ_REPLICA members
+            final String readReplica = TestcontainersCausalCluster.ClusterInstanceType.READ_REPLICA.toString();
+            if (readReplica.equals(container.getEnvMap().get("NEO4J_dbms_mode"))) {
+                System.out.println("continued container with name = " + container.getContainerName());
+                continue;
+            }
+            final String systemRole = TestContainerUtil.singleResultFirstColumn(container.getSession(), "CALL dbms.cluster.role('system')");
+            if ("LEADER".equals(systemRole)) {
                 System.out.println("TriggerClusterRoutingTest is leader" + container.getContainerName());
 
-                container.getSession().run("CALL apoc.trigger.add($name,'UNWIND apoc.trigger.nodesByLabel($assignedNodeProperties,null) AS n SET n.ts = timestamp()',{})",
+                container.getSession().run("CALL apoc.trigger.add($name, 'UNWIND $createdNodes AS n SET n.ts = timestamp()',{})",
                         Map.of("name", "trigger-" + container.getContainerName()));
 
-                container.getSession().run("CREATE (f:Foo) SET f.foo='bar'");
+                container.getSession().run("CREATE (f:Foo)");
                 TestContainerUtil.testCall(container.getSession(), "MATCH (f:Foo) RETURN f",
                         (row) -> assertTrue(((Node) row.get("f")).containsKey("ts")));
             } else {
                 System.out.println("TriggerClusterRoutingTest is NOT leader " + container.getContainerName());
                 try {
-                    TestContainerUtil.testCall(container.getSession(), "CALL apoc.trigger.add($name,'UNWIND apoc.trigger.nodesByLabel($assignedNodeProperties,null) AS n SET n.ts = timestamp()',{})",
+                    TestContainerUtil.testCall(container.getSession(), "CALL apoc.trigger.add($name, 'UNWIND $createdNodes AS n SET n.ts = timestamp()',{})",
                             Map.of("name", "trigger-" + container.getContainerName()),
-                            row -> fail("Should fail because of non leadere trigger addition"));
+                            row -> fail("Should fail because of non leader trigger addition"));
                 } catch (RuntimeException e) {
                     System.out.println("e.getMessage() = " + e.getMessage());
                     assertTrue(e.getMessage().contains(SYS_NON_LEADER_ERROR));

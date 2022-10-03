@@ -70,7 +70,9 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
     @Override
     public void start() {
         super.start();
+        System.out.println("Neo4jContainerExtension.start");
         if (withDriver) {
+            System.out.println("withDriver = " + withDriver);
             driver = GraphDatabase.driver(getBoltUrl(), getAuth());
             session = driver.session();
             if (filePath != null && !filePath.isEmpty()) {
