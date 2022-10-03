@@ -22,6 +22,10 @@ import java.util.stream.Stream;
  */
 
 public class Trigger {
+    // public for testing purpose
+    public static final String SYS_NON_LEADER_ERROR = "It's not possible to write into a cluster member with a non-LEADER system database.\n" +
+            "Either the procedure using the bolt against a core protocol with LEADER system database, \n" +
+            "or ";
 
     public static class TriggerInfo {
         public String name;
@@ -63,9 +67,7 @@ public class Trigger {
         log.warn("Please note that the current procedure is deprecated, \n" + msgDeprecation);
         
         if (!Util.isWriteableInstance(db, GraphDatabaseSettings.SYSTEM_DATABASE_NAME)) {
-            throw new RuntimeException("It's not possible to write into a cluster member with a non-LEADER system database.\n" +
-                    "Either the procedure using the bolt against a core protocol with LEADER system database, \n" +
-                    "or " + msgDeprecation);
+            throw new RuntimeException(SYS_NON_LEADER_ERROR + msgDeprecation);
         }
     }
 

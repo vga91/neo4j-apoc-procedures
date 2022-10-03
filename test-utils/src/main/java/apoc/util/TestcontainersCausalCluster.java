@@ -105,6 +105,10 @@ public class TestcontainersCausalCluster {
         return new TestcontainersCausalCluster(members, proxy);
     }
 
+    private static boolean withRouting(Map<String, String> envSettings) {
+        return "true".equals(envSettings.get("NEO4J_dbms_routing_enabled"));
+    }
+
     private static Neo4jContainerExtension createInstance(String name,
                                                           ClusterInstanceType instanceType,
                                                           Network network,
@@ -122,6 +126,11 @@ public class TestcontainersCausalCluster {
                 .withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
                 .withNeo4jConfig("causal_clustering.initial_discovery_members", initialDiscoveryMembers)
                 .withStartupTimeout(Duration.ofMinutes(MINUTES_TO_WAIT));
+        if (withRouting(envSettings)) {
+            container.withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
+                    .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
+                    .withEnv("NEO4J_dbms_routing_advertised__address", name + "7618");
+        }
         neo4jConfig.forEach((conf, value) -> container.withNeo4jConfig(conf, String.valueOf(value)));
         container.withEnv(envSettings);
         return container;
