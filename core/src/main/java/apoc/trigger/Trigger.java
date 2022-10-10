@@ -22,6 +22,10 @@ import java.util.stream.Stream;
  */
 
 public class Trigger {
+    // public for testing purpose
+    public static final String SYS_NON_LEADER_ERROR = "It's not possible to write into a cluster member with a non-LEADER system database.\n" +
+            "Either the procedure using the bolt against a core protocol with LEADER system database, \n" +
+            "or ";
 
     public static class TriggerInfo {
         public String name;
@@ -63,9 +67,7 @@ public class Trigger {
         log.warn("Please note that the current procedure is deprecated, \n" + msgDeprecation);
         
         if (!Util.isWriteableInstance(db, GraphDatabaseSettings.SYSTEM_DATABASE_NAME)) {
-            throw new RuntimeException("It's not possible to write into a cluster member with a non-LEADER system database.\n" +
-                    "Either the procedure using the bolt against a core protocol with LEADER system database, \n" +
-                    "or " + msgDeprecation);
+            throw new RuntimeException(SYS_NON_LEADER_ERROR + msgDeprecation);
         }
     }
 
@@ -167,7 +169,7 @@ public class Trigger {
     // TODO - change with SystemOnlyProcedure
     @SystemProcedure
     @Procedure(mode = Mode.WRITE)
-    @Description("CALL apoc.trigger.install(databaseName, name, statement, selector, config) | add a trigger kernelTransaction under a name, in the kernelTransaction you can use {createdNodes}, {deletedNodes} etc., the selector is {phase:'before/after/rollback/afterAsync'} returns previous and new trigger information. Takes in an optional configuration.")
+    @Description("CALL apoc.trigger.install(databaseName, name, statement, selector, config) | add a trigger kernelTransaction under a name, in the kernelTransaction you can use $createdNodes, $deletedNodes etc., the selector is {phase:'before/after/rollback/afterAsync'} returns previous and new trigger information. Takes in an optional configuration.")
     public Stream<TriggerInfo> install(@Name("databaseName") String databaseName, @Name("name") String name, @Name("kernelTransaction") String statement, @Name(value = "selector")  Map<String,Object> selector, @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
         Util.validateQuery(ApocConfig.apocConfig().getDatabase(databaseName), statement);
 
