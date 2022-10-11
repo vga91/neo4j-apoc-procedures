@@ -1,13 +1,17 @@
 package apoc;
 
+import apoc.help.HelpExtendedTest;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
+import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 import apoc.util.TestContainerUtil.ApocPackage;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,22 +28,38 @@ import static org.junit.Assert.fail;
  into a Neo4j instance without any startup issue.
  If you don't have docker installed it will fail, and you can simply ignore it.
  */
-public class CoreExtendedTest {
+public class CoreExtendedTest extends HelpExtendedTest {
     @Test
     public void checkForCoreAndExtended() {
         try {
-            Neo4jContainerExtension neo4jContainer = createEnterpriseDB(List.of(ApocPackage.CORE, ApocPackage.EXTENDED), true)
-                    .withNeo4jConfig("dbms.transaction.timeout", "60s")
-                    .withEnv(APOC_IMPORT_FILE_ENABLED, "true");
+            Neo4jContainerExtension neo4jContainer = createEnterpriseDB(List.of(/*ApocPackage.CORE, */ApocPackage.EXTENDED), true)
+                    .withNeo4jConfig("dbms.transaction.timeout", "60s");
+//                    .withNeo4jConfig(APOC_IMPORT_FILE_ENABLED, "true");
 
             neo4jContainer.start();
 
+            
             Session session = neo4jContainer.getSession();
-            int coreCount = session.run("CALL apoc.help('') YIELD core WHERE core = true RETURN count(*) AS count").peek().get("count").asInt();
-            int extendedCount = session.run("CALL apoc.help('') YIELD core WHERE core = false RETURN count(*) AS count").peek().get("count").asInt();
+            // todo - common with StartupTest.compare_with_sources (in core)
+//            final List<String> functionNames = session.run("CALL apoc.help('') YIELD core, type, name WHERE core = true and type = 'function' RETURN name")
+//                    .list(record -> record.get("name").asString());
+//            final List<String> procedureNames = session.run("CALL apoc.help('') YIELD core, type, name WHERE core = true and type = 'procedure' RETURN name")
+//                    .list(record -> record.get("name").asString());
+//
+//
+//            assertEquals(sorted(ApocSignatures.PROCEDURES), procedureNames);
+//            assertEquals(sorted(ApocSignatures.FUNCTIONS), functionNames);
+            final List<String> totalExtendedNames = session.run("CALL apoc.help('') YIELD core, type, name WHERE core = false and type = 'procedure' RETURN name")
+                    .list(record -> record.get("name").asString());
+            final List<String> functionExtendedNames = session.run("CALL apoc.help('') YIELD core, type, name WHERE core = false and type = 'function' RETURN name")
+                    .list(record -> record.get("name").asString());
 
-            assertTrue(coreCount > 0);
-            assertTrue(extendedCount > 0);
+            totalExtendedNames.addAll(functionExtendedNames);
+            final String actualExtended = totalExtendedNames.stream()
+                    .collect(Collectors.joining("\n"));
+
+            final String expectedExtended = FileUtils.readFileToString(EXTENDED_FILE, StandardCharsets.UTF_8);
+            assertEquals(expectedExtended, actualExtended);
 
             neo4jContainer.close();
         } catch (Exception ex) {
@@ -50,6 +70,12 @@ public class CoreExtendedTest {
         }
     }
 
+
+    private List<String> sorted(List<String> signatures) {
+        return signatures.stream().sorted().collect(Collectors.toList());
+    }
+
+    // TODO [Nacho] Ignored for the moment because we cannot build core from here anymore. This needs rethinking
     @Test
     public void matchesSpreadsheet() {
         try {

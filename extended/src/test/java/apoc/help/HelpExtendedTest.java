@@ -27,6 +27,7 @@ import static org.junit.Assert.assertFalse;
  * @since 06.11.16
  */
 public class HelpExtendedTest {
+    public static final File EXTENDED_FILE = new File("src/main/resources/extended.txt");
 
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule();
@@ -62,8 +63,8 @@ public class HelpExtendedTest {
 
     @Test
     public void indicateNotCore() throws IOException {
-        File extendedFile = new File("src/main/resources/extended.txt");
-        FileOutputStream fos = new FileOutputStream(extendedFile);
+        System.out.println("HelpExtendedTest.indicateNotCore");
+        FileOutputStream fos = new FileOutputStream(EXTENDED_FILE);
 
         try (BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos))) {
             db.executeTransactionally("SHOW PROCEDURES YIELD name WHERE name STARTS WITH 'apoc' AND name <> 'apoc.help' RETURN name", Collections.emptyMap(),
