@@ -9,6 +9,7 @@ import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.QueryStatistics;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.internal.helpers.collection.Iterators;
@@ -32,6 +33,7 @@ import java.util.Scanner;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
 import java.util.regex.Matcher;
@@ -277,7 +279,7 @@ public class CypherExtended {
 
     @Procedure
     @Description("apoc.cypher.parallel(fragment, `paramMap`, `keyList`) yield value - executes fragments in parallel through a list defined in `paramMap` with a key `keyList`")
-    public Stream<MapResult> parallel(@Name("fragment") String fragment, @Name("params") Map<String, Object> params, @Name("parallelizeOn") String key) {
+    public Stream<MapResult> parallel(@Name("fragment") String fragment, @Name("params") Map<String, Object> params, @Name("parallelizeOn") String key) throws ExecutionException, InterruptedException {
         if (params == null) return runCypherQuery(tx, fragment, params);
         if (key == null || !params.containsKey(key))
             throw new RuntimeException("Can't parallelize on key " + key + " available keys " + params.keySet());
@@ -286,13 +288,69 @@ public class CypherExtended {
             throw new RuntimeException("Can't parallelize a non collection " + key + " : " + value);
 
         final String statement = withParamMapping(fragment, params.keySet());
+//        +
+//        System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "10");
+                
         Collection<Object> coll = (Collection<Object>) value;
+
+//        final List<Object> collect = coll.parallelStream().map(i -> {
+//            System.out.println("Thread() " + Thread.currentThread().getId());
+//            return null;
+//        }).collect(toList());
+//        
+//
+//        coll.parallelStream().forEach(i -> System.out.println("Thread(2) " + Thread.currentThread().getId()));
+
+//        ForkJoinPool customThreadPool = new ForkJoinPool(10);
+//        return customThreadPool.submit(() -> {
+//            return coll.parallelStream().flatMap((v) -> {
+//                System.out.println("Thread.currentThread().getId() " + Thread.currentThread().getId());
+//                terminationGuard.check();
+//                Map<String, Object> parallelParams = new HashMap<>(params);
+//                parallelParams.replace(key, v);
+//                return tx.execute(statement, parallelParams).stream().map(MapResult::new);
+//            });
+//        }).get();
+
+        // todo - funzionante
+//        final List<MapResult> collect1 = coll.parallelStream().flatMap(i -> {
+//            System.out.println("Thread(11) " + Thread.currentThread().getId());
+//            terminationGuard.check();
+//            Map<String, Object> parallelParams = new HashMap<>(params);
+//            parallelParams.replace(key, i);
+//            return tx.execute(statement, parallelParams).stream().map(MapResult::new);
+////            return Stream.of(1);
+//        }).collect(toList());
+//        return collect1.stream();
+
+//        return coll.stream().parallel().map(i -> {
+//            System.out.println("Thread(xx) " + Thread.currentThread().getId());
+//            terminationGuard.check();
+//            Map<String, Object> parallelParams = new HashMap<>(params);
+//            parallelParams.replace(key, i);
+//            return tx.execute(statement, parallelParams).stream().parallel();//.stream();//.stream().map(MapResult::new);
+////            return Stream.of(1);
+//        }).reduce(Stream::concat).orElse(Stream.empty()).parallel()
+//                .map(MapResult::new);//.collect(toList());
+//        return collect1.stream();
+
+
         return coll.parallelStream().flatMap((v) -> {
+            System.out.println("Thread(xxx) " + Thread.currentThread().getId());
             terminationGuard.check();
             Map<String, Object> parallelParams = new HashMap<>(params);
             parallelParams.replace(key, v);
             return tx.execute(statement, parallelParams).stream().map(MapResult::new);
-        });
+        }).collect(toList()).stream();
+        
+
+//        return coll.parallelStream().fl((v) -> {
+//            System.out.println("Thread.currentThread().getId() " + Thread.currentThread().getId());
+//            terminationGuard.check();
+//            Map<String, Object> parallelParams = new HashMap<>(params);
+//            parallelParams.replace(key, v);
+//            return new MapResult(tx.execute(statement, parallelParams).next());//.stream().map(MapResult::new);
+//        });
 
         /*
         params.entrySet().stream()

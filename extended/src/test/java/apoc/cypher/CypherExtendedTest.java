@@ -1,5 +1,6 @@
 package apoc.cypher;
 
+import apoc.date.Date;
 import apoc.text.Strings;
 import apoc.util.TestUtil;
 import apoc.util.Util;
@@ -7,6 +8,7 @@ import apoc.util.Utils;
 import org.junit.*;
 import org.junit.rules.ExpectedException;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
@@ -49,7 +51,7 @@ public class CypherExtendedTest {
     @BeforeClass
     public static void setUp() {
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
-        TestUtil.registerProcedure(db, Cypher.class, CypherExtended.class, Utils.class, CypherFunctions.class, Timeboxed.class, Strings.class);
+        TestUtil.registerProcedure(db, Date.class, Cypher.class, CypherExtended.class, Utils.class, CypherFunctions.class, Timeboxed.class, Strings.class);
     }
 
     @AfterClass
@@ -99,6 +101,18 @@ public class CypherExtendedTest {
         int size = 10_000;
         testResult(db, "CALL apoc.cypher.parallel('UNWIND range(0,9) as b RETURN b',{a:range(1,$size)},'a')", map("size", size),
                 r -> assertEquals( size * 10,Iterators.count(r) ));
+    }
+    
+    // todo --> similar test as below with with timestamp() as start, range(1, 15) AS range unwind range as num with collect({num:num, start:start}) AS partitions, start with { partitions:partitions , start:start } as params, start call apoc.cypher.parallel2('with $partitions[0] as partition call apoc.util.sleep(200) return timestamp() - partition.start AS execution_time', params, 'partitions') yield value return collect(value.execution_time) as execution_times
+
+    @Test
+    public void testParallelWithSleep() {
+        testResult(db, "with apoc.date.currentTimestamp() as start\n" +
+                        "call apoc.cypher.parallel('call apoc.util.sleep(1000) return apoc.date.currentTimestamp() as end', { x: range(1, 10) }, 'x') yield value\n" +
+                        "return (value.end - start) AS execution_time",
+                r -> r.<Long>columnAs("execution_time")
+                        .forEachRemaining(time -> assertTrue(time < 2000L)));
+        
     }
 
     @Test
