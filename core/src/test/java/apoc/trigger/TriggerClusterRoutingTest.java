@@ -41,6 +41,7 @@ public class TriggerClusterRoutingTest {
         for (Neo4jContainerExtension container: cluster.getClusterMembers()){
             // we skip READ_REPLICA members
             final String readReplica = TestcontainersCausalCluster.ClusterInstanceType.READ_REPLICA.toString();
+            System.out.println("readReplica = " + readReplica + ", member " + container.getContainerName() + ", session: " + container.getSession());
             if (readReplica.equals(container.getEnvMap().get("NEO4J_dbms_mode"))) {
                 continue;
             }
