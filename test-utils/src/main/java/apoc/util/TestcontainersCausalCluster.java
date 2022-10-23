@@ -31,7 +31,7 @@ import static java.util.stream.Collectors.toList;
  */
 
 public class TestcontainersCausalCluster {
-    private static int MINUTES_TO_WAIT = 5;
+    private static int MINUTES_TO_WAIT = 10;
     private static final int DEFAULT_BOLT_PORT = 7687;
 
     public enum ClusterInstanceType {
@@ -122,6 +122,7 @@ public class TestcontainersCausalCluster {
                 .withNeo4jConfig("causal_clustering.initial_discovery_members", initialDiscoveryMembers)
                 .withStartupTimeout(Duration.ofMinutes(MINUTES_TO_WAIT));
         if (withRoutingEnabled(envSettings)) {
+            System.out.println("TestcontainersCausalCluster.createInstance");
             container.withStartupAttempts(3)
                     .withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
                     .withEnv("NEO4J_dbms_routing_default__router", "SERVER")

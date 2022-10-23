@@ -54,7 +54,7 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
         setWaitStrategy(new WaitAllStrategy()
                 .withStrategy(waitForBolt)
                 .withStrategy(waitForHttp)
-                .withStartupTimeout(Duration.ofMinutes(2)));
+                .withStartupTimeout(Duration.ofMinutes(10)));
     }
 
     public Neo4jContainerExtension withInitScript(String filePath) {
@@ -70,7 +70,9 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
     @Override
     public void start() {
         System.out.println("started logger = " + logger);
+        System.out.println("started with1 " + withDriver);
         super.start();
+        System.out.println("started with2 " + withDriver);
         if (withDriver) {
             System.out.println("withDriver = " + withDriver);
             driver = GraphDatabase.driver(getBoltUrl(), getAuth());
@@ -80,6 +82,7 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
                 executeScript(filePath);
             }
         }
+        System.out.println("isRunning = " + isRunning);
         isRunning = true;
     }
 
