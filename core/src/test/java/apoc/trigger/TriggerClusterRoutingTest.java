@@ -22,6 +22,7 @@ public class TriggerClusterRoutingTest {
 
     @BeforeClass
     public static void setupCluster() {
+        System.out.println("setupCluster routing");
         cluster = TestContainerUtil
                 .createEnterpriseCluster(3, 1, Collections.emptyMap(), MapUtil.stringMap(
                         "NEO4J_dbms_routing_enabled", "true",
