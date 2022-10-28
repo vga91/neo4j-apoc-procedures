@@ -18,6 +18,7 @@ import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
+@Ignore
 public class CypherProceduresClusterTest {
 
     private static TestcontainersCausalCluster cluster;

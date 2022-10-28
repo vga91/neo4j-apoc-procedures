@@ -26,6 +26,7 @@ import static org.junit.Assume.assumeTrue;
  * @author as
  * @since 12.02.19
  */
+@Ignore
 public class MetaEnterpriseFeaturesTest {
 
     private static Neo4jContainerExtension neo4jContainer;

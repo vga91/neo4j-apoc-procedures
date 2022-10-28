@@ -2,6 +2,7 @@ import apoc.ApocSignatures;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestUtil;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.driver.Session;
 
@@ -19,6 +20,7 @@ import static org.junit.Assert.fail;
  This test is just to verify if the APOC procedures and functions are correctly deployed into a Neo4j instance without any startup issue.
  If you don't have docker installed it will fail, and you can simply ignore it.
  */
+@Ignore
 public class StartupTest {
 
     private static final File APOC_FULL;

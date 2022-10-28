@@ -5,6 +5,7 @@ import apoc.util.TestUtil;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.driver.Session;
 
@@ -16,6 +17,7 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
+@Ignore
 public class CypherEnterpriseTest {
 
     private static Neo4jContainerExtension neo4jContainer;

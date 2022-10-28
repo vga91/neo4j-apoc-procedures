@@ -7,6 +7,7 @@ import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.types.Node;
@@ -21,6 +22,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
 import static org.neo4j.test.assertion.Assert.assertEventually;
 
+@Ignore
 public class TriggerClusterTest {
 
     private static TestcontainersCausalCluster cluster;

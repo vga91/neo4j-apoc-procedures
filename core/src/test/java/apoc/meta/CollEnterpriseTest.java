@@ -2,6 +2,7 @@ package apoc.meta;
 
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestUtil;
+import org.junit.Ignore;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
@@ -14,6 +15,7 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
+@Ignore
 public class CollEnterpriseTest {
 
     private static Neo4jContainerExtension neo4jContainer;

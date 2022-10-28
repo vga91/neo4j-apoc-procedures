@@ -4,6 +4,7 @@ import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestUtil;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.driver.*;
 
@@ -26,6 +27,7 @@ import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
+@Ignore
 public class UUIDMultiDbTest {
 
     private static Neo4jContainerExtension neo4jContainer;
