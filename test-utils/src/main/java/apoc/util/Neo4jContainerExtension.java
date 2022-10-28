@@ -71,7 +71,9 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
     public void start() {
         super.start();
         if (withDriver) {
-            driver = GraphDatabase.driver(getBoltUrl(), getAuth());
+            final String boltUrl = getBoltUrl();
+            System.out.println("boltUrlwithDriver = " + boltUrl);
+            driver = GraphDatabase.driver(boltUrl, getAuth());
             session = driver.session();
             if (filePath != null && !filePath.isEmpty()) {
                 executeScript(filePath);

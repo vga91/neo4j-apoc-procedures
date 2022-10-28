@@ -5,11 +5,6 @@ import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.neo4j.driver.AuthTokens;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
-import org.neo4j.driver.Result;
-import org.neo4j.driver.Session;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
@@ -46,14 +41,6 @@ public class TriggerTest {
 
     @Before
     public void setUp() throws Exception {
-        final Driver driver = GraphDatabase.driver("neo4j://localhost:7687", AuthTokens.basic("neo4j", "foobar"));
-        final Session session = driver.session();
-
-//        final Result run = session.run("call apoc.trigger.list() yield name return name");
-        final Result run = session.run("call apoc.trigger.add(\"prova\", \"return 1\", {})");
-        System.out.println("run.list() = " + run.list());
-        session.close();
-        driver.close();
         
         start = System.currentTimeMillis();
         TestUtil.registerProcedure(db, Trigger.class, Nodes.class);
