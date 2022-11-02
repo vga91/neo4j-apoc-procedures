@@ -105,7 +105,7 @@ public class TriggerClusterRoutingTest {
     }
 
     @Test
-    @Ignore
+//    @Ignore
     public void testTriggerInstallAllowedOnlyInSysLeaderMember1() {
         final String name = "installTriggerInNeo";
         final String query = "CALL apoc.trigger.install($name, 'RETURN 1',{})";
@@ -136,7 +136,7 @@ public class TriggerClusterRoutingTest {
                 final String envBolt = member.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
                 System.out.println("envBolt = " + envBolt);
                 System.out.println("neo4jUrl = " + neo4jUrl);
-                final Driver driver = GraphDatabase.driver(neo4jUrl, AuthTokens.basic("neo4j", "apoc"));
+                final Driver driver = GraphDatabase.driver("neo4j://" + envBolt, AuthTokens.basic("neo4j", "apoc"));
                 final Session session = driver.session();
 //                final Session session = driver.session(SessionConfig.forDatabase("neo4j"));
 
