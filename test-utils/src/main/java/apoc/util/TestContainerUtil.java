@@ -97,6 +97,7 @@ public class TestContainerUtil {
                         // ignore since it may fail depending on operating system
                     }
                 });
+        System.out.println("withLogging = " + withLogging);
         if (withLogging) {
             neo4jContainer.withLogging();
         }
