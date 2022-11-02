@@ -7,17 +7,12 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.neo4j.driver.AuthTokens;
-import org.neo4j.driver.Config;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Session;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 
 import static apoc.trigger.Trigger.SYS_NON_LEADER_ERROR;
@@ -116,55 +111,64 @@ public class TriggerClusterRoutingTest {
 
     private static void testTriggerAgainstNeo4jProtocol(String name, String query) {
         System.out.println("cluster.getURI().getPath() = " + cluster.getURI().getPath());
-        
-        
-        
+
+
         if (!cluster.sidecar.isRunning()) {
             System.out.println("sidecar not running...");
 //            return;
         }
+        try (final Session session1 = cluster.getDriver().session()) {
+            try {
+                session1.run("call apoc.trigger.add(\"prova\", \"return 1\", {})");
+            } catch (Exception e) {
+                System.out.println("KKKKKK.getMessage() = " + e.getMessage());
+            }
+
+            final boolean name1 = session1.run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext();
+            System.out.println("name1 = " + name1);
+        }
         
 //        try {
-            for (Neo4jContainerExtension member: cluster.getClusterMembers()) {
-
-                final String readReplica = TestcontainersCausalCluster.ClusterInstanceType.READ_REPLICA.toString();
-                if (readReplica.equals(member.getEnvMap().get("NEO4J_dbms_mode"))) {
-                    continue;
-                }
-                
-                System.out.println("member.getContainerName() = " + member.getContainerName());
-                System.out.println("member.getSession() = " + member.getSession());
-                
-                final String neo4jUrl;
-                try {
-                    neo4jUrl = member.getBoltUrl().replace("bolt://", "neo4j://"); 
-                } catch (Exception e) {
-                    System.out.println("getBoltUrle.getMessage() = " + e.getMessage());
-                    continue;
-                }
-//                final String neo4jUrl = member.getBoltUrl().replace("bolt://", "neo4j://");
-                final String envBolt = member.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
-                System.out.println("envBolt = " + envBolt);
-                System.out.println("neo4jUrl = " + neo4jUrl);
-                final Driver driver = GraphDatabase.driver("neo4j://" + envBolt, AuthTokens.basic("neo4j", "apoc"),
-                        Config.builder().withResolver(i -> Set.of()).build());
-                final Session session = driver.session();
-//                final Session session = driver.session(SessionConfig.forDatabase("neo4j"));
-
-                try {
-                    session.run("call apoc.trigger.add(\"prova\", \"return 1\", {})");
-                } catch (Exception e) {
-                    System.out.println("Te.getMessage() = " + e.getMessage());
-                }
-
-                // todo - decomment...
-//                assertFalse(session.run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext());
-                
-                
-                // todo -try-with-res
-                session.close();
-                driver.close();
-            }
+//            for (Neo4jContainerExtension member: cluster.getClusterMembers()) {
+//
+//                final String readReplica = TestcontainersCausalCluster.ClusterInstanceType.READ_REPLICA.toString();
+//                if (readReplica.equals(member.getEnvMap().get("NEO4J_dbms_mode"))) {
+//                    continue;
+//                }
+//                
+//                System.out.println("member.getContainerName() = " + member.getContainerName());
+//                System.out.println("member.getSession() = " + member.getSession());
+//                
+//                final String neo4jUrl;
+//                try {
+//                    neo4jUrl = member.getBoltUrl().replace("bolt://", "neo4j://"); 
+//                } catch (Exception e) {
+//                    System.out.println("getBoltUrle.getMessage() = " + e.getMessage());
+//                    continue;
+//                }
+////                final String neo4jUrl = member.getBoltUrl().replace("bolt://", "neo4j://");
+//                final String envBolt = member.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
+//                System.out.println("envBolt = " + envBolt);
+//                System.out.println("neo4jUrl = " + neo4jUrl);
+//                final Driver driver = GraphDatabase.driver("neo4j://" + envBolt, AuthTokens.basic("neo4j", "apoc"),
+//                        Config.builder().withResolver(i -> Set.of()).build());
+//                final Session session = driver.session();
+////                final Session session = driver.session(SessionConfig.forDatabase("neo4j"));
+//
+//                try {
+//                    session.run("call apoc.trigger.add(\"prova\", \"return 1\", {})");
+//                } catch (Exception e) {
+//                    System.out.println("Te.getMessage() = " + e.getMessage());
+//                }
+//
+//                // todo - decomment...
+////                assertFalse(session.run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext());
+//                
+//                
+//                // todo -try-with-res
+//                session.close();
+//                driver.close();
+//            }
 //            neo4jContainerExtension.getBoltUrl()
 //            neo4jContainerExtension.run(query, Map.of("name", name));
 //        } catch (RuntimeException e) {
