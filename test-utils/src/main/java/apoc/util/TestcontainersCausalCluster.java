@@ -161,7 +161,7 @@ public class TestcontainersCausalCluster {
     }
 
     private final List<Neo4jContainerExtension> clusterMembers;
-    private final SocatContainer sidecar;
+    public final SocatContainer sidecar;
 
     private Driver driver;
     private Session session;

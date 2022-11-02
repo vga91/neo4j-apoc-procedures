@@ -117,8 +117,11 @@ public class TriggerClusterRoutingTest {
     private static void testTriggerAgainstNeo4jProtocol(String name, String query) {
         System.out.println("cluster.getURI().getPath() = " + cluster.getURI().getPath());
         
-        if (!cluster.isRunning()) {
-            return;
+        
+        
+        if (!cluster.sidecar.isRunning()) {
+            System.out.println("sidecar not running...");
+//            return;
         }
         
 //        try {
