@@ -81,28 +81,28 @@ public class TestcontainersCausalCluster {
         List<Neo4jContainerExtension> members = iterateMembers(numberOfCoreMembers, ClusterInstanceType.CORE)
                 .map(member -> createInstance(member.getValue(), ClusterInstanceType.CORE, network, initialDiscoveryMembers, neo4jConfig, envSettings)
                         // todo - try decomment it..
-//                        .withNeo4jConfig("dbms.default_advertised_address", member.getValue())
+                        .withNeo4jConfig("dbms.default_advertised_address", member.getValue())
                         .withNeo4jConfig("dbms.connector.bolt.advertised_address", String.format("%s:%d", proxy.getContainerIpAddress(), proxy.getMappedPort(ClusterInstanceType.CORE.port + member.getKey()))))
-                .peek(i -> {
-
-                    final String envBoltPre = i.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
-                    System.out.println("JJJJenvBoltPre = " + envBoltPre);
-                    
-                    final String dbsmRoutingAdvertised = i.getEnvMap().get("NEO4J_dbms_routing_advertised__address");
-                    System.out.println("KKKKdbsmRoutingAdvertised = " + dbsmRoutingAdvertised);
-                })
+//                .peek(i -> {
+//
+//                    final String envBoltPre = i.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
+//                    System.out.println("JJJJenvBoltPre = " + envBoltPre);
+//                    
+//                    final String dbsmRoutingAdvertised = i.getEnvMap().get("NEO4J_dbms_routing_advertised__address");
+//                    System.out.println("KKKKdbsmRoutingAdvertised = " + dbsmRoutingAdvertised);
+//                })
                 .collect(toList());
         members.addAll(iterateMembers(numberOfReadReplica, ClusterInstanceType.READ_REPLICA)
                 .map(member -> createInstance(member.getValue(), ClusterInstanceType.READ_REPLICA, network, initialDiscoveryMembers, neo4jConfig, envSettings)
-//                        .withNeo4jConfig("dbms.default_advertised_address", member.getValue())
+                        .withNeo4jConfig("dbms.default_advertised_address", member.getValue())
                         .withNeo4jConfig("dbms.connector.bolt.advertised_address", String.format("%s:%d", proxy.getContainerIpAddress(), proxy.getMappedPort(ClusterInstanceType.READ_REPLICA.port + member.getKey()))))
-                .peek(i -> {
-                    final String envBoltPre = i.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
-                    System.out.println("UUUUUenvBoltPre = " + envBoltPre);
-
-                    final String dbsmRoutingAdvertised = i.getEnvMap().get("NEO4J_dbms_routing_advertised__address");
-                    System.out.println("IIIIdbsmRoutingAdvertised = " + dbsmRoutingAdvertised);
-                })
+//                .peek(i -> {
+//                    final String envBoltPre = i.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
+//                    System.out.println("UUUUUenvBoltPre = " + envBoltPre);
+//
+//                    final String dbsmRoutingAdvertised = i.getEnvMap().get("NEO4J_dbms_routing_advertised__address");
+//                    System.out.println("IIIIdbsmRoutingAdvertised = " + dbsmRoutingAdvertised);
+//                })
                 .collect(toList()));
 
         // Start all of them in parallel
@@ -134,17 +134,17 @@ public class TestcontainersCausalCluster {
                 .withCreateContainerCmdModifier(cmd -> cmd.withHostName(name))
                 .withNeo4jConfig("dbms.mode", instanceType.toString())
                 // todo - try decomment it..
-//                .withNeo4jConfig("dbms.default_listen_address", "0.0.0.0")
+                .withNeo4jConfig("dbms.default_listen_address", "0.0.0.0")
                 .withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
                 .withNeo4jConfig("causal_clustering.initial_discovery_members", initialDiscoveryMembers)
                 .withStartupTimeout(Duration.ofMinutes(MINUTES_TO_WAIT));
         if (withRoutingEnabled(envSettings)) {
             container.withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
                     .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
-                    .withEnv("NEO4J_causal__clustering_discovery__advertised__address", name + ":5000")
-                    .withEnv("NEO4J_causal__clustering_transaction__advertised__address", name + ":6000")
-                    .withEnv("NEO4J_causal__clustering_raft__advertised__address", name + ":7000")
-                    .withEnv("NEO4J_dbms_connector_bolt_advertised__address", "localhost:" + container.getMappedPort(7687))
+//                    .withEnv("NEO4J_causal__clustering_discovery__advertised__address", name + ":5000")
+//                    .withEnv("NEO4J_causal__clustering_transaction__advertised__address", name + ":6000")
+//                    .withEnv("NEO4J_causal__clustering_raft__advertised__address", name + ":7000")
+//                    .withEnv("NEO4J_dbms_connector_bolt_advertised__address", "localhost:" + container.getMappedPort(7687))
                     .withEnv("NEO4J_dbms_routing_advertised__address", name + ":7618");
         } else {
             container.withoutDriver();

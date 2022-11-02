@@ -5,6 +5,7 @@ import apoc.util.TestContainerUtil;
 import apoc.util.TestcontainersCausalCluster;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
@@ -53,6 +54,7 @@ public class TriggerClusterRoutingTest {
 
     @Test
     public void testTriggerInstallAllowedOnlyInSysLeaderMember() {
+        System.out.println("TriggerClusterRoutingTest.testTriggerInstallAllowedOnlyInSysLeaderMember");
         final String query = "CALL apoc.trigger.install('neo4j', $name, 'RETURN 1',{})";
         triggerInSysLeaderMemberCommon(query, TRIGGER_NOT_ROUTED_ERROR);
     }
@@ -95,6 +97,7 @@ public class TriggerClusterRoutingTest {
     }
 
     @Test
+    @Ignore
     public void testTriggerAddAllowedOnlyInSysLeaderMember1() {
         final String name = "addTriggerInNeo";
         final String query = "CALL apoc.trigger.add($name, 'RETURN 1',{})";
@@ -102,6 +105,7 @@ public class TriggerClusterRoutingTest {
     }
 
     @Test
+    @Ignore
     public void testTriggerInstallAllowedOnlyInSysLeaderMember1() {
         final String name = "installTriggerInNeo";
         final String query = "CALL apoc.trigger.install($name, 'RETURN 1',{})";
@@ -159,6 +163,7 @@ public class TriggerClusterRoutingTest {
     }
 
     @Test
+    @Ignore
     public void testTriggerRemoveAllowedOnlyInSysLeaderMember1() {
         final String name = "removeTriggerInNeo";
         final String query = "CALL apoc.trigger.remove($name)";
