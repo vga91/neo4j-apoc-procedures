@@ -136,11 +136,12 @@ public class TestcontainersCausalCluster {
                 // todo - try decomment it..
                 .withNeo4jConfig("dbms.default_listen_address", "0.0.0.0")
                 .withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
+                .withNeo4jConfig("causal_clustering.multi_dc_license", "true")
                 .withNeo4jConfig("causal_clustering.initial_discovery_members", initialDiscoveryMembers)
                 .withStartupTimeout(Duration.ofMinutes(MINUTES_TO_WAIT));
         if (withRoutingEnabled(envSettings)) {
             container.withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
-                    .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
+//                    .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
 //                    .withEnv("NEO4J_causal__clustering_discovery__advertised__address", name + ":5000")
 //                    .withEnv("NEO4J_causal__clustering_transaction__advertised__address", name + ":6000")
 //                    .withEnv("NEO4J_causal__clustering_raft__advertised__address", name + ":7000")
