@@ -141,7 +141,7 @@ public class TestcontainersCausalCluster {
                 .withStartupTimeout(Duration.ofMinutes(MINUTES_TO_WAIT));
         if (withRoutingEnabled(envSettings)) {
             container.withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
-//                    .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
+                    .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
 //                    .withEnv("NEO4J_causal__clustering_discovery__advertised__address", name + ":5000")
 //                    .withEnv("NEO4J_causal__clustering_transaction__advertised__address", name + ":6000")
 //                    .withEnv("NEO4J_causal__clustering_raft__advertised__address", name + ":7000")

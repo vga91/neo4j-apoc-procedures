@@ -94,7 +94,6 @@ public class TriggerClusterRoutingTest {
     }
 
     @Test
-    @Ignore
     public void testTriggerAddAllowedOnlyInSysLeaderMember1() {
         final String name = "addTriggerInNeo";
         final String query = "CALL apoc.trigger.add($name, 'RETURN 1',{})";
@@ -102,7 +101,6 @@ public class TriggerClusterRoutingTest {
     }
 
     @Test
-//    @Ignore
     public void testTriggerInstallAllowedOnlyInSysLeaderMember1() {
         final String name = "installTriggerInNeo";
         final String query = "CALL apoc.trigger.install($name, 'RETURN 1',{})";
@@ -117,6 +115,7 @@ public class TriggerClusterRoutingTest {
             System.out.println("sidecar not running...");
 //            return;
         }
+
         try (final Session session1 = cluster.getDriver().session()) {
             try {
                 session1.run("call apoc.trigger.add(\"prova\", \"return 1\", {})");
@@ -124,7 +123,8 @@ public class TriggerClusterRoutingTest {
                 System.out.println("KKKKKK.getMessage() = " + e.getMessage());
             }
 
-            final boolean name1 = session1.run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext();
+            final boolean name1 = session1.run("call apoc.trigger.list", Map.of("name", name)).hasNext();
+//            final boolean name1 = session1.run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext();
             System.out.println("name1 = " + name1);
         }
         
