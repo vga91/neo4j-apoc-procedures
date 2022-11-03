@@ -35,11 +35,11 @@ public class TriggerClusterRoutingTest {
                 ));
         System.out.println("TriggerClusterRoutingTest.setupCluster");
         
-        cluster.getClusterMembers().forEach(member -> {
-            final String logs = member.getLogs();
-            System.out.println("XXXmember = " + member);
-            System.out.println("YYYlogs = " + logs);
-        });
+//        cluster.getClusterMembers().forEach(member -> {
+//            final String logs = member.getLogs();
+//            System.out.println("XXXmember = " + member);
+//            System.out.println("YYYlogs = " + logs);
+//        });
     }
 
     @AfterClass
@@ -123,9 +123,28 @@ public class TriggerClusterRoutingTest {
                 System.out.println("KKKKKK.getMessage() = " + e.getMessage());
             }
 
-            final boolean name1 = session1.run("call apoc.trigger.list", Map.of("name", name)).hasNext();
+            try {
+                final boolean name1 = session1.run("call apoc.trigger.list", Map.of("name", name)).hasNext();
 //            final boolean name1 = session1.run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext();
-            System.out.println("name1 = " + name1);
+                System.out.println("name1 = " + name1);
+            } catch (Exception e) {
+                cluster.getClusterMembers().forEach(member -> {
+                    final String logs = member.getLogs();
+                    System.out.println("XXXmember = " + member);
+                    System.out.println("YYYlogs = " + logs);
+                
+                    try {
+                        System.out.println(member.execInContainer("cat", "logs/debug.log").toString());
+                        System.out.println(member.execInContainer("cat", "logs/http.log").toString());
+                        System.out.println(member.execInContainer("cat", "logs/security.log").toString());
+                    } catch (Exception ex) {
+                        System.out.println("ex = " + ex);
+                        // we addSuppressed the exception produced by execInContainer, but we finally throw the original `startException`
+    //                    startException.addSuppressed(new RuntimeException("Exception during fallback execInContainer", ex));
+                    }
+                    throw e;
+                });
+            }
         }
         
 //        try {
