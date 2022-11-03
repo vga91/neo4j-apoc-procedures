@@ -109,7 +109,7 @@ public class Trigger {
     }
 
     @Deprecated
-    @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.trigger.start")
+    @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.trigger.stop")
     @Description("CALL apoc.trigger.pause(name) | it pauses the trigger")
     public Stream<TriggerInfo> pause(@Name("name")String name) {
         preprocessDeprecatedProcedures();
@@ -122,7 +122,8 @@ public class Trigger {
                 (Map<String,Object>) paused.get("params"),true, true));
     }
 
-    @Procedure(mode = Mode.WRITE)
+    @Deprecated
+    @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.trigger.start")
     @Description("CALL apoc.trigger.resume(name) | it resumes the paused trigger")
     public Stream<TriggerInfo> resume(@Name("name")String name) {
         preprocessDeprecatedProcedures();
