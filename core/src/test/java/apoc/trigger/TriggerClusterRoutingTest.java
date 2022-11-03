@@ -4,6 +4,7 @@ import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestcontainersCausalCluster;
 import org.junit.AfterClass;
+import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -33,6 +34,9 @@ public class TriggerClusterRoutingTest {
                         "NEO4J_dbms_routing_enabled", "true",
                         "apoc.trigger.enabled", "true"
                 ));
+
+        Assume.assumeNotNull(cluster);
+        Assume.assumeTrue(cluster.isRunning());
         System.out.println("TriggerClusterRoutingTest.setupCluster");
         
 //        cluster.getClusterMembers().forEach(member -> {
