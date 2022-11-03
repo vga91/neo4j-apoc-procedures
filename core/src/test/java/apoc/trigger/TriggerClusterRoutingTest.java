@@ -6,22 +6,22 @@ import apoc.util.TestcontainersCausalCluster;
 import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static apoc.trigger.Trigger.SYS_NON_LEADER_ERROR;
 import static apoc.trigger.TriggerNewProcedures.TRIGGER_NOT_ROUTED_ERROR;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.neo4j.test.assertion.Assert.assertEventually;
 
 public class TriggerClusterRoutingTest {
 
@@ -37,7 +37,6 @@ public class TriggerClusterRoutingTest {
 
         Assume.assumeNotNull(cluster);
         Assume.assumeTrue(cluster.isRunning());
-        System.out.println("TriggerClusterRoutingTest.setupCluster");
         
 //        cluster.getClusterMembers().forEach(member -> {
 //            final String logs = member.getLogs();
@@ -52,6 +51,12 @@ public class TriggerClusterRoutingTest {
             cluster.close();
         }
     }
+
+    // TODO: making sure that a session against "system" can install triggers
+    
+    // TODO: making sure that a session against "system" can drop triggers
+    
+    // TODO: making sure that a session against "neo4j" can't install/drop triggers
 
     @Test
     public void testTriggerInstallAllowedOnlyInSysLeaderMember() {
@@ -98,142 +103,27 @@ public class TriggerClusterRoutingTest {
     }
 
     @Test
-    public void testTriggerAddAllowedOnlyInSysLeaderMember1() {
-        final String name = "addTriggerInNeo";
-        final String query = "CALL apoc.trigger.add($name, 'RETURN 1',{})";
-        testTriggerAgainstNeo4jProtocol(name, query);
-    }
-
-    @Test
     public void testTriggerInstallAllowedOnlyInSysLeaderMember1() {
         final String name = "installTriggerInNeo";
         final String query = "CALL apoc.trigger.install($name, 'RETURN 1',{})";
-        testTriggerAgainstNeo4jProtocol(name, query);
-    }
-
-    private static void testTriggerAgainstNeo4jProtocol(String name, String query) {
-        System.out.println("cluster.getURI().getPath() = " + cluster.getURI().getPath());
-
-
-        if (!cluster.sidecar.isRunning()) {
-            System.out.println("sidecar not running...");
-//            return;
-        }
-
-        try (final Session session1 = cluster.getDriver().session()) {
+        
+        try (final Session session1 = cluster.getDriver().session(SessionConfig.forDatabase("neo4j"))) {
             try {
                 session1.run("call apoc.trigger.add(\"prova\", \"return 1\", {})");
             } catch (Exception e) {
-                System.out.println("KKKKKK.getMessage() = " + e.getMessage());
+                // TODO - assert correct message after @SystemOnlyProcedure annotation
             }
 
+            final String aliasMsg = "no triggers";
             try {
-                final boolean name1 = session1.run("call apoc.trigger.list", Map.of("name", name)).hasNext();
-//            final boolean name1 = session1.run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext();
-                System.out.println("name1 = " + name1);
+                assertEventually(aliasMsg, () -> session1.run("call apoc.trigger.list() yield name where name = $name return name",
+                                Map.of("name", name)).hasNext(),
+                        (v) -> v,
+                        2, TimeUnit.SECONDS);
             } catch (Exception e) {
-                cluster.getClusterMembers().forEach(member -> {
-                    final String logs = member.getLogs();
-                    System.out.println("XXXmember = " + member);
-                    System.out.println("YYYlogs = " + logs);
-                
-                    try {
-                        System.out.println(member.execInContainer("cat", "logs/debug.log").toString());
-                        System.out.println(member.execInContainer("cat", "logs/http.log").toString());
-                        System.out.println(member.execInContainer("cat", "logs/security.log").toString());
-                    } catch (Exception ex) {
-                        System.out.println("ex = " + ex);
-                        // we addSuppressed the exception produced by execInContainer, but we finally throw the original `startException`
-    //                    startException.addSuppressed(new RuntimeException("Exception during fallback execInContainer", ex));
-                    }
-                    throw e;
-                });
+                assertTrue(e.getMessage().contains("Condition with alias '" + aliasMsg + "' didn't complete within"));
             }
         }
-        
-//        try {
-//            for (Neo4jContainerExtension member: cluster.getClusterMembers()) {
-//
-//                final String readReplica = TestcontainersCausalCluster.ClusterInstanceType.READ_REPLICA.toString();
-//                if (readReplica.equals(member.getEnvMap().get("NEO4J_dbms_mode"))) {
-//                    continue;
-//                }
-//                
-//                System.out.println("member.getContainerName() = " + member.getContainerName());
-//                System.out.println("member.getSession() = " + member.getSession());
-//                
-//                final String neo4jUrl;
-//                try {
-//                    neo4jUrl = member.getBoltUrl().replace("bolt://", "neo4j://"); 
-//                } catch (Exception e) {
-//                    System.out.println("getBoltUrle.getMessage() = " + e.getMessage());
-//                    continue;
-//                }
-////                final String neo4jUrl = member.getBoltUrl().replace("bolt://", "neo4j://");
-//                final String envBolt = member.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
-//                System.out.println("envBolt = " + envBolt);
-//                System.out.println("neo4jUrl = " + neo4jUrl);
-//                final Driver driver = GraphDatabase.driver("neo4j://" + envBolt, AuthTokens.basic("neo4j", "apoc"),
-//                        Config.builder().withResolver(i -> Set.of()).build());
-//                final Session session = driver.session();
-////                final Session session = driver.session(SessionConfig.forDatabase("neo4j"));
-//
-//                try {
-//                    session.run("call apoc.trigger.add(\"prova\", \"return 1\", {})");
-//                } catch (Exception e) {
-//                    System.out.println("Te.getMessage() = " + e.getMessage());
-//                }
-//
-//                // todo - decomment...
-////                assertFalse(session.run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext());
-//                
-//                
-//                // todo -try-with-res
-//                session.close();
-//                driver.close();
-//            }
-//            neo4jContainerExtension.getBoltUrl()
-//            neo4jContainerExtension.run(query, Map.of("name", name));
-//        } catch (RuntimeException e) {
-//            System.out.println("Te.getMessage() = " + e.getMessage());
-//        }
-        
     }
 
-    @Test
-    @Ignore
-    public void testTriggerRemoveAllowedOnlyInSysLeaderMember1() {
-        final String name = "removeTriggerInNeo";
-        final String query = "CALL apoc.trigger.remove($name)";
-
-        try (final Session session = cluster.getClusterMembers().stream()
-                .map(Neo4jContainerExtension::getSession)
-                .filter(Objects::nonNull)
-                .filter(TriggerClusterRoutingTest::sysIsLeader)
-                        .findAny().orElse(null)) {
-            if (session != null) {
-                session.run(query, Map.of("name", UUID.randomUUID().toString())); 
-            }
-            // todo... trigger remove
-        }
-
-//        testRemoveTriggerAgainstNeo4jProtocol(name, query);
-    }
-
-//    @Test
-//    public void testTriggerDropAllowedOnlyInSysLeaderMember1() {
-//        final String name = "dropTriggerInNeo";
-//        final String query = "CALL apoc.trigger.install($name, 'RETURN 1',{})";
-//        testRemoveTriggerAgainstNeo4jProtocol(name, query);
-//    }
-
-    private static void testRemoveTriggerAgainstNeo4jProtocol(String name, String query) {
-        try {
-            cluster.getSession().run(query, Map.of("name", name));
-        } catch (RuntimeException e) {
-            System.out.println("Te.getMessage() = " + e.getMessage());
-        }
-        assertFalse(cluster.getSession()
-                .run("call apoc.trigger.list() yield name where name = $name return name", Map.of("name", name)).hasNext());
-    }
 }
