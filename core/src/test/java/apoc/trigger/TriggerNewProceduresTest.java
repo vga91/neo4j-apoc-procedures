@@ -4,6 +4,7 @@ import apoc.nodes.Nodes;
 import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -47,6 +48,7 @@ import static org.neo4j.test.assertion.Assert.assertEventually;
  * Test class for non-deprecated procedures, 
  * i.e. `apoc.trigger.install`, `apoc.trigger.drop`, `apoc.trigger.dropAll`, `apoc.trigger.stop`, and `apoc.trigger.start`
  */
+@Ignore
 public class TriggerNewProceduresTest {
     private static final File directory = new File("target/conf");
     static { //noinspection ResultOfMethodCallIgnored

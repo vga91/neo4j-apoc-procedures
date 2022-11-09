@@ -5,6 +5,7 @@ import apoc.nodes.Nodes;
 import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -30,6 +31,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
 
+@Ignore
 public class TriggerNewProceduresExtendedTest {
     private static final long TIMEOUT = 1L;
 
