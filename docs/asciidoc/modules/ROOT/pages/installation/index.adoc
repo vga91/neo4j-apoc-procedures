@@ -66,15 +66,11 @@ In a `pom.xml` of a maven project, you can add these two dependencies from https
     &lt;groupId&gt;org.neo4j.procedure&lt;/groupId&gt;
     &lt;artifactId&gt;apoc-extended&lt;/artifactId&gt;
     &lt;version&gt;{apoc-release-absolute}&lt;/version&gt;
-&lt;/dependency&gt;
-&lt;dependency&gt;
-    &lt;groupId&gt;org.neo4j.procedure&lt;/groupId&gt;
-    &lt;artifactId&gt;apoc-common&lt;/artifactId&gt;
-    &lt;version&gt;{apoc-release-absolute}&lt;/version&gt;
+    &lt;classifier&gt;extended&lt;/classifier&gt;
 &lt;/dependency&gt;
 ----
 
-Alternatively, you can download the two jars for https://mvnrepository.com/artifact/org.neo4j.procedure/apoc-extended/{apoc-release}[apoc-extended] and https://mvnrepository.com/artifact/org.neo4j.procedure/apoc-common/{apoc-release}[apoc-common] (if it is not already present via `apoc-core`)
+Alternatively, you can download the jar https://repo1.maven.org/maven2/org/neo4j/procedure/apoc-extended/{apoc-release}/apoc-extended-{apoc-release}-extended.jar[from here] (if it is not already present via `apoc-core`)
 and put them into `plugin` folder.
 
 
