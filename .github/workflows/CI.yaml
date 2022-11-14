@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ "4.4" ]
+    branches: [ "4.4-fix-trigger-procedures" ]
   pull_request:
-    branches: [ "4.4" ]
+    branches: [ "4.4-fix-trigger-procedures" ]
 
 jobs:
   build:
