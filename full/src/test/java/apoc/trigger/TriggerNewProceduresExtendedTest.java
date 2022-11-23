@@ -28,12 +28,13 @@ import java.util.concurrent.TimeUnit;
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
 import static apoc.util.TestUtil.testCallCountEventually;
 import static apoc.util.TestUtil.testCallEventually;
+import static apoc.util.TestUtil.waitDbsAvailable;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
 
 public class TriggerNewProceduresExtendedTest {
-    private static final long TIMEOUT = 30L;
+    private static final long TIMEOUT = 10L;
 
     private static final File directory = new File("target/conf");
     static { //noinspection ResultOfMethodCallIgnored
@@ -63,6 +64,7 @@ public class TriggerNewProceduresExtendedTest {
                 .build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
+        waitDbsAvailable(db, sysDb);
         TestUtil.registerProcedure(sysDb, TriggerNewProcedures.class, Trigger.class, TriggerExtended.class,
                 Nodes.class, Create.class);
         TestUtil.registerProcedure(db, Trigger.class);

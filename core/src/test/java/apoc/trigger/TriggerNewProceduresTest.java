@@ -26,7 +26,10 @@ import java.io.FileWriter;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.LongStream;
 
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
 import static apoc.trigger.TriggerNewProcedures.TRIGGER_NOT_ROUTED_ERROR;
@@ -36,6 +39,7 @@ import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testCallCount;
 import static apoc.util.TestUtil.testCallCountEventually;
 import static apoc.util.TestUtil.testCallEventually;
+import static apoc.util.TestUtil.waitDbsAvailable;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -79,6 +83,7 @@ public class TriggerNewProceduresTest {
                 .build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
+        waitDbsAvailable(db, sysDb);
         TestUtil.registerProcedure(sysDb, TriggerNewProcedures.class, Nodes.class);
         TestUtil.registerProcedure(db, Trigger.class, Nodes.class);
         
@@ -530,6 +535,34 @@ public class TriggerNewProceduresTest {
         } catch (QueryExecutionException e) {
             assertTrue(e.getMessage().contains("Not a recognised system command or procedure"));
         }
+    }
+
+    @Test
+    public void testEventualConsistency() {
+        LongStream.range(0, 100).forEach(i -> {
+
+            final String name = UUID.randomUUID().toString();
+            final String query = "UNWIND $createdNodes AS n SET n.count = " + i;
+            sysDb.executeTransactionally("CALL apoc.trigger.install('neo4j', $name, $query, {phase: 'afterAsync'})",
+                    map("name", name, "query", query));
+            awaitTriggerDiscovered(db, name, query);
+            db.executeTransactionally("CREATE (n:Something)");
+
+            assertEventually(() ->
+                            db.executeTransactionally("MATCH (c:Something) RETURN c.count as count", Map.of(),
+                                    result -> {
+                                        final ResourceIterator<Object> count = result.columnAs("count");
+                                        return Objects.equals(count.next(), i);
+                                    })
+                    , (v) -> v, 30L, TimeUnit.SECONDS);
+
+            testCall(db, "MATCH (c:Something) RETURN c.count as count", 
+                    (row) -> assertEquals(i, row.get("count")));
+
+            sysDb.executeTransactionally("CALL apoc.trigger.dropAll('neo4j')");
+            testCallCountEventually(db, "CALL apoc.trigger.list", 0, TIMEOUT);
+            db.executeTransactionally("MATCH (c:Something) DELETE c");
+        });
     }
 
 }
