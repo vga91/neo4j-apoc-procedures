@@ -558,27 +558,54 @@ public class TriggerNewProceduresTest {
     @Test
     public void testEventualConsistency() {
         LongStream.range(0, 100).forEach(i -> {
-
             final String name = UUID.randomUUID().toString();
             final String query = "UNWIND $createdNodes AS n SET n.count = " + i;
+    
+            // this does nothing, just to test consistency
+            sysDb.executeTransactionally("CALL apoc.trigger.install('neo4j', $name, 'return 1', {phase: 'afterAsync'})",
+                    map("name", UUID.randomUUID().toString()) );
+
+            // create trigger
             sysDb.executeTransactionally("CALL apoc.trigger.install('neo4j', $name, $query, {phase: 'afterAsync'})",
                     map("name", name, "query", query));
             awaitTriggerDiscovered(db, name, query);
             db.executeTransactionally("CREATE (n:Something)");
 
+            // check trigger
             assertEventually(() ->
                             db.executeTransactionally("MATCH (c:Something) RETURN c.count as count", Map.of(),
                                     result -> {
                                         final ResourceIterator<Object> count = result.columnAs("count");
                                         return Objects.equals(count.next(), i);
-                                    })
-                    , (v) -> v, 30L, TimeUnit.SECONDS);
+                                    }), 
+                    (v) -> v, 30L, TimeUnit.SECONDS);
 
-            testCall(db, "MATCH (c:Something) RETURN c.count as count", 
+            testCall(db, "MATCH (c:Something) RETURN c.count as count",
                     (row) -> assertEquals(i, row.get("count")));
 
-            sysDb.executeTransactionally("CALL apoc.trigger.dropAll('neo4j')");
-            testCallCountEventually(db, "CALL apoc.trigger.list", 0, TIMEOUT);
+            // stop trigger
+            sysDb.executeTransactionally("CALL apoc.trigger.stop('neo4j', $name)",
+                    map("name", name, "query", query));
+            awaitTriggerDiscovered(db, name, query, true);
+
+            // this does nothing, just to test consistency
+            sysDb.executeTransactionally("CALL apoc.trigger.install('neo4j', $name, 'return 1', {phase: 'afterAsync'})",
+                    map("name", UUID.randomUUID().toString()) );
+
+            // start trigger
+            sysDb.executeTransactionally("CALL apoc.trigger.start('neo4j', $name)",
+                    map("name", name, "query", query));
+            awaitTriggerDiscovered(db, name, query);
+            
+            // this does nothing, just to test consistency
+            sysDb.executeTransactionally("CALL apoc.trigger.install('neo4j', $name, 'return 1', {phase: 'afterAsync'})",
+                    map("name", UUID.randomUUID().toString()) );
+
+            // drop trigger and check if dropped
+            sysDb.executeTransactionally("CALL apoc.trigger.drop('neo4j', $name)", Map.of("name", name));
+            testCallCountEventually(db, "CALL apoc.trigger.list() yield name where name = $name return name",
+                    Map.of("name", name),
+                    0, TIMEOUT);
             db.executeTransactionally("MATCH (c:Something) DELETE c");
         });
     }
