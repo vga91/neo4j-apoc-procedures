@@ -1,28 +1,24 @@
 package apoc.trigger;
 
-import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
+import apoc.util.TestUtil;
 import apoc.util.TestcontainersCausalCluster;
 import org.junit.AfterClass;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.neo4j.driver.AuthTokens;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Session;
-import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.types.Node;
 import org.neo4j.internal.helpers.collection.MapUtil;
 
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
-import static apoc.util.TestContainerUtil.testCall;
+import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 import static org.neo4j.driver.SessionConfig.forDatabase;
@@ -34,15 +30,15 @@ public class TriggerClusterTest {
 
     @BeforeClass
     public static void setupCluster() {
-//        assumeFalse(isRunningInCI());
-        /*TestUtil.ignoreException(() ->  */cluster = TestContainerUtil
+        assumeFalse(isRunningInCI());
+        TestUtil.ignoreException(() ->  cluster = TestContainerUtil
                 .createEnterpriseCluster(3, 1, Collections.emptyMap(), MapUtil.stringMap(
                         "apoc.trigger.refresh", "100",
                         "apoc.trigger.enabled", "true"
-                ))/*,
-                Exception.class)*/;
-//        Assume.assumeNotNull(cluster);
-//        Assume.assumeTrue(cluster.isRunning());
+                )),
+                Exception.class);
+        Assume.assumeNotNull(cluster);
+        Assume.assumeTrue(cluster.isRunning());
     }
 
     @AfterClass
@@ -213,60 +209,5 @@ public class TriggerClusterTest {
                                 .single().get("name").asString()),
                 name::equals,
                 30, TimeUnit.SECONDS);
-    }
-
-    @Test
-    public void testTriggerNewProcsAllowedOnlyWithAdmin() {
-        cluster.getSession().run("CREATE USER nonadmin SET PASSWORD \"test\" SET PASSWORD CHANGE NOT REQUIRED");
-
-        for (Neo4jContainerExtension container: cluster.getClusterMembers()) {
-            // todo - in this way if it works
-//            withDbSession(container, "neo4j", session -> {
-//                failsWithNonAdminUser(session, "apoc.trigger.add", "call apoc.trigger.add('abc', 'return 1', {})");
-//                failsWithNonAdminUser(session, "apoc.trigger.remove", "call apoc.trigger.remove('abc')");
-//                failsWithNonAdminUser(session, "apoc.trigger.removeAll", "call apoc.trigger.removeAll()");
-//                failsWithNonAdminUser(session, "apoc.trigger.pause", "call apoc.trigger.pause('abc')");
-//                failsWithNonAdminUser(session, "apoc.trigger.resume", "call apoc.trigger.resume('abc')");
-//            });
-
-            try (final Driver driver = GraphDatabase.driver(container.getBoltUrl(), AuthTokens.basic("neo4j", "test"));
-                 Session session = driver.session(SessionConfig.forDatabase("neo4j"))) {
-
-                failsWithNonAdminUser(session, "apoc.trigger.add", "call apoc.trigger.add('abc', 'return 1', {})");
-                failsWithNonAdminUser(session, "apoc.trigger.remove", "call apoc.trigger.remove('abc')");
-                failsWithNonAdminUser(session, "apoc.trigger.removeAll", "call apoc.trigger.removeAll()");
-                failsWithNonAdminUser(session, "apoc.trigger.pause", "call apoc.trigger.pause('abc')");
-                failsWithNonAdminUser(session, "apoc.trigger.resume", "call apoc.trigger.resume('abc')");
-            }
-
-            try (final Driver driver = GraphDatabase.driver(container.getBoltUrl(), AuthTokens.basic("neo4j", "test"));
-                 Session session = driver.session(SessionConfig.forDatabase("system"))) {
-
-                failsWithNonAdminUser(session, "apoc.trigger.install", "call apoc.trigger.install('neo4j', 'qwe', 'return 1', {})");
-                failsWithNonAdminUser(session, "apoc.trigger.drop", "call apoc.trigger.drop('neo4j', 'qwe')");
-                failsWithNonAdminUser(session, "apoc.trigger.dropAll", "call apoc.trigger.dropAll('neo4j', )");
-                failsWithNonAdminUser(session, "apoc.trigger.stop", "call apoc.trigger.stop('neo4j', 'qwe')");
-                failsWithNonAdminUser(session, "apoc.trigger.start", "call apoc.trigger.start('neo4j', 'qwe')");
-            }
-        }
-    }
-
-    private void withDbSession(Neo4jContainerExtension container, String dbName, Consumer<Session> runnable) {
-        try (final Driver driver = GraphDatabase.driver(container.getBoltUrl(), AuthTokens.basic("neo4j", "test"));
-             Session session = driver.session(SessionConfig.forDatabase(dbName))) {
-            runnable.accept(session);
-        }
-    }
-
-    private void failsWithNonAdminUser(Session session, String procName, String query) {
-        try {
-            testCall(session, query,
-                    row -> fail("Should fail because of non admin user") );
-        } catch (Exception e) {
-            String actual = e.getMessage();
-            final String expected = String.format("Executing admin procedure '%s' permission has not been granted for user 'nonadmin'",
-                    procName);
-            assertTrue(actual.contains(expected));
-        }
     }
 }
