@@ -7,7 +7,9 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
+import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 
@@ -15,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static apoc.trigger.Trigger.SYS_NON_LEADER_ERROR;
 import static apoc.trigger.TriggerNewProcedures.TRIGGER_NOT_ROUTED_ERROR;
@@ -106,4 +109,60 @@ public class TriggerClusterRoutingTest {
         final String systemRole = TestContainerUtil.singleResultFirstColumn(session, "CALL dbms.cluster.role('system')");
         return "LEADER".equals(systemRole);
     }
+    
+    @Test
+    public void testTriggerNewProcsAllowedOnlyWithAdmin() {
+        cluster.getSession().run("CREATE USER nonadmin SET PASSWORD \"test\" SET PASSWORD CHANGE NOT REQUIRED");
+
+        for (Neo4jContainerExtension container: cluster.getClusterMembers()) {
+            // todo - in this way if it works
+//            withDbSession(container, "neo4j", session -> {
+//                failsWithNonAdminUser(session, "apoc.trigger.add", "call apoc.trigger.add('abc', 'return 1', {})");
+//                failsWithNonAdminUser(session, "apoc.trigger.remove", "call apoc.trigger.remove('abc')");
+//                failsWithNonAdminUser(session, "apoc.trigger.removeAll", "call apoc.trigger.removeAll()");
+//                failsWithNonAdminUser(session, "apoc.trigger.pause", "call apoc.trigger.pause('abc')");
+//                failsWithNonAdminUser(session, "apoc.trigger.resume", "call apoc.trigger.resume('abc')");
+//            });
+            
+            try (final Driver driver = GraphDatabase.driver(container.getBoltUrl(), AuthTokens.basic("neo4j", "test")); 
+                 Session session = driver.session(SessionConfig.forDatabase("neo4j"))) {
+
+                failsWithNonAdminUser(session, "apoc.trigger.add", "call apoc.trigger.add('abc', 'return 1', {})");
+                failsWithNonAdminUser(session, "apoc.trigger.remove", "call apoc.trigger.remove('abc')");
+                failsWithNonAdminUser(session, "apoc.trigger.removeAll", "call apoc.trigger.removeAll()");
+                failsWithNonAdminUser(session, "apoc.trigger.pause", "call apoc.trigger.pause('abc')");
+                failsWithNonAdminUser(session, "apoc.trigger.resume", "call apoc.trigger.resume('abc')");
+            }
+            
+            try (final Driver driver = GraphDatabase.driver(container.getBoltUrl(), AuthTokens.basic("neo4j", "test")); 
+                 Session session = driver.session(SessionConfig.forDatabase("system"))) {
+
+                failsWithNonAdminUser(session, "apoc.trigger.install", "call apoc.trigger.install('neo4j', 'qwe', 'return 1', {})");
+                failsWithNonAdminUser(session, "apoc.trigger.drop", "call apoc.trigger.drop('neo4j', 'qwe')");
+                failsWithNonAdminUser(session, "apoc.trigger.dropAll", "call apoc.trigger.dropAll('neo4j', )");
+                failsWithNonAdminUser(session, "apoc.trigger.stop", "call apoc.trigger.stop('neo4j', 'qwe')");
+                failsWithNonAdminUser(session, "apoc.trigger.start", "call apoc.trigger.start('neo4j', 'qwe')");
+            }
+        }
+    }
+    
+    private void withDbSession(Neo4jContainerExtension container, String dbName, Consumer<Session> runnable) {
+        try (final Driver driver = GraphDatabase.driver(container.getBoltUrl(), AuthTokens.basic("neo4j", "test"));
+             Session session = driver.session(SessionConfig.forDatabase(dbName))) {
+            runnable.accept(session);
+        }
+    }
+            
+    private void failsWithNonAdminUser(Session session, String procName, String query) {
+        try {
+            testCall(session, query, 
+                    row -> fail("Should fail because of non admin user") );
+        } catch (Exception e) {
+            String actual = e.getMessage();
+            final String expected = String.format("Executing admin procedure '%s' permission has not been granted for user 'nonadmin'",
+                    procName);
+            assertTrue(actual.contains(expected));
+        }
+    }
+
 }
