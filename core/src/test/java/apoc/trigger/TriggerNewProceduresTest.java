@@ -507,7 +507,7 @@ public class TriggerNewProceduresTest {
     //
 
     @Test
-    public void testTriggerShow() throws Exception {
+    public void testTriggerShow() {
         String name = "test-show1";
         String name2 = "test-show2";
         String query = "MATCH (c:TestShow) SET c.count = 1";

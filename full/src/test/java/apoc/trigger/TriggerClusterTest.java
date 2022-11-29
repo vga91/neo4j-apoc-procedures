@@ -1,10 +1,8 @@
 package apoc.trigger;
 
 import apoc.util.TestContainerUtil;
-import apoc.util.TestUtil;
 import apoc.util.TestcontainersCausalCluster;
 import org.junit.AfterClass;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -16,29 +14,32 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assume.assumeFalse;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 import static org.neo4j.driver.SessionConfig.forDatabase;
 import static org.neo4j.test.assertion.Assert.assertEventually;
 
 public class TriggerClusterTest {
 
+    private static final String DB_FOO = "foo";
     private static TestcontainersCausalCluster cluster;
 
     @BeforeClass
     public static void setupCluster() {
-        assumeFalse(isRunningInCI());
-        TestUtil.ignoreException(() ->  cluster = TestContainerUtil
+//        assumeFalse(isRunningInCI());
+        /*TestUtil.ignoreException(() ->  */cluster = TestContainerUtil
                 .createEnterpriseCluster(3, 1, Collections.emptyMap(), MapUtil.stringMap(
                         "apoc.trigger.refresh", "100",
                         "apoc.trigger.enabled", "true"
-                )),
-                Exception.class);
-        Assume.assumeNotNull(cluster);
-        Assume.assumeTrue(cluster.isRunning());
+                ))/*,
+                Exception.class)*/;
+//        Assume.assumeNotNull(cluster);
+//        Assume.assumeTrue(cluster.isRunning());
+
+        cluster.getSession().run("CREATE DATABASE " + DB_FOO + " wait");
     }
 
     @AfterClass
@@ -58,7 +59,7 @@ public class TriggerClusterTest {
     @Test
     public void testTimeStampTriggerForUpdatedProperties() throws Exception {
         cluster.getSession().run("CALL apoc.trigger.add('timestamp','UNWIND apoc.trigger.nodesByLabel($assignedNodeProperties,null) AS n SET n.ts = timestamp()',{})");
-        cluster.getSession().run("CREATE (f:Foo) SET f.foo='bar'");
+        cluster.getSession().run("CREATE (f:Foo) SET f." + DB_FOO + "='bar'");
         TestContainerUtil.testCall(cluster.getSession(), "MATCH (f:Foo) RETURN f", (row) -> {
             assertEquals(true, ((Node)row.get("f")).containsKey("ts"));
         });
@@ -124,7 +125,7 @@ public class TriggerClusterTest {
         }
         try (final Session session = cluster.getSession()) {
             awaitProcedureInstalled(session, "timestampUpdate");
-            session.run("CREATE (f:Foo) SET f.foo='bar'");
+            session.run("CREATE (f:Foo) SET f." + DB_FOO + "='bar'");
             TestContainerUtil.testCall(session, "MATCH (f:Foo) RETURN f", (row) -> {
                 assertTrue(((Node) row.get("f")).containsKey("ts"));
             });
@@ -209,5 +210,28 @@ public class TriggerClusterTest {
                                 .single().get("name").asString()),
                 name::equals,
                 30, TimeUnit.SECONDS);
+    }
+
+    @Test
+    public void testTriggerCreatedInCorrectDatabase() {
+        System.out.println("DB_FOO = " + DB_FOO);
+        final String name = "testDatabase";
+        try (final Session session = cluster.getDriver().session(forDatabase(SYSTEM_DATABASE_NAME))) {
+            session.run("CALL apoc.trigger.install($dbName, $name, 'UNWIND apoc.trigger.propertiesByKey($assignedNodeProperties, \"_executed\") as prop " +
+                            "	WITH prop.node as n " +
+                            "	CREATE (z:SON {father:id(n)}) " +
+                            "	CREATE (n)-[:GENERATED]->(z)', " +
+                            "{phase:'afterAsync'})",
+                    Map.of("dbName", DB_FOO, "name", name));
+        }
+        try (final Session session = cluster.getDriver().session(forDatabase(DB_FOO))) {
+            awaitProcedureInstalled(session, name);
+        }
+        try (final Session session = cluster.getDriver().session(forDatabase(DEFAULT_DATABASE_NAME))) {
+            TestContainerUtil.testResult(session, "CALL apoc.trigger.list() " +
+                            "YIELD name WHERE name = $name RETURN name", 
+                    Map.of("name", name),
+                    res -> assertFalse(res.hasNext()));
+        }
     }
 }
