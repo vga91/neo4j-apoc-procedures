@@ -19,6 +19,7 @@ public class Signatures {
 
     public static final String SIGNATURE_SYNTAX_ERROR = "Syntax error(s) in signature definition %s. " +
             "\nNote that procedure/function name, possible map keys, input and output names must have at least 2 character:\n";
+    public static final String APOC_CUSTOM_MAPRESULT = "apoc.custom (MAPRESULT)";
     private final String prefix;
 
     public Signatures(String prefix) {
@@ -115,7 +116,16 @@ public class Signatures {
         String deprecated = "";
         String[] allowed = new String[0];
         boolean caseInsensitive = true;
-        return new UserFunctionSignature(name, inputSignatures, type, deprecated, allowed, description, "apoc.custom",caseInsensitive);
+
+        final String category = getCategory(signature.type().getText());
+        return new UserFunctionSignature(name, inputSignatures, type, deprecated, allowed, description, category, caseInsensitive);
+    }
+
+    public static String getCategory(String isMapResult) {
+        if (isMapResult != null && isMapResult.contains("MAPRESULT")) {
+            return APOC_CUSTOM_MAPRESULT;
+        }
+        return "apoc.custom";
     }
 
     private DefaultParameterValue defaultValue(SignatureParser.DefaultValueContext defaultValue, Neo4jTypes.AnyType type) {
@@ -129,7 +139,7 @@ public class Signatures {
             return DefaultParameterValue.ntBoolean(Boolean.parseBoolean(v.boolValue().getText()));
         final SignatureParser.StringValueContext stringCxt = v.stringValue();
         if (stringCxt != null) {
-            
+
             String text = stringCxt.getText();
             if (stringCxt.SINGLE_QUOTED_STRING_VALUE() != null || stringCxt.QUOTED_STRING_VALUE() != null) {
                 text = text.substring(1, text.length() - 1);
@@ -157,18 +167,18 @@ public class Signatures {
                         .collect(Collectors.toList());
             }
             return DefaultParameterValue.ntList(list, inner);
-            
+
         }
         return DefaultParameterValue.nullValue(type);
     }
 
     private DefaultParameterValue getDefaultParameterValue(AnyType type, String text, Supplier<DefaultParameterValue> fun) {
-        // to differentiate e.g. null (nullValue) from null as a plain string, or 1 (integer) from 1 as a plain text 
-        // we have to obtain the actual data type from type. 
+        // to differentiate e.g. null (nullValue) from null as a plain string, or 1 (integer) from 1 as a plain text
+        // we have to obtain the actual data type from type.
         // Otherwise we could we can remove the possibility of having plainText string and explicit them via quotes/double-quotes
         // or document that null/numbers/boolean as a plain string are not possible.
-        return type instanceof TextType 
-                ? DefaultParameterValue.ntString(text) 
+        return type instanceof TextType
+                ? DefaultParameterValue.ntString(text)
                 : fun.get();
     }
 

@@ -58,6 +58,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
+import static apoc.custom.Signatures.APOC_CUSTOM_MAPRESULT;
+import static apoc.custom.Signatures.getCategory;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -193,6 +195,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         List<FieldSignature> inputs = deserializeSignatures(property);
 
         boolean forceSingle = (boolean) node.getProperty(SystemPropertyKeys.forceSingle.name(), false);
+        final String isMapResult = (String) node.getProperty(SystemPropertyKeys.category.name());
         return new UserFunctionDescriptor(new UserFunctionSignature(
                 new QualifiedName(prefix, name),
                 inputs,
@@ -200,7 +203,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                 null,
                 new String[0],
                 description,
-                "apoc.custom",
+                getCategory(isMapResult),
                 false
         ), statement, forceSingle);
     }
@@ -248,6 +251,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             node.setProperty(SystemPropertyKeys.inputs.name(), serializeSignatures(signature.inputSignature()));
             node.setProperty(SystemPropertyKeys.output.name(), signature.outputType().toString());
             node.setProperty(SystemPropertyKeys.forceSingle.name(), forceSingle);
+            node.setProperty(SystemPropertyKeys.category.name(), getCategory(signature.category().orElse(null)));
 
             setLastUpdate(tx);
             registerFunction(signature, statement, forceSingle);
@@ -396,11 +400,25 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                             }
                             List<String> cols = result.columns();
                             if (cols.isEmpty()) return null;
+                            final boolean isNotMapResult = !APOC_CUSTOM_MAPRESULT.equals(
+                                    signature.category().orElse(null)
+                            );
                             if (!forceSingle && outType instanceof Neo4jTypes.ListType) {
+                                Neo4jTypes.ListType listType = (Neo4jTypes.ListType) outType;
+                                Neo4jTypes.AnyType innerType = listType.innerType();
+                                // We wrap the result only if we have a "true" map, 
+                                // so neither NodeType or RelationshipType that extends MapType
+                                // nor a signature with a `MAPRESULT` / `LIST OF MAPRESULT` output
+                                if (isNotMapResult && innerType.getClass().equals(Neo4jTypes.MapType.class))
+                                    return ValueUtils.of(result.stream().collect(Collectors.toList()));
                                 if (cols.size() == 1)
                                     return ValueUtils.of(result.stream().map(row -> row.get(cols.get(0))).collect(Collectors.toList()));
                             } else {
                                 Map<String, Object> row = result.next();
+                                // We wrap the result only if we have a "true" map, 
+                                // so neither NodeType or RelationshipType that extends MapType
+                                // nor a signature with a `MAPRESULT` / `LIST OF MAPRESULT` output
+                                if (isNotMapResult && outType.getClass().equals(Neo4jTypes.MapType.class)) return ValueUtils.of(row);
                                 if (cols.size() == 1) return ValueUtils.of(row.get(cols.get(0)));
                             }
                             throw new IllegalStateException("Result mismatch " + cols + " output type is " + outType);
