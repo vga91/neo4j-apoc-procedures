@@ -195,7 +195,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         List<FieldSignature> inputs = deserializeSignatures(property);
 
         boolean forceSingle = (boolean) node.getProperty(SystemPropertyKeys.forceSingle.name(), false);
-        final String isMapResult = (String) node.getProperty(SystemPropertyKeys.category.name());
         return new UserFunctionDescriptor(new UserFunctionSignature(
                 new QualifiedName(prefix, name),
                 inputs,
@@ -203,7 +202,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                 null,
                 new String[0],
                 description,
-                getCategory(isMapResult),
+                (String) node.getProperty(SystemPropertyKeys.category.name()),
                 false
         ), statement, forceSingle);
     }
@@ -251,7 +250,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             node.setProperty(SystemPropertyKeys.inputs.name(), serializeSignatures(signature.inputSignature()));
             node.setProperty(SystemPropertyKeys.output.name(), signature.outputType().toString());
             node.setProperty(SystemPropertyKeys.forceSingle.name(), forceSingle);
-            node.setProperty(SystemPropertyKeys.category.name(), getCategory(signature.category().orElse(null)));
+            node.setProperty(SystemPropertyKeys.category.name(), signature.category().orElse(null));
 
             setLastUpdate(tx);
             registerFunction(signature, statement, forceSingle);

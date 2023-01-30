@@ -10,7 +10,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+<<<<<<< HEAD
 import java.util.function.Supplier;
+=======
+import java.util.Optional;
+>>>>>>> 10bd4fb8a (change getCategory(..) handling)
 import java.util.stream.Collectors;
 
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
@@ -20,6 +24,7 @@ public class Signatures {
     public static final String SIGNATURE_SYNTAX_ERROR = "Syntax error(s) in signature definition %s. " +
             "\nNote that procedure/function name, possible map keys, input and output names must have at least 2 character:\n";
     public static final String APOC_CUSTOM_MAPRESULT = "apoc.custom (MAPRESULT)";
+    private static final String MAP_RESULT_TYPE = "MAPRESULT";
     private final String prefix;
 
     public Signatures(String prefix) {
@@ -109,7 +114,8 @@ public class Signatures {
     public UserFunctionSignature toFunctionSignature(SignatureParser.FunctionContext signature, String description) {
         QualifiedName name = new QualifiedName(namespace(signature.namespace()), name(signature.name()));
 
-        Neo4jTypes.AnyType type = type(signature.type());
+        final SignatureParser.TypeContext outputType = signature.type();
+        Neo4jTypes.AnyType type = type(outputType);
 
         List<FieldSignature> inputSignatures = signature.parameter().stream().map(p -> getInputField(name(p.name()), type(p.type()), defaultValue(p.defaultValue(), type(p.type())))).collect(Collectors.toList());
 
@@ -117,15 +123,27 @@ public class Signatures {
         String[] allowed = new String[0];
         boolean caseInsensitive = true;
 
-        final String category = getCategory(signature.type().getText());
+        final String category = getCategory(outputType);
         return new UserFunctionSignature(name, inputSignatures, type, deprecated, allowed, description, category, caseInsensitive);
     }
 
-    public static String getCategory(String isMapResult) {
-        if (isMapResult != null && isMapResult.contains("MAPRESULT")) {
+    public static String getCategory(SignatureParser.TypeContext typeContext) {
+        final SignatureParser.List_typeContext list_typeContext = typeContext.list_type();
+        
+        // return output type of list_typeContext (i.e. return type contains `LIST OF `) or typeContext (otherwise)
+        final SignatureParser.Opt_typeContext opt_typeContext = Optional.ofNullable(list_typeContext)
+                .map(SignatureParser.List_typeContext::opt_type)
+                .orElse(typeContext.opt_type());
+
+        // if return type is `LIST OF MAPRESULT` or `MAPRESULT`
+        if (isMapResult(opt_typeContext)) {
             return APOC_CUSTOM_MAPRESULT;
         }
         return "apoc.custom";
+    }
+
+    private static boolean isMapResult(SignatureParser.Opt_typeContext outTypeContext) {
+        return outTypeContext.base_type().getText().equals(MAP_RESULT_TYPE);
     }
 
     private DefaultParameterValue defaultValue(SignatureParser.DefaultValueContext defaultValue, Neo4jTypes.AnyType type) {
@@ -204,6 +222,7 @@ public class Signatures {
             case "ANY":
                 return NTAny;
             case "MAP":
+            case MAP_RESULT_TYPE:
                 return NTMap;
             case "NODE":
                 return NTNode;
