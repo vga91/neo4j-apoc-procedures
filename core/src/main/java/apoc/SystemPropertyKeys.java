@@ -13,7 +13,7 @@ public enum SystemPropertyKeys  {
     outputs,
     output,
     forceSingle,
-    category,
+    mapResult,
     prefix,
 
     // triggers

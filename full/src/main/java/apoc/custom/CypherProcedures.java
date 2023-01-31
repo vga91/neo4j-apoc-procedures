@@ -106,7 +106,7 @@ public class CypherProcedures {
                            @Name(value = "description", defaultValue = "") String description) throws ProcedureException {
         UserFunctionSignature signature = cypherProceduresHandler.functionSignature(name, output, inputs, description);
         validateFunction(statement, signature.inputSignature());
-        cypherProceduresHandler.storeFunction(signature, statement, forceSingle);
+        cypherProceduresHandler.storeFunction(signature, statement, forceSingle, false);
     }
 
     @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE)
@@ -114,12 +114,15 @@ public class CypherProcedures {
     public void declareFunction(@Name("signature") String signature, @Name("statement") String statement,
                            @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
                            @Name(value = "description", defaultValue = "") String description) throws ProcedureException {
-        UserFunctionSignature userFunctionSignature = new Signatures(PREFIX).asFunctionSignature(signature, description);
+        final Signatures signatures = new Signatures(PREFIX);
+        final SignatureParser.FunctionContext functionContext = signatures.parseFunction(signature);
+        UserFunctionSignature userFunctionSignature = signatures.toFunctionSignature(functionContext, description);
         validateFunction(statement, userFunctionSignature.inputSignature());
-        if (!cypherProceduresHandler.registerFunction(userFunctionSignature, statement, forceSingle)) {
+        final boolean mapResultType = signatures.isMapResultType(functionContext);
+        if (!cypherProceduresHandler.registerFunction(userFunctionSignature, statement, forceSingle, mapResultType)) {
             throw new IllegalStateException("Error registering function " + signature + ", see log.");
         }
-        cypherProceduresHandler.storeFunction(userFunctionSignature, statement, forceSingle);
+        cypherProceduresHandler.storeFunction(userFunctionSignature, statement, forceSingle, mapResultType);
     }
 
 
