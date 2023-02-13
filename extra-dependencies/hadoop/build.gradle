@@ -28,8 +28,13 @@ shadowJar {
 }
 
 def commonExclusions = {
+    exclude group: 'org.eclipse.jetty'
+    exclude group: 'org.eclipse.jetty.aggregate'
+    exclude group: 'org.apache.hive', module: 'hive-service'
     exclude group: 'io.netty'
     exclude group: 'com.sun.jersey'
+    exclude group: 'org.slf4j'
+    exclude group: 'org.apache.commons', module: 'commons-compress'
 }
 
 dependencies {
