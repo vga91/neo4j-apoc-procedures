@@ -44,28 +44,16 @@ public class TestContainerUtil {
         return createEnterpriseDB(baseDir, withLogging);
     }
     
-    private static void addExtraDependencies(/*File pluginsFolder*/) {
-        final File filebase = Paths.get("..").toFile();
-        File extraDepsDir = new File(filebase, "extra-dependencies");
-        
+    private static void addExtraDependencies() {
+        final File projectRootDir = Paths.get("..").toFile();
+        File extraDepsDir = new File(projectRootDir, "extra-dependencies");
+        // build the extra-dependencies
         executeGradleTasks(extraDepsDir, "buildDependencies");
-
-
+        
+        // add all extra deps to the plugin docker folder
         final File directory = new File(extraDepsDir, "build/allJars");
-
         final IOFileFilter instance = TrueFileFilter.TRUE;
-        copyFilesToPlugin(/*pluginsFolder, */directory, instance);
-    }
-
-    private static void copyFilesToPlugin(/*File pluginsFolder, */File directory, IOFileFilter instance) {
-        Collection<File> files = FileUtils.listFiles(directory, instance, null);
-        for (File file: files) {
-            try {
-                FileUtils.copyFileToDirectory(file, pluginsFolder);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        copyFilesToPlugin(directory, instance);
     }
 
     public static Neo4jContainerExtension createEnterpriseDB(File baseDir, boolean withLogging)  {
@@ -88,7 +76,7 @@ public class TestContainerUtil {
         final File directory = new File(baseDir, "build/libs");
         final IOFileFilter fileFilter = new WildcardFileFilter(Arrays.asList("*-all.jar", "*-core.jar"));
         
-        copyFilesToPlugin(/*pluginsFolder, */directory, fileFilter);
+        copyFilesToPlugin(directory, fileFilter);
         
         if (withExtraDeps) {
             addExtraDependencies();
@@ -134,6 +122,17 @@ public class TestContainerUtil {
             neo4jContainer.withLogging();
         }
         return neo4jContainer;
+    }
+
+    private static void copyFilesToPlugin(File directory, IOFileFilter instance) {
+        Collection<File> files = FileUtils.listFiles(directory, instance, null);
+        for (File file: files) {
+            try {
+                FileUtils.copyFileToDirectory(file, pluginsFolder);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public static void executeGradleTasks(File baseDir, String... tasks) {

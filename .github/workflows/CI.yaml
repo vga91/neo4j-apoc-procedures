@@ -55,8 +55,5 @@ jobs:
         with:
           name: test-results
           path: |
-            core/build/reports/tests/test/
-            full/build/reports/tests/test/
-            processor/build/reports/tests/test/
             test-startup/build/reports/tests/test/
             test-utils/build/reports/tests/test/

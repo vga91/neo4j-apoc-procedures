@@ -21,7 +21,7 @@ public class Help {
     @Context
     public Transaction tx;
 
-    public static final Set<String> extended = new HashSet<>();
+    private static final Set<String> extended = new HashSet<>();
 
     public Help() {
         try (InputStream stream = getClass().getClassLoader().getResourceAsStream("extended.txt")) {
