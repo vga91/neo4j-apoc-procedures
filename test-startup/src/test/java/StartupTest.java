@@ -117,11 +117,15 @@ public class StartupTest {
     @Test
     public void compare_with_core() {
         // todo - check core and extended 
-        try ( Neo4jContainerExtension neo4jContainer = createEnterpriseDB(APOC_CORE, !TestUtil.isRunningInCI(), true) ) {
+        try ( Neo4jContainerExtension neo4jContainer = createEnterpriseDB(APOC_CORE, true, true) ) {
             neo4jContainer.start();
 
             final Session session = neo4jContainer.getSession();
-            
+
+            String startupLog = neo4jContainer.getLogs();
+            System.out.println("startupLogWithLoggingTrue = " + startupLog);
+
+            extracted(session);
         }
 
     }
