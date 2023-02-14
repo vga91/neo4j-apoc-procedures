@@ -46,7 +46,7 @@ public class TestContainerUtil {
     
     private static void addExtraDependencies(/*File pluginsFolder*/) {
         final File filebase = Paths.get("..").toFile();
-        File extraDepsDir = new File(filebase, System.getProperty("coreDir"));
+        File extraDepsDir = new File(filebase, "extra-dependencies");
         
         executeGradleTasks(extraDepsDir, "buildDependencies");
 

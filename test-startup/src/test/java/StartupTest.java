@@ -93,8 +93,6 @@ public class StartupTest {
     @Test
     public void compare_with_extended() throws IOException {
 
-        final List<String> extended = FileUtils.readLines(new File(APOC_FULL, "resources/extended.txt"), StandardCharsets.UTF_8);
-
         // todo - check core and extended 
         try ( Neo4jContainerExtension neo4jContainer = createEnterpriseDB(APOC_FULL, !TestUtil.isRunningInCI(), true) ) {
             neo4jContainer.start();
@@ -103,13 +101,15 @@ public class StartupTest {
 
             String startupLog = neo4jContainer.getLogs();
             System.out.println("startupLog = " + startupLog);
+
+            final List<String> extended = FileUtils.readLines(new File(APOC_FULL, "src/main/resources/extended.txt"), StandardCharsets.UTF_8);
+
             
             // all full procedures are present, also the ones which require extra-deps, e.g. the apoc.export.xls.*
             final List<String> fullProcsAndFunctionNames = session.run("CALL apoc.help('') YIELD core, type, name WHERE core = false and type = 'procedure' RETURN name").list(i -> i.get("name").asString());
             assertEquals(sorted(extended), fullProcsAndFunctionNames);
             
             extracted(session);
-            
             
         }
     }
