@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
 import static apoc.trigger.TriggerNewProcedures.*;
 import static apoc.trigger.TriggerTestUtil.TIMEOUT;
-import static apoc.trigger.TriggerTestUtil.TRIGGER_DEFAULT_REFRESH;
+import static apoc.trigger.TriggerTestUtil.DEFAULT_REFRESH;
 import static apoc.trigger.TriggerTestUtil.awaitTriggerDiscovered;
 import static apoc.util.TestUtil.*;
 import static org.junit.Assert.*;
@@ -62,7 +62,7 @@ public class TriggerNewProceduresTest {
         final File conf = new File(directory, "apoc.conf");
         try (FileWriter writer = new FileWriter(conf)) {
             writer.write(String.join("\n",
-                    "apoc.trigger.refresh=" + TRIGGER_DEFAULT_REFRESH,
+                    "apoc.trigger.refresh=" + DEFAULT_REFRESH,
                     "apoc.trigger.enabled=true"));
         }
 

@@ -50,7 +50,7 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
         setDockerImageName(dockerImage);
 
         WaitStrategy waitForBolt = new LogMessageWaitStrategy()
-                .withRegEx(String.format(".*Bolt enabled on (0\\.0\\.0\\.0:%d|\\[0:0:0:0:0:0:0:0%%0\\]:%1$s)\\.\n", 7687));
+                .withRegEx(".*Started\\.\n");
         WaitStrategy waitForHttp = new HttpWaitStrategy()
                 .forPort(7474)
                 .forStatusCodeMatching(response -> response == HTTP_OK);
@@ -140,7 +140,7 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
         return session;
     }
 
-    private AuthToken getAuth() {
+    public AuthToken getAuth() {
         return getAdminPassword() != null && !getAdminPassword().isEmpty()
                 ? AuthTokens.basic("neo4j", getAdminPassword()): AuthTokens.none();
     }

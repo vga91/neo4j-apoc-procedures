@@ -6,6 +6,7 @@ import apoc.periodic.Periodic;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.apache.commons.lang.exception.ExceptionUtils;
+import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -18,9 +19,14 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.trigger.TriggerNewProcedures.TRIGGER_NOT_ROUTED_ERROR;
+import static apoc.util.TestUtil.testCall;
+import static apoc.uuid.UuidNewProcedures.UUID_NOT_SET;
 import static junit.framework.TestCase.assertTrue;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * @author ab-larus
@@ -33,7 +39,7 @@ public class UUIDTest {
             .withSetting(GraphDatabaseSettings.auth_enabled, true)
             .withSetting(ApocSettings.apoc_uuid_enabled, true);
 
-    private static final String UUID_TEST_REGEXP = "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
+    public static final String UUID_TEST_REGEXP = "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$";
 
     @Before
     public void setUp() throws Exception {
@@ -310,7 +316,21 @@ public class UUIDTest {
         }
     }
 
-    private void assertResult(Map<String, Object> row, String labels, boolean installed, Map<String, Object> conf) {
+    // to check that with new procedures like apoc.uuid.create
+    // we have to set `apoc.uuid.refresh`
+
+    // todo - put in UUIDRestartTest
+    @Test
+    public void testUuidRefreshNotSet() {
+        try {
+            testCall(db, "CALL apoc.uuid.create('neo4j', 'AnotherLabel')",
+                    r -> fail("Should fail because apoc.uuid.refresh is not set"));
+        } catch (RuntimeException e) {
+            assertThat(e.getMessage(), Matchers.containsString(UUID_NOT_SET));
+        }
+    }
+
+    public static void assertResult(Map<String, Object> row, String labels, boolean installed, Map<String, Object> conf) {
         assertEquals(labels, row.get("label"));
         assertEquals(installed, row.get("installed"));
         assertEquals(conf, row.get("properties"));

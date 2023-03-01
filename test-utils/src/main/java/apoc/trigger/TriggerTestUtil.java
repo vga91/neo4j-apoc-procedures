@@ -9,7 +9,7 @@ import static org.junit.Assert.assertEquals;
 
 public class TriggerTestUtil {
     public static final long TIMEOUT = 10L;
-    public static final long TRIGGER_DEFAULT_REFRESH = 2000;
+    public static final long DEFAULT_REFRESH = 2000;
 
     public static void awaitTriggerDiscovered(GraphDatabaseService db, String name, String query) {
         awaitTriggerDiscovered(db, name, query, false);

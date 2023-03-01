@@ -70,7 +70,11 @@ public class TestcontainersCausalCluster {
         final SocatContainer proxy = new SocatContainer()
                 .withNetwork(network);
         iterateMembers(numberOfCoreMembers, ClusterInstanceType.CORE)
-                .forEach(member -> proxy.withTarget(ClusterInstanceType.CORE.port + member.getKey(), member.getValue(), DEFAULT_BOLT_PORT));
+                .forEach(member -> {
+                    int exposedPort = ClusterInstanceType.CORE.port + member.getKey();
+                    System.out.println("exposedPort = " + exposedPort);
+                    proxy.withTarget(exposedPort, member.getValue(), DEFAULT_BOLT_PORT);
+                });
         iterateMembers(numberOfReadReplica, ClusterInstanceType.READ_REPLICA)
                 .forEach(member -> proxy.withTarget(ClusterInstanceType.READ_REPLICA.port + member.getKey(), member.getValue(), DEFAULT_BOLT_PORT));
 
@@ -82,12 +86,25 @@ public class TestcontainersCausalCluster {
                 .map(member -> createInstance(member.getValue(), ClusterInstanceType.CORE, network, initialDiscoveryMembers, neo4jConfig, envSettings)
                         .withNeo4jConfig("dbms.default_advertised_address", member.getValue())
                         .withNeo4jConfig("dbms.connector.bolt.advertised_address", String.format("%s:%d", proxy.getContainerIpAddress(), proxy.getMappedPort(ClusterInstanceType.CORE.port + member.getKey()))))
+        .collect(toList());
+
+/*        List<Neo4jContainerExtension> members = iterateMembers(numberOfCoreMembers, ClusterInstanceType.CORE)
+                .map(member -> {
+                    Integer mappedPort = proxy.getMappedPort(ClusterInstanceType.CORE.port);// + member.getKey());
+                    System.out.println("mappedPort = " + mappedPort);
+                    System.out.println("proxy.getMappedPort(DEFAULT_BOLT_PORT) = " + proxy.getMappedPort(DEFAULT_BOLT_PORT));
+                    System.out.println("proxy.getMappedPort1(DEFAULT_BOLT_PORT) = " + proxy.getMappedPort(DEFAULT_BOLT_PORT + member.getKey()));
+                    Neo4jContainerExtension instance = createInstance(member.getValue(), ClusterInstanceType.CORE, network, initialDiscoveryMembers, neo4jConfig, envSettings);
+                    return instance
+                            .withNeo4jConfig("dbms.default_advertised_address",  member.getValue())
+                            .withNeo4jConfig("dbms.connector.bolt.advertised_address", withRoutingEnabled(envSettings) ? (proxy.getContainerIpAddress() + instance.getMappedPort(DEFAULT_BOLT_PORT) + member.getKey()) : String.format("%s:%d", proxy.getContainerIpAddress(), mappedPort));
+                })
                 .collect(toList());
         members.addAll(iterateMembers(numberOfReadReplica, ClusterInstanceType.READ_REPLICA)
                 .map(member -> createInstance(member.getValue(), ClusterInstanceType.READ_REPLICA, network, initialDiscoveryMembers, neo4jConfig, envSettings)
                         .withNeo4jConfig("dbms.default_advertised_address", member.getValue())
                         .withNeo4jConfig("dbms.connector.bolt.advertised_address", String.format("%s:%d", proxy.getContainerIpAddress(), proxy.getMappedPort(ClusterInstanceType.READ_REPLICA.port + member.getKey()))))
-                .collect(toList()));
+                */
 
         // Start all of them in parallel
         final CountDownLatch latch = new CountDownLatch(numberOfCoreMembers + numberOfReadReplica);
@@ -118,15 +135,20 @@ public class TestcontainersCausalCluster {
                 .withCreateContainerCmdModifier(cmd -> cmd.withHostName(name))
                 .withNeo4jConfig("dbms.mode", instanceType.toString())
                 .withNeo4jConfig("dbms.default_listen_address", "0.0.0.0")
-                .withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
+
+                .withNeo4jConfig("causal_clustering.minimum_core_cluster_size_at_formation", "3")
+                .withNeo4jConfig("causal_clustering.minimum_core_cluster_size_at_runtime", "3")
                 .withNeo4jConfig("causal_clustering.initial_discovery_members", initialDiscoveryMembers)
                 .withStartupTimeout(Duration.ofMinutes(MINUTES_TO_WAIT));
         if (withRoutingEnabled(envSettings)) {
-            container.withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
+            container/*.withNeo4jConfig("dbms.connector.bolt.advertised_address", "localhost:" + container.getMappedPort(DEFAULT_BOLT_PORT))*/
+                    .withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
                     .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
                     .withEnv("NEO4J_dbms_routing_advertised__address", name + ":7618");
         } else {
-            container.withoutDriver();
+            container
+                    .withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
+                    .withoutDriver();
         }
         neo4jConfig.forEach((conf, value) -> container.withNeo4jConfig(conf, String.valueOf(value)));
         container.withEnv(envSettings);
