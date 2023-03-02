@@ -32,6 +32,7 @@ import static apoc.util.SystemDbUtil.*;
 import static apoc.util.TestUtil.*;
 import static apoc.uuid.UUIDTest.UUID_TEST_REGEXP;
 import static apoc.uuid.UUIDTest.assertResult;
+import static apoc.uuid.UUIDTestUtils.assertIsUUID;
 import static apoc.uuid.UUIDTestUtils.awaitUuidDiscovered;
 import static apoc.uuid.UuidConfig.*;
 import static apoc.uuid.UuidHandler.APOC_UUID_REFRESH;
@@ -135,7 +136,7 @@ public class UUIDNewProceduresTest {
         db.executeTransactionally("CREATE (p:Luigi {foo:'bar'}) SET p:Mario");
         // then
         TestUtil.testCall(db, "MATCH (a:Luigi:Mario) RETURN a.uuid as uuid",
-                row -> assertIsUuid((String) row.get("uuid")));
+                row -> assertIsUUID((String) row.get("uuid")));
 
         // - set after creation
         db.executeTransactionally("CREATE (:Peach)");
@@ -143,7 +144,7 @@ public class UUIDNewProceduresTest {
         db.executeTransactionally("MATCH (p:Peach) SET p:Mario");
         // then
         TestUtil.testCall(db, "MATCH (a:Peach:Mario) RETURN a.uuid as uuid",
-                row -> assertIsUuid((String) row.get("uuid")));
+                row -> assertIsUUID((String) row.get("uuid")));
 
         TestUtil.testCall(sysDb, "CALL apoc.uuid.drop('neo4j', 'Mario')",
                 (row) -> assertResult(row, "Mario", false,
@@ -224,7 +225,7 @@ public class UUIDNewProceduresTest {
 
         // then
         testCall(db, "MATCH (n:Empty) return n.uuid AS uuid",
-                (row) -> assertIsUuid((String) row.get("uuid"))
+                (row) -> assertIsUUID((String) row.get("uuid"))
         );
 //        try (Transaction tx = db.beginTx()) {
 //            Node n = (Node) tx.execute("MATCH (n:Empty) return n").next().get("n");
@@ -317,7 +318,7 @@ public class UUIDNewProceduresTest {
         try (Transaction tx = db.beginTx()) {
             Node n = (Node) tx.execute("MATCH (person:Person) return person").next().get("person");
             assertTrue(n.getAllProperties().containsKey("uuid"));
-            assertIsUuid(n.getAllProperties().get("uuid").toString());
+            assertIsUUID(n.getAllProperties().get("uuid").toString());
             tx.commit();
         }
 
@@ -502,7 +503,7 @@ public class UUIDNewProceduresTest {
         // check uuid
         db.executeTransactionally("CREATE (n:EventualLabel)");
         testCall(db, "MATCH (c:EventualLabel) RETURN c.uuid AS uuid",
-                (row) -> assertIsUuid((String) row.get("uuid"))
+                (row) -> assertIsUUID((String) row.get("uuid"))
         );
 
         // this does nothing, just to test consistency with multiple uuids
@@ -515,17 +516,13 @@ public class UUIDNewProceduresTest {
         // check uuid
         db.executeTransactionally("CREATE (n:EventualLabelTwo)");
         testCall(db, "MATCH (c:EventualLabelTwo) RETURN c.uuid as uuid",
-                (row) -> assertIsUuid((String) row.get("uuid"))
+                (row) -> assertIsUUID((String) row.get("uuid"))
         );
 
         // check uuids
         db.executeTransactionally("CREATE (n:EventualLabel {id: 2})");
         testCall(db, "MATCH (c:EventualLabel {id: 2}) RETURN c.uuid as uuid",
-                (row) -> assertIsUuid((String) row.get("uuid"))
+                (row) -> assertIsUUID((String) row.get("uuid"))
         );
-    }
-
-    private static void assertIsUuid(String uuid) {
-        assertThat(uuid, Matchers.matchesRegex(UUID_TEST_REGEXP));
     }
 }

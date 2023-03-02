@@ -3,7 +3,6 @@ package apoc.uuid;
 import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
-import apoc.trigger.TriggerInfo;
 import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.neo4j.graphdb.Label;
@@ -17,20 +16,17 @@ import org.neo4j.internal.helpers.collection.Pair;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import apoc.SystemPropertyKeys.*;
 
 import static apoc.ApocConfig.*;
 import static apoc.SystemPropertyKeys.*;
 import static apoc.SystemLabels.*;
 import static apoc.util.SystemDbUtil.getSystemNodes;
 import static apoc.util.SystemDbUtil.withSystemDb;
-import static apoc.uuid.UuidInfo.fromNode;
 import static apoc.uuid.UuidHandler.NOT_ENABLED_ERROR;
 
-public class UuidHandlerNewProcedures {
+public class UUIDHandlerNewProcedures {
     public static boolean isEnabled(String databaseName) {
         String apocUUIDEnabledDb = String.format(ApocConfig.APOC_UUID_ENABLED_DB, databaseName);
         return apocConfig().getConfig().getBoolean(apocUUIDEnabledDb, apocConfig().getBoolean(APOC_UUID_ENABLED));

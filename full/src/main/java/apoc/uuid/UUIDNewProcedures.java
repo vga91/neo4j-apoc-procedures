@@ -28,20 +28,16 @@ public class UUIDNewProcedures {
     @Context
     public UuidHandler uuidHandler;
 
-    private void checkInSystemLeader() {
-        checkEnabled();
+    private void checkInSystemLeader(String databaseName) {
+        UUIDHandlerNewProcedures.checkEnabled(databaseName);
         checkRefreshConfigSet();
 
         SystemDbUtil.checkInSystemLeader(db);
     }
 
-    private void checkInSystem() {
-        checkEnabled();
+    private void checkInSystem(String databaseName) {
+        UUIDHandlerNewProcedures.checkEnabled(databaseName);
         SystemDbUtil.checkInSystem(db);
-    }
-
-    private void checkEnabled() {
-        UuidHandlerNewProcedures.checkEnabled(db.databaseName());
     }
 
     private void checkTargetDatabase(String databaseName) {
@@ -67,7 +63,7 @@ public class UUIDNewProcedures {
 
 //        checkConfigSet();
 
-        checkInSystemLeader();
+        checkInSystemLeader(databaseName);
         checkTargetDatabase(databaseName);
 
 
@@ -84,11 +80,11 @@ public class UUIDNewProcedures {
         //  Maybe we could put it in UuidHandler.java and execute it in the refresh() method before all
         GraphDatabaseService db = apocConfig().getDatabase(databaseName);
         try (Transaction tx = db.beginTx()) {
-            UuidHandlerNewProcedures.checkConstraintUuid(tx, label, uuidConfig.getUuidProperty());
+            UUIDHandlerNewProcedures.checkConstraintUuid(tx, label, uuidConfig.getUuidProperty());
             tx.commit();
         }
 
-        UuidHandlerNewProcedures.create(databaseName, label, uuidConfig);
+        UUIDHandlerNewProcedures.create(databaseName, label, uuidConfig);
 
         // todo - mocked Collections.emptyMap()
         UuidInstallInfo uuidInstallInfo = UuidInstallInfo.from(label, Collections.emptyMap(), uuidConfig);
@@ -101,9 +97,9 @@ public class UUIDNewProcedures {
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.uuid.drop(label) yield label, installed, properties | remove previously added uuid handler and returns uuid information. All the existing uuid properties are left as-is")
     public Stream<UuidInfo> drop(@Name("databaseName") String databaseName, @Name("label") String label) {
-        checkInSystemLeader();
+        checkInSystemLeader(databaseName);
 
-        final UuidInfo uuidInfo = UuidHandlerNewProcedures.drop(databaseName, label);
+        final UuidInfo uuidInfo = UUIDHandlerNewProcedures.drop(databaseName, label);
         System.out.println("uuidInfo = " + uuidInfo);
         return Stream.ofNullable(uuidInfo);
     }
@@ -114,9 +110,9 @@ public class UUIDNewProcedures {
     @Procedure(mode = Mode.WRITE)
     @Description("CALL apoc.uuid.dropAll() yield label, installed, properties | it removes all previously added uuid handlers and returns uuids information. All the existing uuid properties are left as-is")
     public Stream<UuidInfo> dropAll(@Name("databaseName") String databaseName) {
-        checkInSystemLeader();
+        checkInSystemLeader(databaseName);
 
-        return UuidHandlerNewProcedures.dropAll(databaseName)
+        return UUIDHandlerNewProcedures.dropAll(databaseName)
                 .stream()
                 .sorted(Comparator.comparing(i -> i.label));
     }
@@ -128,9 +124,9 @@ public class UUIDNewProcedures {
     @Procedure(mode = Mode.READ)
     @Description("CALL apoc.uuid.show(databaseName) | it lists all eventually installed TODO for a database")
     public Stream<UuidInfo> show(@Name("databaseName") String databaseName) {
-        checkInSystem();
+        checkInSystem(databaseName);
 
-        return UuidHandlerNewProcedures.getUuidNodesList(databaseName, tx);
+        return UUIDHandlerNewProcedures.getUuidNodesList(databaseName, tx);
     }
 
 }

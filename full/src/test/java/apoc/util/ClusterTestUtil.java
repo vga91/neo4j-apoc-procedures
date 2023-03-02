@@ -26,8 +26,8 @@ public class ClusterTestUtil {
                 (value) -> value == 2L, 30L, TimeUnit.SECONDS);
     }
 
-    public static void checkCorrectRoutingForEachMembers(List<Neo4jContainerExtension> members,
-                                                         BiConsumer<Session, Neo4jContainerExtension> sessionConsumer) {
+    public static void connectWithRoutingForEachMembers(List<Neo4jContainerExtension> members,
+                                                        BiConsumer<Session, Neo4jContainerExtension> sessionConsumer) {
 
         for (Neo4jContainerExtension container: members) {
             // Bolt (routing) url

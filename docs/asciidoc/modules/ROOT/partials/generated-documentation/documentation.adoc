@@ -3552,6 +3552,21 @@ apoc.util.validatePredicate(predicate, message, params) \| if the predicate yiel
 [.procedures, opts=header, cols='5a,1a,1a']
 |===
 | Qualified Name | Type | Release
+|xref::overview/apoc.uuid/apoc.uuid.create.adoc[apoc.uuid.create icon:book[]]
+
+TODO
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.uuid/apoc.uuid.drop.adoc[apoc.uuid.drop icon:book[]]
+
+CALL apoc.uuid.drop(label) yield label, installed, properties \| remove previously added uuid handler and returns uuid information. All the existing uuid properties are left as-is
+|label:procedure[]
+|label:apoc-core[]
+|xref::overview/apoc.uuid/apoc.uuid.dropAll.adoc[apoc.uuid.dropAll icon:book[]]
+
+CALL apoc.uuid.dropAll() yield label, installed, properties \| it removes all previously added uuid handlers and returns uuids information. All the existing uuid properties are left as-is
+|label:procedure[]
+|label:apoc-core[]
 |xref::overview/apoc.uuid/apoc.uuid.install.adoc[apoc.uuid.install icon:book[]]
 
 CALL apoc.uuid.install(label, {addToExistingNodes: true/false, uuidProperty: 'uuid'}) yield label, installed, properties, batchComputationResult \| it will add the uuid transaction handler
@@ -3573,6 +3588,11 @@ CALL apoc.uuid.remove(label) yield label, installed, properties \| remove previo
 CALL apoc.uuid.removeAll() yield label, installed, properties \| it removes all previously added uuid handlers and returns uuids information. All the existing uuid properties are left as-is
 |label:procedure[]
 |label:apoc-full[]
+|xref::overview/apoc.uuid/apoc.uuid.show.adoc[apoc.uuid.show icon:book[]]
+
+CALL apoc.uuid.show(databaseName) \| it lists all eventually installed TODO for a database
+|label:procedure[]
+|label:apoc-core[]
 |===
 
 [discrete]

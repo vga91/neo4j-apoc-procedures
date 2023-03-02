@@ -3,7 +3,6 @@ package apoc.custom;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestcontainersCausalCluster;
-import org.hamcrest.Matchers;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -15,15 +14,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static apoc.ApocConfig.APOC_UUID_ENABLED;
 import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_REFRESH;
-import static apoc.util.ClusterTestUtil.checkCorrectRoutingForEachMembers;
+import static apoc.util.ClusterTestUtil.connectWithRoutingForEachMembers;
 import static apoc.util.ClusterTestUtil.checkLeadershipBalanced;
 import static apoc.util.TestContainerUtil.singleResultFirstColumn;
-import static apoc.uuid.UUIDTest.UUID_TEST_REGEXP;
-import static apoc.uuid.UuidHandler.APOC_UUID_REFRESH;
 import static java.lang.String.format;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.test.assertion.Assert.assertEventually;
@@ -58,7 +53,7 @@ public class CypherProceduresClusterRoutingTest {
         // wait until members are balanced, i.e. the system LEADER and the neo4j LEADER aren't in the same member
         checkLeadershipBalanced(clusterSession);
 
-        checkCorrectRoutingForEachMembers(members, (session, container) -> {
+        connectWithRoutingForEachMembers(members, (session, container) -> {
             String clusterProcedure = container.getContainerName();
             System.out.println("clusterProcedure = " + clusterProcedure);
             clusterProcedure = clusterProcedure.replace("/", "");
@@ -70,7 +65,7 @@ public class CypherProceduresClusterRoutingTest {
 
         assertEventually(() -> {
                     String countProcs = "SHOW PROCEDURES YIELD name WHERE name STARTS WITH 'custom' RETURN count(*)";
-                    return (Long) singleResultFirstColumn(cluster.getSession(), countProcs);
+                    return (long) singleResultFirstColumn(cluster.getSession(), countProcs);
                 },
                 (value) -> value == members.size(), 10L, TimeUnit.SECONDS);
 
@@ -86,5 +81,10 @@ public class CypherProceduresClusterRoutingTest {
                     },
                     (value) -> value, 10L, TimeUnit.SECONDS);
         }
+
+        // todo - add install Function
+
+        // todo - add drop Procedure
+        // todo - add drop Function
     }
 }

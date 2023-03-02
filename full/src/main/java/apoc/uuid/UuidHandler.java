@@ -98,7 +98,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
     private boolean isEnabled() {
-        return UuidHandlerNewProcedures.isEnabled(this.db.databaseName());
+        return UUIDHandlerNewProcedures.isEnabled(this.db.databaseName());
     }
 
     @Override
@@ -172,7 +172,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
     private void checkEnabled() {
-        UuidHandlerNewProcedures.checkEnabled(db.databaseName());
+        UUIDHandlerNewProcedures.checkEnabled(db.databaseName());
     }
 
     private String generateUuidValue() {
@@ -187,7 +187,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
     public void checkConstraintUuid(Transaction tx, String label, String propertyName) {
-        UuidHandlerNewProcedures.checkConstraintUuid(tx, label, propertyName);
+        UUIDHandlerNewProcedures.checkConstraintUuid(tx, label, propertyName);
     }
 
     public void add(Transaction tx, String label, UuidConfig config) {
