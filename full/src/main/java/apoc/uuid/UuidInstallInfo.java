@@ -6,6 +6,7 @@ import static apoc.uuid.UuidConfig.ADD_TO_SET_LABELS_KEY;
 import static apoc.uuid.UuidConfig.UUID_PROPERTY_KEY;
 
 public class UuidInstallInfo extends UuidInfo {
+    // todo - maybe not needed for UUidInstall, because we cannot use batchComputationResult
     public Map<String, Object> batchComputationResult;
 
     UuidInstallInfo(String label, Map<String, Object> properties, Map<String, Object> batchComputationResult) {

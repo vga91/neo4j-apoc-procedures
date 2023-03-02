@@ -15,13 +15,13 @@ public class SystemDbTestUtil {
 //        awaitFunctionalityDiscovered(db, name, expected, false);
 //    }
 
-    public static void awaitFunctionalityDiscovered(GraphDatabaseService db, String name, String expected/*, boolean paused*/) {
-        String call = "CALL apoc.trigger.list() YIELD name, query, paused WHERE name = $name RETURN query";
-        testCallEventually(db, call,
-                Map.of("name", name),
-                row -> {
-                    assertEquals(expected, row.get("query"));
-//                    assertEquals(paused, row.get("paused"));
-                }, TIMEOUT);
-    }
+//    public static void awaitFunctionalityDiscovered(GraphDatabaseService db, String name, String expected/*, boolean paused*/) {
+//        String call = "CALL apoc.trigger.list() YIELD name, query, paused WHERE name = $name RETURN query";
+//        testCallEventually(db, call,
+//                Map.of("name", name),
+//                row -> {
+//                    assertEquals(expected, row.get("query"));
+////                    assertEquals(paused, row.get("paused"));
+//                }, TIMEOUT);
+//    }
 }

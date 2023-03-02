@@ -1,23 +1,22 @@
 package apoc.uuid;
 
-import apoc.ApocConfig;
 import apoc.Extended;
-import apoc.Pools;
 import apoc.util.SystemDbUtil;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.kernel.api.procedure.SystemProcedure;
 import org.neo4j.procedure.*;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static apoc.uuid.Uuid.getExistingNodesResult;
+import static apoc.ApocConfig.apocConfig;
 import static apoc.uuid.UuidHandler.APOC_UUID_REFRESH;
 
 @Extended
-public class UuidNewProcedures {
+public class UUIDNewProcedures {
     public static final String UUID_NOT_SET = APOC_UUID_REFRESH + " is not set. Please please set it in your apoc.conf";
 
     @Context
@@ -27,11 +26,11 @@ public class UuidNewProcedures {
     public Transaction tx;
 
     @Context
-    public ApocConfig apocConfig;
+    public UuidHandler uuidHandler;
 
     private void checkInSystemLeader() {
         checkEnabled();
-        checkConfigSet();
+        checkRefreshConfigSet();
 
         SystemDbUtil.checkInSystemLeader(db);
     }
@@ -42,28 +41,18 @@ public class UuidNewProcedures {
     }
 
     private void checkEnabled() {
-        UuidHandlerNewProcedures.checkEnabled(apocConfig, db.databaseName());
+        UuidHandlerNewProcedures.checkEnabled(db.databaseName());
     }
 
     private void checkTargetDatabase(String databaseName) {
         SystemDbUtil.checkTargetDatabase(databaseName, "Automatic UUIDs");
     }
 
-
-    // todo - credo debba andare anche al remove, metti che riavvio
-    // allora fare metodo comune
-    private void checkConfigSet() {
-        //
-        if (apocConfig.getConfig().getInteger(APOC_UUID_REFRESH, null) == null) {
+    private void checkRefreshConfigSet() {
+        if (!apocConfig().containsKey(APOC_UUID_REFRESH)) {
             throw new RuntimeException(UUID_NOT_SET);
         }
     }
-
-    @Context
-    public UuidHandler uuidHandler;
-
-    @Context
-    public Pools pools;
 
     // TODO - change with @SystemOnlyProcedure
     @SystemProcedure
@@ -91,37 +80,20 @@ public class UuidNewProcedures {
 
         // TODO - the ApocConfig.apocConfig().getDatabase(databaseName) has to be deleted in 5.x,
         //  because in a cluster, not all DBMS host all the databases on them,
-        //  so we have to assume that the leader of the system database doesn't have access to this user database
-        GraphDatabaseService db = apocConfig.getDatabase(databaseName);
-
-        //  TODO - in 5.x maybe we could put it in UuidHandler.java and execute it in the refresh() method before all
+        //  so we have to assume that the leader of the system database doesn't have access to this user database.
+        //  Maybe we could put it in UuidHandler.java and execute it in the refresh() method before all
+        GraphDatabaseService db = apocConfig().getDatabase(databaseName);
         try (Transaction tx = db.beginTx()) {
             UuidHandlerNewProcedures.checkConstraintUuid(tx, label, uuidConfig.getUuidProperty());
+            tx.commit();
         }
 
-        //  TODO - in 5.x maybe we could put it in UuidHandler.java and execute it in the refresh() method before all
-        Map<String, Object> addToExistingNodesResult = getExistingNodesResult(db, pools, label, uuidConfig);
-//        Map<String, Object> addToExistingNodesResult = Collections.emptyMap();
-//        if (uuidConfig.isAddToExistingNodes()) {
-//            final String uuidFunctionName = getUuidFunctionName();
-//            addToExistingNodesResult = Util.inTx(db, pools, txInThread ->
-//                    txInThread.execute("CALL apoc.periodic.iterate(" +
-//                                    "\"MATCH (n:" + Util.sanitizeAndQuote(label) + ") RETURN n\",\n" +
-//                                    "\"SET n." + Util.sanitizeAndQuote(uuidConfig.getUuidProperty()) + " = " + uuidFunctionName + "()\", {batchSize:10000, parallel:true})")
-//                            .next()
-//            );
-//        }
+        UuidHandlerNewProcedures.create(databaseName, label, uuidConfig);
 
-
-        /*UuidInstallInfo uuidInfo = */UuidHandlerNewProcedures.create(databaseName, label, uuidConfig);
-
-        UuidInstallInfo uuidInstallInfo = UuidInstallInfo.from(label, addToExistingNodesResult, uuidConfig);
+        // todo - mocked Collections.emptyMap()
+        UuidInstallInfo uuidInstallInfo = UuidInstallInfo.from(label, Collections.emptyMap(), uuidConfig);
         return Stream.of(uuidInstallInfo);
     }
-
-
-
-
 
     // TODO - change with @SystemOnlyProcedure
     @SystemProcedure
@@ -132,6 +104,7 @@ public class UuidNewProcedures {
         checkInSystemLeader();
 
         final UuidInfo uuidInfo = UuidHandlerNewProcedures.drop(databaseName, label);
+        System.out.println("uuidInfo = " + uuidInfo);
         return Stream.ofNullable(uuidInfo);
     }
 

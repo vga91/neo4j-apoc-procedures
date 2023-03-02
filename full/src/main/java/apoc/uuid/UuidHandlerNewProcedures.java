@@ -4,6 +4,7 @@ import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
 import apoc.trigger.TriggerInfo;
+import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -15,6 +16,7 @@ import org.neo4j.internal.helpers.collection.Pair;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -23,23 +25,27 @@ import apoc.SystemPropertyKeys.*;
 import static apoc.ApocConfig.*;
 import static apoc.SystemPropertyKeys.*;
 import static apoc.SystemLabels.*;
+import static apoc.util.SystemDbUtil.getSystemNodes;
+import static apoc.util.SystemDbUtil.withSystemDb;
 import static apoc.uuid.UuidInfo.fromNode;
 import static apoc.uuid.UuidHandler.NOT_ENABLED_ERROR;
 
 public class UuidHandlerNewProcedures {
-    public static boolean isEnabled(ApocConfig apocConfig, String databaseName) {
+    public static boolean isEnabled(String databaseName) {
         String apocUUIDEnabledDb = String.format(ApocConfig.APOC_UUID_ENABLED_DB, databaseName);
-        return apocConfig.getConfig().getBoolean(apocUUIDEnabledDb, apocConfig.getBoolean(APOC_UUID_ENABLED));
+        return apocConfig().getConfig().getBoolean(apocUUIDEnabledDb, apocConfig().getBoolean(APOC_UUID_ENABLED));
     }
 
-    public static void checkEnabled(ApocConfig apocConfig, String databaseName) {
-        if (!isEnabled(apocConfig, databaseName)) {
-            throw new RuntimeException(NOT_ENABLED_ERROR);
+    public static void checkEnabled(String databaseName) {
+        if (!isEnabled(databaseName)) {
+            String error = String.format(NOT_ENABLED_ERROR, databaseName);
+            throw new RuntimeException(error);
         }
     }
 
     // todo -move UuidInstallInfo in new separate Class
-    public static void create(String databaseName, String label,  UuidConfig config) {
+    public static UuidInfo create(String databaseName, String label,  UuidConfig config) {
+        final UuidInfo[] result = new UuidInfo[1];
 
         withSystemDb(sysTx -> {
             Node node = Util.mergeNode(sysTx, SystemLabels.ApocUuid, null,
@@ -49,41 +55,25 @@ public class UuidHandlerNewProcedures {
 
             node.setProperty(propertyName.name(), config.getUuidProperty());
             node.setProperty(addToSetLabel.name(), config.isAddToSetLabels());
+            node.setProperty(addToExistingNodes.name(), config.isAddToExistingNodes());
 
+            // we'll the return current uuid info
+            result[0] = UuidInfo.fromNode(node, true);
 
             setLastUpdate(databaseName, sysTx);
-
-            // we'll the return current trigger info
-//            result[0] = UuidInfo.fromNode(node, true);
-
-//            setLastUpdate(databaseName, tx);
         });
+
+        return result[0];
     }
 
-//    public static List<UuidInstallInfo> dropAll(String databaseName) {
-//        final List<UuidInstallInfo> previous = new ArrayList<>();
-//
-//        withSystemDb(tx -> {
-//            getUuidNodes(databaseName, tx)
-//                    .forEachRemaining(node -> {
-//                        // we'll return previous auto uuid info
-//                        previous.add( UuidInstallInfo.fromNode(node, false) );
-//                        node.delete();
-//                    });
-////            setLastUpdate(databaseName, tx);
-//        });
-//
-//        return previous;
-//    }
-
     // todo - common?
-    public static UuidInfo drop(String databaseName, String triggerName) {
+    public static UuidInfo drop(String databaseName, String labelName) {
         final UuidInfo[] previous = new UuidInfo[1];
 
         withSystemDb(tx -> {
-            getUuidNodes(databaseName, tx, triggerName)
+            getUuidNodes(databaseName, tx, Map.of(SystemPropertyKeys.label.name(), labelName))
                     .forEachRemaining(node -> {
-                        previous[0] = UuidInfo.fromNode(node, false);
+                        previous[0] = UuidInfo.fromNode(node);
                         node.delete();
                     });
 
@@ -100,7 +90,7 @@ public class UuidHandlerNewProcedures {
             getUuidNodes(databaseName, tx)
                     .forEachRemaining(node -> {
                         // we'll return previous uuid info
-                        previous.add( UuidInfo.fromNode(node, false) );
+                        previous.add( UuidInfo.fromNode(node) );
                         node.delete();
                     });
 
@@ -116,16 +106,8 @@ public class UuidHandlerNewProcedures {
     }
 
     // todo - common method in SystemDbUtils
-    public static ResourceIterator<Node> getUuidNodes(String databaseName, Transaction tx, String label) {
-        final SystemLabels sysLabel = SystemLabels.ApocUuid;
-        final String dbNameKey = database.name();
-        if (label == null) {
-            return tx.findNodes(sysLabel, dbNameKey, databaseName);
-        }
-        return tx.findNodes(sysLabel, dbNameKey, databaseName,
-                // todo - this key is label instead of name like in trigger
-                SystemPropertyKeys.label.name(),
-                label);
+    public static ResourceIterator<Node> getUuidNodes(String databaseName, Transaction tx, Map<String, Object> props) {
+        return getSystemNodes(databaseName, tx, SystemLabels.ApocUuid, props);
     }
 
     // todo - common method in SystemDbUtils
@@ -133,14 +115,6 @@ public class UuidHandlerNewProcedures {
         return getUuidNodes(databaseName, tx)
                 .stream()
                 .map(UuidInfo::fromNode);
-    }
-
-    // TODO - common
-    public static void withSystemDb(Consumer<Transaction> consumer) {
-        try (Transaction tx = apocConfig().getSystemDb().beginTx()) {
-            consumer.accept(tx);
-            tx.commit();
-        }
     }
 
     public static void checkConstraintUuid(Transaction tx, String label, String propertyName) {
@@ -160,14 +134,7 @@ public class UuidHandlerNewProcedures {
 
     // todo - common
     private static void setLastUpdate(String databaseName, Transaction tx) {
-        Node node = tx.findNode(SystemLabels.ApocUuidMeta, database.name(), databaseName);
-        if (node == null) {
-            node = tx.createNode(SystemLabels.ApocUuidMeta);
-            node.setProperty(database.name(), databaseName);
-        }
-        final long value = System.currentTimeMillis();
-        System.out.println("value = " + value);
-        node.setProperty(SystemPropertyKeys.lastUpdated.name(), value);
+        SystemDbUtil.setLastUpdate(databaseName, tx, ApocUuidMeta);
     }
 
 //    private static void setLastUpdate(String databaseName, Transaction tx) {

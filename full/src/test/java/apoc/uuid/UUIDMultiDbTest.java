@@ -31,7 +31,7 @@ public class UUIDMultiDbTest {
 
     private static Neo4jContainerExtension neo4jContainer;
     private static Driver driver;
-    private static String dbTest = "dbtest";
+    private static final String dbTest = "dbtest";
 
     @BeforeClass
     public static void setupContainer() {
@@ -45,7 +45,7 @@ public class UUIDMultiDbTest {
         assumeNotNull(neo4jContainer);
         assumeTrue("Neo4j Instance should be up-and-running", neo4jContainer.isRunning());
 
-        driver = GraphDatabase.driver(neo4jContainer.getBoltUrl(), AuthTokens.basic("neo4j", "apoc"));
+        driver = neo4jContainer.getDriver();
 
         try (Session session = driver.session()) {
             session.writeTransaction(tx -> tx.run(String.format("CREATE DATABASE %s;", dbTest)));
@@ -121,5 +121,9 @@ public class UUIDMultiDbTest {
             assertTrue("UUID not set on node after 5 seconds", nodeHasUUID.get());
         }
     }
+
+    //
+    // new procedures test
+    //
 
 }

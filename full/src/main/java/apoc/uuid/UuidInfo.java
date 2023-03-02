@@ -34,12 +34,6 @@ public class UuidInfo {
     }
 
     public static UuidInfo fromNode(Node node) {
-        return fromNode(node, true);
-//            String label = (String) node.getProperty(SystemPropertyKeys.label.name());
-//            String addToSetLabel = (String) node.getProperty(SystemPropertyKeys.addToSetLabel.name());
-//            String propertyName = (String) node.getProperty(SystemPropertyKeys.propertyName.name());
-//            Map<String, Object> properties = Map.of("uuidProperty", propertyName,
-//                    "addToSetLabel", addToSetLabel);
-//            return new UuidInfo(label, true, properties);
+        return fromNode(node, false);
     }
 }

@@ -19,9 +19,8 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.trigger.TriggerNewProcedures.TRIGGER_NOT_ROUTED_ERROR;
 import static apoc.util.TestUtil.testCall;
-import static apoc.uuid.UuidNewProcedures.UUID_NOT_SET;
+import static apoc.uuid.UUIDNewProcedures.UUID_NOT_SET;
 import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;

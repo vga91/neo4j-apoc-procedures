@@ -1,16 +1,25 @@
 package apoc.util;
 
 import apoc.ApocConfig;
+import apoc.SystemLabels;
+import apoc.SystemPropertyKeys;
 import apoc.trigger.TriggerHandlerNewProcedures;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static apoc.ApocConfig.apocConfig;
+import static apoc.SystemPropertyKeys.database;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
 public class SystemDbUtil {
@@ -62,11 +71,55 @@ public class SystemDbUtil {
         }
     }
 
-    public static  <T> T withSystemDb(ApocConfig config, Function<Transaction, T> action) {
-        try (Transaction tx = config.getSystemDb().beginTx()) {
+    public static <T> T withSystemDb(Function<Transaction, T> action) {
+        try (Transaction tx = apocConfig().getSystemDb().beginTx()) {
             T result = action.apply(tx);
             tx.commit();
             return result;
         }
+    }
+
+    public static void withSystemDb(Consumer<Transaction> consumer) {
+        try (Transaction tx = apocConfig().getSystemDb().beginTx()) {
+            consumer.accept(tx);
+            tx.commit();
+        }
+    }
+
+    // todo - maybe not used
+    public static ResourceIterator<Node> getSystemNodes(String databaseName, Transaction tx, SystemLabels sysLabel) {
+        return getSystemNodes(databaseName, tx, sysLabel, null);
+    }
+
+    public static ResourceIterator<Node> getSystemNodes(String databaseName, Transaction tx, /*String prop,*/
+                                                        SystemLabels sysLabel,
+                                                        Map<String, Object> props) {
+//        final SystemLabels sysLabel = SystemLabels.ApocUuid;
+        final String dbNameKey = database.name();
+
+        // search all system nodes
+        if (props == null) {
+            return tx.findNodes(sysLabel, dbNameKey, databaseName);
+        }
+
+        Map<String, Object> propsMap = new HashMap<>();
+        propsMap.put(dbNameKey, databaseName);
+        propsMap.putAll(props);
+
+        return tx.findNodes(sysLabel, propsMap);
+                // todo - this key is prop instead of name like in trigger
+//                Map.of(dbNameKey, databaseName,
+//                        SystemPropertyKeys.label.name(), prop)
+//        );
+    }
+
+    public static void setLastUpdate(String databaseName, Transaction tx, SystemLabels label) {
+        Node node = tx.findNode(label, database.name(), databaseName);
+        if (node == null) {
+            node = tx.createNode(label);
+            node.setProperty(database.name(), databaseName);
+        }
+        final long value = System.currentTimeMillis();
+        node.setProperty(SystemPropertyKeys.lastUpdated.name(), value);
     }
 }

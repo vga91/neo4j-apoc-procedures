@@ -1,6 +1,7 @@
 package apoc.uuid;
 
 import apoc.ApocConfig;
+import apoc.Pools;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
 import apoc.util.SystemDbUtil;
@@ -34,8 +35,8 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static apoc.ApocConfig.APOC_UUID_FORMAT;
-import static apoc.uuid.UuidConfig.ADD_TO_SET_LABELS_KEY;
-import static apoc.uuid.UuidConfig.UUID_PROPERTY_KEY;
+import static apoc.uuid.Uuid.setExistingNodes;
+import static apoc.uuid.UuidConfig.*;
 
 public class UuidHandler extends LifecycleAdapter implements TransactionEventListener<Void> {
 
@@ -46,6 +47,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     private final ConcurrentHashMap<String, UuidConfig> configuredLabelAndPropertyNames = new ConcurrentHashMap<>();
     private final ApocConfig.UuidFormatType uuidFormat;
     private final JobScheduler jobScheduler;
+    private final Pools pools;
 
     private JobHandle refreshUuidHandle;
     private long lastUpdate;
@@ -55,13 +57,15 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     public static final String NOT_ENABLED_ERROR = "UUID have not been enabled." +
             " Set 'apoc.uuid.enabled=true' or 'apoc.uuid.enabled.%s=true' in your apoc.conf file located in the $NEO4J_HOME/conf/ directory.";
 
-    public UuidHandler(GraphDatabaseAPI db, DatabaseManagementService databaseManagementService, Log log, ApocConfig apocConfig, JobScheduler jobScheduler) {
+    public UuidHandler(GraphDatabaseAPI db, DatabaseManagementService databaseManagementService, Log log, ApocConfig apocConfig, JobScheduler jobScheduler,
+                       Pools pools) {
         this.db = db;
         this.databaseManagementService = databaseManagementService;
         this.log = log;
         this.apocConfig = apocConfig;
         this.uuidFormat = apocConfig.getEnumProperty(APOC_UUID_FORMAT, ApocConfig.UuidFormatType.class, ApocConfig.UuidFormatType.hex);
         this.jobScheduler = jobScheduler;
+        this.pools = pools;
     }
 
     @Override
@@ -77,13 +81,13 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
 
             // not to cause breaking-change, with deprecated procedures we don't schedule the refresh()
             Integer uuidRefresh = apocConfig.getConfig().getInteger(APOC_UUID_REFRESH, null);
-            System.out.println("uuidRefresh = " + uuidRefresh);
+//            System.out.println("uuidRefresh = " + uuidRefresh);
             if (uuidRefresh != null) {
                 // todo - systemdbutil (if it works)
                 refreshUuidHandle = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
-                            System.out.println("UuidHandler.start " + lastUpdate);
+//                            System.out.println("UuidHandler.start " + lastUpdate);
                             if (getLastUpdate() > lastUpdate) {
-                                refresh();
+                                refreshAndAdd();
                             }
                         },
                         uuidRefresh, uuidRefresh, TimeUnit.MILLISECONDS);
@@ -94,7 +98,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
     private boolean isEnabled() {
-        return UuidHandlerNewProcedures.isEnabled(apocConfig, this.db.databaseName());
+        return UuidHandlerNewProcedures.isEnabled(this.db.databaseName());
     }
 
     @Override
@@ -168,7 +172,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
     private void checkEnabled() {
-        UuidHandlerNewProcedures.checkEnabled(apocConfig, db.databaseName());
+        UuidHandlerNewProcedures.checkEnabled(db.databaseName());
     }
 
     private String generateUuidValue() {
@@ -187,14 +191,12 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
     public void add(Transaction tx, String label, UuidConfig config) {
-        System.out.println("tx = " + tx);
         checkEnabled();
         final String propertyName = config.getUuidProperty();
         checkConstraintUuid(tx, label, propertyName);
 
         configuredLabelAndPropertyNames.put(label, config);
 
-        System.out.println("propertyName = " + propertyName);
         try (Transaction sysTx = apocConfig.getSystemDb().beginTx()) {
             Node node = Util.mergeNode(sysTx, SystemLabels.ApocUuid, null,
                     Pair.of(SystemPropertyKeys.database.name(), db.databaseName()),
@@ -217,8 +219,34 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
 //        refresh();
 //    }
 
+
+    public void refreshAndAdd() {
+        refresh();
+
+        if (Util.isWriteableInstance(db)) {
+            // TODO - add to existing nodes
+            configuredLabelAndPropertyNames.forEach((label, conf) -> {
+                if (conf.isAddToExistingNodes()) {
+                    System.out.println("i'm adding stuff...");
+                    Map<String, Object> result = setExistingNodes(db, pools, label, conf);
+//                    final String uuidFunctionName = getUuidFunctionName();
+//                    Map<String, Object> result = Util.inTx(db, pools, txInThread ->
+//                            txInThread.execute("CALL apoc.periodic.iterate(" +
+//                                            "\"MATCH (n:" + Util.sanitizeAndQuote(label) + ") RETURN n\",\n" +
+//                                            "\"SET n." + Util.sanitizeAndQuote(conf.getUuidProperty()) + " = " + uuidFunctionName + "()\", {batchSize:10000, parallel:true})")
+//                                    .next()
+//                    );
+                    String logBatchResult = String.format(
+                            "Result of batch computation obtained from existing nodes for UUID handler with label `%s` \n %s",
+                            label, result);
+                    log.info(logBatchResult);
+                    conf.setAddToExistingNodes(false);
+                }
+            });
+        }
+    }
+
     public void refresh() {
-        System.out.println("UuidHandler.refresh");
         configuredLabelAndPropertyNames.clear();
 
         lastUpdate = System.currentTimeMillis();
@@ -227,11 +255,14 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
                     .forEachRemaining(node -> {
                         final UuidConfig config =  new UuidConfig(Map.of(
                                 UUID_PROPERTY_KEY, node.getProperty(SystemPropertyKeys.propertyName.name()),
-                                ADD_TO_SET_LABELS_KEY, node.getProperty(SystemPropertyKeys.addToSetLabel.name(), false)));
+                                ADD_TO_SET_LABELS_KEY, node.getProperty(SystemPropertyKeys.addToSetLabel.name(), false),
+                                ADD_TO_EXISTING_NODES_KEY, node.getProperty(SystemPropertyKeys.addToExistingNodes.name(), false)
+                        ));
                         configuredLabelAndPropertyNames.put((String)node.getProperty(SystemPropertyKeys.label.name()), config);
                     });
             tx.commit();
         }
+
     }
 
     public synchronized UuidConfig remove(String label) {
@@ -256,7 +287,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
     private long getLastUpdate() {
-        return SystemDbUtil.withSystemDb(apocConfig, tx -> {
+        return SystemDbUtil.withSystemDb(tx -> {
             Node node = tx.findNode(SystemLabels.ApocUuidMeta, SystemPropertyKeys.database.name(), db.databaseName());
             long l = node == null ? 0L : (long) node.getProperty(SystemPropertyKeys.lastUpdated.name());
             System.out.println("l = " + l);

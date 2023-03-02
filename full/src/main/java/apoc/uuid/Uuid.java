@@ -3,11 +3,9 @@ package apoc.uuid;
 import apoc.ApocConfig;
 import apoc.Extended;
 import apoc.Pools;
-import apoc.SystemPropertyKeys;
 import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.*;
 
@@ -38,45 +36,19 @@ public class Uuid {
     @Description("CALL apoc.uuid.install(label, {addToExistingNodes: true/false, uuidProperty: 'uuid'}) yield label, installed, properties, batchComputationResult | it will add the uuid transaction handler\n" +
             "for the provided `label` and `uuidProperty`, in case the UUID handler is already present it will be replaced by the new one")
     public Stream<UuidInstallInfo> install(@Name("label") String label, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        // todo: de-decomment
-//        SystemDbUtil.preprocessDeprecatedProcedures(db, MSG_DEPRECATION);
+        SystemDbUtil.preprocessDeprecatedProcedures(db, MSG_DEPRECATION);
 
         UuidConfig uuidConfig = new UuidConfig(config);
         uuidHandler.checkConstraintUuid(tx, label, uuidConfig.getUuidProperty());
 
-        Map<String, Object> addToExistingNodesResult = getExistingNodesResult(db, pools, label, uuidConfig);
-        uuidHandler.add(tx, label, uuidConfig);
-        return Stream.of(UuidInstallInfo.from(label, addToExistingNodesResult, uuidConfig));
-    }
-
-    // todo - UuidUtil class
-    public static Map<String, Object> getExistingNodesResult(GraphDatabaseService db,
-                                                             Pools pools,
-                                                             String label,
-                                                             UuidConfig uuidConfig) {
-        if (!uuidConfig.isAddToExistingNodes()) {
-            return Collections.emptyMap();
+        Map<String, Object> addToExistingNodesResult = Collections.emptyMap();
+        if (uuidConfig.isAddToExistingNodes()) {
+            addToExistingNodesResult = setExistingNodes(db, pools, label, uuidConfig);
         }
-//        final String uuidFunctionName = getUuidFunctionName();
-//        Transaction transaction = db.beginTx();
-//        Map<String, Object> next = transaction.execute("CALL apoc.periodic.iterate(" +
-//                        "\"MATCH (n:" + Util.sanitizeAndQuote(label) + ") RETURN n\",\n" +
-//                        "\"SET n." + Util.sanitizeAndQuote(uuidConfig.getUuidProperty()) + " = " + uuidFunctionName + "()\", {batchSize:10000, parallel:true})")
-//                .next();
-//        System.out.println("next = " + next);
-//        transaction.commit();
-//        transaction.close();
-//
-//        return next;
-
-//        System.out.println("Uuid.getExistingNodesResult");
-        final String uuidFunctionName = getUuidFunctionName();
-        return Util.inTx(db, pools, txInThread ->
-                txInThread.execute("CALL apoc.periodic.iterate(" +
-                        "\"MATCH (n:" + Util.sanitizeAndQuote(label) + ") RETURN n\",\n" +
-                        "\"SET n." + Util.sanitizeAndQuote(uuidConfig.getUuidProperty()) + " = " + uuidFunctionName + "()\", {batchSize:10000, parallel:true})")
-                        .next()
-        );
+        uuidHandler.add(tx, label, uuidConfig);
+        return Stream.of(new UuidInstallInfo(label, true,
+                Map.of("uuidProperty", uuidConfig.getUuidProperty(), "addToSetLabels", uuidConfig.isAddToSetLabels()),
+                addToExistingNodesResult));
     }
 
     @Deprecated
@@ -119,10 +91,26 @@ public class Uuid {
                 });
     }
 
+    public static class UuidInstallInfo extends UuidInfo {
+        public Map<String, Object> batchComputationResult;
 
+        UuidInstallInfo(String label, boolean installed, Map<String, Object> properties, Map<String, Object> batchComputationResult) {
+            super(label, installed, properties);
+            this.batchComputationResult = batchComputationResult;
+        }
 
+    }
 
+    public static Map<String, Object> setExistingNodes(GraphDatabaseService db, Pools pools, String label, UuidConfig uuidConfig) {
+        final String uuidFunctionName = getUuidFunctionName();
 
+        return Util.inTx(db, pools, txInThread ->
+                txInThread.execute("CALL apoc.periodic.iterate(" +
+                                "\"MATCH (n:" + Util.sanitizeAndQuote(label) + ") RETURN n\",\n" +
+                                "\"SET n." + Util.sanitizeAndQuote(uuidConfig.getUuidProperty()) + " = " + uuidFunctionName + "()\", {batchSize:10000, parallel:true})")
+                        .next()
+        );
+    }
 
     // todo - instead of ApocConfig.apocConfig() maybe @Context ApocConfig apocConfig ???
     public static String getUuidFunctionName() {
