@@ -34,9 +34,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static apoc.custom.CustomProcedureInfo.getInfoFromDescriptor;
 import static apoc.custom.CypherProceduresHandler.*;
-import static apoc.spatial.Geocode.PREFIX;
 
 /**
  * @author mh

@@ -7,7 +7,6 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.kernel.api.procedure.SystemProcedure;
 import org.neo4j.procedure.*;
 
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -24,9 +23,6 @@ public class UUIDNewProcedures {
 
     @Context
     public Transaction tx;
-
-    @Context
-    public UuidHandler uuidHandler;
 
     private void checkInSystemLeader(String databaseName) {
         UUIDHandlerNewProcedures.checkEnabled(databaseName);
@@ -54,25 +50,15 @@ public class UUIDNewProcedures {
     @SystemProcedure
     @Admin
     @Procedure(mode = Mode.WRITE)
-    @Description("TODO")
-    public Stream<UuidInstallInfo> create(@Name("databaseName") String databaseName,
-                                               @Name("label") String label,
-                                               @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        System.out.println("databaseName = " + databaseName);
-        // todo-- UuidHandlerWrite
-
-//        checkConfigSet();
-
+    @Description("CALL apoc.uuid.install(databaseName, label, $config) | eventually adds the uuid transaction handler for the provided `label` and `uuidProperty`, in case the UUID handler is already present it will be replaced by the new one")
+    public Stream<UuidInfo> create(@Name("databaseName") String databaseName,
+                                   @Name("label") String label,
+                                   @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         checkInSystemLeader(databaseName);
         checkTargetDatabase(databaseName);
 
 
         UuidConfig uuidConfig = new UuidConfig(config);
-        // todo - delete
-        System.out.println("uuidHandler = " + uuidHandler);
-//        if (uuidHandler != null) {
-//            uuidHandler.add(tx, label, uuidConfig);
-//        }
 
         // TODO - the ApocConfig.apocConfig().getDatabase(databaseName) has to be deleted in 5.x,
         //  because in a cluster, not all DBMS host all the databases on them,
@@ -84,23 +70,20 @@ public class UUIDNewProcedures {
             tx.commit();
         }
 
-        UUIDHandlerNewProcedures.create(databaseName, label, uuidConfig);
-
-        // todo - mocked Collections.emptyMap()
-        UuidInstallInfo uuidInstallInfo = UuidInstallInfo.from(label, Collections.emptyMap(), uuidConfig);
-        return Stream.of(uuidInstallInfo);
+        // unlike the apoc.uuid.install we don't return the UuidInstallInfo because we don't retrieve the `batchComputationResult` field
+        UuidInfo uuidInfo = UUIDHandlerNewProcedures.create(databaseName, label, uuidConfig);
+        return Stream.of(uuidInfo);
     }
 
     // TODO - change with @SystemOnlyProcedure
     @SystemProcedure
     @Admin
     @Procedure(mode = Mode.WRITE)
-    @Description("CALL apoc.uuid.drop(label) yield label, installed, properties | remove previously added uuid handler and returns uuid information. All the existing uuid properties are left as-is")
+    @Description("CALL apoc.uuid.drop(databaseName, label) yield label, installed, properties | eventually removes previously added UUID handler and returns uuid information")
     public Stream<UuidInfo> drop(@Name("databaseName") String databaseName, @Name("label") String label) {
         checkInSystemLeader(databaseName);
 
         final UuidInfo uuidInfo = UUIDHandlerNewProcedures.drop(databaseName, label);
-        System.out.println("uuidInfo = " + uuidInfo);
         return Stream.ofNullable(uuidInfo);
     }
 
@@ -108,7 +91,7 @@ public class UUIDNewProcedures {
     @SystemProcedure
     @Admin
     @Procedure(mode = Mode.WRITE)
-    @Description("CALL apoc.uuid.dropAll() yield label, installed, properties | it removes all previously added uuid handlers and returns uuids information. All the existing uuid properties are left as-is")
+    @Description("CALL apoc.uuid.dropAll(databaseName) yield label, installed, properties | eventually removes all previously added UUID handlers and returns uuids' information")
     public Stream<UuidInfo> dropAll(@Name("databaseName") String databaseName) {
         checkInSystemLeader(databaseName);
 
@@ -122,7 +105,7 @@ public class UUIDNewProcedures {
     @SystemProcedure
     @Admin
     @Procedure(mode = Mode.READ)
-    @Description("CALL apoc.uuid.show(databaseName) | it lists all eventually installed TODO for a database")
+    @Description("CALL apoc.uuid.show(databaseName) | it lists all eventually installed UUID handler for a database")
     public Stream<UuidInfo> show(@Name("databaseName") String databaseName) {
         checkInSystem(databaseName);
 

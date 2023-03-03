@@ -6,7 +6,7 @@ import apoc.periodic.Periodic;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.apache.commons.lang.exception.ExceptionUtils;
-import org.hamcrest.Matchers;
+ import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -317,8 +317,6 @@ public class UUIDTest {
 
     // to check that with new procedures like apoc.uuid.create
     // we have to set `apoc.uuid.refresh`
-
-    // todo - put in UUIDRestartTest
     @Test
     public void testUuidRefreshNotSet() {
         try {

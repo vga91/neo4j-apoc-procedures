@@ -72,20 +72,11 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     public void start() {
         if (isEnabled()) {
             refresh();
-
-            // TODO --!!!! POSSO METTERE UN CONSTROLLO CHE SE NON C'è UUID_REFRESH E FACCIO APOC.UUID.CREATE FALLISCE DICEND
-            //      DEVI METTERE SENNO NON FA LO SCHEDULER!!!
-            //      GIUSTO PER NON FARE BREAKING-CHANGES
-
             // todo - if I put 0???
-
             // not to cause breaking-change, with deprecated procedures we don't schedule the refresh()
             Integer uuidRefresh = apocConfig.getConfig().getInteger(APOC_UUID_REFRESH, null);
-//            System.out.println("uuidRefresh = " + uuidRefresh);
             if (uuidRefresh != null) {
-                // todo - systemdbutil (if it works)
                 refreshUuidHandle = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
-//                            System.out.println("UuidHandler.start " + lastUpdate);
                             if (getLastUpdate() > lastUpdate) {
                                 refreshAndAdd();
                             }
@@ -213,31 +204,18 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
         return configuredLabelAndPropertyNames;
     }
 
-//    private void updateAndRefresh() {
-//        System.out.println("UuidHandler.updateAndRefresh");
-//        lastUpdate = System.currentTimeMillis();
-//        refresh();
-//    }
-
 
     public void refreshAndAdd() {
         refresh();
 
         if (Util.isWriteableInstance(db)) {
-            // TODO - add to existing nodes
+            // add to existing nodes
             configuredLabelAndPropertyNames.forEach((label, conf) -> {
                 if (conf.isAddToExistingNodes()) {
-                    System.out.println("i'm adding stuff...");
                     Map<String, Object> result = setExistingNodes(db, pools, label, conf);
-//                    final String uuidFunctionName = getUuidFunctionName();
-//                    Map<String, Object> result = Util.inTx(db, pools, txInThread ->
-//                            txInThread.execute("CALL apoc.periodic.iterate(" +
-//                                            "\"MATCH (n:" + Util.sanitizeAndQuote(label) + ") RETURN n\",\n" +
-//                                            "\"SET n." + Util.sanitizeAndQuote(conf.getUuidProperty()) + " = " + uuidFunctionName + "()\", {batchSize:10000, parallel:true})")
-//                                    .next()
-//                    );
+
                     String logBatchResult = String.format(
-                            "Result of batch computation obtained from existing nodes for UUID handler with label `%s` \n %s",
+                            "Result of batch computation obtained from existing nodes for UUID handler with label `%s`: \n %s",
                             label, result);
                     log.info(logBatchResult);
                     conf.setAddToExistingNodes(false);
@@ -262,7 +240,6 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
                     });
             tx.commit();
         }
-
     }
 
     public synchronized UuidConfig remove(String label) {

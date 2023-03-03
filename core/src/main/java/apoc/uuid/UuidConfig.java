@@ -6,6 +6,7 @@ import java.util.Map;
 import static apoc.util.Util.toBoolean;
 
 public class UuidConfig {
+
     private boolean addToExistingNodes;
     private boolean addToSetLabels;
     private String uuidProperty;

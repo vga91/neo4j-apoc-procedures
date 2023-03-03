@@ -199,7 +199,6 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
 
     @Override
     public Void beforeCommit(TransactionData txData, Transaction transaction, GraphDatabaseService databaseService) {
-        System.out.println("TriggerHandler.beforeCommit");
         if (hasPhase(Phase.before)) {
             executeTriggers(transaction, txData, Phase.before);
         }
@@ -257,10 +256,8 @@ public class TriggerHandler extends LifecycleAdapter implements TransactionEvent
             Map<String, Object> selector = (Map<String, Object>) data.get("selector");
             if ((!(boolean)data.get("paused")) && when(selector, phase)) {
                 try {
-                    System.out.println("data.get(\"statement\") = " + data.get("statement"));
                     params.put("trigger", name);
                     Result result = tx.execute((String) data.get("statement"), params);
-                    System.out.println("TriggerHandler.executeTriggers");
                     Iterators.count(result);
                 } catch (Exception e) {
                     log.warn("Error executing trigger " + name + " in phase " + phase, e);

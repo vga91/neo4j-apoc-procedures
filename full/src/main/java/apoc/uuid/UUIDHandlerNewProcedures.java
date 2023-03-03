@@ -39,7 +39,6 @@ public class UUIDHandlerNewProcedures {
         }
     }
 
-    // todo -move UuidInstallInfo in new separate Class
     public static UuidInfo create(String databaseName, String label,  UuidConfig config) {
         final UuidInfo[] result = new UuidInfo[1];
 
@@ -62,7 +61,6 @@ public class UUIDHandlerNewProcedures {
         return result[0];
     }
 
-    // todo - common?
     public static UuidInfo drop(String databaseName, String labelName) {
         final UuidInfo[] previous = new UuidInfo[1];
 
@@ -96,21 +94,18 @@ public class UUIDHandlerNewProcedures {
         return previous;
     }
 
-    // todo - common method in SystemDbUtils
-    public static ResourceIterator<Node> getUuidNodes(String databaseName, Transaction tx) {
-        return getUuidNodes(databaseName, tx, null);
-    }
-
-    // todo - common method in SystemDbUtils
-    public static ResourceIterator<Node> getUuidNodes(String databaseName, Transaction tx, Map<String, Object> props) {
-        return getSystemNodes(databaseName, tx, SystemLabels.ApocUuid, props);
-    }
-
-    // todo - common method in SystemDbUtils
     public static Stream<UuidInfo> getUuidNodesList(String databaseName, Transaction tx) {
         return getUuidNodes(databaseName, tx)
                 .stream()
                 .map(UuidInfo::fromNode);
+    }
+
+    public static ResourceIterator<Node> getUuidNodes(String databaseName, Transaction tx) {
+        return getUuidNodes(databaseName, tx, null);
+    }
+
+    public static ResourceIterator<Node> getUuidNodes(String databaseName, Transaction tx, Map<String, Object> props) {
+        return getSystemNodes(databaseName, tx, SystemLabels.ApocUuid, props);
     }
 
     public static void checkConstraintUuid(Transaction tx, String label, String propertyName) {
@@ -128,18 +123,7 @@ public class UUIDHandlerNewProcedures {
     }
 
 
-    // todo - common
     private static void setLastUpdate(String databaseName, Transaction tx) {
         SystemDbUtil.setLastUpdate(databaseName, tx, ApocUuidMeta);
     }
-
-//    private static void setLastUpdate(String databaseName, Transaction tx) {
-//        Node node = tx.findNode(SystemLabels.ApocTriggerMeta, SystemPropertyKeys.database.name(), databaseName);
-//        if (node == null) {
-//            node = tx.createNode(SystemLabels.ApocTriggerMeta);
-//            node.setProperty(SystemPropertyKeys.database.name(), databaseName);
-//        }
-//        final long value = System.currentTimeMillis();
-//        node.setProperty(SystemPropertyKeys.lastUpdated.name(), value);
-//    }
 }

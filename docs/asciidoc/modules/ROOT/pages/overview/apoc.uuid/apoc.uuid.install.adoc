@@ -11,19 +11,19 @@ label:procedure[] label:apoc-full[] label:deprecated[]
 CALL apoc.uuid.install(label, {addToExistingNodes: true/false, uuidProperty: 'uuid'}) yield label, installed, properties, batchComputationResult | it will add the uuid transaction handler
 for the provided `label` and `uuidProperty`, in case the UUID handler is already present it will be replaced by the new one
 
-include::partial$triggers/deprecated.adoc[]
-
-[WARNING]
-====
-This procedure is not intended to be used in a cluster environment, and may act unpredictably.
-====
-
 == Signature
 
 [source]
 ----
 apoc.uuid.install(label :: STRING?, config = {} :: MAP?) :: (batchComputationResult :: MAP?, label :: STRING?, installed :: BOOLEAN?, properties :: MAP?)
 ----
+
+include::partial$triggers/deprecated.adoc[]
+
+[WARNING]
+====
+This procedure is not intended to be used in a cluster environment, and may act unpredictably.
+====
 
 == Input parameters
 [.procedures, opts=header]

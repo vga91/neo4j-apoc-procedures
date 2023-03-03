@@ -19,8 +19,7 @@ public class ClusterTestUtil {
                             "WITH databases.neo4j AS neo4j, databases.system AS system\n" +
                             "WHERE neo4j = 'LEADER' OR system = 'LEADER'\n" +
                             "RETURN count(*)";
-//                    long l = (long) singleResultFirstColumn(session, query);
-//                    System.out.println("l = " + l);
+
                     return (long) singleResultFirstColumn(session, query);
                 },
                 (value) -> value == 2L, 30L, TimeUnit.SECONDS);

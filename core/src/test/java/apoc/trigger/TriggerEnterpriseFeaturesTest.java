@@ -21,7 +21,7 @@ import java.util.stream.Stream;
 import static apoc.ApocConfig.APOC_TRIGGER_ENABLED;
 import static apoc.trigger.TriggerHandler.TRIGGER_REFRESH;
 import static apoc.trigger.TriggerTestUtil.TIMEOUT;
-import static apoc.trigger.TriggerTestUtil.DEFAULT_REFRESH;
+import static apoc.trigger.TriggerTestUtil.TRIGGER_DEFAULT_REFRESH;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.TestContainerUtil.testCall;
 import static apoc.util.TestContainerUtil.testResult;
@@ -49,7 +49,7 @@ public class TriggerEnterpriseFeaturesTest {
         // We build the project, the artifact will be placed into ./build/libs
         neo4jContainer = createEnterpriseDB(!TestUtil.isRunningInCI())
                 .withEnv(APOC_TRIGGER_ENABLED, "true")
-                .withEnv(TRIGGER_REFRESH, String.valueOf(DEFAULT_REFRESH));
+                .withEnv(TRIGGER_REFRESH, String.valueOf(TRIGGER_DEFAULT_REFRESH));
         neo4jContainer.start();
         session = neo4jContainer.getSession();
 

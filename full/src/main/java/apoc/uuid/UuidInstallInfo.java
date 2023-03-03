@@ -19,9 +19,4 @@ public class UuidInstallInfo extends UuidInfo {
                 ADD_TO_SET_LABELS_KEY, config.isAddToSetLabels());
         return new UuidInstallInfo(label, properties, addToExistingNodesResult);
     }
-
-
-//        public static UuidInstallInfo fromConfig(UuidConfig config) {
-//
-//        }
 }

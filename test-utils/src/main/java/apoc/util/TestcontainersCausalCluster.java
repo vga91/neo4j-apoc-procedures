@@ -121,18 +121,11 @@ public class TestcontainersCausalCluster {
                 .withNeo4jConfig("causal_clustering.initial_discovery_members", initialDiscoveryMembers)
                 .withStartupTimeout(Duration.ofMinutes(MINUTES_TO_WAIT));
         if (withRoutingEnabled(envSettings)) {
-            container
-//                    .withNeo4jConfig("causal_clustering.minimum_core_cluster_size_at_formation", "3")
-//                    .withNeo4jConfig("causal_clustering.minimum_core_cluster_size_at_runtime", "3")
-
-                    /*.withNeo4jConfig("dbms.connector.bolt.advertised_address", "localhost:" + container.getMappedPort(DEFAULT_BOLT_PORT))*/
-                    .withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
+            container.withEnv("NEO4J_dbms_routing_listen__address", "0.0.0.0:7618")
                     .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
-
                     .withEnv("NEO4J_dbms_routing_advertised__address", name + ":7618");
         } else {
-            container
-                    .withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
+            container.withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
                     .withoutDriver();
         }
         neo4jConfig.forEach((conf, value) -> container.withNeo4jConfig(conf, String.valueOf(value)));

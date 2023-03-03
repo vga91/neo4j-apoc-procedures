@@ -3,7 +3,6 @@ package apoc.uuid;
 import apoc.ApocConfig;
 import apoc.Extended;
 import apoc.Pools;
-import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
@@ -12,6 +11,8 @@ import org.neo4j.procedure.*;
 import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Stream;
+
+import static apoc.util.SystemDbUtil.preprocessDeprecatedProcedures;
 
 @Extended
 public class Uuid {
@@ -36,7 +37,7 @@ public class Uuid {
     @Description("CALL apoc.uuid.install(label, {addToExistingNodes: true/false, uuidProperty: 'uuid'}) yield label, installed, properties, batchComputationResult | it will add the uuid transaction handler\n" +
             "for the provided `label` and `uuidProperty`, in case the UUID handler is already present it will be replaced by the new one")
     public Stream<UuidInstallInfo> install(@Name("label") String label, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        SystemDbUtil.preprocessDeprecatedProcedures(db, MSG_DEPRECATION);
+        preprocessDeprecatedProcedures(db, MSG_DEPRECATION);
 
         UuidConfig uuidConfig = new UuidConfig(config);
         uuidHandler.checkConstraintUuid(tx, label, uuidConfig.getUuidProperty());
@@ -55,7 +56,7 @@ public class Uuid {
     @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.uuid.drop")
     @Description("CALL apoc.uuid.remove(label) yield label, installed, properties | remove previously added uuid handler and returns uuid information. All the existing uuid properties are left as-is")
     public Stream<UuidInfo> remove(@Name("label") String label) {
-        SystemDbUtil.preprocessDeprecatedProcedures(db, MSG_DEPRECATION);
+        preprocessDeprecatedProcedures(db, MSG_DEPRECATION);
 
         UuidConfig removed = uuidHandler.remove(label);
         if (removed == null) {
@@ -69,7 +70,7 @@ public class Uuid {
     @Procedure(mode = Mode.WRITE, deprecatedBy = "apoc.uuid.dropAll")
     @Description("CALL apoc.uuid.removeAll() yield label, installed, properties | it removes all previously added uuid handlers and returns uuids information. All the existing uuid properties are left as-is")
     public Stream<UuidInfo> removeAll() {
-        SystemDbUtil.preprocessDeprecatedProcedures(db, MSG_DEPRECATION);
+        preprocessDeprecatedProcedures(db, MSG_DEPRECATION);
 
         Map<String, UuidConfig> removed = uuidHandler.removeAll();
         if (removed == null) {
@@ -112,7 +113,6 @@ public class Uuid {
         );
     }
 
-    // todo - instead of ApocConfig.apocConfig() maybe @Context ApocConfig apocConfig ???
     public static String getUuidFunctionName() {
         ApocConfig.UuidFormatType formatType = ApocConfig.apocConfig().getEnumProperty(ApocConfig.APOC_UUID_FORMAT, ApocConfig.UuidFormatType.class, ApocConfig.UuidFormatType.hex);
         switch(formatType) {

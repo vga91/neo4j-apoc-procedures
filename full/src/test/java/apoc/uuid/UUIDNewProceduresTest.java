@@ -16,31 +16,25 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
-import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.util.List;
 import java.util.Map;
 
 import static apoc.ApocConfig.APOC_UUID_ENABLED;
-import static apoc.ApocConfig.SUN_JAVA_COMMAND;
-//import static apoc.trigger.TriggerNewProcedures.*;
-//import static apoc.trigger.TriggerTestUtil.*;
+import static apoc.util.DbmsTestUtil.startDbWithApocConfs;
 import static apoc.util.SystemDbTestUtil.*;
 import static apoc.util.SystemDbUtil.*;
 import static apoc.util.TestUtil.*;
 import static apoc.uuid.UUIDTest.UUID_TEST_REGEXP;
 import static apoc.uuid.UUIDTest.assertResult;
-import static apoc.uuid.UUIDTestUtils.assertIsUUID;
-import static apoc.uuid.UUIDTestUtils.awaitUuidDiscovered;
+import static apoc.uuid.UUIDTestUtils.*;
 import static apoc.uuid.UuidConfig.*;
 import static apoc.uuid.UuidHandler.APOC_UUID_REFRESH;
 import static junit.framework.TestCase.assertTrue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.*;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 
 
@@ -59,24 +53,11 @@ public class UUIDNewProceduresTest {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        // todo - common?
-        // we cannot set via ApocConfig.apocConfig().setProperty("apoc.trigger.refresh", "2000") in `setUp`, because is too late
-        final File conf = new File(directory, "apoc.conf");
-        try (FileWriter writer = new FileWriter(conf)) {
-            writer.write(String.join("\n",
-                    APOC_UUID_REFRESH + "=" + PROCEDURE_DEFAULT_REFRESH,
-                    APOC_UUID_ENABLED +  "=true"));
-        }
+        databaseManagementService = startDbWithUuidApocConfs(storeDir);
 
-        System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + directory.getAbsolutePath());
-
-        databaseManagementService = new TestDatabaseManagementServiceBuilder(storeDir.getRoot().toPath())
-                .setConfig(procedure_unrestricted, List.of("apoc*"))
-                .build();
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
         waitDbsAvailable(db, sysDb);
-        // todo - Nodes.class and Schemas.class needed?
         TestUtil.registerProcedure(sysDb, UUIDNewProcedures.class);
         TestUtil.registerProcedure(db, Uuid.class, Create.class, Periodic.class);
     }
@@ -136,7 +117,7 @@ public class UUIDNewProceduresTest {
         db.executeTransactionally("CREATE (p:Luigi {foo:'bar'}) SET p:Mario");
         // then
         TestUtil.testCall(db, "MATCH (a:Luigi:Mario) RETURN a.uuid as uuid",
-                row -> assertIsUUID((String) row.get("uuid")));
+                row -> assertIsUUID(row.get("uuid")));
 
         // - set after creation
         db.executeTransactionally("CREATE (:Peach)");
@@ -144,7 +125,7 @@ public class UUIDNewProceduresTest {
         db.executeTransactionally("MATCH (p:Peach) SET p:Mario");
         // then
         TestUtil.testCall(db, "MATCH (a:Peach:Mario) RETURN a.uuid as uuid",
-                row -> assertIsUUID((String) row.get("uuid")));
+                row -> assertIsUUID(row.get("uuid")));
 
         TestUtil.testCall(sysDb, "CALL apoc.uuid.drop('neo4j', 'Mario')",
                 (row) -> assertResult(row, "Mario", false,
@@ -225,7 +206,7 @@ public class UUIDNewProceduresTest {
 
         // then
         testCall(db, "MATCH (n:Empty) return n.uuid AS uuid",
-                (row) -> assertIsUUID((String) row.get("uuid"))
+                (row) -> assertIsUUID(row.get("uuid"))
         );
 //        try (Transaction tx = db.beginTx()) {
 //            Node n = (Node) tx.execute("MATCH (n:Empty) return n").next().get("n");
@@ -503,7 +484,7 @@ public class UUIDNewProceduresTest {
         // check uuid
         db.executeTransactionally("CREATE (n:EventualLabel)");
         testCall(db, "MATCH (c:EventualLabel) RETURN c.uuid AS uuid",
-                (row) -> assertIsUUID((String) row.get("uuid"))
+                (row) -> assertIsUUID(row.get("uuid"))
         );
 
         // this does nothing, just to test consistency with multiple uuids
@@ -516,13 +497,13 @@ public class UUIDNewProceduresTest {
         // check uuid
         db.executeTransactionally("CREATE (n:EventualLabelTwo)");
         testCall(db, "MATCH (c:EventualLabelTwo) RETURN c.uuid as uuid",
-                (row) -> assertIsUUID((String) row.get("uuid"))
+                (row) -> assertIsUUID(row.get("uuid"))
         );
 
         // check uuids
         db.executeTransactionally("CREATE (n:EventualLabel {id: 2})");
         testCall(db, "MATCH (c:EventualLabel {id: 2}) RETURN c.uuid as uuid",
-                (row) -> assertIsUUID((String) row.get("uuid"))
+                (row) -> assertIsUUID(row.get("uuid"))
         );
     }
 }

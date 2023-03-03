@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
+import static apoc.custom.CypherProceduresHandler.PREFIX;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
-import static apoc.custom.CypherProceduresHandlerNewProcedures.PREFIX;
 
 public class CustomProcedureInfo {
     public String type;

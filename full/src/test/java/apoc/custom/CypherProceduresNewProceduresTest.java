@@ -20,11 +20,11 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
+import static apoc.custom.CypherProcedureTestUtil.*;
 import static apoc.custom.CypherProcedures.ERROR_MISMATCHED_INPUTS;
 import static apoc.custom.CypherProcedures.ERROR_MISMATCHED_OUTPUTS;
 import static apoc.custom.CypherProceduresHandler.*;
 import static apoc.custom.Signatures.SIGNATURE_SYNTAX_ERROR;
-import static apoc.custom.CypherProceduresHandlerNewProcedures.PREFIX;
 import static apoc.util.SystemDbTestUtil.PROCEDURE_DEFAULT_REFRESH;
 import static apoc.util.SystemDbTestUtil.TIMEOUT;
 import static apoc.util.TestUtil.*;
@@ -55,19 +55,8 @@ public class CypherProceduresNewProceduresTest {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        // todo - common?
-        // we cannot set via ApocConfig.apocConfig().setProperty("apoc.trigger.refresh", "2000") in `setUp`, because is too late
-        final File conf = new File(directory, "apoc.conf");
-        try (FileWriter writer = new FileWriter(conf)) {
-            writer.write(String.join("\n",
-                    CUSTOM_PROCEDURES_REFRESH + "=" + PROCEDURE_DEFAULT_REFRESH));
-        }
-
-        System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + directory.getAbsolutePath());
-
-        databaseManagementService = new TestDatabaseManagementServiceBuilder(storeDir.getRoot().toPath())
-                .setConfig(procedure_unrestricted, List.of("apoc*"))
-                .build();
+        databaseManagementService = startDbWithCustomApocConfs(storeDir);
+        
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
         waitDbsAvailable(db, sysDb);
@@ -177,19 +166,19 @@ public class CypherProceduresNewProceduresTest {
     @Test
     public void testValidationFunctionsIssue2654() {
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('neo4j', 'double(input::INT) :: INT', 'RETURN $input * 2 AS answer')");
-        awaitCustomFuncDiscovered("double");
+        awaitCustomFuncDiscovered(db, "double");
 
         TestUtil.testCall(db, "RETURN custom.double(4) AS answer", (r) -> assertEquals(8L, r.get("answer")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('neo4j', 'testValOne(input::INT) :: INT', 'RETURN $input ^ 2 AS answer')");
-        awaitCustomFuncDiscovered("double");
+        awaitCustomFuncDiscovered(db, "double");
 
         TestUtil.testCall(db, "RETURN custom.testValOne(3) as result", (r) -> assertEquals(9D, r.get("result")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('neo4j', $signature, $query)",
                 Map.of("signature", "multiFun(point:: POINT, input ::DATETIME, duration :: DURATION, minus = 1 ::INT) :: STRING",
                         "query", "RETURN toString($duration) + ', ' + toString($input.epochMillis - $minus) + ', ' + toString($point) as result"));
-        awaitCustomFuncDiscovered("multiFun");
+        awaitCustomFuncDiscovered(db, "multiFun");
 
         TestUtil.testCall(db, "RETURN custom.multiFun(point({x: 1, y:1}), datetime('2020'), duration('P5M1DT12H')) as result",
                 (r) -> assertEquals("P5M1DT12H, 1577836799999, point({x: 1.0, y: 1.0, crs: 'cartesian'})", r.get("result")));
@@ -910,7 +899,7 @@ public class CypherProceduresNewProceduresTest {
         db.executeTransactionally("call apoc.custom.installProcedure('neo4j', 'procWithBool(minScore = true :: BOOLEAN) :: (res :: INT)',\n" +
                 "    'RETURN case when $minScore then 1 else 2 end as res')");
 
-        awaitCustomProcDiscovered("procWithBool");
+        awaitCustomProcDiscovered(db, "procWithBool");
 
         testCall(db, "call custom.procWithBool", (row) -> assertEquals(1L, row.get("res")));
         testCall(db, "call custom.procWithBool(true)", (row) -> assertEquals(1L, row.get("res")));
@@ -918,7 +907,7 @@ public class CypherProceduresNewProceduresTest {
 
         db.executeTransactionally("call apoc.custom.installProcedure('neo4j', 'procWithNull(minScore = null :: INT) :: (res :: INT)',\n" +
                 "    'RETURN $minScore as res')");
-        awaitCustomProcDiscovered("procWithNull");
+        awaitCustomProcDiscovered(db, "procWithNull");
         testCall(db, "call custom.procWithNull", (row) -> assertNull(row.get("res")));
         testCall(db, "call custom.procWithNull(1)", (row) -> assertEquals(1L, row.get("res")));
     }
@@ -971,7 +960,7 @@ public class CypherProceduresNewProceduresTest {
         final String query = "RETURN $base * $exp AS res";
         db.executeTransactionally("CALL apoc.custom.installProcedure('neo4j', 'defaultFloatProc(base=2.4::FLOAT,exp=1.2::FLOAT)::(res::INT)', $query)",
                 Map.of("query", query));
-        awaitCustomProcDiscovered("defaultFloatProc");
+        awaitCustomProcDiscovered(db, "defaultFloatProc");
 
         testCall(db, "CALL custom.defaultFloatProc", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
         testCall(db, "CALL custom.defaultFloatProc(1.1)", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
@@ -979,7 +968,7 @@ public class CypherProceduresNewProceduresTest {
 
         db.executeTransactionally("CALL apoc.custom.installProcedure('neo4j', 'defaultDoubleProc(base = 2.4 :: DOUBLE, exp = 1.2 :: DOUBLE)::(res::DOUBLE)', $query)",
                 Map.of("query", query));
-        awaitCustomProcDiscovered("defaultDoubleProc");
+        awaitCustomProcDiscovered(db, "defaultDoubleProc");
 
         testCall(db, "CALL custom.defaultDoubleProc", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
         testCall(db, "CALL custom.defaultDoubleProc(1.1)", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
@@ -987,7 +976,7 @@ public class CypherProceduresNewProceduresTest {
 
         db.executeTransactionally("CALL apoc.custom.installProcedure('neo4j', 'defaultIntProc(base = 4 ::INT, exp = 5 :: INT)::(res::INT)', $query)",
                 Map.of("query", query));
-        awaitCustomProcDiscovered("defaultIntProc");
+        awaitCustomProcDiscovered(db, "defaultIntProc");
 
         testCall(db, "CALL custom.defaultIntProc", (row) -> assertEquals(4L * 5L, row.get("res")));
         testCall(db, "CALL custom.defaultIntProc(2)", (row) -> assertEquals(2L * 5L, row.get("res")));
@@ -995,7 +984,7 @@ public class CypherProceduresNewProceduresTest {
 
         db.executeTransactionally("CALL apoc.custom.installProcedure('neo4j', 'defaultLongProc(base = 4 ::LONG, exp = 5 :: LONG)::(res::LONG)', $query)",
                 Map.of("query", query));
-        awaitCustomProcDiscovered("defaultLongProc");
+        awaitCustomProcDiscovered(db, "defaultLongProc");
 
         testCall(db, "CALL custom.defaultLongProc", (row) -> assertEquals(4L * 5L, row.get("res")));
         testCall(db, "CALL custom.defaultLongProc(2)", (row) -> assertEquals(2L * 5L, row.get("res")));
@@ -1202,32 +1191,6 @@ public class CypherProceduresNewProceduresTest {
 
     private void assertProcedureFails(String expectedMessage, String query) {
         CypherProceduresTest.assertProcedureFails(db, expectedMessage, query);
-    }
-
-    public void awaitCustomFuncDiscovered(String label) {
-        awaitCustomDiscovered(FUNCTION, label, null);
-    }
-
-    public void awaitCustomProcDiscovered(String label) {
-        awaitCustomDiscovered(PROCEDURE, label, null);
-    }
-
-//    public void awaitCustomDiscovered(String label) {
-//        awaitCustomDiscovered(label, null);
-//    }
-
-    public void awaitCustomDiscovered(String type, String name, String expectedSignature) {
-//        String call = "CALL apoc.custom.list() YIELD name, statement WHERE name = $name  RETURN statement";
-        String call = "SHOW " + type+ " YIELD name, signature WHERE name CONTAINS $name RETURN signature";
-        testCallEventually(db, call,
-//                Map.of("name", name),
-                Map.of("name", PREFIX + "." + name),
-                row -> {
-                        if (expectedSignature != null) {
-                            assertEquals(expectedSignature, row.get("signature"));
-                        }
-//                    assertEquals(expectedAddToSetLabels, row.get(ADD_TO_SET_LABELS_KEY));
-                }, TIMEOUT);
     }
 
 }

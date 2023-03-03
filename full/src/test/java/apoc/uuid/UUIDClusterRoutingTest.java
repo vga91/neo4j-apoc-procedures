@@ -3,7 +3,6 @@ package apoc.uuid;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestcontainersCausalCluster;
-import org.hamcrest.Matchers;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -23,14 +22,12 @@ import static apoc.util.ClusterTestUtil.connectWithRoutingForEachMembers;
 import static apoc.util.SystemDbUtil.PROCEDURE_NOT_ROUTED_ERROR;
 import static apoc.util.SystemDbUtil.SYS_NON_LEADER_ERROR;
 import static apoc.util.TestContainerUtil.*;
-import static apoc.uuid.UUIDTest.UUID_TEST_REGEXP;
 import static apoc.uuid.UUIDTestUtils.assertIsUUID;
 import static apoc.uuid.UuidHandler.APOC_UUID_REFRESH;
 
 import static java.lang.String.format;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.matchesRegex;
 import static org.junit.Assert.*;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
@@ -62,13 +59,17 @@ public class UUIDClusterRoutingTest {
     }
 
     @Test
-    public void testTriggerAddAllowedOnlyInSysLeaderMember111() {
+    public void testCreateAndDropUuidWithUseSystemClause() {
         // wait until members are balanced, i.e. the system LEADER and the neo4j LEADER aren't in the same member
         checkLeadershipBalanced(clusterSession);
 
         connectWithRoutingForEachMembers(members, (session, container) -> {
                 String label = container.getContainerName();
+                // create constraint
                 session.writeTransaction(tx -> tx.run(format("CREATE CONSTRAINT IF NOT EXISTS FOR (n:`%s`) REQUIRE n.uuid IS UNIQUE", label)));
+
+                // create note to be populated because of `addToExistingNodes` config
+                session.writeTransaction(tx -> tx.run(format("CREATE (n:`%s`)", label)));
 
                 final String query = "USE SYSTEM CALL apoc.uuid.create('neo4j', $label, {})";
                 Map<String, Object> params = Map.of("label", label);
@@ -76,7 +77,6 @@ public class UUIDClusterRoutingTest {
         });
 
         String countUuids = "CALL apoc.uuid.list() YIELD label RETURN count(*)";
-
         assertEventually(() -> (long) singleResultFirstColumn(cluster.getSession(), countUuids),
                 (value) -> value == members.size(), 10L, TimeUnit.SECONDS);
 
@@ -85,18 +85,20 @@ public class UUIDClusterRoutingTest {
         });
 
         for (Neo4jContainerExtension member : members) {
-
             assertEventually(() -> {
                         String query = format("MATCH (n:`%s`) RETURN n.uuid AS uuid", member.getContainerName());
+                        // 2 nodes with uuid: one created via `addToExistingNodes` and the other one via transaction listener
                         Result res = clusterSession.run(query);
-                        assertTrue(res.hasNext());
-                        String uuid = res.single().get("uuid").asString();
-                        assertIsUUID(uuid);
-                        return true;
+                        Record node = res.next();
+                        assertIsUUID(node.get("uuid").asString());
+                        node = res.next();
+                        assertIsUUID(node.get("uuid").asString());
+                        return !res.hasNext();
                     },
                     (val) -> val, 10L, TimeUnit.SECONDS);
         }
 
+        // drop the previus uuids
         connectWithRoutingForEachMembers(members, (session, container) -> {
             String query = "USE SYSTEM CALL apoc.uuid.drop('neo4j', $label)";
             Map<String, Object> params = Map.of("label", container.getContainerName());
@@ -109,7 +111,7 @@ public class UUIDClusterRoutingTest {
     }
 
     @Test
-    public void testTriggerAddAllowedOnlyInSysLeaderMember1() {
+    public void testInstallUudiInClusterViaUseSystemShouldFail() {
         // wait until members are balanced, i.e. the system LEADER and the neo4j LEADER aren't in the same member
         checkLeadershipBalanced(clusterSession);
 
@@ -133,7 +135,7 @@ public class UUIDClusterRoutingTest {
 
 
     @Test
-    public void testTriggerAddAllowedOnlyInSysLeaderMember() {
+    public void testUuidInstallAllowedOnlyInSysLeaderMember() {
         final String query = "CALL apoc.uuid.install($label)";
         uuidInSysLeaderMemberCommon(query, SYS_NON_LEADER_ERROR, DEFAULT_DATABASE_NAME,
             (session, label) -> {
@@ -146,7 +148,7 @@ public class UUIDClusterRoutingTest {
     }
 
     @Test
-    public void testTriggerRemoveAllowedOnlyInSysLeaderMember() {
+    public void testUuidRemoveAllowedOnlyInSysLeaderMember() {
         final String query = "CALL apoc.uuid.remove($label)";
         uuidInSysLeaderMemberCommon(query, SYS_NON_LEADER_ERROR, DEFAULT_DATABASE_NAME,
                 (session, label) -> testCall(session, query, Map.of("label", label), row -> assertNull(row.get("label")))
@@ -175,14 +177,14 @@ public class UUIDClusterRoutingTest {
     }
 
     @Test
-    public void testTriggerShowAllowedOnlyInSysLeaderMember() {
+    public void testUuidShowAllowedOnlyInSysLeaderMember() {
         final String query = "CALL apoc.uuid.show('neo4j')";
-        final BiConsumer<Session, String> testTrigger = (session, name) -> testResult(session, query, Iterators::count);
-        uuidInSysLeaderMemberCommon(query, PROCEDURE_NOT_ROUTED_ERROR, SYSTEM_DATABASE_NAME, testTrigger, true);
+        final BiConsumer<Session, String> testUuidShow = (session, name) -> testResult(session, query, Iterators::count);
+        uuidInSysLeaderMemberCommon(query, PROCEDURE_NOT_ROUTED_ERROR, SYSTEM_DATABASE_NAME, testUuidShow, true);
     }
 
-    private static void uuidInSysLeaderMemberCommon(String query, String triggerNotRoutedError, String dbName, BiConsumer<Session, String> testTrigger) {
-        uuidInSysLeaderMemberCommon(query, triggerNotRoutedError, dbName, testTrigger, false);
+    private static void uuidInSysLeaderMemberCommon(String query, String uuidNotRoutedError, String dbName, BiConsumer<Session, String> testUuid) {
+        uuidInSysLeaderMemberCommon(query, uuidNotRoutedError, dbName, testUuid, false);
     }
 
     private static void uuidInSysLeaderMemberCommon(String query, String triggerNotRoutedError, String dbName, BiConsumer<Session, String> testTrigger, boolean readOnlyOperation) {

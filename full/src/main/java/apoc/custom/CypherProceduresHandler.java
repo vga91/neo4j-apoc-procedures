@@ -59,7 +59,6 @@ import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
 import static apoc.custom.CypherProceduresHandlerNewProcedures.qualifiedName;
-import static apoc.custom.CypherProceduresHandlerNewProcedures.PREFIX;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -85,6 +84,7 @@ import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTTime;
 
 public class CypherProceduresHandler extends LifecycleAdapter implements AvailabilityListener {
 
+    public static final String PREFIX = "custom";
     public static final String FUNCTION = "function";
     public static final String PROCEDURE = "procedure";
     public static final String CUSTOM_PROCEDURES_REFRESH = "apoc.custom.procedures.refresh";
@@ -160,7 +160,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
         String name = (String) node.getProperty(SystemPropertyKeys.name.name());
         String description = (String) node.getProperty(SystemPropertyKeys.description.name(), null);
-        String[] prefix = (String[]) node.getProperty(SystemPropertyKeys.prefix.name(), new String[]{CypherProceduresHandlerNewProcedures.PREFIX});
+        String[] prefix = (String[]) node.getProperty(SystemPropertyKeys.prefix.name(), new String[]{PREFIX});
 
         String property = (String) node.getProperty(SystemPropertyKeys.inputs.name());
         List<FieldSignature> inputs = deserializeSignatures(property);
@@ -276,15 +276,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     private String serializeSignatures(List<FieldSignature> signatures) {
         return CypherProceduresHandlerNewProcedures.serializeSignatures(signatures);
-//        List<Map<String, Object>> mapped = signatures.stream().map(fs -> {
-//            final Map<String, Object> map = map(
-//                    "name", fs.name(),
-//                    "type", fs.neo4jType().toString()
-//            );
-//            fs.defaultValue().map(defVal -> map.put("default", defVal.value()));
-//            return map;
-//        }).collect(Collectors.toList());
-//        return Util.toJson(mapped);
     }
 
     public static List<FieldSignature> deserializeSignatures(String s) {
@@ -305,7 +296,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         }).collect(Collectors.toList());
     }
 
-    // todo - call setLastUpdate pf CypherProceduresHandlerNewProcedures
     private void setLastUpdate(Transaction tx) {
         Node node = tx.findNode(SystemLabels.ApocCypherProceduresMeta, SystemPropertyKeys.database.name(), api.databaseName());
         if (node == null) {
@@ -447,6 +437,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                 outputs.stream().map(pair -> FieldSignature.outputField(pair.get(0), typeof(pair.get(1)))).collect(Collectors.toList());
     }
 
+    // todo - move to NewProcs Handler - because is static
     public static Neo4jTypes.AnyType typeof(String typeName) {
         typeName = typeName.replaceAll("\\?", "");
         typeName = typeName.toUpperCase();

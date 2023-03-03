@@ -12,7 +12,8 @@ import org.neo4j.procedure.*;
 import java.util.Objects;
 import java.util.stream.Stream;
 
-import static apoc.custom.CypherProceduresHandlerNewProcedures.PREFIX;
+import static apoc.custom.CypherProceduresHandler.PREFIX;
+
 
 public class CypherProceduresNewProcedures {
 

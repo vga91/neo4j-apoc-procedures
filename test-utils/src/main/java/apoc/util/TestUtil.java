@@ -3,6 +3,8 @@ package apoc.util;
 import com.google.common.io.Files;
 import org.apache.commons.io.FileUtils;
 import org.hamcrest.Matcher;
+import org.junit.rules.TemporaryFolder;
+import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.exceptions.KernelException;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.ResourceIterator;
@@ -12,9 +14,11 @@ import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.api.procedure.GlobalProcedures;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
+import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 import org.neo4j.test.assertion.Assert;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.Charset;
@@ -39,6 +43,7 @@ import static org.neo4j.test.assertion.Assert.assertEventually;
  * @since 26.02.16
  */
 public class TestUtil {
+
     public static void testCall(GraphDatabaseService db, String call, Consumer<Map<String, Object>> consumer) {
         testCall(db,call,null,consumer);
     }

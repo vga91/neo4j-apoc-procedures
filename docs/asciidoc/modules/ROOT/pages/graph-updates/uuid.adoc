@@ -64,18 +64,9 @@ There are also procedures that handle automatic adding of UUID properties, via t
 The UUID handler is a transaction event handler that automatically adds the UUID property to a provided label and for the provided property name.
 Please check the following documentation to an in-depth description.
 
-[NOTE]
-====
-All these `apoc.uuid.*` procedures are intended to be executed in the system database,
-therefore they have to be used executed by opening a system database session. There are several ways of doing this:
-- when using cypher-shell or Neo4j Browser, one can prefix their Cypher query with `:use system`
-- when using fabric, one can prefix their Cypher query with `USE system`
-- when using the drivers, one can open a session directly against the system database
 
-Moreover, they accept as first parameter the name of the database towards which we want to install/update/remove the automatic UUIDs.
-Through this implementation, we can use these procedures in a cluster environment,
-by leveraging the cluster routing mechanism.
-====
+include::partial$systemdbonly.note.adoc[]
+
 
 [WARNING]
 ====
@@ -131,7 +122,7 @@ The result is:
 [opts="header",cols="1,1,1,1"]
 |===
 | label    | installed | properties
-| "Person" | true      | {uuidProperty -> "uuid", addToExistingNodes -> true} | {wasTerminated -> false, count -> 10, batches -> 1, successes -> 1, failedOps -> 0, timeTaken -> 0, operationErrors -> {}, failedBatches -> 0}
+| "Person" | true      | {uuidProperty -> "uuid", addToExistingNodes -> true}
 |===
 
 It is then possible to execute the following query, after a time defined by the configuration `apoc.uuid.refresh`:
@@ -143,6 +134,16 @@ CREATE (n:Person {name: 'Daniel'})-[:Work]->(:Company {name: 'Neo4j'})
 and the result will be a node `:Person` with 2 properties:
 
 image::apoc.uuid.result.png[width=800]
+
+If the default configuration `addToExistingNodes: true` is chosen,
+in background (via the `apoc.periodic.iterate` procedure) all existing nodes will also be populated with a property with uuid values.
+and, when the execution is finished,
+a log with the query result like the following will be printed:
+```
+Result of batch computation obtained from existing nodes for UUID handler with label `MyLabel`:
+{failedParams={}, committedOperations=1, batch={total=10, committed=10, failed=0, errors={}}, wasTerminated=false, batches=1, timeTaken=0, retries=0, errorMessages={}, total=1, operations={total=10, committed=10, failed=0, errors={}}, failedOperations=0, updateStatistics={nodesDeleted=0, labelsAdded=0, relationshipsCreated=0, nodesCreated=0, propertiesSet=1, relationshipsDeleted=0, labelsRemoved=0}, failedBatches=0}
+```
+
 
 ==== List of Automatic UUIDs
 

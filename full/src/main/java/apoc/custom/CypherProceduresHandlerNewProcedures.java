@@ -1,6 +1,5 @@
 package apoc.custom;
 
-import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
 import apoc.util.SystemDbUtil;
@@ -25,25 +24,17 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static apoc.ApocConfig.APOC_UUID_ENABLED;
-import static apoc.ApocConfig.apocConfig;
 import static apoc.SystemLabels.*;
 import static apoc.SystemPropertyKeys.*;
-import static apoc.SystemLabels.ApocUuidMeta;
-//import static apoc.SystemPropertyKeys.database;
 import static apoc.custom.CustomProcedureInfo.convertInputSignature;
 import static apoc.custom.CustomProcedureInfo.prettyPrintType;
 import static apoc.custom.CypherProceduresHandler.*;
 import static apoc.util.SystemDbUtil.getSystemNodes;
 import static apoc.util.SystemDbUtil.withSystemDb;
-import static apoc.uuid.UuidConfig.*;
-import static apoc.uuid.UuidConfig.ADD_TO_SET_LABELS_KEY;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 
 public class CypherProceduresHandlerNewProcedures {
-    public static final String PREFIX = "custom";
 
-    // todo - installFunction
     public static void installProcedure(String databaseName, ProcedureSignature signature, String statement) {
 
         withSystemDb(tx -> {
@@ -69,7 +60,6 @@ public class CypherProceduresHandlerNewProcedures {
         return s == null ? Mode.READ : Mode.valueOf(s.toUpperCase());
     }
 
-    // todo - installProcedure
     public static void installFunction(String databaseName, UserFunctionSignature signature, String statement, boolean forceSingle) {
         withSystemDb(tx -> {
             Node node = Util.mergeNode(tx, SystemLabels.ApocCypherProcedures, SystemLabels.Function,
@@ -84,12 +74,9 @@ public class CypherProceduresHandlerNewProcedures {
             node.setProperty(SystemPropertyKeys.forceSingle.name(), forceSingle);
 
             setLastUpdate(databaseName, tx);
-//            registerFunction(signature, statement, forceSingle);
-//            return null;
         });
     }
 
-    // todo - list
     public static Stream<CustomProcedureInfo> show(String databaseName, Transaction tx) {
         /*List<CypherProceduresHandler.ProcedureOrFunctionDescriptor> descriptors;*/
 //        return /*Stream<CypherProceduresHandler.ProcedureOrFunctionDescriptor> stream =*/ withSystemDb(apocConfig(), tx -> {
@@ -111,7 +98,6 @@ public class CypherProceduresHandlerNewProcedures {
         return getCustomNodes(databaseName, tx, null);
     }
 
-    // todo - common method in SystemDbUtils
     public static ResourceIterator<Node> getCustomNodes(String databaseName, Transaction tx, Map<String, Object> props) {
         return getSystemNodes(databaseName, tx, SystemLabels.ApocCypherProcedures, props);
     }

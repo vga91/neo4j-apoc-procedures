@@ -19,7 +19,7 @@ import java.util.Collections;
 import java.util.Map;
 
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
-import static apoc.trigger.TriggerTestUtil.DEFAULT_REFRESH;
+import static apoc.trigger.TriggerTestUtil.TRIGGER_DEFAULT_REFRESH;
 import static apoc.trigger.TriggerTestUtil.awaitTriggerDiscovered;
 import static apoc.util.TestUtil.waitDbsAvailable;
 import static org.junit.Assert.assertEquals;
@@ -37,7 +37,7 @@ public class TriggerRestartTest {
     public void setUp() throws IOException {
         final File conf = store_dir.newFile("apoc.conf");
         try (FileWriter writer = new FileWriter(conf)) {
-            writer.write("apoc.trigger.refresh=" + DEFAULT_REFRESH);
+            writer.write("apoc.trigger.refresh=" + TRIGGER_DEFAULT_REFRESH);
         }
         System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + store_dir.getRoot().getAbsolutePath());
         

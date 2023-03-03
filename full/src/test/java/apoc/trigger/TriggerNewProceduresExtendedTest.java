@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 
 import static apoc.ApocConfig.SUN_JAVA_COMMAND;
 import static apoc.trigger.TriggerTestUtil.TIMEOUT;
-import static apoc.trigger.TriggerTestUtil.DEFAULT_REFRESH;
+import static apoc.trigger.TriggerTestUtil.TRIGGER_DEFAULT_REFRESH;
 import static apoc.trigger.TriggerTestUtil.awaitTriggerDiscovered;
 import static apoc.util.TestUtil.testCallCountEventually;
 import static apoc.util.TestUtil.waitDbsAvailable;
@@ -54,7 +54,7 @@ public class TriggerNewProceduresExtendedTest {
         final File conf = new File(directory, "apoc.conf");
         try (FileWriter writer = new FileWriter(conf)) {
             writer.write(String.join("\n",
-                    "apoc.trigger.refresh=" + DEFAULT_REFRESH,
+                    "apoc.trigger.refresh=" + TRIGGER_DEFAULT_REFRESH,
                     "apoc.trigger.enabled=true"));
         }
         System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + directory.getAbsolutePath());

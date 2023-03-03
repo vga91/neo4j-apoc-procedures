@@ -50,7 +50,7 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
         setDockerImageName(dockerImage);
 
         WaitStrategy waitForBolt = new LogMessageWaitStrategy()
-                .withRegEx(".*Started\\.\n");
+                .withRegEx(String.format(".*Bolt enabled on (0\\.0\\.0\\.0:%d|\\[0:0:0:0:0:0:0:0%%0\\]:%1$s)\\.\n", 7687));
         WaitStrategy waitForHttp = new HttpWaitStrategy()
                 .forPort(7474)
                 .forStatusCodeMatching(response -> response == HTTP_OK);

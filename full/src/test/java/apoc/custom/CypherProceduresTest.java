@@ -1087,6 +1087,7 @@ public class CypherProceduresTest  {
         ));
     }
 
+
     private void assertProcedureFails(String expectedMessage, String query) {
         assertProcedureFails(db, expectedMessage, query);
     }
