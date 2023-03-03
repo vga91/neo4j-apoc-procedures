@@ -131,9 +131,6 @@ public class UUIDClusterRoutingTest {
         });
     }
 
-
-
-
     @Test
     public void testUuidInstallAllowedOnlyInSysLeaderMember() {
         final String query = "CALL apoc.uuid.install($label)";
@@ -187,7 +184,7 @@ public class UUIDClusterRoutingTest {
         uuidInSysLeaderMemberCommon(query, uuidNotRoutedError, dbName, testUuid, false);
     }
 
-    private static void uuidInSysLeaderMemberCommon(String query, String triggerNotRoutedError, String dbName, BiConsumer<Session, String> testTrigger, boolean readOnlyOperation) {
+    private static void uuidInSysLeaderMemberCommon(String query, String uuidNotRoutedError, String dbName, BiConsumer<Session, String> testUuid, boolean readOnlyOperation) {
         final List<Neo4jContainerExtension> members = cluster.getClusterMembers();
         assertEquals(NUM_CORES, members.size());
         final String label = UUID.randomUUID().toString();
@@ -202,15 +199,15 @@ public class UUIDClusterRoutingTest {
             }
             Session session = driver.session(SessionConfig.forDatabase(dbName));
             if (readOnlyOperation || sysIsLeader(session)) {
-                testTrigger.accept(session, label);
+                testUuid.accept(session, label);
             } else {
                 try {
                     testCall(session, query,
                             Map.of("label", UUID.randomUUID().toString()),
-                            row -> fail("Should fail because of non leader trigger addition"));
+                            row -> fail("Should fail because of non leader UUID addition"));
                 } catch (Exception e) {
                     String errorMsg = e.getMessage();
-                    assertTrue("The actual message is: " + errorMsg, errorMsg.contains(triggerNotRoutedError));
+                    assertTrue("The actual message is: " + errorMsg, errorMsg.contains(uuidNotRoutedError));
                 }
             }
         }

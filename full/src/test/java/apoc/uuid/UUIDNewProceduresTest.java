@@ -20,12 +20,13 @@ import org.neo4j.graphdb.schema.ConstraintDefinition;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
-import static apoc.ApocConfig.APOC_UUID_ENABLED;
-import static apoc.util.DbmsTestUtil.startDbWithApocConfs;
+import static apoc.ApocConfig.apocConfig;
 import static apoc.util.SystemDbTestUtil.*;
 import static apoc.util.SystemDbUtil.*;
 import static apoc.util.TestUtil.*;
+import static apoc.uuid.UUIDNewProcedures.UUID_NOT_SET;
 import static apoc.uuid.UUIDTest.UUID_TEST_REGEXP;
 import static apoc.uuid.UUIDTest.assertResult;
 import static apoc.uuid.UUIDTestUtils.*;
@@ -36,6 +37,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.*;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
+import static org.neo4j.test.assertion.Assert.assertEventually;
 
 
 public class UUIDNewProceduresTest {
@@ -58,8 +60,7 @@ public class UUIDNewProceduresTest {
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
         waitDbsAvailable(db, sysDb);
-        TestUtil.registerProcedure(sysDb, UUIDNewProcedures.class);
-        TestUtil.registerProcedure(db, Uuid.class, Create.class, Periodic.class);
+        TestUtil.registerProcedure(db, Uuid.class, UUIDNewProcedures.class, Periodic.class, Create.class);
     }
 
     @AfterClass
@@ -73,7 +74,7 @@ public class UUIDNewProceduresTest {
         testCallCountEventually(db, "CALL apoc.uuid.list", 0, TIMEOUT);
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
 
-        // todo - or create a GraphDatabaseService db in @Before instead of @BeforeClass
+        // otherwise we can create a GraphDatabaseService db in @Before instead of @BeforeClass
         try (Transaction tx = db.beginTx()) {
             tx.schema().getConstraints().forEach(ConstraintDefinition::drop);
             tx.commit();
@@ -135,18 +136,20 @@ public class UUIDNewProceduresTest {
     @Test
     public void testUUIDWithoutRemovedUuid() {
         // given
-        db.executeTransactionally("CREATE CONSTRAINT ON (test:Test) ASSERT test.uuid IS UNIQUE");
-        sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'Test') YIELD label RETURN label");
-        UUIDTestUtils.awaitUuidDiscovered(db, "Test");
+        db.executeTransactionally("CREATE CONSTRAINT ON (test:TestSetUuid) ASSERT test.uuid IS UNIQUE");
+        sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'TestSetUuid') YIELD label RETURN label");
+        UUIDTestUtils.awaitUuidDiscovered(db, "TestSetUuid");
 
+        String expectedUuid = "dab404ee-391d-11e9-b210-d663bd873d93";
         // when
-        db.executeTransactionally("CREATE (n:Test {name:'test', uuid:'dab404ee-391d-11e9-b210-d663bd873d93'})"); // Create the uuid manually and except is the same after the trigger
+        db.executeTransactionally("CREATE (n:TestSetUuid {name:'TestSetUuid', uuid: $uuid})",
+                Map.of("uuid", expectedUuid));
 
         // then
         try (Transaction tx = db.beginTx()) {
-            Node n = (Node) tx.execute("MATCH (n:Test) return n").next().get("n");
+            Node n = (Node) tx.execute("MATCH (n:TestSetUuid) return n").next().get("n");
             assertTrue(n.getAllProperties().containsKey("uuid"));
-            assertEquals("dab404ee-391d-11e9-b210-d663bd873d93", n.getProperty("uuid")); // Check if the uuid if the same when created
+            assertEquals(expectedUuid, n.getProperty("uuid")); // Check if the uuid if the same when created
             tx.commit();
         }
     }
@@ -154,20 +157,22 @@ public class UUIDNewProceduresTest {
     @Test
     public void testUUIDSetUuidToEmptyAndRestore() {
         // given
-        db.executeTransactionally("CREATE CONSTRAINT ON (test:Test) ASSERT test.uuid IS UNIQUE");
-        sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'Test') YIELD label RETURN label");
-        UUIDTestUtils.awaitUuidDiscovered(db, "Test");
+        db.executeTransactionally("CREATE CONSTRAINT ON (test:TestEmptyRestore) ASSERT test.uuid IS UNIQUE");
+        sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'TestEmptyRestore') YIELD label RETURN label");
+        UUIDTestUtils.awaitUuidDiscovered(db, "TestEmptyRestore");
 
-        db.executeTransactionally("CREATE (n:Test {name:'test', uuid:'dab404ee-391d-11e9-b210-d663bd873d93'})");
+        String expectedUuid = "dab404ee-391d-11e9-b210-d663bd873d93";
+        db.executeTransactionally("CREATE (n:TestEmptyRestore {name:'test', uuid: $uuid})",
+                Map.of("uuid", expectedUuid));
 
         // when
-        db.executeTransactionally("MATCH (t:Test) SET t.uuid = ''");
+        db.executeTransactionally("MATCH (t:TestEmptyRestore) SET t.uuid = ''");
 
         // then
         try (Transaction tx = db.beginTx()) {
-            Node n = (Node) tx.execute("MATCH (n:Test) return n").next().get("n");
+            Node n = (Node) tx.execute("MATCH (n:TestEmptyRestore) return n").next().get("n");
             assertTrue(n.getAllProperties().containsKey("uuid"));
-            assertEquals("dab404ee-391d-11e9-b210-d663bd873d93", n.getProperty("uuid"));
+            assertEquals(expectedUuid, n.getProperty("uuid"));
             tx.commit();
         }
     }
@@ -175,17 +180,17 @@ public class UUIDNewProceduresTest {
     @Test
     public void testUUIDDeleteUuidAndRestore() {
         // given
-        db.executeTransactionally("CREATE CONSTRAINT ON (test:Test) ASSERT test.uuid IS UNIQUE");
-        sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'Test') YIELD label RETURN label");
-        UUIDTestUtils.awaitUuidDiscovered(db, "Test");
-        db.executeTransactionally("CREATE (n:Test {name:'test', uuid:'dab404ee-391d-11e9-b210-d663bd873d93'})");
+        db.executeTransactionally("CREATE CONSTRAINT ON (test:TestRestoreDeleted) ASSERT test.uuid IS UNIQUE");
+        sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'TestRestoreDeleted') YIELD label RETURN label");
+        UUIDTestUtils.awaitUuidDiscovered(db, "TestRestoreDeleted");
+        db.executeTransactionally("CREATE (n:TestRestoreDeleted {name:'test', uuid:'dab404ee-391d-11e9-b210-d663bd873d93'})");
 
         // when
-        db.executeTransactionally("MATCH (t:Test) remove t.uuid");
+        db.executeTransactionally("MATCH (t:TestRestoreDeleted) remove t.uuid");
 
         // then
         try (Transaction tx = db.beginTx()) {
-            Node n = (Node) tx.execute("MATCH (n:Test) return n").next().get("n");
+            Node n = (Node) tx.execute("MATCH (n:TestRestoreDeleted) return n").next().get("n");
             assertTrue(n.getAllProperties().containsKey("uuid"));
             assertEquals("dab404ee-391d-11e9-b210-d663bd873d93", n.getProperty("uuid"));
             tx.commit();
@@ -195,25 +200,19 @@ public class UUIDNewProceduresTest {
     @Test
     public void testUUIDSetUuidToEmpty() {
         // given
-        db.executeTransactionally("CREATE CONSTRAINT ON (test:Test) ASSERT test.uuid IS UNIQUE");
-        sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'Test') YIELD label RETURN label");
-        UUIDTestUtils.awaitUuidDiscovered(db, "Test");
+        db.executeTransactionally("CREATE CONSTRAINT ON (test:TestToEmpty) ASSERT test.uuid IS UNIQUE");
+        sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'TestToEmpty') YIELD label RETURN label");
+        UUIDTestUtils.awaitUuidDiscovered(db, "TestToEmpty");
 
-        db.executeTransactionally("CREATE (n:Test:Empty {name:'empty'})");
+        db.executeTransactionally("CREATE (n:TestToEmpty {name:'empty'})");
 
         // when
-        db.executeTransactionally("MATCH (t:Test:Empty) SET t.uuid = ''");
+        db.executeTransactionally("MATCH (t:TestToEmpty) SET t.uuid = ''");
 
         // then
-        testCall(db, "MATCH (n:Empty) return n.uuid AS uuid",
+        testCall(db, "MATCH (n:TestToEmpty) return n.uuid AS uuid",
                 (row) -> assertIsUUID(row.get("uuid"))
         );
-//        try (Transaction tx = db.beginTx()) {
-//            Node n = (Node) tx.execute("MATCH (n:Empty) return n").next().get("n");
-//            assertTrue(n.getAllProperties().containsKey("uuid"));
-//            assertTrue(n.getAllProperties().get("uuid").toString().matches(UUID_TEST_REGEXP));
-//            tx.commit();
-//        }
     }
 
     @Test
@@ -241,10 +240,12 @@ public class UUIDNewProceduresTest {
         sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'Bar')");
         UUIDTestUtils.awaitUuidDiscovered(db, "Bar");
 
-        // then
-        List<String> uuidList = TestUtil.firstColumn(db, "MATCH (n:Bar) RETURN n.uuid AS uuid");
-        assertEquals(10, uuidList.size());
-        assertTrue(uuidList.stream().allMatch(uuid -> uuid.matches(UUID_TEST_REGEXP)));
+        assertEventually(() -> {
+            List<String> uuidList = TestUtil.firstColumn(db, "MATCH (n:Bar) RETURN n.uuid AS uuid");
+            assertEquals(10, uuidList.size());
+            return uuidList.stream()
+                    .allMatch(uuid -> uuid != null && uuid.matches(UUID_TEST_REGEXP));
+        }, (val) -> val, TIMEOUT, TimeUnit.SECONDS);
     }
 
     @Test
@@ -300,31 +301,6 @@ public class UUIDNewProceduresTest {
             Node n = (Node) tx.execute("MATCH (person:Person) return person").next().get("person");
             assertTrue(n.getAllProperties().containsKey("uuid"));
             assertIsUUID(n.getAllProperties().get("uuid").toString());
-            tx.commit();
-        }
-
-//         then
-//        testCall(db, "MATCH (c:Person) RETURN c.uuid AS uuid",
-//                (row) -> assertThat((String) row.get("uuid"), Matchers.matchesRegex(UUID_TEST_REGEXP)));
-    }
-
-    @Test
-    public void testAddToExistingNodesBatchResult() {
-        // given
-        db.executeTransactionally("CREATE (d:Person {name:'Daniel'})-[:WORK]->(l:Company {name:'Neo4j'})");
-
-        // when
-        db.executeTransactionally("CREATE CONSTRAINT ON (person:Person) ASSERT person.uuid IS UNIQUE");
-
-        // then
-        try (Transaction tx = sysDb.beginTx()) {
-            // todo - it's right?
-            long total = (Long) tx.execute(
-                            "CALL apoc.uuid.create('neo4j', 'Person') YIELD label, installed, properties, batchComputationResult " +
-                                    "RETURN batchComputationResult.total as total")
-                    .next()
-                    .get("total");
-            assertEquals(1, total);
             tx.commit();
         }
     }
@@ -419,7 +395,7 @@ public class UUIDNewProceduresTest {
     }
 
     @Test
-    public void testInstallTriggerInUserDb() {
+    public void testInstallUuidInUserDb() {
         try {
             testCall(db, "CALL apoc.uuid.create('neo4j', 'AnotherLabel')",
                     r -> fail("Should fail because of user db execution"));
@@ -430,7 +406,7 @@ public class UUIDNewProceduresTest {
 
     // TODO - it should be removed/ignored in 5.x, due to Util.validateQuery(..) removal
     @Test
-    public void testInstallTriggerInWrongDb() {
+    public void testInstallUuidInWrongDb() {
         try {
             testCall(sysDb, "CALL apoc.uuid.create('notExistent', 'DbNotExistent')",
                     r -> fail("Should fail because of database not found"));
@@ -440,7 +416,7 @@ public class UUIDNewProceduresTest {
     }
 
     @Test
-    public void testShowTriggerInUserDb() {
+    public void testShowUuidInUserDb() {
         try {
             testCall(db, "CALL apoc.uuid.show('neo4j')",
                     r -> fail("Should fail because of user db execution"));
@@ -450,7 +426,7 @@ public class UUIDNewProceduresTest {
     }
 
     @Test
-    public void testInstallTriggerInSystemDb() {
+    public void testInstallUuidInSystemDb() {
         try {
             testCall(sysDb, "CALL apoc.uuid.create('system', 'LabelInSystem')",
                     r -> fail("Should fail because of system db pointing"));
@@ -460,10 +436,6 @@ public class UUIDNewProceduresTest {
     }
 
 
-    // todo - change assertTrue(...) with assertThat((String) row.get("uuid"), Matchers.matchesRegex(UUID_TEST_REGEXP))
-
-
-    // todo - needed?
     @Test
     public void testEventualConsistencyWithMultipleListeners() {
         db.executeTransactionally("CREATE CONSTRAINT FOR (n:EventualLabel) REQUIRE n.uuid IS UNIQUE");
@@ -505,5 +477,20 @@ public class UUIDNewProceduresTest {
         testCall(db, "MATCH (c:EventualLabel {id: 2}) RETURN c.uuid as uuid",
                 (row) -> assertIsUUID(row.get("uuid"))
         );
+    }
+
+    // to check that with new procedures like apoc.uuid.create
+    // we have to set `apoc.uuid.refresh`
+    @Test
+    public void testUuidRefreshNotSet() {
+        apocConfig().setProperty(APOC_UUID_REFRESH, null);
+        db.executeTransactionally("CREATE CONSTRAINT FOR (n:AnotherLabel) REQUIRE n.uuid IS UNIQUE");
+        try {
+            testCall(sysDb, "CALL apoc.uuid.create('neo4j', 'AnotherLabel')",
+                    r -> fail("Should fail because apoc.uuid.refresh is not set"));
+        } catch (RuntimeException e) {
+            assertThat(e.getMessage(), Matchers.containsString(UUID_NOT_SET));
+        }
+        apocConfig().setProperty(APOC_UUID_REFRESH, PROCEDURE_DEFAULT_REFRESH);
     }
 }

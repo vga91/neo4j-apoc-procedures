@@ -72,7 +72,6 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     public void start() {
         if (isEnabled()) {
             refresh();
-            // todo - if I put 0???
             // not to cause breaking-change, with deprecated procedures we don't schedule the refresh()
             Integer uuidRefresh = apocConfig.getConfig().getInteger(APOC_UUID_REFRESH, null);
             if (uuidRefresh != null) {
@@ -205,12 +204,16 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     }
 
 
-    public void refreshAndAdd() {
-        refresh();
+    // we cannot refresh global configuredLabelAndPropertyNames before the forEach about `setExistingNodes`
+    // otherwise some tests like `UUIDNewProceduresTest.testUUIDSetUuidToEmptyAndRestore` could be flaky
+    // because we could populate the forEach after the beforeCommit
+    public synchronized void refreshAndAdd() {
+        configuredLabelAndPropertyNames.clear();
+        ConcurrentHashMap<String, UuidConfig> localCache = provisionalRefresh();
 
         if (Util.isWriteableInstance(db)) {
             // add to existing nodes
-            configuredLabelAndPropertyNames.forEach((label, conf) -> {
+            localCache.forEach((label, conf) -> {
                 if (conf.isAddToExistingNodes()) {
                     Map<String, Object> result = setExistingNodes(db, pools, label, conf);
 
@@ -222,10 +225,12 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
                 }
             });
         }
+
+        configuredLabelAndPropertyNames.putAll(localCache);
     }
 
-    public void refresh() {
-        configuredLabelAndPropertyNames.clear();
+    public ConcurrentHashMap<String, UuidConfig> provisionalRefresh() {
+        ConcurrentHashMap<String, UuidConfig> localCache = new ConcurrentHashMap<>();
 
         lastUpdate = System.currentTimeMillis();
         try (Transaction tx = apocConfig.getSystemDb().beginTx()) {
@@ -236,10 +241,17 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
                                 ADD_TO_SET_LABELS_KEY, node.getProperty(SystemPropertyKeys.addToSetLabel.name(), false),
                                 ADD_TO_EXISTING_NODES_KEY, node.getProperty(SystemPropertyKeys.addToExistingNodes.name(), false)
                         ));
-                        configuredLabelAndPropertyNames.put((String)node.getProperty(SystemPropertyKeys.label.name()), config);
+                        localCache.put((String)node.getProperty(SystemPropertyKeys.label.name()), config);
                     });
             tx.commit();
         }
+        return localCache;
+    }
+
+    public void refresh() {
+        ConcurrentHashMap<String, UuidConfig> localCache = provisionalRefresh();
+        configuredLabelAndPropertyNames.clear();
+        configuredLabelAndPropertyNames.putAll(localCache);
     }
 
     public synchronized UuidConfig remove(String label) {
@@ -266,9 +278,9 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
     private long getLastUpdate() {
         return SystemDbUtil.withSystemDb(tx -> {
             Node node = tx.findNode(SystemLabels.ApocUuidMeta, SystemPropertyKeys.database.name(), db.databaseName());
-            long l = node == null ? 0L : (long) node.getProperty(SystemPropertyKeys.lastUpdated.name());
-            System.out.println("l = " + l);
-            return l;
+            return node == null
+                    ? 0L
+                    : (long) node.getProperty(SystemPropertyKeys.lastUpdated.name());
         });
     }
 

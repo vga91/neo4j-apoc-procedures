@@ -6,8 +6,7 @@ import apoc.periodic.Periodic;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.apache.commons.lang.exception.ExceptionUtils;
- import org.hamcrest.Matchers;
-import org.junit.Before;
+ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
@@ -19,13 +18,9 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.util.TestUtil.testCall;
-import static apoc.uuid.UUIDNewProcedures.UUID_NOT_SET;
 import static junit.framework.TestCase.assertTrue;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * @author ab-larus
@@ -312,18 +307,6 @@ public class UUIDTest {
             assertTrue(except instanceof RuntimeException);
             assertEquals("No constraint found for label: Wrong, please add the constraint with the following : `CREATE CONSTRAINT ON (wrong:Wrong) ASSERT wrong.foo IS UNIQUE`", except.getMessage());
             throw e;
-        }
-    }
-
-    // to check that with new procedures like apoc.uuid.create
-    // we have to set `apoc.uuid.refresh`
-    @Test
-    public void testUuidRefreshNotSet() {
-        try {
-            testCall(db, "CALL apoc.uuid.create('neo4j', 'AnotherLabel')",
-                    r -> fail("Should fail because apoc.uuid.refresh is not set"));
-        } catch (RuntimeException e) {
-            assertThat(e.getMessage(), Matchers.containsString(UUID_NOT_SET));
         }
     }
 

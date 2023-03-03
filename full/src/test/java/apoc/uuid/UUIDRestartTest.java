@@ -1,5 +1,6 @@
 package apoc.uuid;
 
+import apoc.periodic.Periodic;
 import apoc.util.TestUtil;
 import org.junit.After;
 import org.junit.Before;
@@ -33,7 +34,7 @@ public class UUIDRestartTest {
         db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(SYSTEM_DATABASE_NAME);
         waitDbsAvailable(db, sysDb);
-        TestUtil.registerProcedure(db, UUIDNewProcedures.class, Uuid.class);
+        TestUtil.registerProcedure(db, UUIDNewProcedures.class, Uuid.class, Periodic.class);
     }
 
     @After
@@ -47,10 +48,11 @@ public class UUIDRestartTest {
         db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(SYSTEM_DATABASE_NAME);
         waitDbsAvailable(db, sysDb);
+        TestUtil.registerProcedure(db, UUIDNewProcedures.class, Uuid.class, Periodic.class);
     }
 
     @Test
-    public void testTriggerViaInstallRunsAfterRestart() {
+    public void testUuidViaInstallRunsAfterRestart() {
         db.executeTransactionally("CREATE CONSTRAINT ON (n:Person) ASSERT n.uuid IS UNIQUE");
 
         sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'Person')");

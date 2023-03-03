@@ -68,11 +68,6 @@ public class SystemDbUtil {
         }
     }
 
-    // todo - maybe not used
-    public static ResourceIterator<Node> getSystemNodes(String databaseName, Transaction tx, SystemLabels sysLabel) {
-        return getSystemNodes(databaseName, tx, sysLabel, null);
-    }
-
     public static ResourceIterator<Node> getSystemNodes(String databaseName, Transaction tx,
                                                         SystemLabels sysLabel,
                                                         Map<String, Object> props) {
