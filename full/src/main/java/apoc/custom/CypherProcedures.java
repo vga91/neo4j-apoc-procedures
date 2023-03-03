@@ -126,14 +126,36 @@ public class CypherProcedures {
     @Procedure(value = "apoc.custom.list", mode = Mode.READ)
     @Description("apoc.custom.list() - provide a list of custom procedures/function registered")
     public Stream<CustomProcedureInfo> list() {
-        return cypherProceduresHandler.readSignatures()
-                .map(CustomProcedureInfo::getInfoFromDescriptor);
+        return cypherProceduresHandler.readSignatures().map( descriptor -> {
+            if (descriptor instanceof CypherProceduresHandler.ProcedureDescriptor) {
+                CypherProceduresHandler.ProcedureDescriptor procedureDescriptor = (CypherProceduresHandler.ProcedureDescriptor) descriptor;
+                ProcedureSignature signature = procedureDescriptor.getSignature();
+                return new CustomProcedureInfo(
+                        PROCEDURE,
+                        signature.name().toString().substring(PREFIX.length() + 1),
+                        signature.description().orElse(null),
+                        signature.mode().toString().toLowerCase(),
+                        procedureDescriptor.getStatement(),
+                        convertInputSignature(signature.inputSignature()),
+                        Iterables.asList(Iterables.map(f -> Arrays.asList(f.name(), prettyPrintType(f.neo4jType())), signature.outputSignature())),
+                        null);
+            } else {
+                CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor = (CypherProceduresHandler.UserFunctionDescriptor) descriptor;
+                UserFunctionSignature signature = userFunctionDescriptor.getSignature();
+                return new CustomProcedureInfo(
+                        FUNCTION,
+                        signature.name().toString().substring(PREFIX.length() + 1),
+                        signature.description().orElse(null),
+                        null,
+                        userFunctionDescriptor.getStatement(),
+                        convertInputSignature(signature.inputSignature()),
+                        prettyPrintType(signature.outputType()),
+                        userFunctionDescriptor.isForceSingle());
+            }
+        });
     }
 
-
-
-    @Deprecated
-    @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installProcedure")
+    @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE)
     @Description("apoc.custom.removeProcedure(name) - remove the targeted custom procedure")
     public void removeProcedure(@Name("name") String name) {
         Objects.requireNonNull(name, "name");
@@ -141,8 +163,7 @@ public class CypherProcedures {
     }
 
 
-    @Deprecated
-    @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installFunction")
+    @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE)
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
     public void removeFunction(@Name("name") String name) {
         Objects.requireNonNull(name, "name");
@@ -213,7 +234,47 @@ public class CypherProcedures {
         }
     }
 
+    private List<List<String>> convertInputSignature(List<FieldSignature> signatures) {
+        return Iterables.asList(Iterables.map(f -> {
+            List<String> list = new ArrayList<>(3);
+            list.add(f.name());
+            list.add(prettyPrintType(f.neo4jType()));
+            final Optional<DefaultParameterValue> defaultParameterValue = f.defaultValue();
+            defaultParameterValue.map(DefaultParameterValue::value).ifPresent(v -> list.add(v.toString()));
+            return list;
+        }, signatures));
+    }
 
+    private String prettyPrintType(Neo4jTypes.AnyType type) {
+        String s = type.toString().toLowerCase();
+        if (s.endsWith("?")) {
+            s = s.substring(0, s.length()-1);
+        }
+        return s;
+    }
 
+    public static class CustomProcedureInfo {
+        public String type;
+        public String name;
+        public String description;
+        public String mode;
+        public String statement;
+        public List<List<String>>inputs;
+        public Object outputs;
+        public Boolean forceSingle;
+
+        public CustomProcedureInfo(String type, String name, String description, String mode,
+                                   String statement, List<List<String>> inputs, Object outputs,
+                                   Boolean forceSingle){
+            this.type = type;
+            this.name = name;
+            this.description = description;
+            this.statement = statement;
+            this.outputs = outputs;
+            this.inputs = inputs;
+            this.forceSingle = forceSingle;
+            this.mode = mode;
+        }
+    }
 
 }
