@@ -1086,14 +1086,9 @@ public class CypherProceduresTest  {
                 "meta", Map.of("foo", "bar")
         ));
     }
-
+    
 
     private void assertProcedureFails(String expectedMessage, String query) {
-        assertProcedureFails(db, expectedMessage, query);
-    }
-
-    // todo - common?
-    public static void assertProcedureFails(GraphDatabaseService db, String expectedMessage, String query) {
         try {
             testCall(db, query, row -> fail("The test should fail because of: " + expectedMessage));
         } catch (QueryExecutionException e) {
