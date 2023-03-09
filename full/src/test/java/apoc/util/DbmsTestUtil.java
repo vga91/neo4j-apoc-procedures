@@ -16,9 +16,7 @@ public class DbmsTestUtil {
     public static DatabaseManagementService startDbWithApocConfs(TemporaryFolder storeDir, String... conf) throws IOException {
         final File configFile = storeDir.newFile("apoc.conf");
         try (FileWriter writer = new FileWriter(configFile)) {
-            writer.write(
-                    String.join("\n", conf)
-            );
+            writer.write(String.join("\n", conf));
         }
         System.setProperty(SUN_JAVA_COMMAND, "config-dir=" + storeDir.getRoot().getAbsolutePath());
 

@@ -268,7 +268,7 @@ public class UUIDNewProceduresTest {
 
     @Test
     public void testNotAddToExistingNodes() {
-        // givenhttps://larus-ba.it/privacy-policy/
+        // given
         db.executeTransactionally("CREATE (d:Person {name:'Daniel'})-[:WORK]->(l:Company {name:'Neo4j'})");
 
         // when

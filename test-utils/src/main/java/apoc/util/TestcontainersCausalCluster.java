@@ -125,8 +125,7 @@ public class TestcontainersCausalCluster {
                     .withEnv("NEO4J_dbms_routing_default__router", "SERVER")
                     .withEnv("NEO4J_dbms_routing_advertised__address", name + ":7618");
         } else {
-            container.withNeo4jConfig("causal_clustering.leadership_balancing", "NO_BALANCING")
-                    .withoutDriver();
+            container.withoutDriver();
         }
         neo4jConfig.forEach((conf, value) -> container.withNeo4jConfig(conf, String.valueOf(value)));
         container.withEnv(envSettings);

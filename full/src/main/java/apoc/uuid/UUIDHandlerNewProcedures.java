@@ -3,7 +3,6 @@ package apoc.uuid;
 import apoc.ApocConfig;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
-import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -23,6 +22,7 @@ import static apoc.ApocConfig.*;
 import static apoc.SystemPropertyKeys.*;
 import static apoc.SystemLabels.*;
 import static apoc.util.SystemDbUtil.getSystemNodes;
+import static apoc.util.SystemDbUtil.setLastUpdate;
 import static apoc.util.SystemDbUtil.withSystemDb;
 import static apoc.uuid.UuidHandler.NOT_ENABLED_ERROR;
 
@@ -53,9 +53,9 @@ public class UUIDHandlerNewProcedures {
             node.setProperty(addToExistingNodes.name(), config.isAddToExistingNodes());
 
             // we'll the return current uuid info
-            result[0] = UuidInfo.fromNode(node, true);
+            result[0] = new UuidInfo(node, true);
 
-            setLastUpdate(databaseName, sysTx);
+            setLastUpdate(sysTx, databaseName, ApocUuidMeta);
         });
 
         return result[0];
@@ -65,13 +65,13 @@ public class UUIDHandlerNewProcedures {
         final UuidInfo[] previous = new UuidInfo[1];
 
         withSystemDb(tx -> {
-            getUuidNodes(databaseName, tx, Map.of(SystemPropertyKeys.label.name(), labelName))
+            getUuidNodes(tx, databaseName, Map.of(SystemPropertyKeys.label.name(), labelName))
                     .forEachRemaining(node -> {
-                        previous[0] = UuidInfo.fromNode(node);
+                        previous[0] = new UuidInfo(node);
                         node.delete();
                     });
 
-            setLastUpdate(databaseName, tx);
+            setLastUpdate(tx, databaseName, ApocUuidMeta);
         });
 
         return previous[0];
@@ -81,31 +81,25 @@ public class UUIDHandlerNewProcedures {
         final List<UuidInfo> previous = new ArrayList<>();
 
         withSystemDb(tx -> {
-            getUuidNodes(databaseName, tx)
+            getUuidNodes(tx, databaseName)
                     .forEachRemaining(node -> {
                         // we'll return previous uuid info
-                        previous.add( UuidInfo.fromNode(node) );
+                        previous.add( new UuidInfo(node) );
                         node.delete();
                     });
 
-            setLastUpdate(databaseName, tx);
+            setLastUpdate(tx, databaseName, ApocUuidMeta);
         });
 
         return previous;
     }
 
-    public static Stream<UuidInfo> getUuidNodesList(String databaseName, Transaction tx) {
-        return getUuidNodes(databaseName, tx)
-                .stream()
-                .map(UuidInfo::fromNode);
+    public static ResourceIterator<Node> getUuidNodes(Transaction tx, String databaseName) {
+        return getUuidNodes(tx, databaseName, null);
     }
 
-    public static ResourceIterator<Node> getUuidNodes(String databaseName, Transaction tx) {
-        return getUuidNodes(databaseName, tx, null);
-    }
-
-    public static ResourceIterator<Node> getUuidNodes(String databaseName, Transaction tx, Map<String, Object> props) {
-        return getSystemNodes(databaseName, tx, SystemLabels.ApocUuid, props);
+    public static ResourceIterator<Node> getUuidNodes(Transaction tx, String databaseName, Map<String, Object> props) {
+        return getSystemNodes(tx, databaseName, SystemLabels.ApocUuid, props);
     }
 
     public static void checkConstraintUuid(Transaction tx, String label, String propertyName) {
@@ -120,10 +114,5 @@ public class UUIDHandlerNewProcedures {
                     label.toLowerCase(), label, label.toLowerCase(), propertyName);
             throw new RuntimeException("No constraint found for label: " + label + ", please add the constraint with the following : " + error);
         }
-    }
-
-
-    private static void setLastUpdate(String databaseName, Transaction tx) {
-        SystemDbUtil.setLastUpdate(databaseName, tx, ApocUuidMeta);
     }
 }

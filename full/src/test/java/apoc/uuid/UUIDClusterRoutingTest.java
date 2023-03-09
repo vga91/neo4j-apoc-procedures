@@ -17,8 +17,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 import static apoc.ApocConfig.APOC_UUID_ENABLED;
-import static apoc.util.ClusterTestUtil.checkLeadershipBalanced;
-import static apoc.util.ClusterTestUtil.connectWithRoutingForEachMembers;
+import static apoc.util.TestContainerUtil.checkLeadershipBalanced;
+import static apoc.util.TestContainerUtil.queryForEachMembers;
 import static apoc.util.SystemDbUtil.PROCEDURE_NOT_ROUTED_ERROR;
 import static apoc.util.SystemDbUtil.SYS_NON_LEADER_ERROR;
 import static apoc.util.TestContainerUtil.*;
@@ -63,7 +63,7 @@ public class UUIDClusterRoutingTest {
         // wait until members are balanced, i.e. the system LEADER and the neo4j LEADER aren't in the same member
         checkLeadershipBalanced(clusterSession);
 
-        connectWithRoutingForEachMembers(members, (session, container) -> {
+        queryForEachMembers(members, (session, container) -> {
                 String label = container.getContainerName();
                 // create constraint
                 session.writeTransaction(tx -> tx.run(format("CREATE CONSTRAINT IF NOT EXISTS FOR (n:`%s`) REQUIRE n.uuid IS UNIQUE", label)));
@@ -80,7 +80,7 @@ public class UUIDClusterRoutingTest {
         assertEventually(() -> (long) singleResultFirstColumn(cluster.getSession(), countUuids),
                 (value) -> value == members.size(), 10L, TimeUnit.SECONDS);
 
-        connectWithRoutingForEachMembers(members, (session, container) -> {
+        queryForEachMembers(members, (session, container) -> {
                 session.writeTransaction(tx -> tx.run(format("CREATE (n:`%s`)", container.getContainerName())));
         });
 
@@ -99,7 +99,7 @@ public class UUIDClusterRoutingTest {
         }
 
         // drop the previus uuids
-        connectWithRoutingForEachMembers(members, (session, container) -> {
+        queryForEachMembers(members, (session, container) -> {
             String query = "USE SYSTEM CALL apoc.uuid.drop('neo4j', $label)";
             Map<String, Object> params = Map.of("label", container.getContainerName());
             session.writeTransaction(tx -> tx.run(query, params));
@@ -115,7 +115,7 @@ public class UUIDClusterRoutingTest {
         // wait until members are balanced, i.e. the system LEADER and the neo4j LEADER aren't in the same member
         checkLeadershipBalanced(clusterSession);
 
-        connectWithRoutingForEachMembers(members, (session, container) -> {
+        queryForEachMembers(members, (session, container) -> {
             try {
                 String label = container.getContainerName();
                 session.writeTransaction(tx -> tx.run(format("CREATE CONSTRAINT IF NOT EXISTS FOR (n:`%s`) REQUIRE n.uuid IS UNIQUE", label)));

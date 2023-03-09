@@ -109,7 +109,9 @@ public class UUIDNewProcedures {
     public Stream<UuidInfo> show(@Name("databaseName") String databaseName) {
         checkInSystem(databaseName);
 
-        return UUIDHandlerNewProcedures.getUuidNodesList(databaseName, tx);
+        return UUIDHandlerNewProcedures.getUuidNodes(tx, databaseName)
+                .stream()
+                .map(UuidInfo::new);
     }
 
 }

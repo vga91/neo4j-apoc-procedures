@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static apoc.ApocConfig.APOC_UUID_FORMAT;
+import static apoc.util.SystemDbUtil.getLastUpdate;
 import static apoc.uuid.Uuid.setExistingNodes;
 import static apoc.uuid.UuidConfig.*;
 
@@ -76,7 +77,7 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
             Integer uuidRefresh = apocConfig.getConfig().getInteger(APOC_UUID_REFRESH, null);
             if (uuidRefresh != null) {
                 refreshUuidHandle = jobScheduler.scheduleRecurring(Group.STORAGE_MAINTENANCE, () -> {
-                            if (getLastUpdate() > lastUpdate) {
+                            if (getLastUpdate(db.databaseName(), SystemLabels.ApocUuidMeta) > lastUpdate) {
                                 refreshAndAdd();
                             }
                         },
@@ -273,15 +274,6 @@ public class UuidHandler extends LifecycleAdapter implements TransactionEventLis
             tx.commit();
         }
         return retval;
-    }
-
-    private long getLastUpdate() {
-        return SystemDbUtil.withSystemDb(tx -> {
-            Node node = tx.findNode(SystemLabels.ApocUuidMeta, SystemPropertyKeys.database.name(), db.databaseName());
-            return node == null
-                    ? 0L
-                    : (long) node.getProperty(SystemPropertyKeys.lastUpdated.name());
-        });
     }
 
 }
