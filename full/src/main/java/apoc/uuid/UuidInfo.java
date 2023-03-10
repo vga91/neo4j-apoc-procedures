@@ -3,7 +3,6 @@ package apoc.uuid;
 import apoc.SystemPropertyKeys;
 import org.neo4j.graphdb.Node;
 
-import java.util.Collections;
 import java.util.Map;
 
 import static apoc.uuid.UuidConfig.ADD_TO_SET_LABELS_KEY;

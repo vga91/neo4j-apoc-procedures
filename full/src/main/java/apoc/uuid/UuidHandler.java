@@ -4,7 +4,6 @@ import apoc.ApocConfig;
 import apoc.Pools;
 import apoc.SystemLabels;
 import apoc.SystemPropertyKeys;
-import apoc.util.SystemDbUtil;
 import apoc.util.Util;
 import org.apache.commons.collections4.IterableUtils;
 import org.neo4j.dbms.api.DatabaseManagementService;

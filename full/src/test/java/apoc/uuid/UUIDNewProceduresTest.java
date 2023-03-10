@@ -285,7 +285,7 @@ public class UUIDNewProceduresTest {
     }
 
     @Test
-    public void testAddToExistingNodes() throws InterruptedException {
+    public void testAddToExistingNodes() {
         // given
         db.executeTransactionally("CREATE (d:Person {name:'Daniel'})-[:WORK]->(l:Company {name:'Neo4j'})");
 
@@ -293,8 +293,6 @@ public class UUIDNewProceduresTest {
         db.executeTransactionally("CREATE CONSTRAINT ON (person:Person) ASSERT person.uuid IS UNIQUE");
         sysDb.executeTransactionally("CALL apoc.uuid.create('neo4j', 'Person') YIELD label RETURN label");
         UUIDTestUtils.awaitUuidDiscovered(db, "Person");
-
-        Thread.sleep(5000);
 
         // then
         try (Transaction tx = db.beginTx()) {
