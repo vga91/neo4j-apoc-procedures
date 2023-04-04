@@ -7,24 +7,29 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Result;
 import org.neo4j.internal.helpers.collection.Iterators;
-import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
+import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_REFRESH;
+import static apoc.util.DbmsTestUtil.startDbWithApocConfs;
 import static apoc.util.MapUtil.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 
 /**
  * @author mh
@@ -42,17 +47,117 @@ public class CypherProceduresStorageTest {
 
     @Before
     public void setUp() throws Exception {
-        databaseManagementService = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
-        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+        databaseManagementService = startDbWithApocConfs(STORE_DIR,
+                CUSTOM_PROCEDURES_REFRESH + "=10");
+        db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
+
         TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
     }
 
     private void restartDb() {
         databaseManagementService.shutdown();
-        databaseManagementService = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
-        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+        try {
+            databaseManagementService = startDbWithApocConfs(STORE_DIR,
+                    CUSTOM_PROCEDURES_REFRESH + "=10");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
         assertTrue(db.isAvailable(1000));
         TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
+    }
+
+    @Test
+    public void testRestoreProcedureWorksCorrectlyWithoutConflicts() {
+        // create a list of ["proc1", "proc2", "proc3" ....] strings
+        List<String> listProcNames = IntStream.range(0, 200)
+                .mapToObj(i -> "proc" + i)
+                .collect(Collectors.toList());
+
+        // for each element, declare a procedure with that name,
+        // then call the custom procedure and finally overwrite it
+        listProcNames.forEach(name -> {
+            String declareProc = String.format("CALL apoc.custom.declareProcedure('%s() :: (answer::INT)', $query)", name);
+
+            db.executeTransactionally(declareProc,
+                    Map.of("name", name, "query", "RETURN 42 AS answer"),
+                    Result::resultAsString
+            );
+
+            TestUtil.testCall(db,
+                    String.format("call custom.%s", name),
+                    (row) -> assertEquals(42L, row.get("answer"))
+            );
+
+            // overwriting
+            db.executeTransactionally(declareProc,
+                    Map.of("name", name, "query", "RETURN 1 AS answer"),
+                    Result::resultAsString
+            );
+        });
+
+        // check that the previous overwrite works correctly after the `db.clearQueryCaches`
+        db.executeTransactionally("call db.clearQueryCaches");
+        listProcNames.forEach(name -> TestUtil.testCall(db,
+                    String.format("call custom.%s", name),
+                    (row) -> assertEquals(1L, row.get("answer"))
+                )
+        );
+
+        // check that everything worked correctly after a db restart
+        restartDb();
+        listProcNames.forEach(name -> TestUtil.testCall(db,
+                    String.format("call custom.%s", name),
+                    (row) -> assertEquals(1L, row.get("answer"))
+                )
+        );
+    }
+
+    @Test
+    public void testRestoreFunctionWorksCorrectlyWithoutConflicts() {
+        // create a list of ["fun1", "fun2", "fun3" ....] strings
+        List<String> listFunNames = IntStream.range(0, 200)
+                .mapToObj(i -> "fun" + i)
+                .collect(Collectors.toList());
+        final String funQuery = "return custom.%s() as row";
+
+        // for each element, declare a function with that name,
+        // then call the custom function and finally overwrite it
+        listFunNames.forEach(name -> {
+            final String declareFunction = String.format("CALL apoc.custom.declareFunction('%s() :: INT', $query)", name);
+
+            db.executeTransactionally(declareFunction,
+                    Map.of("query", "RETURN 42 as answer"),
+                    Result::resultAsString
+            );
+
+            TestUtil.testCall(db,
+                    String.format(funQuery, name),
+                    (row) -> assertEquals(42L, row.get("row"))
+            );
+
+            // overwriting
+            db.executeTransactionally(declareFunction,
+                    Map.of("query", "RETURN 1 as answer"),
+                    Result::resultAsString
+            );
+        });
+
+        // check that the previous overwrite works correctly after the `db.clearQueryCaches`
+        db.executeTransactionally("call db.clearQueryCaches");
+        listFunNames.forEach(name -> TestUtil.testCall(db,
+                        String.format(funQuery, name),
+                        (row) -> assertEquals(1L, row.get("row"))
+                )
+        );
+
+        // check that everything worked correctly after a db restart
+        restartDb();
+        listFunNames.forEach(name -> TestUtil.testCall(db,
+                    String.format(funQuery, name),
+                    (row) -> assertEquals(1L, row.get("row"))
+                )
+        );
     }
 
     @Test
