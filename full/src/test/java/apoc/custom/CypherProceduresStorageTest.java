@@ -80,7 +80,7 @@ public class CypherProceduresStorageTest {
             String declareProc = String.format("CALL apoc.custom.declareProcedure('%s() :: (answer::INT)', $query)", name);
 
             db.executeTransactionally(declareProc,
-                    Map.of("name", name, "query", "RETURN 42 AS answer"),
+                    Map.of("query", "RETURN 42 AS answer"),
                     Result::resultAsString
             );
 
@@ -91,7 +91,7 @@ public class CypherProceduresStorageTest {
 
             // overwriting
             db.executeTransactionally(declareProc,
-                    Map.of("name", name, "query", "RETURN 1 AS answer"),
+                    Map.of("query", "RETURN 1 AS answer"),
                     Result::resultAsString
             );
         });
