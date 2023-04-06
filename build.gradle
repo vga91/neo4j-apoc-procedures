@@ -66,6 +66,10 @@ subprojects {
         archiveClassifier = 'javadoc'
     }
     test {
+        filter {
+            // run this test
+            includeTestsMatching "*.UUIDClusterRoutingTest*"
+        }
         //exclude '**/CypherProceduresClusterTest.class'//, '**/AtomicTest.class'
 
         // neo4jDockerImage system property is used in TestContainerUtil
