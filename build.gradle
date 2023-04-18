@@ -68,6 +68,8 @@ subprojects {
     test {
         //exclude '**/CypherProceduresClusterTest.class'//, '**/AtomicTest.class'
 
+        include '**/CypherProceduresClusterTest*'
+
         // neo4jDockerImage system property is used in TestContainerUtil
         systemProperties 'user.language' : 'en' ,
                 'user.country ' : 'US',

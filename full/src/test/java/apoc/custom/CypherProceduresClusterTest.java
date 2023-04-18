@@ -14,13 +14,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.TestContainerUtil.testCallEventuallyInReadTransaction;
 import static apoc.util.TestContainerUtil.testCallEventually;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 public class CypherProceduresClusterTest {
 
@@ -28,12 +25,12 @@ public class CypherProceduresClusterTest {
 
     @BeforeClass
     public static void setupCluster() {
-        assumeFalse(isRunningInCI());
+//        assumeFalse(isRunningInCI());
         TestUtil.ignoreException(() ->  cluster = TestContainerUtil
                 .createEnterpriseCluster(3, 1, Collections.emptyMap(), MapUtil.stringMap("apoc.custom.procedures.refresh", "100")),
                 Exception.class);
-        Assume.assumeNotNull(cluster);
-        assumeTrue("Neo4j Cluster should be up-and-running", cluster.isRunning());
+//        Assume.assumeNotNull(cluster);
+//        assumeTrue("Neo4j Cluster should be up-and-running", cluster.isRunning());
     }
 
     @AfterClass
@@ -169,9 +166,12 @@ public class CypherProceduresClusterTest {
                     tx -> tx.run(declareProcedure, Map.of("query", "RETURN 42 AS answer"))
             );
 
-            testCallEventually(cluster.getSession(), callProcedure, Map.of(),
-                    row -> assertEquals(42L, row.get("answer")),
-                    10L);
+            // test that it's work for every cluster
+            cluster.getClusterMembers().forEach(container -> {
+                testCallEventually(container.getSession(), callProcedure, Map.of(),
+                        row -> assertEquals(42L, row.get("answer")),
+                        10L);
+            });
 
             // overwriting
             cluster.getSession().writeTransaction(
@@ -180,10 +180,12 @@ public class CypherProceduresClusterTest {
 
             cluster.getSession().run("call db.clearQueryCaches()");
 
-            // we use the readTransaction in order to route the execution to the READ_REPLICA
-            testCallEventuallyInReadTransaction(cluster.getSession(), callProcedure, Map.of(),
-                    row -> assertEquals(1L, row.get("answer")),
-                    10L);
+            // test that it's work and is updated for every cluster
+            cluster.getClusterMembers().forEach(container -> {
+                testCallEventually(container.getSession(), callProcedure, Map.of(),
+                        row -> assertEquals(1L, row.get("answer")),
+                        10L);
+            });
         });
     }
 
@@ -205,9 +207,12 @@ public class CypherProceduresClusterTest {
                     Map.of("query", "RETURN 42 as answer")
             ));
 
-            testCallEventually(cluster.getSession(), funQuery, Map.of(),
-                    row -> assertEquals(42L, row.get("row")),
-                    10L);
+            // test that it's work for every cluster
+            cluster.getClusterMembers().forEach(container -> {
+                testCallEventually(container.getSession(), funQuery, Map.of(),
+                        row -> assertEquals(42L, row.get("row")),
+                        10L);
+            });
 
             // overwriting
             cluster.getSession().writeTransaction(
@@ -216,10 +221,12 @@ public class CypherProceduresClusterTest {
 
             cluster.getSession().run("call db.clearQueryCaches()");
 
-            // we use the readTransaction in order to route the execution to the READ_REPLICA
-            testCallEventuallyInReadTransaction(cluster.getSession(), funQuery, Map.of(),
-                    row -> assertEquals(1L, row.get("row")),
-                    10L);
+            // test that it's work and is updated for every cluster
+            cluster.getClusterMembers().forEach(container -> {
+                testCallEventually(container.getSession(), funQuery, Map.of(),
+                        row -> assertEquals(1L, row.get("row")),
+                        10L);
+            });
         });
     }
 }
