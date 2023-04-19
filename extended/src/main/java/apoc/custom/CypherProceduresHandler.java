@@ -83,7 +83,7 @@ import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTTime;
 
 public class CypherProceduresHandler extends LifecycleAdapter implements AvailabilityListener {
 
-    public static final String PREFIX = "custom";
+    public static final String PREFIX = "custo
     public static final String FUNCTION = "function";
     public static final String PROCEDURE = "procedure";
     public static final String CUSTOM_PROCEDURES_REFRESH = "apoc.custom.procedures.refresh";
@@ -205,7 +205,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         ), statement, forceSingle);
     }
 
-    public void restoreProceduresAndFunctions() {
+    public synchronized void restoreProceduresAndFunctions() {
         lastUpdate = System.currentTimeMillis();
         Set<ProcedureSignature> currentProceduresToRemove = new HashSet<>(registeredProcedureSignatures);
         Set<UserFunctionSignature> currentUserFunctionsToRemove = new HashSet<>(registeredUserFunctionSignatures);
