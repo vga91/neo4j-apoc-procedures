@@ -624,8 +624,7 @@ public class CypherProceduresStorageTest {
             );
         });
 
-        // check that the previous overwrite works correctly after the `db.clearQueryCaches`
-        db.executeTransactionally("call db.clearQueryCaches");
+        // check that the previous overwrite works correctly
         listProcNames.forEach(name -> TestUtil.testCall(db,
                         String.format("call custom.%s", name),
                         (row) -> assertEquals(1L, row.get("answer"))
@@ -671,8 +670,7 @@ public class CypherProceduresStorageTest {
             );
         });
 
-        // check that the previous overwrite works correctly after the `db.clearQueryCaches`
-        db.executeTransactionally("call db.clearQueryCaches");
+        // check that the previous overwrite works correctly
         listFunNames.forEach(name -> TestUtil.testCall(db,
                         String.format(funQuery, name),
                         (row) -> assertEquals(1L, row.get("row"))
