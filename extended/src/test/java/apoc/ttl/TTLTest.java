@@ -1,38 +1,45 @@
 package apoc.ttl;
 
 import apoc.periodic.Periodic;
+import apoc.util.DbmsTestUtil;
 import apoc.util.TestUtil;
 import apoc.util.collection.Iterators;
+
+import java.io.IOException;
 import java.util.Map;
 import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import org.junit.rules.TemporaryFolder;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import static apoc.ExtendedApocConfig.APOC_TTL_ENABLED;
+import static apoc.ExtendedApocConfig.APOC_TTL_SCHEDULE;
 import static org.junit.Assert.assertTrue;
 
-/**
- * TODO:
- * Normally apocConfig() can be used to replace ApocSettings,
- * but apocConfig() doesn't exist yet in @BeforeClass and it is too late to set the config values in @Before.
- * Instead we must either find a way to mock this or
- * make it use Neo4jContainerExtension, which would work if core was a submodule
- * (currently this approach has the same issue as CoreExtendedTest.java)
- */
-@Ignore
+
 public class TTLTest {
 
     @ClassRule
+    public static TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+    @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
-            //.withSetting(ApocSettings.apoc_ttl_schedule, Duration.ofMillis(3000))
-            //.withSetting(ApocSettings.apoc_ttl_enabled, true);
+
+    @BeforeClass
+    public static void beforeClass() throws IOException {
+        DbmsTestUtil.startDbWithApocConfigs(temporaryFolder,
+                Map.of(APOC_TTL_ENABLED, "true",
+                        APOC_TTL_SCHEDULE, "1")
+        );
+    }
 
     @AfterClass
     public static void tearDown() {
@@ -47,7 +54,7 @@ public class TTLTest {
         db.executeTransactionally("UNWIND range(1," + fooCount + ") as range CREATE (:Baz)-[:REL_TEST]->(n:Foo:TTL {id: range, ttl: timestamp() + 100});");
         db.executeTransactionally("UNWIND range(1," + barCount + ") as range CREATE (n:Bar:TTL {id: range, ttl: timestamp() + 100});");
         assertTrue(isNodeCountConsistent(fooCount, barCount));
-        org.neo4j.test.assertion.Assert.assertEventually(() -> isNodeCountConsistent(0, 0), (value) -> value, 30L, TimeUnit.SECONDS);
+        org.neo4j.test.assertion.Assert.assertEventually(() -> isNodeCountConsistent(0, 0), (value) -> value, 10L, TimeUnit.SECONDS);
     }
 
     // test extracted from apoc.date
