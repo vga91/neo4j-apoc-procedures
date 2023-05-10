@@ -194,33 +194,35 @@ public class DiffFullTest {
 
     @Test
     public void shouldFindLabelDifferences() {
-        TestUtil.testResult(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
-                map("querySourceDest", "MATCH (node:Person {name: 'Michael Jordan'}) RETURN node",
-                        "conf", map("boltConfig", map("databaseName", secondDb),
-                                "dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl()))
-                        )),
-                r -> {
-                    Map<String, Object> row = r.next();
-                    final Map<String, Object> expectedTotalCont = map("entityType", NODE, "sourceLabel", null, "difference", TOTAL_COUNT, "id", null, "source", 1L, "dest", 2L, "destLabel", null);
-                    assertEquals(expectedTotalCont, row);
-                    row = r.next();
-                    final Map<String, Object> expectedCountLabel = map("entityType", NODE, "sourceLabel", null, 
-                            "difference", COUNT_BY_LABEL, 
-                            "id", null, 
-                            "source", map("Person", 1L), 
-                            "dest", map("Person", 1L, "Other", 1L), 
-                            "destLabel", null);
-                    assertEquals(expectedCountLabel, row);
-                    row = r.next();
-                    assertEquals(NODE, row.get("entityType"));
-                    assertEquals(DIFFERENT_LABELS, row.get("difference"));
-                    assertEquals("Person", row.get("sourceLabel"));
-                    assertEquals("Person", row.get("destLabel"));
-                    assertEquals(List.of("Person"), row.get("source"));
-                    assertEquals(List.of("Other", "Person"), row.get("dest"));
-                    assertTrue(row.get("id") instanceof Long);
-                    assertFalse(r.hasNext());
-                });
+        for (int i = 0; i < 20; i++) {
+            TestUtil.testResult(db, "CALL apoc.diff.graphs($querySourceDest, $querySourceDest, $conf)",
+                    map("querySourceDest", "MATCH (node:Person {name: 'Michael Jordan'}) RETURN node",
+                            "conf", map("boltConfig", map("databaseName", secondDb),
+                                    "dest", map("target", map("type", SourceDestConfig.SourceDestConfigType.URL.name(), "value", neo4jContainer.getBoltUrl()))
+                            )),
+                    r -> {
+                        Map<String, Object> row = r.next();
+                        final Map<String, Object> expectedTotalCont = map("entityType", NODE, "sourceLabel", null, "difference", TOTAL_COUNT, "id", null, "source", 1L, "dest", 2L, "destLabel", null);
+                        assertEquals(expectedTotalCont, row);
+                        row = r.next();
+                        final Map<String, Object> expectedCountLabel = map("entityType", NODE, "sourceLabel", null,
+                                "difference", COUNT_BY_LABEL,
+                                "id", null,
+                                "source", map("Person", 1L),
+                                "dest", map("Person", 1L, "Other", 1L),
+                                "destLabel", null);
+                        assertEquals(expectedCountLabel, row);
+                        row = r.next();
+                        assertEquals(NODE, row.get("entityType"));
+                        assertEquals(DIFFERENT_LABELS, row.get("difference"));
+                        assertEquals("Person", row.get("sourceLabel"));
+                        assertEquals("Person", row.get("destLabel"));
+                        assertEquals(List.of("Person"), row.get("source"));
+                        assertEquals(List.of("Other", "Person"), row.get("dest"));
+                        assertTrue(row.get("id") instanceof Long);
+                        assertFalse(r.hasNext());
+                    });
+        }
     }
 
     @Test
