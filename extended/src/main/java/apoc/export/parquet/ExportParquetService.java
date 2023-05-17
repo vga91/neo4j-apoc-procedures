@@ -26,26 +26,26 @@ public class ExportParquetService {
         this.terminationGuard = terminationGuard;
         this.logger = logger;
     }
-
-    public Stream<ByteArrayResult> stream(Object data, ParquetConfig config) {
-        if (data instanceof Result) {
-            return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, logger).export((Result) data, config);
-        } else {
-            return new ExportParquetGraphStreamStrategy(db, pools, terminationGuard, logger).export((SubGraph) data, config);
-        }
-    }
-
-    public Stream<ProgressInfo> file(String fileName, Object data, ParquetConfig config) {
-        // todo - substitute with checkWriteAllowed
-        // we cannot use apocConfig().checkWriteAllowed(..) because the error is confusing
-        //  since it says "... use the `{stream:true}` config", but with arrow procedures the streaming mode is implemented via different procedures
-        if (!apocConfig().getBoolean(APOC_EXPORT_FILE_ENABLED)) {
-            throw new RuntimeException("todo...");
-        }
-        if (data instanceof Result) {
-            return new ExportParquetResultFileStrategy(fileName, db, pools, terminationGuard, logger).export((Result) data, config);
-        } else {
-            return new ExportParquetGraphFileStrategy(fileName, db, pools, terminationGuard, logger).export((SubGraph) data, config);
-        }
-    }
+//
+//    public Stream<ByteArrayResult> stream(Object data, ParquetConfig config) {
+//        if (data instanceof Result) {
+//            return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, logger).export((Result) data, config);
+//        } else {
+//            return new ExportParquetGraphStreamStrategy(db, pools, terminationGuard, logger).export((SubGraph) data, config);
+//        }
+//    }
+//
+//    public Stream<ProgressInfo> file(String fileName, Object data, ParquetConfig config) {
+//        // todo - substitute with checkWriteAllowed
+//        // we cannot use apocConfig().checkWriteAllowed(..) because the error is confusing
+//        //  since it says "... use the `{stream:true}` config", but with arrow procedures the streaming mode is implemented via different procedures
+//        if (!apocConfig().getBoolean(APOC_EXPORT_FILE_ENABLED)) {
+//            throw new RuntimeException("todo...");
+//        }
+//        if (data instanceof Result) {
+//            return new ExportParquetResultFileStrategy(fileName, db, pools, terminationGuard, logger).export((Result) data, config);
+//        } else {
+//            return new ExportParquetGraphFileStrategy(fileName, db, pools, terminationGuard, logger).export((SubGraph) data, config);
+//        }
+//    }
 }

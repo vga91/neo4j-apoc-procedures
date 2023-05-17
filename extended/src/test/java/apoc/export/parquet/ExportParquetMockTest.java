@@ -26,5 +26,13 @@ public class ExportParquetMockTest {
         parquetReaderWriterWithAvro.streamRead(stream);
     }
 
+    @Test
+    public void testAdd1() throws IOException {
+        ParquetReaderWriterWithAvro parquetReaderWriterWithAvro = new ParquetReaderWriterWithAvro();
+        System.out.println("ExportParquetMockTest.testAdd1");
+        ParquetReaderWriterWithAvro parquetReaderWriterWithAvro1 = new ParquetReaderWriterWithAvro(true);
+
+    }
+
 
 }

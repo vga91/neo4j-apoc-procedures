@@ -25,7 +25,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import org.apache.parquet.io.OutputFile;
@@ -46,6 +48,7 @@ public class ParquetReaderWriterWithAvro {
     private static final Schema SCHEMA;
     private static final String SCHEMA_LOCATION = "avroToParquet.avsc";
     private static final Path OUT_PATH = new Path("sampleOne.parquet");
+    private static final Path OUT_PATH1 = new Path("sampleTwo.parquet");
 
     static {
         // todo - schema dynamic???, or with sample??? --> vedere Arrow
@@ -59,6 +62,27 @@ public class ParquetReaderWriterWithAvro {
     }
 
     public List<GenericData.Record> sampleData = new ArrayList<>();
+    public List<Map> sampleData1 = new ArrayList<>();
+
+    public ParquetReaderWriterWithAvro(boolean test) throws IOException {
+//        List<GenericData.Record> sampleData = new ArrayList<>();
+
+        Map record = new HashMap();
+        record.put("c1", 1);
+        record.put("c2", "someString");
+        sampleData1.add(record);
+
+        record = new HashMap<>();
+        record.put("c1", 2);
+        record.put("c2", "otherString");
+        sampleData1.add(record);
+
+//        ParquetReaderWriterWithAvro writerReader = new ParquetReaderWriterWithAvro();
+        writeToParquet1(sampleData1, OUT_PATH1);
+        System.out.println("ParquetReaderWriterWithAvro.ParquetReaderWriterWithAvro");
+        readFromParquet(OUT_PATH1);
+    }
+
 
     public ParquetReaderWriterWithAvro() throws IOException {
 //        List<GenericData.Record> sampleData = new ArrayList<>();
@@ -130,6 +154,23 @@ public class ParquetReaderWriterWithAvro {
         }
     }
 
+    public void writeToParquet1(List<Map> recordsToWrite, Path fileToWrite) throws IOException {
+        // todoooo - remove this one
+        new File(fileToWrite.getName()).delete();
+
+        try (ParquetWriter<Map> writer = AvroParquetWriter
+                .<Map>builder(fileToWrite)
+                .withSchema(SCHEMA)
+                .withConf(new Configuration())
+                .withCompressionCodec(CompressionCodecName.SNAPPY)
+                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+                .build()) {
+
+            for (Map record : recordsToWrite) {
+                writer.write(record);
+            }
+        }
+    }
 
     // todo - from Stream<ByteArrayResult>
     public void streamRead(byte[] fileBytes) throws IOException {
