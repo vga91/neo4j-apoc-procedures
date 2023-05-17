@@ -2,6 +2,7 @@ package apoc.export.parquet;
 
 import apoc.result.ByteArrayResult;
 import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -140,6 +141,8 @@ public class ParquetReaderWriterWithAvro {
         // todoooo - remove this one
         new File(fileToWrite.getName()).delete();
 
+        buildSchema();
+
         try (ParquetWriter<GenericData.Record> writer = AvroParquetWriter
                 .<GenericData.Record>builder(fileToWrite)
                 .withSchema(SCHEMA)
@@ -154,9 +157,23 @@ public class ParquetReaderWriterWithAvro {
         }
     }
 
+    private void buildSchema() {
+
+        // todo - continue...
+        SchemaBuilder.FieldAssembler<Schema> graphBuilder = SchemaBuilder
+                .record("GraphBuilder") // todo - name record??? needed?
+                // todo - namespace name??? needed??
+                .namespace("org.apache.avro.ipc")
+                .fields();
+
+
+    }
+
     public void writeToParquet1(List<Map> recordsToWrite, Path fileToWrite) throws IOException {
         // todoooo - remove this one
         new File(fileToWrite.getName()).delete();
+
+        buildSchema();
 
         try (ParquetWriter<Map> writer = AvroParquetWriter
                 .<Map>builder(fileToWrite)
