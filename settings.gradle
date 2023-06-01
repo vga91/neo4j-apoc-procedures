@@ -13,11 +13,11 @@ startParameter.excludedTaskNames = [
         ':common:build',
         ':processor:build',
         ':test-utils:build',
-        ':core:test',
-        ':common:test',
-        ':processor:test',
-        ':test-utils:test',
-        ':core:publish',
-        ':common:publish',
-        ':test-utils:publish'
+//        ':core:test',
+//        ':common:test',
+//        ':processor:test',
+//        ':test-utils:test',
+//        ':core:publish',
+//        ':common:publish',
+//        ':test-utils:publish'
 ]
