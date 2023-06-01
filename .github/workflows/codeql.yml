@@ -57,12 +57,12 @@ jobs:
 #        java-version: '17'
 #        distribution: 'temurin'
 #
-#    - uses: actions/cache@v2
-#      with:
-#        path: |
-#          ~/.gradle/caches
-#          ~/.gradle/wrapper
-#        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
 
     - name: Compile Java
       run: ./gradlew --no-daemon --init-script init.gradle clean
