@@ -26,7 +26,6 @@ import static org.junit.Assert.assertTrue;
  * make it use Neo4jContainerExtension, which would work if core was a submodule
  * (currently this approach has the same issue as CoreExtendedTest.java)
  */
-@Ignore
 public class TTLTest {
 
     @ClassRule
