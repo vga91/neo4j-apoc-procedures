@@ -1,6 +1,5 @@
 package apoc.export.parquet;
 
-import apoc.result.ByteArrayResult;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
@@ -16,7 +15,6 @@ import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.io.DelegatingSeekableInputStream;
 import org.apache.parquet.io.InputFile;
 import org.apache.parquet.io.SeekableInputStream;
-import org.neo4j.cypher.export.SubGraph;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,13 +27,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 
 import org.apache.parquet.io.OutputFile;
 import org.apache.parquet.io.PositionOutputStream;
 
 import java.io.BufferedOutputStream;
-import java.io.IOException;
 
 import static org.apache.parquet.hadoop.ParquetWriter.DEFAULT_BLOCK_SIZE;
 import static org.apache.parquet.hadoop.ParquetWriter.DEFAULT_PAGE_SIZE;
@@ -63,17 +59,17 @@ public class ParquetReaderWriterWithAvro {
     }
 
     public List<GenericData.Record> sampleData = new ArrayList<>();
-    public List<Map> sampleData1 = new ArrayList<>();
+    public List<GenericData.Record> sampleData1 = new ArrayList<>();
 
     public ParquetReaderWriterWithAvro(boolean test) throws IOException {
 //        List<GenericData.Record> sampleData = new ArrayList<>();
 
-        Map record = new HashMap();
+        GenericData.Record record = new GenericData.Record(SCHEMA);
         record.put("c1", 1);
         record.put("c2", "someString");
         sampleData1.add(record);
 
-        record = new HashMap<>();
+        record = new GenericData.Record(SCHEMA);
         record.put("c1", 2);
         record.put("c2", "otherString");
         sampleData1.add(record);
@@ -123,6 +119,9 @@ public class ParquetReaderWriterWithAvro {
 //    }
 
     public void readFromParquet(Path filePathToRead) throws IOException {
+
+        // todo - InputFile...
+
         try (ParquetReader<GenericData.Record> reader = AvroParquetReader
                 .<GenericData.Record>builder(filePathToRead)
                 .withConf(new Configuration())
@@ -134,6 +133,16 @@ public class ParquetReaderWriterWithAvro {
             }
         }
     }
+
+    // todo - https://www.knpcode.com/2022/06/how-to-read-write-parquet-file-hadoop.html
+    /*
+      public static void main(String[] args) {
+        Schema schema = parseSchema();
+        List<GenericData.Record> recordList = createRecords(schema);
+        writeToParquetFile(recordList, schema);
+      }
+     */
+
 
     // todo - streaming mode??? --> https://stackoverflow.com/questions/40089689/parquet-writer-to-buffer-or-byte-stream
 
@@ -157,33 +166,40 @@ public class ParquetReaderWriterWithAvro {
         }
     }
 
-    private void buildSchema() {
+    // todo - toField(..) like ExportArrowStrategy
 
-        // todo - continue...
-        SchemaBuilder.FieldAssembler<Schema> graphBuilder = SchemaBuilder
+    private Schema buildSchema() {
+
+        Schema graphBuilder = SchemaBuilder
                 .record("GraphBuilder") // todo - name record??? needed?
                 // todo - namespace name??? needed??
                 .namespace("org.apache.avro.ipc")
-                .fields();
+                .fields()
+                .optionalLong("c1")
+
+                .endRecord();
+
+
+        return graphBuilder;
 
 
     }
 
-    public void writeToParquet1(List<Map> recordsToWrite, Path fileToWrite) throws IOException {
+    public void writeToParquet1(List<GenericData.Record> recordsToWrite, Path fileToWrite) throws IOException {
         // todoooo - remove this one
         new File(fileToWrite.getName()).delete();
 
-        buildSchema();
+//        buildSchema();
 
-        try (ParquetWriter<Map> writer = AvroParquetWriter
-                .<Map>builder(fileToWrite)
-                .withSchema(SCHEMA)
+        try (ParquetWriter<GenericData.Record> writer = AvroParquetWriter
+                .<GenericData.Record>builder(fileToWrite)
+                .withSchema(buildSchema())
                 .withConf(new Configuration())
                 .withCompressionCodec(CompressionCodecName.SNAPPY)
                 .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
                 .build()) {
 
-            for (Map record : recordsToWrite) {
+            for (GenericData.Record record : recordsToWrite) {
                 writer.write(record);
             }
         }

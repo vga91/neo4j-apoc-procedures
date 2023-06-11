@@ -11,9 +11,19 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.driver.internal.value.MapValue;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
+import org.neo4j.kernel.impl.util.ValueUtils;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
+import org.neo4j.values.AnyValue;
+import org.neo4j.values.VirtualValue;
+import org.neo4j.values.storable.DurationValue;
+import org.neo4j.values.storable.LocalDateTimeValue;
+import org.neo4j.values.storable.PointValue;
+import org.neo4j.values.virtual.MapValueBuilder;
+import org.neo4j.values.virtual.VirtualValues;
 
 import java.io.File;
 import java.time.LocalDateTime;
@@ -28,7 +38,14 @@ import java.util.stream.LongStream;
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.export.parquet.ParquetUtil.FIELD_ID;
+import static apoc.export.parquet.ParquetUtil.FIELD_LABELS;
+import static apoc.export.parquet.ParquetUtil.FIELD_SOURCE_ID;
+import static apoc.export.parquet.ParquetUtil.FIELD_TARGET_ID;
+import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
+import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 
 // TODO
@@ -46,7 +63,7 @@ public class ParquetTest {
     // todo - ApocConfig.checkWriteAllowed(...)
 
 
-    // todo - MA è VERAMENTE NECESSARIO STREAM: TRUE???? --> DOVREBBE BASTARE NULL COME NOME FILE...
+    // todo - MA è VERAMENTE NECESSARIO STREAM: TRUE???? --> DOVREBBE BASTARE NULL COME NOME FILE... --> ah però mette in multi-row...
 
 
     // todo - if urlOrBinary instanceof String --> url altrimenti stream
@@ -62,55 +79,59 @@ public class ParquetTest {
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath());
 
+    private static final HashMap<String, Object> E_1 = new HashMap<>() {{
+        put("name", "Adam");
+        put("bffSince", null);
+        put(FIELD_SOURCE_ID, null);
+//                put(FIELD_LABELS, List.of());
+        put(FIELD_ID, 0L);
+        put("age", 42L);
+        put(FIELD_LABELS, List.of("User"));
+        put("male", true);
+        put(FIELD_TYPE, null);
+        put("kids", List.of("Sam", "Anna", "Grace"));
+        Map<String, Double> latitude = Map.of("latitude", 13.1D, "longitude", 33.46789D, "height", 100.0D);
+        put("place", PointValue.fromMap(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values().stream().map(ValueUtils::of).toArray(AnyValue[]::new))));
+//                put("place", PointValue.parseHeaderInformation(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values()));
+        put(FIELD_TARGET_ID, null);
+        put("since", null);
+        put("born", LocalDateTimeValue.parse("2015-05-18T19:32:24.000").asObject());//.atOffset(ZoneOffset.UTC).toZonedDateTime());
+    }};
+    private static final HashMap<String, Object> E_2 = new HashMap<>() {{
+        put("name", "Jim");
+        put("bffSince", null);
+        put(FIELD_SOURCE_ID, null);
+        put(FIELD_ID, 1L);
+        put("age", 42L);
+        put(FIELD_LABELS, List.of("User"));
+        put("male", null);
+        put(FIELD_TYPE, null);
+        put("kids", null);
+        put("place", null);
+        put(FIELD_TARGET_ID, null);
+        put("since", null);
+        put("born", null);
+    }};
+    private static final HashMap<String, Object> E_3 = new HashMap<>() {{
+        put("name", null);
+        put("bffSince", DurationValue.parse("P5M1DT12H"));
+        put(FIELD_SOURCE_ID, 0L);
+        put(FIELD_ID, 0L);
+        put("age", null);
+        put(FIELD_LABELS, null);
+        put("male", null);
+        put(FIELD_TYPE, "KNOWS");
+        put("kids", null);
+        put("place", null);
+        put(FIELD_TARGET_ID, 1L);
+        put("since", 1993L);
+        put("born", null);
+    }};
+
     public static final List<Map<String, Object>> EXPECTED = List.of(
-            new HashMap<>() {{
-                put("name", "Adam");
-                put("bffSince", null);
-                put("<source.id>", null);
-                put("<id>", 0L);
-                put("age", 42L);
-                put("labels", List.of("User"));
-                put("male", true);
-                put("<type>", null);
-                put("kids", List.of("Sam", "Anna", "Grace"));
-                put("place", Map.of("crs", "wgs-84-3d",
-                        "longitude", 33.46789D,
-                        "latitude", 13.1D,
-                        "height", 100.0D));
-                put("<target.id>", null);
-                put("since", null);
-                put("born", LocalDateTime.parse("2015-05-18T19:32:24.000").atOffset(ZoneOffset.UTC).toZonedDateTime());
-            }},
-            new HashMap<>() {{
-                put("name", "Jim");
-                put("bffSince", null);
-                put("<source.id>", null);
-                put("<id>", 1L);
-                put("age", 42L);
-                put("labels", List.of("User"));
-                put("male", null);
-                put("<type>", null);
-                put("kids", null);
-                put("place", null);
-                put("<target.id>", null);
-                put("since", null);
-                put("born", null);
-            }},
-            new HashMap<>() {{
-                put("name", null);
-                put("bffSince", "P5M1DT12H");
-                put("<source.id>", 0L);
-                put("<id>", 0L);
-                put("age", null);
-                put("labels", null);
-                put("male", null);
-                put("<type>", "KNOWS");
-                put("kids", null);
-                put("place", null);
-                put("<target.id>", 1L);
-                put("since", 1993L);
-                put("born", null);
-            }}
+            E_1,
+            E_2,
+            E_3
     );
 
     @BeforeClass
@@ -245,11 +266,11 @@ public class ParquetTest {
     private List<Map<String, Object>> getActual(Result result) {
         return result.stream()
                 .map(m -> (Map<String, Object>) m.get("value"))
-                .map(m -> {
-                    final Map<String, Object> newMap = new HashMap(m);
-                    newMap.put("place", readValue((String) m.get("place"), Map.class));
-                    return newMap;
-                })
+//                .map(m -> {
+//                    final Map<String, Object> newMap = new HashMap(m);
+//                    newMap.put("place", readValue((String) m.get("place"), Map.class));
+//                    return newMap;
+//                })
                 .collect(Collectors.toList());
     }
 
@@ -306,17 +327,23 @@ public class ParquetTest {
     @Test
     public void testFileRoundtripArrowAll() {
         // given - when
-        String file = db.executeTransactionally("CALL apoc.export.parquet.all('all_test.parquet') YIELD file",
+        String file = db.executeTransactionally("CALL apoc.export.parquet.all('test_all.parquet') YIELD file",
                 Map.of(),
                 this::extractFileName);
 
         // then
         final String query = "CALL apoc.load.parquet($file) YIELD value " +
                 "RETURN value";
-        db.executeTransactionally(query, Map.of("file", file), result -> {
-            final List<Map<String, Object>> actual = getActual(result);
-            assertEquals(EXPECTED, actual);
-            return null;
+
+        testResult(db, query, Map.of("file", file), result -> {
+            ResourceIterator<Map<String, Object>> value = result.columnAs("value");
+            Map<String, Object> actual = value.next();
+            assertEquals(E_1, actual);
+            actual = value.next();
+            assertEquals(E_2, actual);
+            actual = value.next();
+            assertEquals(E_3, actual);
+            assertFalse(value.hasNext());
         });
     }
 
