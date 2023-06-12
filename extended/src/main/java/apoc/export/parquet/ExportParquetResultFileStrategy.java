@@ -2,6 +2,7 @@ package apoc.export.parquet;
 
 import apoc.Pools;
 import apoc.export.util.ProgressReporter;
+import apoc.meta.Types;
 import apoc.result.ProgressInfo;
 import apoc.util.Util;
 import org.apache.avro.Schema;
@@ -19,11 +20,13 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static apoc.export.parquet.ParquetExportType.ResultType.fromMetaType;
 import static apoc.export.parquet.ParquetUtil.FIELD_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_LABELS;
 import static apoc.export.parquet.ParquetUtil.FIELD_SOURCE_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TARGET_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
+import static apoc.export.parquet.ParquetUtil.getFieldName;
 
 
 public class ExportParquetResultFileStrategy extends ExportParquetFileStrategy<Result> /*implements ExportParquetResultStrategy*/ {
@@ -75,7 +78,19 @@ public class ExportParquetResultFileStrategy extends ExportParquetFileStrategy<R
         // todo - change getId() with getElementId
 
         GenericRecord flattened = new GenericData.Record(schema);
-        map.forEach(flattened::put);
+        map.forEach((k,v)-> {
+            try {
+                flattened.put(k, v);
+            } catch (Exception e) {
+                if (!e.getMessage().contains("Not a valid schema field")) {
+                    throw new RuntimeException(e);
+                }
+
+                String s = fromMetaType(Types.of(v));
+                flattened.put(getFieldName(k, s), v);
+            }
+        });
+//        map.forEach(flattened::put);
         return flattened;
 
 //        flattened.put(FIELD_ID, entity.getId());

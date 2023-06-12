@@ -43,6 +43,7 @@ import static apoc.export.parquet.ParquetUtil.FIELD_LABELS;
 import static apoc.export.parquet.ParquetUtil.FIELD_SOURCE_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TARGET_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
+import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -165,6 +166,7 @@ public class ParquetTest {
     }
 
     // todo - test with this: unwind [1, "", 7.0, date()] as u return u
+
 
     @Test
     public void testStreamRoundtripArrowQuery() {
@@ -327,6 +329,36 @@ public class ParquetTest {
     }
 
     @Test
+    public void testRoundtripMultiType() {
+        // todo - transform in export data and REMOVE detach delete
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+
+        db.executeTransactionally("CREATE (:Multi {name:1}), (:Multi {name:'Jim'})");
+
+        // given - when
+        String file = db.executeTransactionally("CALL apoc.export.parquet.all('test_all.parquet') YIELD file",
+                Map.of(),
+                this::extractFileName);
+
+        // then
+        final String query = "CALL apoc.load.parquet($file) YIELD value " +
+                             "RETURN value";
+
+        testResult(db, query, Map.of("file", file), result -> {
+            ResourceIterator<Map<String, Object>> value = result.columnAs("value");
+            Map<String, Object> actual = value.next();
+            assertEquals(E_1, actual);
+            actual = value.next();
+            assertEquals(E_2, actual);
+            actual = value.next();
+            assertEquals(E_3, actual);
+            assertFalse(value.hasNext());
+        });
+
+        db.executeTransactionally("MATCH (n:Multi) DETACH DELETE n");
+    }
+
+    @Test
     public void testFileRoundtripArrowAll() {
         // given - when
         String file = db.executeTransactionally("CALL apoc.export.parquet.all('test_all.parquet') YIELD file",
@@ -388,20 +420,15 @@ public class ParquetTest {
                 this::extractFileName);
 
         final List<Long> expected = LongStream.range(0, 10000)
-                .mapToObj(l -> l)
+                .boxed()
                 .collect(Collectors.toList());
 
         // then
         final String query = "CALL apoc.load.parquet($file) YIELD value " +
-                "RETURN value.id AS id";
-        db.executeTransactionally(query, Map.of("file", file), result -> {
-            final List<Long> actual = result.stream()
-                    .map(m -> (Long) m.get("id"))
-                    .sorted()
-                    .collect(Collectors.toList());
-            assertEquals(expected, actual);
-            return null;
-        });
+                "WITH value.id AS id ORDER BY id RETURN collect(id) as ids";
+
+        testCall(db, query, Map.of("file", file),
+                r -> assertEquals(expected, r.get("ids")));
 
         db.executeTransactionally("MATCH (n:ArrowNode) DELETE n");
     }

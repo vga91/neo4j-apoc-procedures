@@ -5,6 +5,8 @@ import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.neo4j.graphdb.Node;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.PointValue;
@@ -42,6 +44,10 @@ public class ParquetUtil {
         return getItems(fieldName, test).type(schema1);
     }
 
+//    static SchemaBuilder.FieldAssembler<Schema> toField(String fieldName, Set<String> propertyTypes, SchemaBuilder.FieldAssembler<Schema> test) {
+//        return toField(fieldName, propertyTypes, test, false);
+//    }
+
     static SchemaBuilder.FieldAssembler<Schema> toField(String fieldName, Set<String> propertyTypes, SchemaBuilder.FieldAssembler<Schema> test) {
 
         // TODO - IF OPTIONALSTRING --> UTIL.TOJSON(...) AND UTIL.FROM(JSON)
@@ -49,73 +55,133 @@ public class ParquetUtil {
         if (propertyTypes.size() > 1) {
             // return string type
             // todo - maybe just return FieldAssembler??
-            return test.optionalString(fieldName);
+            propertyTypes.forEach(type -> {
+                getSchemaFieldAssembler(fieldName, type, test, true);
+            });
+            // todo - maybe void
+            return null;
+//            return test.optionalString(fieldName);
         } else {
             // convert to RelatedType
-            final String type = propertyTypes.iterator().next();
-            switch (type) {
-                case "Boolean":
-                    return test.optionalBoolean(fieldName);
+//            final String type = propertyTypes.iterator().next().toUpperCase();
+            return getSchemaFieldAssembler(fieldName, propertyTypes.iterator().next(), test);
+        }
+    }
 
-                // todo - LogicalType??? --> maybe integer as well...
-                case "Long":
-                    return test.optionalLong(fieldName);
-                case "Double":
-                    return test.optionalDouble(fieldName);
-                case "DateTime":
-                    return getSchemaFieldAssembler(fieldName, test, LogicalTypes.timestampMicros(), SchemaBuilder.BaseTypeBuilder::longType);
-                case "LocalDateTime":
-                    Schema schema2 = LogicalTypes.localTimestampMicros().addToSchema(SchemaBuilder.builder().longType());
-                    return test.name(fieldName).type().optional().type(schema2);
-                case "Date":
-                    // todo - check that...
-                    Schema schema3 = LogicalTypes.date().addToSchema(SchemaBuilder.builder().intType());
-                    return test.name(fieldName).type().optional().type(schema3);
+    private static SchemaBuilder.FieldAssembler<Schema> getSchemaFieldAssembler(String fieldName, String propertyType, SchemaBuilder.FieldAssembler<Schema> test) {
+        return getSchemaFieldAssembler(fieldName, propertyType, test, false);
+    }
+
+    private static SchemaBuilder.FieldAssembler<Schema> getSchemaFieldAssembler(String fieldName, String propertyType, SchemaBuilder.FieldAssembler<Schema> test, boolean multiType) {
+        propertyType = propertyType.toUpperCase();
+
+        if (multiType) {
+            fieldName = getFieldName(fieldName, propertyType);
+        }
+        switch (propertyType) {
+            case "BOOLEAN" -> {
+                return test.optionalBoolean(fieldName);
+            }
+
+            // todo - LogicalType??? --> maybe integer as well...
+            case "LONG" -> {
+                return test.optionalLong(fieldName);
+            }
+            case "DOUBLE" -> {
+                return test.optionalDouble(fieldName);
+            }
+            case "DATE_TIME" -> {
+                return getSchemaFieldAssembler(fieldName, test, LogicalTypes.timestampMicros(), BaseTypeBuilder::longType);
+            }
+            case "LOCAL_TIME" -> {
+                // todo
+                return null;
+            }
+            case "TIME" -> {
+                // todo
+                return null;
+            }
+            case "LOCAL_DATE_TIME" -> {
+                Schema schema2 = LogicalTypes.localTimestampMicros().addToSchema(SchemaBuilder.builder().longType());
+                return test.name(fieldName).type().optional().type(schema2);
+            }
+            case "DATE" -> {
+                // todo - check that...
+                Schema schema3 = LogicalTypes.date().addToSchema(SchemaBuilder.builder().intType());
+                return test.name(fieldName).type().optional().type(schema3);
+            }
 //                    return new Field(fieldName, FieldType.nullable(Types.MinorType.DATEMILLI.getType()), null);
-                case "Duration":
-                    return getSchemaFieldAssembler(fieldName, test, ParquetTypes.DURATION.getType(), BaseTypeBuilder::stringType);
-                case "Node":
-                    Schema schema11 = SchemaBuilder.builder().map().values().stringType();
+            case "DURATION" -> {
+                return getSchemaFieldAssembler(fieldName, test, ParquetTypes.DURATION.getType(), BaseTypeBuilder::stringType);
+            }
+            case "NODE" -> {
+                Schema schema11 = SchemaBuilder.builder().map().values().stringType();
 
-                    // todo - is needed "new NodeType()" --> alternative????
-                    Schema schema21 = new NodeType().addToSchema(schema11);
-                    return test.name(fieldName).type().optional().type(schema21);//.withDefault(Map.of());
-                case "Relationship":
-                    // todo...
+                // todo - is needed "new NodeType()" --> alternative????
+                Schema schema21 = new NodeType().addToSchema(schema11);
+                return test.name(fieldName).type().optional().type(schema21);
+            }
+            // todo...
 //                    return new Field(fieldName, FieldType.nullable(Types.MinorType.STRUCT.getType()), null);
-                case "Point":
-                    // todo...
-                    return getSchemaFieldAssembler(fieldName, test, ParquetTypes.POINT.getType(), BaseTypeBuilder::stringType);
-                case "Map":
-                    // todo - test with this export.query, since map is not allowed as a property
+            case "RELATIONSHIP", "POINT" -> {
+                // todo...
+                return getSchemaFieldAssembler(fieldName, test, ParquetTypes.POINT.getType(), BaseTypeBuilder::stringType);
+            }
+            case "MAP" ->
+                // todo - test with this export.query, since map is not allowed as a property
                     throw new RuntimeException("todo - how to deal with it??");
-                case "DateTimeArray":
-                    // todo...
-                case "DateArray":
-                    return getArraySchemaFieldAssembler(fieldName, test, LogicalTypes.localTimestampMicros(), BaseTypeBuilder::intType);
+            case "DATE_TIME_ARRAY" -> {
                 // todo...
-                case "BooleanArray":
-                    return getItems(fieldName, test).booleanType();
+                return null;
+            }
+            case "LOCAL_TIME_ARRAY" -> {
                 // todo...
-                case "LongArray":
-                    return getItems(fieldName, test).longType();
-                // todo...
-                case "DoubleArray":
-                    return getItems(fieldName, test).doubleType();
-                case "DurationArray":
-                    return getArraySchemaFieldAssembler(fieldName, test, ParquetTypes.DURATION.getType(), SchemaBuilder.BaseTypeBuilder::stringType);
-                // todo...
-                case "StringArray":
-                    return getItems(fieldName, test).stringType();
-                case "PointArray":
-                    return getArraySchemaFieldAssembler(fieldName, test, ParquetTypes.POINT.getType(), SchemaBuilder.BaseTypeBuilder::stringType);//.endRecord();
-                // todo...
-                default:
-                    return /*type.endsWith("Array")
-                            ? getItems(fieldName, test).
-                            : */test.optionalString(fieldName);
+                return null;
+            }
+            case "TIME_ARRAY" -> {
+                return null;
+            }
+            // todo...
+            case "LOCAL_DATE_TIME_ARRAY" -> {
+                return null;
+            }
+            // todo...
+            case "DATE_ARRAY" -> {
+                return getArraySchemaFieldAssembler(fieldName, test, LogicalTypes.localTimestampMicros(), BaseTypeBuilder::intType);
+            }
+            // todo...
+            case "BOOLEAN_ARRAY" -> {
+                return getItems(fieldName, test).booleanType();
+            }
+            // todo...
+            case "LONG_ARRAY" -> {
+                return getItems(fieldName, test).longType();
+            }
+            // todo...
+            case "DOUBLE_ARRAY" -> {
+                return getItems(fieldName, test).doubleType();
+            }
+            case "DURATION_ARRAY" -> {
+                return getArraySchemaFieldAssembler(fieldName, test, ParquetTypes.DURATION.getType(), BaseTypeBuilder::stringType);
+            }
+            // todo...
+            case "STRING_ARRAY" -> {
+                return getItems(fieldName, test).stringType();
+            }
+            case "POINT_ARRAY" -> {
+                return getArraySchemaFieldAssembler(fieldName, test, ParquetTypes.POINT.getType(), BaseTypeBuilder::stringType);
+            }
+            // todo...
+            default -> {
+                return propertyType.endsWith("ARRAY")
+                        ? getItems(fieldName, test).stringType()
+                        : test.optionalString(fieldName);
             }
         }
+    }
+
+    public static String getFieldName(String fieldName, String propertyType) {
+        return fieldName + "__" + propertyType;
     }
 
 
