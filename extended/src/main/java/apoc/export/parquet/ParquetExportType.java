@@ -1,5 +1,6 @@
 package apoc.export.parquet;
 
+import apoc.meta.Types;
 import apoc.util.collection.Iterables;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
@@ -12,6 +13,7 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.ResultTransformer;
 
+import java.util.AbstractMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -93,8 +95,6 @@ public interface ParquetExportType<T> {
 //    }
 
     class GraphType implements ParquetExportType<SubGraph> {
-
-
 
         @Override
         public Schema schemaFor(GraphDatabaseService db, ParquetConfig config, SubGraph data) {
@@ -186,13 +186,37 @@ public interface ParquetExportType<T> {
 
     class ResultType implements ParquetExportType<Result> {
 
+        private Map<String, Object> firstElement;
+
         @Override
         public Schema schemaFor(GraphDatabaseService db, ParquetConfig config, Result data) {
+
+            this.firstElement = data.next();
+
             // todo - this row is equal
-            SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("test").fields();
+            SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("test")
+                    .namespace("org.apache.avro.ipc")
+                    .fields();
 
             return test
                     .endRecord();
+        }
+
+
+        default Schema schemaFor(SchemaBuilder.FieldAssembler<Schema> test, Map<String, Object> records) {
+            final List<Field> fields = records.stream()
+                    .flatMap(m -> m.entrySet().stream())
+                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
+                    .collect(Collectors.groupingBy(e -> e.getKey(), Collectors.mapping(e -> e.getValue(), Collectors.toSet())))
+                    .entrySet()
+                    .stream()
+                    .map(e -> toField(e.getKey(), e.getValue()))
+                    .collect(Collectors.toList());
+            return new Schema(fields);
+        }
+
+        public Map<String, Object> getFirstElement() {
+            return firstElement;
         }
     }
 

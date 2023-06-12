@@ -20,7 +20,10 @@ import org.neo4j.procedure.TerminationGuard;
 
 import java.io.IOException;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.stream.Stream;
+
+import static apoc.export.parquet.ExportParquetResultFileStrategy.mapToRecord;
 
 // todo - not mocked
 
@@ -39,7 +42,7 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
         genericData.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
         genericData.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
         genericData.addLogicalTypeConversion(new ParquetUtil.DurationValueConversion());
-        genericData.addLogicalTypeConversion(CustomTypes.POINT.getConversion());//new ParquetUtil.PointValueConversion());
+        genericData.addLogicalTypeConversion(ParquetTypes.POINT.getConversion());//new ParquetUtil.PointValueConversion());
     }
 
     private final String fileName;
@@ -83,7 +86,7 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
         // todo - config
         final ParquetExportType exportType = getType(data);
 
-        Schema schema = exportType.schemaFor(db, config, data);
+
 
 //        exportType.schemaFor(db, )
 
@@ -114,8 +117,10 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
 //        }
 
 
-        MessageType schema1 = getSchemaForParquetFile();
+//        MessageType schema1 = getSchemaForParquetFile();
 
+        Schema schema = exportType.schemaFor(db, config, data);
+//        Iterator<GenericRecord> it = toIterator(reporter, data, schema);
 
 
         Path fileToWrite = new org.apache.hadoop.fs.Path(fileName);
@@ -135,12 +140,20 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
                 .build()) {
 //        try (ParquetWriter<Object> writer = new CustomParquetWriter(fileToWrite, schema1, true, CompressionCodecName.GZIP)) {
 
+            // todo - in interface=
+            if (exportType instanceof ParquetExportType.ResultType) {
+                System.out.println("writer = " + writer);
+                Map<String, Object> firstElement = ((ParquetExportType.ResultType) exportType).getFirstElement();
+                writer.write(mapToRecord(firstElement, schema));
+            }
+
             for (Iterator<GenericRecord> it = toIterator(reporter, data, schema); it.hasNext(); ) {
                 GenericRecord record = it.next();
                 // todo - try catch...
                 try {
                     writer.write(record);
                 } catch (Exception e) {
+                    // create something else - or another writer??
                     System.out.println("e = " + e);
                 }
             }
@@ -152,13 +165,13 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
         return Stream.of(progressInfo);
     }
 
-    private MessageType getSchemaForParquetFile() {
-//        Schema test = SchemaBuilder.record("test")
-//                .namespace("org.apache.avro.ipc")
-//                .fields().endRecord();
-
-        return Types.buildMessage().named("test1");//.union(Types.buildGroup(Type.Repetition.REPEATED).named("test2").getType("naem"));
-    }
+//    private MessageType getSchemaForParquetFile() {
+////        Schema test = SchemaBuilder.record("test")
+////                .namespace("org.apache.avro.ipc")
+////                .fields().endRecord();
+//
+//        return Types.buildMessage().named("test1");//.union(Types.buildGroup(Type.Repetition.REPEATED).named("test2").getType("naem"));
+//    }
 
     // todo - in interface???
     public void toRecord() {

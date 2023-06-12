@@ -15,13 +15,14 @@ import java.util.function.Function;
 
 import static apoc.export.parquet.ParquetUtil.DurationType.DURATION_VALUE;
 import static apoc.export.parquet.ParquetUtil.PointType.POINT_VALUE;
+import static org.apache.avro.SchemaBuilder.BaseTypeBuilder;
 
 public class ParquetUtil {
 
     // todo - creare analogo senza apoc.schema, perché senno non funziona mai senza jar core....
     //  renderlo configurabile...
 
-    private static SchemaBuilder.TypeBuilder<SchemaBuilder.FieldAssembler<Schema>> getItems(String fieldName, SchemaBuilder.FieldAssembler<Schema> test) {
+    public static SchemaBuilder.TypeBuilder<SchemaBuilder.FieldAssembler<Schema>> getItems(String fieldName, SchemaBuilder.FieldAssembler<Schema> test) {
         return test.name(fieldName).type().optional().array().items();
     }
 
@@ -42,48 +43,25 @@ public class ParquetUtil {
     }
 
     static SchemaBuilder.FieldAssembler<Schema> toField(String fieldName, Set<String> propertyTypes, SchemaBuilder.FieldAssembler<Schema> test) {
-//        LogicalTypes.LogicalTypeFactory factory = new LogicalTypes.LogicalTypeFactory() {
-//            private final LogicalType convertLongLogicalType = new NodeType();
-//
-//            @Override
-//            public LogicalType fromSchema(Schema schema) {
-//                return convertLongLogicalType;
-//            }
-//        };
-//
-//        LogicalTypes.LogicalTypeFactory factory2 = new LogicalTypes.LogicalTypeFactory() {
-//            private final LogicalType convertLongLogicalType = new DurationType();
-//
-//            @Override
-//            public LogicalType fromSchema(Schema schema) {
-//                return convertLongLogicalType;
-//            }
-//        };
-//
-//        // todo - foreach???
-//        LogicalTypes.register(NEO4J_NODE, factory);
-//        LogicalTypes.register(DURATION_VALUE, factory2);
 
+        // TODO - IF OPTIONALSTRING --> UTIL.TOJSON(...) AND UTIL.FROM(JSON)
 
         if (propertyTypes.size() > 1) {
             // return string type
             // todo - maybe just return FieldAssembler??
-            return test.optionalString(fieldName);//.  new Field(fieldName, FieldType.nullable(new ArrowType.Utf8()), null);
+            return test.optionalString(fieldName);
         } else {
             // convert to RelatedType
             final String type = propertyTypes.iterator().next();
             switch (type) {
                 case "Boolean":
                     return test.optionalBoolean(fieldName);
-//                    return new Field(fieldName, FieldType.nullable(Types.MinorType.BIT.getType()), null);
 
                 // todo - LogicalType??? --> maybe integer as well...
                 case "Long":
                     return test.optionalLong(fieldName);
-//                    return new Field(fieldName, FieldType.nullable(Types.MinorType.BIGINT.getType()), null);
                 case "Double":
                     return test.optionalDouble(fieldName);
-//                    return new Field(fieldName, FieldType.nullable(Types.MinorType.FLOAT8.getType()), null);
                 case "DateTime":
                     return getSchemaFieldAssembler(fieldName, test, LogicalTypes.timestampMicros(), SchemaBuilder.BaseTypeBuilder::longType);
                 case "LocalDateTime":
@@ -95,13 +73,7 @@ public class ParquetUtil {
                     return test.name(fieldName).type().optional().type(schema3);
 //                    return new Field(fieldName, FieldType.nullable(Types.MinorType.DATEMILLI.getType()), null);
                 case "Duration":
-                    // todo...
-//                    Schema schema33 = LogicalTypes.timestampMicros().addToSchema(SchemaBuilder.unionOf()
-//                            .longType().and().nullType().endUnion());
-//                    return test.name(fieldName).type(schema33).withDefault(null);
-                    Schema schema33 = new DurationType().addToSchema(SchemaBuilder.builder()
-                            .stringType());
-                    return test.name(fieldName).type().optional().type(schema33);
+                    return getSchemaFieldAssembler(fieldName, test, ParquetTypes.DURATION.getType(), BaseTypeBuilder::stringType);
                 case "Node":
                     Schema schema11 = SchemaBuilder.builder().map().values().stringType();
 
@@ -113,18 +85,14 @@ public class ParquetUtil {
 //                    return new Field(fieldName, FieldType.nullable(Types.MinorType.STRUCT.getType()), null);
                 case "Point":
                     // todo...
-                    return getSchemaFieldAssembler(fieldName, test, CustomTypes.POINT.getType(), SchemaBuilder.BaseTypeBuilder::stringType);
-
-//                    ParquetUtil.PointType.getInstance().addToSchema(SchemaBuilder.builder().stringType())
+                    return getSchemaFieldAssembler(fieldName, test, ParquetTypes.POINT.getType(), BaseTypeBuilder::stringType);
                 case "Map":
-//                    Schema mapValues =
                     // todo - test with this export.query, since map is not allowed as a property
                     throw new RuntimeException("todo - how to deal with it??");
-//                    return test.name(fieldName).type().optional().map().values(mapValues);
                 case "DateTimeArray":
                     // todo...
                 case "DateArray":
-                    return getArraySchemaFieldAssembler(fieldName, test, LogicalTypes.localTimestampMicros(), SchemaBuilder.BaseTypeBuilder::intType);
+                    return getArraySchemaFieldAssembler(fieldName, test, LogicalTypes.localTimestampMicros(), BaseTypeBuilder::intType);
                 // todo...
                 case "BooleanArray":
                     return getItems(fieldName, test).booleanType();
@@ -134,22 +102,18 @@ public class ParquetUtil {
                 // todo...
                 case "DoubleArray":
                     return getItems(fieldName, test).doubleType();
+                case "DurationArray":
+                    return getArraySchemaFieldAssembler(fieldName, test, ParquetTypes.DURATION.getType(), SchemaBuilder.BaseTypeBuilder::stringType);
                 // todo...
                 case "StringArray":
-//                    return getArraySchemaFieldAssembler(fieldName, test, )
-                    return getItems(fieldName, test).stringType();//.endRecord();
-//                    System.out.println("schema21 = ");
-                // todo...
+                    return getItems(fieldName, test).stringType();
                 case "PointArray":
-                    return getArraySchemaFieldAssembler(fieldName, test, CustomTypes.POINT.getType(), SchemaBuilder.BaseTypeBuilder::stringType);//.endRecord();
+                    return getArraySchemaFieldAssembler(fieldName, test, ParquetTypes.POINT.getType(), SchemaBuilder.BaseTypeBuilder::stringType);//.endRecord();
                 // todo...
                 default:
                     return /*type.endsWith("Array")
                             ? getItems(fieldName, test).
                             : */test.optionalString(fieldName);
-//                    (type.endsWith("Array")) ? new Field(fieldName, FieldType.nullable(Types.MinorType.LIST.getType()),
-//                            List.of(toField("$data$", Set.of(type.replace("Array", "")))))
-//                            : new Field(fieldName, FieldType.nullable(Types.MinorType.VARCHAR.getType()), null);
             }
         }
     }
@@ -326,7 +290,7 @@ public class ParquetUtil {
         }
     }
 
-    public static class DurationType extends LogicalType {
+    public static class DurationType extends CustomType {
 
         public static final String DURATION_VALUE = "duration-value";
 
@@ -335,12 +299,8 @@ public class ParquetUtil {
         }
 
         @Override
-        public void validate(Schema schema) {
-            super.validate(schema);
-            if (schema.getType() != Schema.Type.STRING) {
-                // TODO - error..
-                throw new IllegalArgumentException("Local timestamp (micros) can only be used with an underlying long type");
-            }
+        public String getLogicalTypeName() {
+            return DURATION_VALUE;
         }
     }
 
