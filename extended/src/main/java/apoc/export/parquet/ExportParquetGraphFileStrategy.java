@@ -60,7 +60,7 @@ public class ExportParquetGraphFileStrategy extends ExportParquetFileStrategy<Su
     GenericRecord entityToMap(Entity entity, Schema schema) {
         // todo - change getId() with getElementId
 
-        GenericRecord flattened = new GenericData.Record(schema);
+        GenericRecord flattened = ExportParquetResultFileStrategy.mapToRecord(entity.getAllProperties(), schema);// new GenericData.Record(schema);
         flattened.put(FIELD_ID, entity.getId());
         if (entity instanceof Node) {
             flattened.put(FIELD_LABELS, Util.labelStrings((Node) entity));
@@ -70,7 +70,7 @@ public class ExportParquetGraphFileStrategy extends ExportParquetFileStrategy<Su
             flattened.put(FIELD_SOURCE_ID, rel.getStartNodeId());
             flattened.put(FIELD_TARGET_ID, rel.getEndNodeId());
         }
-        entity.getAllProperties().forEach(flattened::put);
+//        entity.getAllProperties().forEach(flattened::put);
 //        flattened.putAll(entity.getAllProperties());
 
 

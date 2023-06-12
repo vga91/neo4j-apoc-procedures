@@ -107,17 +107,17 @@ public class ExportParquet {
 //        return exportCsv(fileName, source, new NodesAndRelsSubGraph(tx, nodes, rels), new ExportConfig(config));
 //    }
 //
-//    @Procedure("apoc.export.parquet.query")
-//    @Description("Exports the results from running the given Cypher query to the provided CSV file.")
-//    public Stream<ProgressInfo> query(@Name("query") String query, @Name("file") String fileName, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-//        ExportConfig exportConfig = new ExportConfig(config);
-//        Map<String,Object> params = config == null ? Collections.emptyMap() : (Map<String,Object>)config.getOrDefault("params", Collections.emptyMap());
-//        Result result = tx.execute(query,params);
-//
+    @Procedure("apoc.export.parquet.query")
+    @Description("Exports the results from running the given Cypher query to the provided CSV file.")
+    public Stream<ProgressInfo> query(@Name("query") String query, @Name("file") String fileName, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+        ParquetConfig exportConfig = new ParquetConfig(config);
+        Map<String,Object> params = config == null ? Collections.emptyMap() : (Map<String,Object>)config.getOrDefault("params", Collections.emptyMap());
+        Result result = tx.execute(query,params);
+
 //        String source = String.format("statement: cols(%d)", result.columns().size());
-//        return ExportParquetService(db, pools, terminationGuard, log)
-////        return exportCsv(fileName, source,result, exportConfig);
-//    }
+        return exportParquet(fileName, result, exportConfig);
+//        return exportCsv(fileName, source,result, exportConfig);
+    }
 
     // TODO !!! -- più che stream, conviene chiamarlo export bytes!!!!
 
@@ -126,8 +126,12 @@ public class ExportParquet {
             // todo...
             return null;
         }
-        // todo - if data instanceof Result else...
+        if (data instanceof Result) {
+            return new ExportParquetResultFileStrategy(fileName, db, pools, terminationGuard, log).export((Result) data, config);
+        }
         return new ExportParquetGraphFileStrategy(fileName, db, pools, terminationGuard, log).export((SubGraph) data, config);
+        // todo - if data instanceof Result else...
+//        return new ExportParquetGraphFileStrategy(fileName, db, pools, terminationGuard, log).export((SubGraph) data, config);
     }
 
 

@@ -164,6 +164,8 @@ public class ParquetTest {
         }
     }
 
+    // todo - test with this: unwind [1, "", 7.0, date()] as u return u
+
     @Test
     public void testStreamRoundtripArrowQuery() {
         // given - when
@@ -217,7 +219,7 @@ public class ParquetTest {
                 "localdatetime('2015-05-18T19:32:24') as dateData," +
                 "[[0]] AS arrayArray," +
                 "1.1 AS doubleData";
-        String file = db.executeTransactionally("CALL apoc.export.parquet.query('query_test.parquet', $query) YIELD file",
+        String file = db.executeTransactionally("CALL apoc.export.parquet.query($query, 'query_test.parquet') YIELD file",
                 Map.of("query", returnQuery),
                 this::extractFileName);
 
@@ -381,7 +383,7 @@ public class ParquetTest {
         // given - when
         db.executeTransactionally("UNWIND range(0, 10000 - 1) AS id CREATE (:ArrowNode{id:id})");
 
-        String file = db.executeTransactionally("CALL apoc.export.parquet.query('volume_test.parquet', 'MATCH (n:ArrowNode) RETURN n.id AS id') YIELD file ",
+        String file = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ArrowNode) RETURN n.id AS id', 'volume_test.parquet') YIELD file ",
                 Map.of(),
                 this::extractFileName);
 
