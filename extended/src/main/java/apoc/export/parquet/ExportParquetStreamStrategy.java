@@ -1,13 +1,12 @@
 package apoc.export.parquet;
 
 import apoc.Pools;
-import apoc.export.util.ProgressReporter;
 import apoc.result.ByteArrayResult;
 import apoc.result.ProgressInfo;
 import apoc.util.QueueBasedSpliterator;
 import apoc.util.QueueUtil;
+import apoc.util.Util;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
@@ -20,15 +19,16 @@ import org.neo4j.procedure.TerminationGuard;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static apoc.export.parquet.ExportParquetFileStrategy.getBuild;
 
-public abstract class ExportParquetStreamStrategy<IN> implements ExportParquetStrategy<IN, Stream<ByteArrayResult>>  {
+public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportParquetStrategy<IN, Stream<ByteArrayResult>>  {
 
 
     // todo - these 4 are common with stream one
@@ -40,12 +40,14 @@ public abstract class ExportParquetStreamStrategy<IN> implements ExportParquetSt
 
 
     private final Log logger;
+    private final ParquetExportType exportType;
 
-    public ExportParquetStreamStrategy(GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger) {
+    public ExportParquetStreamStrategy(GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger, ParquetExportType exportType) {
         this.db = db;
         this.pools = pools;
         this.terminationGuard = terminationGuard;
         this.logger = logger;
+        this.exportType = exportType;
     }
 
 
@@ -54,44 +56,87 @@ public abstract class ExportParquetStreamStrategy<IN> implements ExportParquetSt
         Schema schema = exportType.schemaFor(db, config, data);
         final BlockingQueue<ByteArrayResult> queue = new ArrayBlockingQueue<>(100);
 
-        try (ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(bytesOut)) {
+//        try (ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+//             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(bytesOut)) {
+//
+//            ParquetBufferedWriter out = new ParquetBufferedWriter(bufferedOutputStream);
+//
+//            try(ParquetWriter<GenericRecord> writer = getBuild(schema, AvroParquetWriter.builder(out)) ) {
+//
+//                exportType.writeBatch(writer, schema);
+//
+//                for (Iterator<GenericRecord> it = toIterator(data, schema); it.hasNext(); ) {
+//                    GenericRecord record = it.next();
+//                    // todo - try catch...
+//                    try {
+//                        writer.write(record);
+////                        QueueUtil.put(queue, new ByteArrayResult(bytes), 10);
+//                    } catch (Exception e) {
+//                        // create something else - or another writer??
+//                        System.out.println("e = " + e);
+//                    }
+//                }
+//            }
+//
+//            ByteArrayResult item = new ByteArrayResult(bytesOut.toByteArray());
+//            QueueUtil.put(queue, item, 10);
+//        } catch (Exception e) {
+//            throw new RuntimeException(e);
+//        } finally {
+//            QueueUtil.put(queue, ByteArrayResult.NULL, 10);
+//        }
 
-            ParquetBufferedWriter out = new ParquetBufferedWriter(bufferedOutputStream);
+        Util.inTxFuture(pools.getDefaultExecutorService(), db, tx -> {
+            int batchCount = 0;
+            List<GenericRecord> rows = new ArrayList<>(config.getBatchSize());
 
-            try(ParquetWriter<GenericRecord> writer = getBuild(schema, AvroParquetWriter.builder(out)) ) {
+            try {
+                Iterator<TYPE> it = toIterator(data, schema);
+                while (!Util.transactionIsTerminated(terminationGuard) && it.hasNext()) {
+                    GenericRecord record = exportType.toRecord(schema, it.next());
+                    rows.add(record);
 
-                exportType.writeFirstBatch(writer, schema);
-
-                for (Iterator<GenericRecord> it = toIterator(data, schema); it.hasNext(); ) {
-                    GenericRecord record = it.next();
-                    // todo - try catch...
-                    try {
-                        writer.write(record);
-//                        QueueUtil.put(queue, new ByteArrayResult(bytes), 10);
-                    } catch (Exception e) {
-                        // create something else - or another writer??
-                        System.out.println("e = " + e);
+                    if (batchCount > 0 && batchCount % config.getBatchSize() == 0) {
+                        byte[] bytes = writeBatch(exportType, rows, schema);
+                        QueueUtil.put(queue, new ByteArrayResult(bytes), 10);
                     }
+                    ++batchCount;
                 }
+                if (!rows.isEmpty()) {
+                    byte[] bytes = writeBatch(exportType, rows, schema);
+                    QueueUtil.put(queue, new ByteArrayResult(bytes), 10);
+                }
+                return true;
+            } catch (Exception e) {
+                logger.error("Exception while extracting Parquet data:", e);
+            } finally {
+                QueueUtil.put(queue, ByteArrayResult.NULL, 10);
             }
-
-            ByteArrayResult item = new ByteArrayResult(bytesOut.toByteArray());
-            QueueUtil.put(queue, item, 10);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        } finally {
-            QueueUtil.put(queue, ByteArrayResult.NULL, 10);
-        }
-
+            return true;
+        });
 
         // todo - batch??
         QueueBasedSpliterator<ByteArrayResult> spliterator = new QueueBasedSpliterator<>(queue, ByteArrayResult.NULL, terminationGuard, Integer.MAX_VALUE);
-        Stream<ByteArrayResult> stream = StreamSupport.stream(spliterator, false);
-        return stream;
+        return StreamSupport.stream(spliterator, false);
     }
 
-    public abstract Iterator<GenericRecord> toIterator(IN data, Schema schema);
+    private byte[] writeBatch(ParquetExportType exportType, List<GenericRecord> rows, Schema schema) {
+        try (ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
+             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(bytesOut)) {
+            ParquetBufferedWriter out = new ParquetBufferedWriter(bufferedOutputStream);
+
+            try (ParquetWriter<GenericRecord> writer = getBuild(schema, AvroParquetWriter.builder(out))) {
+                extracted(exportType, rows, schema, writer);
+                rows.clear();
+            }
+
+            return bytesOut.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public abstract Iterator<TYPE> toIterator(IN data, Schema schema);
 
     private static class ParquetBufferedWriter implements OutputFile {
 

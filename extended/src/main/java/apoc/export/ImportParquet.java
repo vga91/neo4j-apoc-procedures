@@ -26,10 +26,8 @@ import org.neo4j.values.storable.Value;
 
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static apoc.export.parquet.ParquetUtil.FIELD_ID;
@@ -57,9 +55,6 @@ public class ImportParquet {
             @Name("input") Object input,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config
     ) {
-
-        // todo - if else with byte[]
-
         ProgressInfo result =
                 Util.inThread(pools, () -> {
 

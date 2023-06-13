@@ -9,18 +9,18 @@ import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
 
 import java.util.Iterator;
+import java.util.Map;
 
-import static apoc.export.parquet.ExportParquetResultFileStrategy.mapToRecord;
 
-public class ExportParquetResultStreamStrategy extends ExportParquetStreamStrategy<Result> {
-    public ExportParquetResultStreamStrategy(GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger) {
-        super(db, pools, terminationGuard, logger);
+public class ExportParquetResultStreamStrategy extends ExportParquetStreamStrategy<Map<String,Object>, Result> {
+    public ExportParquetResultStreamStrategy(GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger, ParquetExportType exportType) {
+        super(db, pools, terminationGuard, logger, exportType);
     }
 
     @Override
-    public Iterator<GenericRecord> toIterator(Result data, Schema schema) {
+    public Iterator<Map<String,Object>> toIterator(Result data, Schema schema) {
         return data.stream()
-                .map(row -> mapToRecord(row, schema))
+//                .map(row -> mapToRecord(row, schema))
                 .iterator();
     }
 }

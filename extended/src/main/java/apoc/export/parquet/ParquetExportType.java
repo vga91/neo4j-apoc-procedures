@@ -1,13 +1,18 @@
 package apoc.export.parquet;
 
 import apoc.meta.Types;
+import apoc.util.Util;
 import apoc.util.collection.Iterables;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.neo4j.cypher.export.SubGraph;
+import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.ResultTransformer;
@@ -23,7 +28,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static apoc.export.parquet.ExportParquetResultFileStrategy.mapToRecord;
 import static apoc.export.parquet.ParquetUtil.*;
 
 //
@@ -32,7 +36,7 @@ import static apoc.export.parquet.ParquetUtil.*;
 
 
 // todo - e se ci mettessi anche getFile?????
-public interface ParquetExportType<T> {
+public interface ParquetExportType<TYPE, ROW> {
     enum Type {
         RESULT(new ResultType()),
         GRAPH(new GraphType());
@@ -44,25 +48,29 @@ public interface ParquetExportType<T> {
             this.graphType = graphType;
         }
 
-        ParquetExportType from(Object data) {
+        public static ParquetExportType from(Object data) {
             Type type = data instanceof Result
                     ? Type.RESULT
                     : Type.GRAPH;
-//            if (data instanceof Result) {
-//                return Type.RESULT;
-//            }
-//            return Type.GRAPH;
+
             return type.graphType;
         }
     }
 
-    Schema schemaFor(GraphDatabaseService db, ParquetConfig config, T data);
-    void writeFirstBatch(ParquetWriter writer, Schema schema);
+    Schema schemaFor(GraphDatabaseService db, ParquetConfig config, TYPE data);
+    GenericRecord toRecord(Schema schema, ROW data);
 
-    class GraphType implements ParquetExportType<SubGraph> {
+//    void writeBatch(ParquetWriter writer, Schema schema);
+
+    class GraphType implements ParquetExportType<SubGraph, Entity> {
+
+        private Schema schema;
 
         @Override
         public Schema schemaFor(GraphDatabaseService db, ParquetConfig config, SubGraph data) {
+            if (this.schema != null) {
+                return this.schema;
+            }
             // todo - this row is equal
             SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("test")
                     .namespace("org.apache.avro.ipc")
@@ -107,7 +115,7 @@ public interface ParquetExportType<T> {
                     parameters, parsePropertiesResult);
 
 
-            // TODO ---> try using this: data.neo4j.com/stackoverflow/so-2018-09-58.dump
+            //
 
             // TODO - everything optional??? --> name(FIELD_LABELS).type().optional()
 
@@ -129,18 +137,30 @@ public interface ParquetExportType<T> {
 //                allFields.addAll(relFields);
             }
 
-            Schema schema = test
-//                    .requiredLong(FIELD_ID)
-//                    .name(FIELD_LABELS).type().array().items().stringType().noDefault()
-//                    .name("test").type( SchemaBuilder.builder().intType().set)
-//                    .name()
-                    .endRecord();
+            Schema schema = test.endRecord();
 
-            return schema;
+            this.schema = schema;
+            return this.schema;
         }
 
         @Override
-        public void writeFirstBatch(ParquetWriter writer, Schema schema) {}
+        public GenericRecord toRecord(Schema schema, Entity entity) {
+            GenericRecord flattened = mapToRecord(schema, entity.getAllProperties());
+            flattened.put(FIELD_ID, entity.getId());
+            if (entity instanceof Node) {
+                flattened.put(FIELD_LABELS, Util.labelStrings((Node) entity));
+            } else {
+                Relationship rel = (Relationship) entity;
+                flattened.put(FIELD_TYPE, rel.getType().name());
+                flattened.put(FIELD_SOURCE_ID, rel.getStartNodeId());
+                flattened.put(FIELD_TARGET_ID, rel.getEndNodeId());
+            }
+
+            return flattened;
+        }
+
+//        @Override
+//        public void writeBatch(ParquetWriter writer, Schema schema) {}
 
         // todo - util?
         static Map<String, Object> createConfigMap(SubGraph subGraph, ParquetConfig config) {
@@ -160,12 +180,13 @@ public interface ParquetExportType<T> {
         }
     }
 
-    class ResultType implements ParquetExportType<Result> {
+    class ResultType implements ParquetExportType<Result, Map<String,Object>> {
 
         private final List<Map<String, Object>> firstBatch = new ArrayList<>();
 
         @Override
         public Schema schemaFor(GraphDatabaseService db, ParquetConfig config, Result data) {
+            // we re-calculate the schema for each batch
 
             // todo - this row is equal
             SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("test")
@@ -183,8 +204,12 @@ public interface ParquetExportType<T> {
 //            this.firstElement = data.next();
             schemaForResult(test, firstBatch);
 
-            return test
-                    .endRecord();
+            return test.endRecord();
+        }
+
+        @Override
+        public GenericRecord toRecord(Schema schema, Map<String, Object> map) {
+            return mapToRecord(schema, map);
         }
 
         void schemaForResult(SchemaBuilder.FieldAssembler<Schema> test, List<Map<String, Object>> records) {
@@ -217,47 +242,23 @@ public interface ParquetExportType<T> {
                         return "ANYARRAY";
                     }
                     return fromMetaType(innerType) + "ARRAY";
-//                case BOOLEAN:
-//                    return "Boolean";
-
-                // todo - how to deal with it???
-                case MAP:
-                    return "MAP";
-//                case RELATIONSHIP:
-//                    return "Relationship";
-//                case NODE:
-//                    return "Node";
-//                case PATH:
-//                    return "Path";
-//                case POINT:
-//                    return "Point";
-//                case DATE:
-//                    return "Date";
-//                case LOCAL_TIME:
-//                case DATE_TIME:
-//                case LOCAL_DATE_TIME:
-//                    return "DateTime";
-//                case TIME:
-//                    return "Time";
-//                case DURATION:
-//                    return "Duration";
                 default:
                     return type.name().replaceAll("_", "").toUpperCase();
             }
         }
 
-        @Override
-        public void writeFirstBatch(ParquetWriter writer, Schema schema) {
-            firstBatch.stream().map(item -> mapToRecord(item, schema)).forEach(i -> {
-                try {
-                    writer.write(i);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-//            Map<String, Object> firstElement = ((ParquetExportType.ResultType) exportType).getFirstElement();
-//            writer.write(mapToRecord(firstElement, schema));
-        }
+//        @Override
+//        public void writeBatch(ParquetWriter writer, Schema schema) {
+//            firstBatch.stream().map(item -> toRecord(schema, item)).forEach(i -> {
+//                try {
+//                    writer.write(i);
+//                } catch (IOException e) {
+//                    throw new RuntimeException(e);
+//                }
+//            });
+////            Map<String, Object> firstElement = ((ParquetExportType.ResultType) exportType).getFirstElement();
+////            writer.write(mapToRecord(firstElement, schema));
+//        }
     }
 
 }

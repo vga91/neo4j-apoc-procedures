@@ -20,14 +20,13 @@ import java.util.stream.Stream;
 
 import static apoc.export.parquet.ParquetUtil.*;
 
-public class ExportParquetGraphFileStrategy extends ExportParquetFileStrategy<SubGraph>  {
-    public ExportParquetGraphFileStrategy(String fileName, GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger) {
-        super(fileName, db, pools, terminationGuard, logger);
+public class ExportParquetGraphFileStrategy extends ExportParquetFileStrategy<Entity, SubGraph>  {
+    public ExportParquetGraphFileStrategy(String fileName, GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger, ParquetExportType exportType) {
+        super(fileName, db, pools, terminationGuard, logger, exportType);
     }
 
     @Override
     public Stream<ProgressInfo> export(SubGraph data, ParquetConfig config) {
-//        schemaFor(List.of(createConfigMap(data, config))); todo...
         return super.export(data, config);
     }
 
@@ -36,16 +35,16 @@ public class ExportParquetGraphFileStrategy extends ExportParquetFileStrategy<Su
         return String.format("graph: nodes(%d), rels(%d)", Iterables.count(subGraph.getNodes()), Iterables.count(subGraph.getRelationships()));
     }
 
-    // todo - why iterator??
     @Override
-    public Iterator<GenericRecord> toIterator(ProgressReporter reporter, SubGraph data, Schema schema) {
+    public Iterator<Entity> toIterator(ProgressReporter reporter, SubGraph data, Schema schema) {
 //    public Iterator<GenericData.Record> toIterator(ProgressReporter reporter, SubGraph data, Schema schema) {
 //    public Iterator<Map<String, Object>> toIterator(ProgressReporter reporter, SubGraph data) {
         return Stream.concat(Iterables.stream(data.getNodes()), Iterables.stream(data.getRelationships()))
                 .map(entity -> {
                     reporter.update(entity instanceof Node ? 1 : 0,
                             entity instanceof Relationship ? 1 : 0, 0);
-                    return this.entityToRecord(entity, schema);
+                    return entity;
+//                    return this.entityToRecord(entity, schema);
                 })
                 .iterator();
     }
@@ -53,30 +52,30 @@ public class ExportParquetGraphFileStrategy extends ExportParquetFileStrategy<Su
 
 
 
-//    Object entityToMap(Entity entity, Schema schema) {
-    public static GenericRecord entityToRecord(Entity entity, Schema schema) {
-        // todo - change getId() with getElementId
-
-        GenericRecord flattened = ExportParquetResultFileStrategy.mapToRecord(entity.getAllProperties(), schema);// new GenericData.Record(schema);
-        flattened.put(FIELD_ID, entity.getId());
-        if (entity instanceof Node) {
-            flattened.put(FIELD_LABELS, Util.labelStrings((Node) entity));
-        } else {
-            Relationship rel = (Relationship) entity;
-            flattened.put(FIELD_TYPE, rel.getType().name());
-            flattened.put(FIELD_SOURCE_ID, rel.getStartNodeId());
-            flattened.put(FIELD_TARGET_ID, rel.getEndNodeId());
-        }
-//        entity.getAllProperties().forEach(flattened::put);
-//        flattened.putAll(entity.getAllProperties());
-
-
-        // todo - to delete
-//        Map<String, Object> stringObjectMap = entityToMap(entity);
-
-
-        return flattened;
-    }
+////    Object entityToMap(Entity entity, Schema schema) {
+//    public static GenericRecord entityToRecord(Entity entity, Schema schema) {
+//        // todo - change getId() with getElementId
+//
+//        GenericRecord flattened = ExportParquetResultFileStrategy.mapToRecord(entity.getAllProperties(), schema);// new GenericData.Record(schema);
+//        flattened.put(FIELD_ID, entity.getId());
+//        if (entity instanceof Node) {
+//            flattened.put(FIELD_LABELS, Util.labelStrings((Node) entity));
+//        } else {
+//            Relationship rel = (Relationship) entity;
+//            flattened.put(FIELD_TYPE, rel.getType().name());
+//            flattened.put(FIELD_SOURCE_ID, rel.getStartNodeId());
+//            flattened.put(FIELD_TARGET_ID, rel.getEndNodeId());
+//        }
+////        entity.getAllProperties().forEach(flattened::put);
+////        flattened.putAll(entity.getAllProperties());
+//
+//
+//        // todo - to delete
+////        Map<String, Object> stringObjectMap = entityToMap(entity);
+//
+//
+//        return flattened;
+//    }
 
 //    Map<String, Object> entityToMap(Entity entity) {
 //        // todo - change getId() with getElementId

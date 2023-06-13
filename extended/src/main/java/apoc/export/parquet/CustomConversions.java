@@ -84,7 +84,7 @@ public class CustomConversions {
 
         @Override
         public String getLogicalTypeName() {
-            return RelationshipType.NEO4J_REL;
+            return CustomTypes.RelationshipType.NEO4J_REL;
         }
     }
 
@@ -98,7 +98,7 @@ public class CustomConversions {
     public static class RelationshipLoadConversion extends EntityLoadConversion {
         @Override
         public String getLogicalTypeName() {
-            return RelationshipType.NEO4J_REL;
+            return CustomTypes.RelationshipType.NEO4J_REL;
         }
     }
 

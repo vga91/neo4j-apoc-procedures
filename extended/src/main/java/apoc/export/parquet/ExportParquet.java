@@ -88,8 +88,7 @@ public class ExportParquet {
     @Description("Exports the full database to the provided CSV file.")
     public Stream<ByteArrayResult> allStream(@Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
 //        String source = String.format("database: nodes(%d), rels(%d)", Util.nodeCount(tx), Util.relCount(tx));
-        Stream<ByteArrayResult> byteArrayResultStream = exportParquet( /*source, */new DatabaseSubGraph(tx), new ParquetConfig(config));
-        return byteArrayResultStream;
+        return exportParquet( /*source, */new DatabaseSubGraph(tx), new ParquetConfig(config));
     }
 
     @Procedure("apoc.export.parquet.all")
@@ -122,49 +121,36 @@ public class ExportParquet {
         Map<String,Object> params = config == null ? Collections.emptyMap() : (Map<String,Object>)config.getOrDefault("params", Collections.emptyMap());
         Result result = tx.execute(query,params);
 
-//        String source = String.format("statement: cols(%d)", result.columns().size());
         return exportParquet(fileName, result, exportConfig);
 //        return exportCsv(fileName, source,result, exportConfig);
     }
 
-    // TODO !!! -- più che stream, conviene chiamarlo export bytes!!!!
 
     public Stream<ProgressInfo> exportParquet(String fileName, Object data, ParquetConfig config) {
         if (fileName == null) {
-            // todo...
+            // todo... error
             return null;
         }
-        if (data instanceof Result) {
-            return new ExportParquetResultFileStrategy(fileName, db, pools, terminationGuard, log).export((Result) data, config);
+        if (!apocConfig().getBoolean(APOC_EXPORT_FILE_ENABLED)) {
+            throw new RuntimeException("todo...");
         }
-        return new ExportParquetGraphFileStrategy(fileName, db, pools, terminationGuard, log).export((SubGraph) data, config);
+        ParquetExportType exportType = ParquetExportType.Type.from(data);
+        if (data instanceof Result) {
+            return new ExportParquetResultFileStrategy(fileName, db, pools, terminationGuard, log, exportType).export((Result) data, config);
+        }
+        return new ExportParquetGraphFileStrategy(fileName, db, pools, terminationGuard, log, exportType).export((SubGraph) data, config);
         // todo - if data instanceof Result else...
 //        return new ExportParquetGraphFileStrategy(fileName, db, pools, terminationGuard, log).export((SubGraph) data, config);
     }
 
-
     public Stream<ByteArrayResult> exportParquet(Object data, ParquetConfig config) {
         // TODO
 //        return null;
+        ParquetExportType exportType = ParquetExportType.Type.from(data);
         if (data instanceof Result) {
-            return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, log).export((Result) data, config);
-        } else {
-            return new ExportParquetGraphStreamStrategy(db, pools, terminationGuard, log).export((SubGraph) data, config);
+            return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, log, exportType).export((Result) data, config);
         }
-    }
-
-    public Stream<ProgressInfo> file(String fileName, Object data, ParquetConfig config) {
-        // todo - substitute with checkWriteAllowed
-        // we cannot use apocConfig().checkWriteAllowed(..) because the error is confusing
-        //  since it says "... use the `{stream:true}` config", but with arrow procedures the streaming mode is implemented via different procedures
-        if (!apocConfig().getBoolean(APOC_EXPORT_FILE_ENABLED)) {
-            throw new RuntimeException("todo...");
-        }
-        if (data instanceof Result) {
-            return new ExportParquetResultFileStrategy(fileName, db, pools, terminationGuard, log).export((Result) data, config);
-        } else {
-            return new ExportParquetGraphFileStrategy(fileName, db, pools, terminationGuard, log).export((SubGraph) data, config);
-        }
+        return new ExportParquetGraphStreamStrategy(db, pools, terminationGuard, log, exportType).export((SubGraph) data, config);
     }
 }
 
