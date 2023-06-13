@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static apoc.export.parquet.ExportParquetResultFileStrategy.mapToRecord;
+import static apoc.export.parquet.ParquetUtil.genericData;
 import static apoc.load.LoadParquet.registerCustomTypes;
 
 // todo - not mocked
@@ -32,37 +33,6 @@ import static apoc.load.LoadParquet.registerCustomTypes;
 // todo - Stream<ProgressInfo> as OUT???
 public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStrategy<IN, Stream<ProgressInfo>> {
 
-    // todo - ParquetUtil
-    public static GenericData genericDataLoad;
-    static {
-        genericDataLoad = new GenericData();
-        // need to add logicalTime Support
-        genericDataLoad.addLogicalTypeConversion(new TimeConversions.DateConversion());
-//        timeSupport.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
-        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
-        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
-        genericDataLoad.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
-//        genericData.addLogicalTypeConversion(new ParquetUtil.DurationValueConversion());
-        for (ParquetTypes type: ParquetTypes.values()) {
-            genericDataLoad.addLogicalTypeConversion(type.getLoadConversion());
-        }
-    }
-
-    // todo - ParquetUtil
-    public static GenericData genericData;
-    static {
-        genericData = new GenericData();
-        // need to add logicalTime Support
-        genericData.addLogicalTypeConversion(new TimeConversions.DateConversion());
-//        timeSupport.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
-        genericData.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
-        genericData.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
-        genericData.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
-//        genericData.addLogicalTypeConversion(new ParquetUtil.DurationValueConversion());
-        for (ParquetTypes type: ParquetTypes.values()) {
-            genericData.addLogicalTypeConversion(type.getConversion());//new ParquetUtil.PointValueConversion());
-        }
-    }
 
     private final String fileName;
 
@@ -143,21 +113,9 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
 //        registerCustomTypes();
 
         Path fileToWrite = new org.apache.hadoop.fs.Path(fileName);
-        try (ParquetWriter<GenericRecord> writer = AvroParquetWriter
-                .<GenericRecord>builder(fileToWrite)
-                .withSchema(schema)
-                .withConf(new Configuration())
-                .withDataModel(genericData)
-                // todo ---> other with
-
-                // todo - configurable?? this generate a .crc file
-                .withValidation(false)
-                // todo - config...
-//                .withCompressionCodec(CompressionCodecName.SNAPPY)
-                // todo - config...
-                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-                .withDataModel(genericData)
-                .build()) {
+        AvroParquetWriter.Builder<GenericRecord> builder = AvroParquetWriter
+                .<GenericRecord>builder(fileToWrite);
+        try (ParquetWriter<GenericRecord> writer = getBuild(schema, builder)) {
 
             exportType.writeFirstBatch(writer, schema);
 
@@ -187,6 +145,23 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
 
         // todo - like Arrow???
         return Stream.of(progressInfo);
+    }
+
+    public static ParquetWriter<GenericRecord> getBuild(Schema schema, AvroParquetWriter.Builder<GenericRecord> builder) throws IOException {
+        return builder
+                .withSchema(schema)
+                .withConf(new Configuration())
+                .withDataModel(genericData)
+                // todo ---> other with
+
+                // todo - configurable?? this generate a .crc file
+                .withValidation(false)
+                // todo - config...
+//                .withCompressionCodec(CompressionCodecName.SNAPPY)
+                // todo - config...
+                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+//                .withDataModel(genericData)
+                .build();
     }
 
 //    private MessageType getSchemaForParquetFile() {

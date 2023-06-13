@@ -6,7 +6,6 @@ import apoc.result.ProgressInfo;
 import apoc.util.Util;
 import apoc.util.collection.Iterables;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
@@ -16,9 +15,7 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
 
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import static apoc.export.parquet.ParquetUtil.*;
@@ -48,7 +45,7 @@ public class ExportParquetGraphFileStrategy extends ExportParquetFileStrategy<Su
                 .map(entity -> {
                     reporter.update(entity instanceof Node ? 1 : 0,
                             entity instanceof Relationship ? 1 : 0, 0);
-                    return this.entityToMap(entity, schema);
+                    return this.entityToRecord(entity, schema);
                 })
                 .iterator();
     }
@@ -57,7 +54,7 @@ public class ExportParquetGraphFileStrategy extends ExportParquetFileStrategy<Su
 
 
 //    Object entityToMap(Entity entity, Schema schema) {
-    GenericRecord entityToMap(Entity entity, Schema schema) {
+    public static GenericRecord entityToRecord(Entity entity, Schema schema) {
         // todo - change getId() with getElementId
 
         GenericRecord flattened = ExportParquetResultFileStrategy.mapToRecord(entity.getAllProperties(), schema);// new GenericData.Record(schema);

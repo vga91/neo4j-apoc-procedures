@@ -4,32 +4,34 @@ package apoc.export.parquet;
 import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 
+import static apoc.export.parquet.CustomTypes.*;
+import static apoc.export.parquet.CustomConversions.*;
+
 public enum ParquetTypes {
-    // TODO ...
-    POINT(new ParquetUtil.PointType(), new ParquetUtil.PointValueConversion(), new ParquetUtil.PointValueConversion()),
-    DURATION(new ParquetUtil.DurationType(), new ParquetUtil.DurationValueConversion(), new ParquetUtil.DurationValueConversion()),
-    NODE(new ParquetUtil.NodeType(), new ParquetUtil.NodeEntityConversion(), new ParquetUtil.NodeLoadConversion()),
-    RELATIONSHIP(new ParquetUtil.RelationshipType(), new ParquetUtil.RelationshipEntityConversion(), new ParquetUtil.RelationshipLoadConversion());
+    POINT(new PointType(), new PointValueConversion(), new PointValueConversion()),
+    DURATION(new DurationType(), new DurationValueConversion(), new DurationValueConversion()),
+    NODE(new NodeType(), new NodeEntityConversion(), new NodeLoadConversion()),
+    RELATIONSHIP(new RelationshipType(), new RelationshipEntityConversion(), new RelationshipLoadConversion());
 
     private final LogicalType type;
-    private final Conversion conversion;
-    private final Conversion loadConversion;
+    private final Conversion writeConversion;
+    private final Conversion readConversion;
 
-    ParquetTypes(LogicalType type, Conversion conversion,Conversion loadConversion) {
+    ParquetTypes(LogicalType type, Conversion conversion,Conversion readConversion) {
         this.type = type;
-        this.conversion = conversion;
-        this.loadConversion = loadConversion;
+        this.writeConversion = conversion;
+        this.readConversion = readConversion;
     }
 
     public LogicalType getType() {
         return type;
     }
 
-    public Conversion getConversion() {
-        return conversion;
+    public Conversion getWriteConversion() {
+        return writeConversion;
     }
 
-    public Conversion getLoadConversion() {
-        return loadConversion;
+    public Conversion getReadConversion() {
+        return readConversion;
     }
 }

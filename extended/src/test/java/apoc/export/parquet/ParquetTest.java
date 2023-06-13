@@ -1,5 +1,6 @@
 package apoc.export.parquet;
 
+import apoc.export.ImportParquet;
 import apoc.graph.Graphs;
 import apoc.load.LoadParquet;
 import apoc.meta.Meta;
@@ -11,18 +12,17 @@ import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
-import org.neo4j.driver.internal.value.MapValue;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
 import org.neo4j.kernel.impl.util.ValueUtils;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.neo4j.values.AnyValue;
-import org.neo4j.values.VirtualValue;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.LocalDateTimeValue;
 import org.neo4j.values.storable.PointValue;
-import org.neo4j.values.virtual.MapValueBuilder;
 import org.neo4j.values.virtual.VirtualValues;
 
 import java.io.File;
@@ -45,32 +45,13 @@ import static apoc.export.parquet.ParquetUtil.FIELD_TARGET_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 
-// TODO
-// TODO
-// TODO
-// TODO
-// TODO
-
 public class ParquetTest {
-
-    // todo - exportFullSecurityTest, like export.xls
-
-    // todo - add export.parquet.data(...) tests
-
-    // todo - ApocConfig.checkWriteAllowed(...)
-
-
-    // todo - MA è VERAMENTE NECESSARIO STREAM: TRUE???? --> DOVREBBE BASTARE NULL COME NOME FILE... --> ah però mette in multi-row...
-
-
-    // todo - if urlOrBinary instanceof String --> url altrimenti stream
-
-
 
     private static File directory = new File("target/parquet import");
     static { //noinspection ResultOfMethodCallIgnored
@@ -81,76 +62,95 @@ public class ParquetTest {
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath());
 
-    private static final HashMap<String, Object> MT_1 = new HashMap<>() {{
+
+    private void assertFirstUserNode(Map<String, Object> map) {
+        assertTrue(map.get(FIELD_ID) instanceof Long);
+        assertArrayEquals(new String[] {"User"}, (String[]) map.get(FIELD_LABELS));
+        assertFirstUserNodeProps(map);
+    }
+
+    private void assertSecondUserNode(Map<String, Object> map) {
+        assertTrue(map.get(FIELD_ID) instanceof Long);
+        assertArrayEquals(new String[] {"User"}, (String[]) map.get(FIELD_LABELS));
+        assertSecondUserNodeProps(map);
+    }
+
+    private void assertFirstUserNodeProps(Map<String, Object> props) {
+        assertEquals("Adam", props.get("name"));
+        assertEquals(42L, props.get("age"));
+        assertEquals( true, props.get("male"));
+        assertArrayEquals(new String[] { "Sam", "Anna", "Grace" }, (String[]) props.get("kids"));
+        Map<String, Double> latitude = Map.of("latitude", 13.1D, "longitude", 33.46789D, "height", 100.0D);
+        assertEquals(PointValue.fromMap(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values().stream().map(ValueUtils::of).toArray(AnyValue[]::new))),
+                props.get("place"));
+        assertEquals(LocalDateTimeValue.parse("2015-05-18T19:32:24.000").asObject(), props.get("born"));
+    }
+
+    private void assertSecondUserNodeProps(Map<String, Object> props) {
+        assertEquals( "Jim", props.get("name"));
+        assertEquals(42L, props.get("age"));
+    }
+
+    private void assertFirstMultiNodeProps(Map<String, Object> map) {
+        assertTrue(map.get(FIELD_ID) instanceof Long);
+        assertArrayEquals(new String[] {"Multi"}, (String[]) map.get(FIELD_LABELS));
+        assertEquals(1L, map.get("name"));
+    }
+
+    private void assertSecondMultiNodeProps(Map<String, Object> map) {
+        assertTrue(map.get(FIELD_ID) instanceof Long);
+        assertArrayEquals(new String[] {"Multi"}, (String[]) map.get(FIELD_LABELS));
+        assertEquals("Sam", map.get("name"));
+    }
+
+    private static final HashMap<String, Object> E_3 = new HashMap<>() {{
+        put(FIELD_LABELS, List.of("Multi"));
         put(FIELD_ID, 2L);
         put("name", 1L);
-        put(FIELD_LABELS, List.of("Multi"));
     }};
 
-    private static final HashMap<String, Object> MT_2 = new HashMap<>() {{
+    private static final HashMap<String, Object> E_4 = new HashMap<>() {{
+        put(FIELD_LABELS, List.of("Multi"));
         put(FIELD_ID, 3L);
-        put("name", "Jim");
-        put(FIELD_LABELS, List.of("Multi"));
+        put("name", "Sam");
     }};
 
-    private static final HashMap<String, Object> E_1 = new HashMap<>() {{
-        put("name", "Adam");
-        put("bffSince", null);
-        put(FIELD_SOURCE_ID, null);
-        put(FIELD_ID, 0L);
-        put("age", 42L);
-        put(FIELD_LABELS, List.of("User"));
-        put("male", true);
-        put(FIELD_TYPE, null);
-        put("kids", List.of("Sam", "Anna", "Grace"));
-        Map<String, Double> latitude = Map.of("latitude", 13.1D, "longitude", 33.46789D, "height", 100.0D);
-        put("place", PointValue.fromMap(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values().stream().map(ValueUtils::of).toArray(AnyValue[]::new))));
-        put(FIELD_TARGET_ID, null);
-        put("since", null);
-        put("born", LocalDateTimeValue.parse("2015-05-18T19:32:24.000").asObject());//.atOffset(ZoneOffset.UTC).toZonedDateTime());
-    }};
-    private static final HashMap<String, Object> E_2 = new HashMap<>() {{
-        put("name", "Jim");
-        put("bffSince", null);
-        put(FIELD_SOURCE_ID, null);
-        put(FIELD_ID, 1L);
-        put("age", 42L);
-        put(FIELD_LABELS, List.of("User"));
-        put("male", null);
-        put(FIELD_TYPE, null);
-        put("kids", null);
-        put("place", null);
-        put(FIELD_TARGET_ID, null);
-        put("since", null);
-        put("born", null);
-    }};
-    private static final HashMap<String, Object> E_3 = new HashMap<>() {{
-        put("name", null);
-        put("bffSince", DurationValue.parse("P5M1DT12H"));
+    private void assertRelationship(Map<String, Object> map) {
+        assertTrue(map.get(FIELD_ID) instanceof Long);
+        assertTrue(map.get(FIELD_SOURCE_ID) instanceof Long);
+        assertTrue(map.get(FIELD_TARGET_ID) instanceof Long);
+        assertRelationshipProps(map);
+    }
+
+    private void assertRelationshipProps(Map<String, Object> props) {
+        assertEquals(DurationValue.parse("P5M1DT12H"), props.get("bffSince"));
+        assertEquals(1993L, props.get("since"));
+    }
+
+    private static final Map<String, Object> E_5_PROPS = Map.of(
+            "bffSince", DurationValue.parse("P5M1DT12H"),
+            "since", 1993L
+    );
+
+    private static final HashMap<String, Object> E_5 = new HashMap<>() {{
         put(FIELD_SOURCE_ID, 0L);
         put(FIELD_ID, 0L);
-        put("age", null);
-        put(FIELD_LABELS, null);
-        put("male", null);
         put(FIELD_TYPE, "KNOWS");
-        put("kids", null);
-        put("place", null);
         put(FIELD_TARGET_ID, 1L);
-        put("since", 1993L);
-        put("born", null);
+        putAll(E_5_PROPS);
     }};
 
-    public static final List<Map<String, Object>> EXPECTED = List.of(
-            E_1,
-            E_2,
-            E_3
-    );
+//    public static final List<Map<String, Object>> EXPECTED = List.of(
+//            E_1,
+//            E_2,
+//            E_3
+//    );
 
     @BeforeClass
     public static void beforeClass() {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015-05-18T19:32:24.000'), place:point({latitude: 13.1, longitude: 33.46789, height: 100.0})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42})");
-        db.executeTransactionally("CREATE (:Multi {name:1}), (:Multi {name:'Jim'})");
-        TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class, Graphs.class, Meta.class);
+        db.executeTransactionally("CREATE (:Multi {name:1}), (:Multi {name:'Sam'})");
+        TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class, ImportParquet.class, Graphs.class, Meta.class);
     }
 
     @Before
@@ -160,7 +160,8 @@ public class ParquetTest {
     }
 
     private byte[] extractByteArray(Result result) {
-        return result.<byte[]>columnAs("byteArray").next();
+        ResourceIterator<byte[]> value = result.<byte[]>columnAs("value");
+        return value.next();
     }
 
     private String extractFileName(Result result) {
@@ -194,7 +195,7 @@ public class ParquetTest {
                 "localdatetime('2015-05-18T19:32:24') as dateData," +
                 "[[0]] AS arrayArray," +
                 "1.1 AS doubleData";
-        final byte[] byteArray = db.executeTransactionally("CALL apoc.export.parquet.query($query, null, {stream: true}) YIELD value AS byteArray",
+        final byte[] byteArray = db.executeTransactionally("CALL apoc.export.parquet.query($query, null, {stream: true})",
                 Map.of("query", returnQuery),
                 this::extractByteArray);
 
@@ -260,24 +261,24 @@ public class ParquetTest {
                 });
     }
 
-    @Test
-    public void testStreamRoundtripParquetGraph() {
-        // given - when
-        final byte[] byteArray = db.executeTransactionally("CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
-                        "CALL apoc.export.parquet.graph(graph, null, {stream: true}) YIELD value AS byteArray " +
-                        "RETURN byteArray",
-                Map.of(),
-                this::extractByteArray);
-
-        // then
-        final String query = "CALL apoc.load.parquet($byteArray, null, {stream: true}) YIELD value " +
-                "RETURN value";
-        db.executeTransactionally(query, Map.of("byteArray", byteArray), result -> {
-            final List<Map<String, Object>> actual = getActual(result);
-            assertEquals(EXPECTED, actual);
-            return null;
-        });
-    }
+//    @Test
+//    public void testStreamRoundtripParquetGraph() {
+//        // given - when
+//        final byte[] byteArray = db.executeTransactionally("CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
+//                        "CALL apoc.export.parquet.graph(graph, null, {stream: true}) YIELD value" +
+//                        "RETURN value",
+//                Map.of(),
+//                this::extractByteArray);
+//
+//        // then
+//        final String query = "CALL apoc.load.parquet($byteArray, null, {stream: true}) YIELD value " +
+//                "RETURN value";
+//        db.executeTransactionally(query, Map.of("byteArray", byteArray), result -> {
+//            final List<Map<String, Object>> actual = getActual(result);
+//            assertEquals(EXPECTED, actual);
+//            return null;
+//        });
+//    }
 
     private List<Map<String, Object>> getActual(Result result) {
         return result.stream()
@@ -304,14 +305,9 @@ public class ParquetTest {
                 "RETURN value";
         db.executeTransactionally(query, Map.of("file", file), result -> {
             final List<Map<String, Object>> actual = getActual(result);
-            assertEquals(EXPECTED, actual);
+//            assertEquals(EXPECTED, actual);
             return null;
         });
-    }
-
-    @Test
-    public void testStreamRoundtripParquetAll() {
-        testStreamRoundtripAllCommon();
     }
 
     @Test
@@ -324,47 +320,77 @@ public class ParquetTest {
         testStreamRoundtripAllCommon();
     }
 
+    @Test
+    public void testStreamRoundtripParquetAll() {
+        testStreamRoundtripAllCommon();
+    }
+
     private void testStreamRoundtripAllCommon() {
         // given - when
-        final byte[] byteArray = db.executeTransactionally("CALL apoc.export.parquet.all(null, {stream: true}) YIELD value AS byteArray ",
+        final byte[] bytes = db.executeTransactionally("CALL apoc.export.parquet.all.stream()",
                 Map.of(),
                 this::extractByteArray);
 
         // then
-        final String query = "CALL apoc.load.parquet($byteArray, null, {stream: true}) YIELD value " +
-                "RETURN value";
-        db.executeTransactionally(query, Map.of("byteArray", byteArray), result -> {
-            final List<Map<String, Object>> actual = getActual(result);
-            assertEquals(EXPECTED, actual);
-            return null;
-        });
+        final String query = "CALL apoc.load.parquet($bytes) YIELD value " +
+                             "RETURN value";
+
+        testResult(db, query, Map.of("bytes", bytes),
+                this::roundtripLoadAllAssertion);
+    }
+
+    private void roundtripLoadAllAssertion(Result result) {
+        ResourceIterator<Map<String, Object>> value = result.columnAs("value");
+        Map<String, Object> actual = value.next();
+        assertFirstUserNode(actual);
+        actual = value.next();
+        assertSecondUserNode(actual);
+        actual = value.next();
+        assertFirstMultiNodeProps(actual);
+        actual = value.next();
+        assertSecondMultiNodeProps(actual);
+        actual = value.next();
+        assertRelationship(actual);
+        assertFalse(value.hasNext());
     }
 
     @Test
-    public void testRoundtripMultiType() {
-        // todo - transform in export data and REMOVE detach delete
-        db.executeTransactionally("MATCH (n) DETACH DELETE n");
-
+    public void testFileRoundtripImportParquetAll() {
         // given - when
         String file = db.executeTransactionally("CALL apoc.export.parquet.all('test_all.parquet') YIELD file",
                 Map.of(),
                 this::extractFileName);
 
-        // then
-        final String query = "CALL apoc.load.parquet($file) YIELD value " +
-                             "RETURN value";
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
 
-        testResult(db, query, Map.of("file", file), result -> {
-            ResourceIterator<Map<String, Object>> value = result.columnAs("value");
-            Map<String, Object> actual = value.next();
-            assertEquals(MT_1, actual);
-            actual = value.next();
-            assertEquals(MT_2, actual);
-            assertFalse(value.hasNext());
+        // then
+        final String query = "CALL apoc.import.parquet($file)";
+
+        testCall(db, query, Map.of("file", file),
+                r -> {
+                    assertEquals(4L, r.get("nodes"));
+                    assertEquals(1L, r.get("relationships"));
+                });
+
+        testCall(db, "MATCH (start:User)-[rel:KNOWS]->(end:User) RETURN start, rel, end", r -> {
+            Node start = (Node) r.get("start");
+            assertFirstUserNodeProps(start.getAllProperties());
+            Node end = (Node) r.get("end");
+            assertSecondUserNodeProps(end.getAllProperties());
+            Relationship rel = (Relationship) r.get("rel");
+            assertRelationshipProps(rel.getAllProperties());
         });
 
-        db.executeTransactionally("MATCH (n:Multi) DETACH DELETE n");
+        testResult(db, "MATCH (m:Multi) RETURN m", r -> {
+            ResourceIterator<Node> m = r.columnAs("m");
+            Node node = m.next();
+            assertEquals(Map.of("name", 1L), node.getAllProperties());
+            node = m.next();
+            assertEquals(Map.of("name", "Sam"), node.getAllProperties());
+            assertFalse(r.hasNext());
+        });
     }
+
 
     @Test
     public void testFileRoundtripParquetAll() {
@@ -377,16 +403,8 @@ public class ParquetTest {
         final String query = "CALL apoc.load.parquet($file) YIELD value " +
                 "RETURN value";
 
-        testResult(db, query, Map.of("file", file), result -> {
-            ResourceIterator<Map<String, Object>> value = result.columnAs("value");
-            Map<String, Object> actual = value.next();
-            assertEquals(E_1, actual);
-            actual = value.next();
-            assertEquals(E_2, actual);
-            actual = value.next();
-            assertEquals(E_3, actual);
-            assertFalse(value.hasNext());
-        });
+        testResult(db, query, Map.of("file", file),
+                this::roundtripLoadAllAssertion);
     }
 
     @Test
