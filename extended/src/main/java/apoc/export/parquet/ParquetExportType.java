@@ -2,10 +2,9 @@ package apoc.export.parquet;
 
 import apoc.meta.Types;
 import apoc.util.collection.Iterables;
-import org.apache.avro.LogicalType;
-import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
+import org.apache.parquet.hadoop.ParquetWriter;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
@@ -13,18 +12,19 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.ResultTransformer;
 
+import java.io.IOException;
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static apoc.export.parquet.ExportParquetResultFileStrategy.mapToRecord;
 import static apoc.export.parquet.ParquetUtil.*;
-import static org.apache.avro.SchemaBuilder.*;
 
 //
 //
@@ -57,6 +57,7 @@ public interface ParquetExportType<T> {
     }
 
     Schema schemaFor(GraphDatabaseService db, ParquetConfig config, T data);
+    void writeFirstBatch(ParquetWriter writer, Schema schema);
 
     class GraphType implements ParquetExportType<SubGraph> {
 
@@ -130,6 +131,9 @@ public interface ParquetExportType<T> {
             return schema;
         }
 
+        @Override
+        public void writeFirstBatch(ParquetWriter writer, Schema schema) {}
+
         // todo - util?
         static Map<String, Object> createConfigMap(SubGraph subGraph, ParquetConfig config) {
             final List<String> allLabelsInUse = Iterables.stream(subGraph.getAllLabelsInUse())
@@ -150,7 +154,7 @@ public interface ParquetExportType<T> {
 
     class ResultType implements ParquetExportType<Result> {
 
-        private Map<String, Object> firstElement;
+        private final List<Map<String, Object>> firstBatch = new ArrayList<>();
 
         @Override
         public Schema schemaFor(GraphDatabaseService db, ParquetConfig config, Result data) {
@@ -160,9 +164,16 @@ public interface ParquetExportType<T> {
                     .namespace("org.apache.avro.ipc")
                     .fields();
 
+            int batchSize = config.getBatchSize();
+            int batchCount = 0;
+            while (batchCount < batchSize && data.hasNext()) {
+                firstBatch.add(data.next());
+                ++batchCount;
+            }
+
             // todo - first batch
-            this.firstElement = data.next();
-            schemaForResult(test, List.of(firstElement));
+//            this.firstElement = data.next();
+            schemaForResult(test, firstBatch);
 
             return test
                     .endRecord();
@@ -180,10 +191,10 @@ public interface ParquetExportType<T> {
 //                    .collect(Collectors.toList());
 //            return new Schema(fields);
         }
-
-        public Map<String, Object> getFirstElement() {
-            return firstElement;
-        }
+//
+//        public Map<String, Object> getFirstBatch() {
+//            return firstBatch;
+//        }
 
         public static String fromMetaType(apoc.meta.Types type) {
             switch (type) {
@@ -225,6 +236,19 @@ public interface ParquetExportType<T> {
                 default:
                     return type.name()/*.replaceAll("_", "")*/.toUpperCase();
             }
+        }
+
+        @Override
+        public void writeFirstBatch(ParquetWriter writer, Schema schema) {
+            firstBatch.stream().map(item -> mapToRecord(item, schema)).forEach(i -> {
+                try {
+                    writer.write(i);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+//            Map<String, Object> firstElement = ((ParquetExportType.ResultType) exportType).getFirstElement();
+//            writer.write(mapToRecord(firstElement, schema));
         }
     }
 

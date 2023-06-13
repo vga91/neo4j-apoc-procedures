@@ -1,19 +1,8 @@
 package apoc.load;
 
 import apoc.export.parquet.ParquetUtil;
-import apoc.export.util.CountingReader;
-import apoc.load.util.LoadCsvConfig;
-import apoc.load.util.Results;
 import apoc.result.MapResult;
-import apoc.util.ExtendedUtil;
-import apoc.util.FileUtils;
-import apoc.util.JsonUtil;
 import apoc.util.Util;
-import com.opencsv.CSVParserBuilder;
-import com.opencsv.CSVReader;
-import com.opencsv.CSVReaderBuilder;
-import com.opencsv.exceptions.CsvValidationException;
-import org.apache.avro.Conversions;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
@@ -23,7 +12,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.hadoop.ParquetReader;
-import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -32,17 +20,9 @@ import org.neo4j.procedure.Procedure;
 import org.neo4j.values.storable.Values;
 import org.w3c.dom.Text;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.channels.SeekableByteChannel;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Spliterator;
 import java.util.Spliterators;
@@ -53,12 +33,13 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static apoc.export.parquet.ExportParquetFileStrategy.genericData;
+import static apoc.export.parquet.ExportParquetFileStrategy.genericDataLoad;
 import static apoc.export.parquet.ParquetUtil.DurationType.DURATION_VALUE;
 import static apoc.export.parquet.ParquetUtil.NodeType.NEO4J_NODE;
 import static apoc.export.parquet.ParquetUtil.PointType.POINT_VALUE;
-import static apoc.util.ExtendedFileUtils.closeReaderSafely;
-import static apoc.util.Util.cleanUrl;
-import static java.util.Collections.emptyList;
+import static apoc.export.parquet.ParquetUtil.RelationshipType.NEO4J_REL;
+import static apoc.export.parquet.ParquetUtil.TYPE_SEP;
+import static org.neo4j.values.storable.NoValue.NO_VALUE;
 
 public class LoadParquet {
 
@@ -88,23 +69,12 @@ public class LoadParquet {
             // we test if is a valid Neo4j type
             return Values.of(object);
         } catch (Exception e) {
-            // otherwise we try coerce it
+            // otherwise we try to coerce it
             return object.toString();
         }
     }
 
-
-//    private static Object toValidValue(Object value) {
-//        try {
-//            return Values.of(value);
-//        } catch (Exception e) {
-//            return value.toString();
-//        }
-//    }
-
     private static Map<String, Object> mapFromRecord(GenericRecord record) {
-//    private static Map<String, Object> mapFromRecord(GenericData.Record record) {
-        // todo --> there is a method ad-hoc?? Conversions.convertToRawType()
         return record.getSchema()
                 .getFields()
                 .stream()
@@ -113,21 +83,19 @@ public class LoadParquet {
                             String name = field.name();
 
                             Object value = toValidValue(record.get(name));
-                            mapAccumulator.put(name, value);
+                            if (value != null && !NO_VALUE.equals(value)) {
+                                mapAccumulator.put(name.split(TYPE_SEP)[0], value);
+                            }
                         },
                         HashMap::putAll);
-
-//        return record.getSchema().getFields().stream()
-//                .collect(Collectors.toMap(Schema.Field::name, k -> record.get(k.name())));
     }
 
     private static class ParquetSpliterator extends Spliterators.AbstractSpliterator<MapResult> {
 
         private final ParquetReader<GenericRecord> reader;
-//        private final VectorSchemaRoot schemaRoot;
         private final AtomicInteger counter;
 
-        public ParquetSpliterator(ParquetReader reader/*, VectorSchemaRoot schemaRoot*/) throws IOException {
+        public ParquetSpliterator(ParquetReader reader){
             super(Long.MAX_VALUE, Spliterator.ORDERED);
             this.reader = reader;
 //            this.schemaRoot = schemaRoot;
@@ -200,10 +168,17 @@ public class LoadParquet {
 
         ParquetReader<GenericData.Record> reader = AvroParquetReader
                 .<GenericData.Record>builder(new Path(fileName))
-                .withDataModel(genericData)
+                .withDataModel(genericDataLoad)
                 .withConf(new Configuration())
                 .build();
 
+        registerCustomTypes();
+
+        return StreamSupport.stream(new ParquetSpliterator(reader), false)
+                .onClose(() -> Util.close(reader));
+    }
+
+    public static void registerCustomTypes() {
         LogicalTypes.LogicalTypeFactory factory = new LogicalTypes.LogicalTypeFactory() {
             private final LogicalType convertLongLogicalType = new ParquetUtil.NodeType();
 
@@ -222,8 +197,21 @@ public class LoadParquet {
             }
         };
 
+
+//        TODO --> FARE UN CUSTOMCONVERSION DI NODO SOLO PER IL LOAD --> DA STRINGA A VIRTUALNODE....
+
+
         LogicalTypes.LogicalTypeFactory factory3 = new LogicalTypes.LogicalTypeFactory() {
             private final LogicalType convertLongLogicalType = new ParquetUtil.PointType();
+
+            @Override
+            public LogicalType fromSchema(Schema schema) {
+                return convertLongLogicalType;
+            }
+        };
+
+        LogicalTypes.LogicalTypeFactory factory4 = new LogicalTypes.LogicalTypeFactory() {
+            private final LogicalType convertLongLogicalType = new ParquetUtil.RelationshipType();
 
             @Override
             public LogicalType fromSchema(Schema schema) {
@@ -235,55 +223,7 @@ public class LoadParquet {
         LogicalTypes.register(NEO4J_NODE, factory);
         LogicalTypes.register(DURATION_VALUE, factory2);
         LogicalTypes.register(POINT_VALUE, factory3);
-
-         return StreamSupport.stream(new ParquetSpliterator(reader), false)
-                .onClose(() -> {
-                    Util.close(reader);
-//                    Util.close(streamReader);
-//                    Util.close(schemaRoot);
-//                    Util.close(channel);
-                });
-    }
-
-//    private static Object read(FieldVector fieldVector, int index) {
-//        if (fieldVector.isNull(index)) {
-//            return null;
-//        } else if (fieldVector instanceof DateMilliVector) {
-//            DateMilliVector fe = (DateMilliVector) fieldVector;
-//            return Instant.ofEpochMilli(fe.get(index)).atOffset(ZoneOffset.UTC);
-//        } else if (fieldVector instanceof BitVector) {
-//            BitVector fe = (BitVector) fieldVector;
-//            return fe.get(index) == 1;
-//        } else {
-//            Object object = fieldVector.getObject(index);
-//            return getObject(object);
-//        }
-//    }
-//
-//    private static Object getObject(Object object) {
-//        if (object instanceof Collection) {
-//            return ((Collection<?>) object).stream()
-//                    .map(LoadArrow::getObject)
-//                    .collect(Collectors.toList());
-//        }
-//        if (object instanceof Map) {
-//            return ((Map<String, Object>) object).entrySet().stream()
-//                    .collect(Collectors.toMap(Map.Entry::getKey, e -> getObject(e.getValue())));
-//        }
-//        if (object instanceof Text) {
-//            return object.toString();
-//        }
-//        try {
-//            // we test if is a valid Neo4j type
-//            return Values.of(object);
-//        } catch (Exception e) {
-//            // otherwise we try coerce it
-//            return valueToString(object);
-//        }
-//    }
-
-    private static String valueToString(Object value) {
-        return JsonUtil.writeValueAsString(value);
+        LogicalTypes.register(NEO4J_REL, factory4);
     }
 
 

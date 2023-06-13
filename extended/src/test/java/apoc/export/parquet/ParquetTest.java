@@ -47,6 +47,7 @@ import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 
 // TODO
@@ -80,11 +81,22 @@ public class ParquetTest {
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath());
 
+    private static final HashMap<String, Object> MT_1 = new HashMap<>() {{
+        put(FIELD_ID, 2L);
+        put("name", 1L);
+        put(FIELD_LABELS, List.of("Multi"));
+    }};
+
+    private static final HashMap<String, Object> MT_2 = new HashMap<>() {{
+        put(FIELD_ID, 3L);
+        put("name", "Jim");
+        put(FIELD_LABELS, List.of("Multi"));
+    }};
+
     private static final HashMap<String, Object> E_1 = new HashMap<>() {{
         put("name", "Adam");
         put("bffSince", null);
         put(FIELD_SOURCE_ID, null);
-//                put(FIELD_LABELS, List.of());
         put(FIELD_ID, 0L);
         put("age", 42L);
         put(FIELD_LABELS, List.of("User"));
@@ -93,7 +105,6 @@ public class ParquetTest {
         put("kids", List.of("Sam", "Anna", "Grace"));
         Map<String, Double> latitude = Map.of("latitude", 13.1D, "longitude", 33.46789D, "height", 100.0D);
         put("place", PointValue.fromMap(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values().stream().map(ValueUtils::of).toArray(AnyValue[]::new))));
-//                put("place", PointValue.parseHeaderInformation(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values()));
         put(FIELD_TARGET_ID, null);
         put("since", null);
         put("born", LocalDateTimeValue.parse("2015-05-18T19:32:24.000").asObject());//.atOffset(ZoneOffset.UTC).toZonedDateTime());
@@ -138,6 +149,7 @@ public class ParquetTest {
     @BeforeClass
     public static void beforeClass() {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015-05-18T19:32:24.000'), place:point({latitude: 13.1, longitude: 33.46789, height: 100.0})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42})");
+        db.executeTransactionally("CREATE (:Multi {name:1}), (:Multi {name:'Jim'})");
         TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class, Graphs.class, Meta.class);
     }
 
@@ -169,7 +181,7 @@ public class ParquetTest {
 
 
     @Test
-    public void testStreamRoundtripArrowQuery() {
+    public void testStreamRoundtripParquetQuery() {
         // given - when
         final String returnQuery = "RETURN 1 AS intData," +
                 "'a' AS stringData," +
@@ -208,7 +220,7 @@ public class ParquetTest {
     }
 
     @Test
-    public void testFileRoundtripArrowQuery() {
+    public void testFileRoundtripParquetQuery() {
         // given - when
         final String returnQuery = "RETURN 1 AS intData," +
                 "'a' AS stringData," +
@@ -249,7 +261,7 @@ public class ParquetTest {
     }
 
     @Test
-    public void testStreamRoundtripArrowGraph() {
+    public void testStreamRoundtripParquetGraph() {
         // given - when
         final byte[] byteArray = db.executeTransactionally("CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
                         "CALL apoc.export.parquet.graph(graph, null, {stream: true}) YIELD value AS byteArray " +
@@ -279,7 +291,7 @@ public class ParquetTest {
     }
 
     @Test
-    public void testFileRoundtripArrowGraph() {
+    public void testFileRoundtripParquetGraph() {
         // given - when
         String file = db.executeTransactionally("CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
                         "CALL apoc.export.parquet.graph('graph_test.parquet', graph) YIELD file " +
@@ -298,12 +310,12 @@ public class ParquetTest {
     }
 
     @Test
-    public void testStreamRoundtripArrowAll() {
+    public void testStreamRoundtripParquetAll() {
         testStreamRoundtripAllCommon();
     }
 
     @Test
-    public void testStreamRoundtripArrowAllWithImportExportConfsDisabled() {
+    public void testStreamRoundtripParquetAllWithImportExportConfsDisabled() {
         // disable both export and import configs
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, false);
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, false);
@@ -333,8 +345,6 @@ public class ParquetTest {
         // todo - transform in export data and REMOVE detach delete
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
 
-        db.executeTransactionally("CREATE (:Multi {name:1}), (:Multi {name:'Jim'})");
-
         // given - when
         String file = db.executeTransactionally("CALL apoc.export.parquet.all('test_all.parquet') YIELD file",
                 Map.of(),
@@ -347,11 +357,9 @@ public class ParquetTest {
         testResult(db, query, Map.of("file", file), result -> {
             ResourceIterator<Map<String, Object>> value = result.columnAs("value");
             Map<String, Object> actual = value.next();
-            assertEquals(E_1, actual);
+            assertEquals(MT_1, actual);
             actual = value.next();
-            assertEquals(E_2, actual);
-            actual = value.next();
-            assertEquals(E_3, actual);
+            assertEquals(MT_2, actual);
             assertFalse(value.hasNext());
         });
 
@@ -359,7 +367,7 @@ public class ParquetTest {
     }
 
     @Test
-    public void testFileRoundtripArrowAll() {
+    public void testFileRoundtripParquetAll() {
         // given - when
         String file = db.executeTransactionally("CALL apoc.export.parquet.all('test_all.parquet') YIELD file",
                 Map.of(),
@@ -382,11 +390,11 @@ public class ParquetTest {
     }
 
     @Test
-    public void testStreamVolumeArrowAll() {
+    public void testStreamVolumeParquetAll() {
         // given - when
-        db.executeTransactionally("UNWIND range(0, 10000 - 1) AS id CREATE (n:ArrowNode{id:id})");
+        db.executeTransactionally("UNWIND range(0, 10000 - 1) AS id CREATE (n:ParquetNode{id:id})");
 
-        final List<byte[]> list = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ArrowNode) RETURN n.id AS id', null, {stream: true}) YIELD value AS byteArray ",
+        final List<byte[]> list = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode) RETURN n.id AS id', null, {stream: true}) YIELD value AS byteArray ",
                 Map.of(),
                 result -> result.<byte[]>columnAs("byteArray").stream().collect(Collectors.toList()));
 
@@ -407,15 +415,72 @@ public class ParquetTest {
             return null;
         });
 
-        db.executeTransactionally("MATCH (n:ArrowNode) DELETE n");
+        db.executeTransactionally("MATCH (n:ParquetNode) DELETE n");
     }
 
     @Test
-    public void testFileVolumeArrowAll() {
-        // given - when
-        db.executeTransactionally("UNWIND range(0, 10000 - 1) AS id CREATE (:ArrowNode{id:id})");
+    public void testReturnNodeAndRel() {
+        db.executeTransactionally("CREATE (:ParquetNode{idStart:1})-[:REL {idRel: 'one'}]->(:Other {idOther: datetime('2020')})");
+        db.executeTransactionally("CREATE (:ParquetNode{idStart:2})-[:REL {idRel: 'two'}]->(:Other {idOther: datetime('1999')})");
 
-        String file = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ArrowNode) RETURN n.id AS id', 'volume_test.parquet') YIELD file ",
+        String file = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode)-[r:REL]->(o:Other) RETURN n,r,o ORDER BY n.idStart', 'volume_test.parquet') YIELD file ",
+                Map.of(),
+                this::extractFileName);
+
+        // then
+        final String query = "CALL apoc.load.parquet($file)";
+
+        testResult(db, query, Map.of("file", file),
+                res -> {
+                    ResourceIterator<Map<String, Object>> value = res.columnAs("value");
+                    Map<String, Object> row = value.next();
+                    Map<String, Object> relTwo = (Map<String, Object>) row.get("r");
+                    assertEquals("one", relTwo.get("idRel"));
+                    assertEquals("REL", relTwo.get(FIELD_TYPE));
+                    assertTrue(relTwo.get(FIELD_ID) instanceof Long);
+                    assertTrue(relTwo.get(FIELD_SOURCE_ID) instanceof Long);
+                    assertTrue(relTwo.get(FIELD_TARGET_ID) instanceof Long);
+
+                    Map<String, Object> startTwo = (Map<String, Object>) row.get("n");
+                    assertTrue(startTwo.get(FIELD_ID) instanceof Long);
+                    assertEquals(1L, startTwo.get("idStart"));
+                    assertEquals(List.of("ParquetNode"), startTwo.get(FIELD_LABELS));
+
+                    Map<String, Object> endTwo = (Map<String, Object>) row.get("o");
+                    assertTrue(endTwo.get(FIELD_ID) instanceof Long);
+                    assertEquals("2020-01-01T00:00Z", endTwo.get("idOther"));
+                    assertEquals(List.of("Other"), endTwo.get(FIELD_LABELS));
+
+                    row = value.next();
+                    Map<String, Object> rel = (Map<String, Object>) row.get("r");
+                    assertEquals("two", rel.get("idRel"));
+                    assertEquals("REL", rel.get(FIELD_TYPE));
+                    assertTrue(rel.get(FIELD_ID) instanceof Long);
+                    assertTrue(rel.get(FIELD_SOURCE_ID) instanceof Long);
+                    assertTrue(rel.get(FIELD_TARGET_ID) instanceof Long);
+
+                    Map<String, Object> start = (Map<String, Object>) row.get("n");
+                    assertTrue(start.get(FIELD_ID) instanceof Long);
+                    assertEquals(2L, start.get("idStart"));
+                    assertEquals(List.of("ParquetNode"), start.get(FIELD_LABELS));
+
+                    Map<String, Object> end = (Map<String, Object>) row.get("o");
+                    assertTrue(end.get(FIELD_ID) instanceof Long);
+                    assertEquals("1999-01-01T00:00Z", end.get("idOther"));
+                    assertEquals(List.of("Other"), end.get(FIELD_LABELS));
+
+                    assertFalse(res.hasNext());
+                });
+
+        db.executeTransactionally("MATCH (n:ParquetNode), (o:Other) DETACH DELETE n, o");
+    }
+
+    @Test
+    public void testFileVolumeParquetAll() {
+        // given - when
+        db.executeTransactionally("UNWIND range(0, 10000 - 1) AS id CREATE (:ParquetNode{id:id})");
+
+        String file = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode) RETURN n.id AS id', 'volume_test.parquet') YIELD file ",
                 Map.of(),
                 this::extractFileName);
 
@@ -430,7 +495,7 @@ public class ParquetTest {
         testCall(db, query, Map.of("file", file),
                 r -> assertEquals(expected, r.get("ids")));
 
-        db.executeTransactionally("MATCH (n:ArrowNode) DELETE n");
+        db.executeTransactionally("MATCH (n:ParquetNode) DELETE n");
     }
 
     @Test
