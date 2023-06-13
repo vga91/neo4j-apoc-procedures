@@ -29,9 +29,9 @@ import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
 import static apoc.export.parquet.ParquetUtil.getFieldName;
 
 
-public class ExportParquetResultFileStrategy extends ExportParquetFileStrategy<Result> /*implements ExportParquetResultStrategy*/ {
-    public ExportParquetResultFileStrategy(String fileName, GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger) {
-        super(fileName, db, pools, terminationGuard, logger);
+public class ExportParquetResultFileStrategy extends ExportParquetFileStrategy<Map<String,Object>, Result> {
+    public ExportParquetResultFileStrategy(String fileName, GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger, ParquetExportType exportType) {
+        super(fileName, db, pools, terminationGuard, logger, exportType);
     }
 
     @Override
@@ -39,12 +39,11 @@ public class ExportParquetResultFileStrategy extends ExportParquetFileStrategy<R
         return null;
     }
 
-//    public Iterator<Map<String, Object>> toIterator(ProgressReporter reporter, Result data) {
     @Override
-    public Iterator<GenericRecord> toIterator(ProgressReporter reporter, Result data, Schema schema) {
+    public Iterator<Map<String, Object>> toIterator(ProgressReporter reporter, Result data, Schema schema) {
 
         return data.stream()
-                .map(row -> {
+                .peek(row -> {
                     row.forEach((key, val) -> {
                         final boolean notNodeNorRelationship = !(val instanceof Node) && !(val instanceof Relationship);
                         reporter.update(val instanceof Node ? 1 : 0,
@@ -54,7 +53,6 @@ public class ExportParquetResultFileStrategy extends ExportParquetFileStrategy<R
                             reporter.nextRow();
                         }
                     });
-                    return mapToRecord(row, schema);
                 })
                 .iterator();
 //        return data.stream()
@@ -74,42 +72,42 @@ public class ExportParquetResultFileStrategy extends ExportParquetFileStrategy<R
     }
 
     // todo - util..
-    public static GenericRecord mapToRecord(Map<String, Object> map, Schema schema) {
-        // todo - change getId() with getElementId
-
-        GenericRecord flattened = new GenericData.Record(schema);
-        map.forEach((k,v)-> {
-            try {
-                flattened.put(k, v);
-            } catch (Exception e) {
-                if (!e.getMessage().contains("Not a valid schema field")) {
-                    throw new RuntimeException(e);
-                }
-
-                String s = fromMetaType(Types.of(v));
-                flattened.put(getFieldName(k, s), v);
-            }
-        });
-//        map.forEach(flattened::put);
-        return flattened;
-
-//        flattened.put(FIELD_ID, entity.getId());
-//        if (entity instanceof Node) {
-//            flattened.put(FIELD_LABELS, Util.labelStrings((Node) entity));
-//        } else {
-//            Relationship rel = (Relationship) entity;
-//            flattened.put(FIELD_TYPE, rel.getType().name());
-//            flattened.put(FIELD_SOURCE_ID, rel.getStartNodeId());
-//            flattened.put(FIELD_TARGET_ID, rel.getEndNodeId());
-//        }
-//        flattened.putAll(entity.getAllProperties());
-
-
-        // todo - to delete
-//        Map<String, Object> stringObjectMap = entityToMap(entity);
-
-
-    }
+//    public static GenericRecord mapToRecord(Map<String, Object> map, Schema schema) {
+//        // todo - change getId() with getElementId
+//
+//        GenericRecord flattened = new GenericData.Record(schema);
+//        map.forEach((k,v)-> {
+//            try {
+//                flattened.put(k, v);
+//            } catch (Exception e) {
+//                if (!e.getMessage().contains("Not a valid schema field")) {
+//                    throw new RuntimeException(e);
+//                }
+//
+//                String s = fromMetaType(Types.of(v));
+//                flattened.put(getFieldName(k, s), v);
+//            }
+//        });
+////        map.forEach(flattened::put);
+//        return flattened;
+//
+////        flattened.put(FIELD_ID, entity.getId());
+////        if (entity instanceof Node) {
+////            flattened.put(FIELD_LABELS, Util.labelStrings((Node) entity));
+////        } else {
+////            Relationship rel = (Relationship) entity;
+////            flattened.put(FIELD_TYPE, rel.getType().name());
+////            flattened.put(FIELD_SOURCE_ID, rel.getStartNodeId());
+////            flattened.put(FIELD_TARGET_ID, rel.getEndNodeId());
+////        }
+////        flattened.putAll(entity.getAllProperties());
+//
+//
+//        // todo - to delete
+////        Map<String, Object> stringObjectMap = entityToMap(entity);
+//
+//
+//    }
 
     @Override
     public Stream<ProgressInfo> export(Result data, ParquetConfig config) {

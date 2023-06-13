@@ -1,5 +1,7 @@
 package apoc.load;
 
+import apoc.export.parquet.CustomTypes;
+import apoc.export.parquet.ParquetTypes;
 import apoc.export.parquet.ParquetUtil;
 import apoc.result.MapResult;
 import apoc.util.Util;
@@ -42,12 +44,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-//import static apoc.export.parquet.ExportParquetFileStrategy.genericData;
-//import static apoc.export.parquet.ExportParquetFileStrategy.genericDataLoad;
-import static apoc.export.parquet.ParquetUtil.DurationType.DURATION_VALUE;
-import static apoc.export.parquet.ParquetUtil.NodeType.NEO4J_NODE;
-import static apoc.export.parquet.ParquetUtil.PointType.POINT_VALUE;
-import static apoc.export.parquet.ParquetUtil.RelationshipType.NEO4J_REL;
+import static apoc.export.parquet.CustomTypes.DurationType.DURATION_VALUE;
+import static apoc.export.parquet.CustomTypes.NodeType.NEO4J_NODE;
+import static apoc.export.parquet.CustomTypes.PointType.POINT_VALUE;
+import static apoc.export.parquet.CustomTypes.RelationshipType.NEO4J_REL;
 import static apoc.export.parquet.ParquetUtil.TYPE_SEP;
 import static apoc.export.parquet.ParquetUtil.genericDataLoad;
 import static org.neo4j.values.storable.NoValue.NO_VALUE;
@@ -186,26 +186,6 @@ public class LoadParquet {
         }
     }
 
-    // todo - if - else <-- if byte[] read from stream else read from file
-
-//    @Procedure(name = "apoc.load.arrow.stream")
-//    @Description("Imports nodes and relationships from the provided arrow byte array.")
-//    public Stream<MapResult> stream(
-//            @Name("source") byte[] source,
-//            @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws IOException {
-//        RootAllocator allocator = new RootAllocator();
-//        ByteArrayInputStream inputStream = new ByteArrayInputStream(source);
-//        ArrowStreamReader streamReader = new ArrowStreamReader(inputStream, allocator);
-//        VectorSchemaRoot schemaRoot = streamReader.getVectorSchemaRoot();
-//        return StreamSupport.stream(new ArrowSpliterator(streamReader, schemaRoot), false)
-//                .onClose(() -> {
-//                    Util.close(allocator);
-//                    Util.close(streamReader);
-//                    Util.close(schemaRoot);
-//                    Util.close(inputStream);
-//                });
-//    }
-
     @Procedure(name = "apoc.load.parquet")
     @Description("Imports nodes and relationships from the provided arrow file.")
     public Stream<MapResult> load(
@@ -233,55 +213,14 @@ public class LoadParquet {
     }
 
     public static void registerCustomTypes() {
-        LogicalTypes.LogicalTypeFactory factory = new LogicalTypes.LogicalTypeFactory() {
-            private final LogicalType convertLongLogicalType = new ParquetUtil.NodeType();
 
-            @Override
-            public LogicalType fromSchema(Schema schema) {
-                return convertLongLogicalType;
-            }
-        };
-
-        LogicalTypes.LogicalTypeFactory factory2 = new LogicalTypes.LogicalTypeFactory() {
-            private final LogicalType convertLongLogicalType = new ParquetUtil.DurationType();
-
-            @Override
-            public LogicalType fromSchema(Schema schema) {
-                return convertLongLogicalType;
-            }
-        };
-
-
-//        TODO --> FARE UN CUSTOMCONVERSION DI NODO SOLO PER IL LOAD --> DA STRINGA A VIRTUALNODE....
-
-
-        LogicalTypes.LogicalTypeFactory factory3 = new LogicalTypes.LogicalTypeFactory() {
-            private final LogicalType convertLongLogicalType = new ParquetUtil.PointType();
-
-            @Override
-            public LogicalType fromSchema(Schema schema) {
-                return convertLongLogicalType;
-            }
-        };
-
-        LogicalTypes.LogicalTypeFactory factory4 = new LogicalTypes.LogicalTypeFactory() {
-            private final LogicalType convertLongLogicalType = new ParquetUtil.RelationshipType();
-
-            @Override
-            public LogicalType fromSchema(Schema schema) {
-                return convertLongLogicalType;
-            }
-        };
-
-        // todo - foreach???
-        LogicalTypes.register(NEO4J_NODE, factory);
-        LogicalTypes.register(DURATION_VALUE, factory2);
-        LogicalTypes.register(POINT_VALUE, factory3);
-        LogicalTypes.register(NEO4J_REL, factory4);
+        for (ParquetTypes type: ParquetTypes.values()) {
+            CustomTypes.AbstractCustomType customType = type.getType();
+            LogicalTypes.register(customType.getLogicalTypeName(), schema -> customType);
+        }
     }
 
     public static class ParquetStream implements InputFile {
-//        private final String streamId;
         private final byte[] data;
 
         private static class SeekableByteArrayInputStream extends ByteArrayInputStream {
@@ -298,29 +237,25 @@ public class LoadParquet {
             }
         }
 
-        //        public ParquetStream(String streamId, ByteArrayOutputStream stream) {
-//
-//        }
-        public ParquetStream(/*String streamId, */byte[] stream) {
-//            this.streamId = streamId;
-            this.data = stream;//.toByteArray();
+        public ParquetStream(byte[] stream) {
+            this.data = stream;
         }
 
         @Override
-        public long getLength() throws IOException {
+        public long getLength() {
             return this.data.length;
         }
 
         @Override
-        public SeekableInputStream newStream() throws IOException {
+        public SeekableInputStream newStream() {
             return new DelegatingSeekableInputStream(new SeekableByteArrayInputStream(this.data)) {
                 @Override
-                public void seek(long newPos) throws IOException {
+                public void seek(long newPos) {
                     ((SeekableByteArrayInputStream) this.getStream()).setPos((int) newPos);
                 }
 
                 @Override
-                public long getPos() throws IOException {
+                public long getPos() {
                     return ((SeekableByteArrayInputStream) this.getStream()).getPos();
                 }
             };

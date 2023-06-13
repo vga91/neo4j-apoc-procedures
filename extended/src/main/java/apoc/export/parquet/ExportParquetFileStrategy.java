@@ -3,35 +3,36 @@ package apoc.export.parquet;
 import apoc.Pools;
 import apoc.export.util.ProgressReporter;
 import apoc.result.ProgressInfo;
+import apoc.util.QueueBasedSpliterator;
+import apoc.util.QueueUtil;
+import apoc.util.Util;
 import org.apache.avro.Schema;
-import org.apache.avro.data.TimeConversions;
-import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
-import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.Types;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Iterator;
-import java.util.Map;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
-import static apoc.export.parquet.ExportParquetResultFileStrategy.mapToRecord;
 import static apoc.export.parquet.ParquetUtil.genericData;
-import static apoc.load.LoadParquet.registerCustomTypes;
 
 // todo - not mocked
 
 
 // todo - Stream<ProgressInfo> as OUT???
-public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStrategy<IN, Stream<ProgressInfo>> {
+public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParquetStrategy<IN, Stream<ProgressInfo>> {
 
 
     private final String fileName;
@@ -42,16 +43,18 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
 
     // todo!!! --> test..
     private final TerminationGuard terminationGuard;
+    private final ParquetExportType exportType;
 
 
     private final Log logger;
 
-    public ExportParquetFileStrategy(String fileName, GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger) {
+    public ExportParquetFileStrategy(String fileName, GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger, ParquetExportType exportType) {
         this.fileName = fileName;
         this.db = db;
         this.pools = pools;
         this.terminationGuard = terminationGuard;
         this.logger = logger;
+        this.exportType = exportType;
     }
 
 
@@ -72,7 +75,7 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
     // todo - here ....
     public Stream<ProgressInfo> export(IN data, ParquetConfig config) {
         // todo - config
-        final ParquetExportType exportType = getType(data);
+//        final ParquetExportType exportType = getType(data);
 
 
 
@@ -112,57 +115,62 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
 
 //        registerCustomTypes();
 
+
         Path fileToWrite = new org.apache.hadoop.fs.Path(fileName);
-        AvroParquetWriter.Builder<GenericRecord> builder = AvroParquetWriter
-                .<GenericRecord>builder(fileToWrite);
-        try (ParquetWriter<GenericRecord> writer = getBuild(schema, builder)) {
+        final BlockingQueue<ProgressInfo> queue = new ArrayBlockingQueue<>(10);
 
-            exportType.writeFirstBatch(writer, schema);
+        Util.inTxFuture(pools.getDefaultExecutorService(), db, tx -> {
+            int batchCount = 0;
+            List<GenericRecord> rows = new ArrayList<>(config.getBatchSize());
+            AvroParquetWriter.Builder<GenericRecord> builder = AvroParquetWriter
+                    .builder(fileToWrite);
 
-//            registerCustomTypes();
-//        try (ParquetWriter<Object> writer = new CustomParquetWriter(fileToWrite, schema1, true, CompressionCodecName.GZIP)) {
+            try {
+                Iterator<TYPE> it = toIterator(reporter, data, schema);
+                while (!Util.transactionIsTerminated(terminationGuard) && it.hasNext()) {
+                    GenericRecord record = exportType.toRecord(schema, it.next());
+                    rows.add(record);
 
-            // todo - in interface=
-//            if (exportType instanceof ParquetExportType.ResultType) {
-//                System.out.println("writer = " + writer);
-//                Map<String, Object> firstElement = ((ParquetExportType.ResultType) exportType).getFirstElement();
-//                writer.write(mapToRecord(firstElement, schema));
-//            }
-
-            for (Iterator<GenericRecord> it = toIterator(reporter, data, schema); it.hasNext(); ) {
-                GenericRecord record = it.next();
-                // todo - try catch...
-                try {
-                    writer.write(record);
-                } catch (Exception e) {
-                    // create something else - or another writer??
-                    System.out.println("e = " + e);
+                    if (batchCount > 0 && batchCount % config.getBatchSize() == 0) {
+                        writeBatch(exportType, builder, rows, schema);
+                    }
+                    ++batchCount;
                 }
+                if (!rows.isEmpty()) {
+                    writeBatch(exportType, builder, rows, schema);
+                }
+                QueueUtil.put(queue, progressInfo, 10);
+                return true;
+            } catch (Exception e) {
+                logger.error("Exception while extracting Parquet data:", e);
+            } finally {
+                reporter.done();
+                QueueUtil.put(queue, ProgressInfo.EMPTY, 10);
             }
+            return true;
+        });
+
+
+
+        QueueBasedSpliterator<ProgressInfo> spliterator = new QueueBasedSpliterator<>(queue, ProgressInfo.EMPTY, terminationGuard, Integer.MAX_VALUE);
+        return StreamSupport.stream(spliterator, false);
+        // todo - like Arrow???
+//        return Stream.of(progressInfo);
+    }
+
+    private void writeBatch(ParquetExportType exportType, AvroParquetWriter.Builder<GenericRecord> builder, List<GenericRecord> rows, Schema schema) {
+        try (ParquetWriter<GenericRecord> writer = getBuild(schema, builder)) {
+            extracted(exportType, rows, schema, writer);
+            rows.clear();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-        // todo - like Arrow???
-        return Stream.of(progressInfo);
     }
 
-    public static ParquetWriter<GenericRecord> getBuild(Schema schema, AvroParquetWriter.Builder<GenericRecord> builder) throws IOException {
-        return builder
-                .withSchema(schema)
-                .withConf(new Configuration())
-                .withDataModel(genericData)
-                // todo ---> other with
+//    @Override
 
-                // todo - configurable?? this generate a .crc file
-                .withValidation(false)
-                // todo - config...
-//                .withCompressionCodec(CompressionCodecName.SNAPPY)
-                // todo - config...
-                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-//                .withDataModel(genericData)
-                .build();
-    }
+
+
 
 //    private MessageType getSchemaForParquetFile() {
 ////        Schema test = SchemaBuilder.record("test")
@@ -180,7 +188,7 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
     public abstract String getSource(IN subGraph);
 
 //    public abstract Iterator<Map<String, Object>> toIterator(ProgressReporter reporter, IN data);
-    public abstract Iterator<GenericRecord> toIterator(ProgressReporter reporter, IN data, Schema schema);
+    public abstract Iterator<TYPE> toIterator(ProgressReporter reporter, IN data, Schema schema);
 
 //    @Override
 //    public Schema schemaFor(List<Map<String, Object>> rows) {

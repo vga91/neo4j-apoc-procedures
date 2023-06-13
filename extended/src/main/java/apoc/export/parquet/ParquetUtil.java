@@ -1,17 +1,19 @@
 package apoc.export.parquet;
 
+import apoc.meta.Types;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-import static apoc.export.parquet.ParquetUtil.DurationType.DURATION_VALUE;
-import static apoc.export.parquet.ParquetUtil.PointType.POINT_VALUE;
+import static apoc.export.parquet.ParquetExportType.ResultType.fromMetaType;
 import static org.apache.avro.SchemaBuilder.BaseTypeBuilder;
 
 public class ParquetUtil {
@@ -52,6 +54,24 @@ public class ParquetUtil {
 
     // todo - creare analogo senza apoc.schema, perché senno non funziona mai senza jar core....
     //  renderlo configurabile...
+
+
+    public static GenericRecord mapToRecord(Schema schema, Map<String, Object> map) {
+        GenericRecord flattened = new GenericData.Record(schema);
+        map.forEach((k, v)-> {
+            try {
+                flattened.put(k, v);
+            } catch (Exception e) {
+                if (!e.getMessage().contains("Not a valid schema field")) {
+                    throw new RuntimeException(e);
+                }
+
+                String s = fromMetaType(Types.of(v));
+                flattened.put(getFieldName(k, s), v);
+            }
+        });
+        return flattened;
+    }
 
     public static SchemaBuilder.TypeBuilder<SchemaBuilder.FieldAssembler<Schema>> getItems(String fieldName, SchemaBuilder.FieldAssembler<Schema> test) {
         return test.name(fieldName).type().optional().array().items();
@@ -112,7 +132,6 @@ public class ParquetUtil {
                 return test.optionalBoolean(fieldName);
             }
 
-            // todo - LogicalType??? --> maybe integer as well...
             case "LONG" -> {
                 return test.optionalLong(fieldName);
             }
@@ -135,7 +154,6 @@ public class ParquetUtil {
                 return test.name(fieldName).type().optional().type(schema2);
             }
             case "DATE" -> {
-                // todo - check that...
                 Schema schema3 = LogicalTypes.date().addToSchema(SchemaBuilder.builder().intType());
                 return test.name(fieldName).type().optional().type(schema3);
             }

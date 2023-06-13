@@ -2,7 +2,6 @@ package apoc.export.parquet;
 
 
 import org.apache.avro.Conversion;
-import org.apache.avro.LogicalType;
 
 import static apoc.export.parquet.CustomTypes.*;
 import static apoc.export.parquet.CustomConversions.*;
@@ -13,17 +12,17 @@ public enum ParquetTypes {
     NODE(new NodeType(), new NodeEntityConversion(), new NodeLoadConversion()),
     RELATIONSHIP(new RelationshipType(), new RelationshipEntityConversion(), new RelationshipLoadConversion());
 
-    private final LogicalType type;
+    private final AbstractCustomType type;
     private final Conversion writeConversion;
     private final Conversion readConversion;
 
-    ParquetTypes(LogicalType type, Conversion conversion,Conversion readConversion) {
+    ParquetTypes(AbstractCustomType type, Conversion conversion,Conversion readConversion) {
         this.type = type;
         this.writeConversion = conversion;
         this.readConversion = readConversion;
     }
 
-    public LogicalType getType() {
+    public AbstractCustomType getType() {
         return type;
     }
 
