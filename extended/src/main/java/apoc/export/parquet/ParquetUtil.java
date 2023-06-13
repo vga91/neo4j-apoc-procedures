@@ -1,25 +1,37 @@
 package apoc.export.parquet;
 
+import apoc.result.VirtualNode;
+import apoc.result.VirtualRelationship;
+import apoc.util.JsonUtil;
+import apoc.util.Util;
+import apoc.util.collection.Iterables;
 import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Path;
+import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.kernel.impl.core.NodeEntity;
+import org.neo4j.kernel.impl.core.RelationshipEntity;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.PointValue;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
 import static apoc.export.parquet.ParquetUtil.DurationType.DURATION_VALUE;
 import static apoc.export.parquet.ParquetUtil.PointType.POINT_VALUE;
+import static apoc.util.Util.labelStrings;
 import static org.apache.avro.SchemaBuilder.BaseTypeBuilder;
 
 public class ParquetUtil {
+    public static final String TYPE_SEP = "___";
 
     // todo - creare analogo senza apoc.schema, perché senno non funziona mai senza jar core....
     //  renderlo configurabile...
@@ -115,15 +127,19 @@ public class ParquetUtil {
                 return getSchemaFieldAssembler(fieldName, test, ParquetTypes.DURATION.getType(), BaseTypeBuilder::stringType);
             }
             case "NODE" -> {
-                Schema schema11 = SchemaBuilder.builder().map().values().stringType();
-
-                // todo - is needed "new NodeType()" --> alternative????
-                Schema schema21 = new NodeType().addToSchema(schema11);
-                return test.name(fieldName).type().optional().type(schema21);
+//                Schema schema11 = SchemaBuilder.builder().stringType();
+//
+//                 todo - is needed "new NodeType()" --> alternative????
+//                Schema schema21 = new NodeType().addToSchema(schema11);
+//                return test.name(fieldName).type().optional().type(schema21);
+                return getSchemaFieldAssembler(fieldName, test, ParquetTypes.NODE.getType(), BaseTypeBuilder::stringType);
             }
             // todo...
 //                    return new Field(fieldName, FieldType.nullable(Types.MinorType.STRUCT.getType()), null);
-            case "RELATIONSHIP", "POINT" -> {
+            case "RELATIONSHIP" -> {
+                return getSchemaFieldAssembler(fieldName, test, ParquetTypes.RELATIONSHIP.getType(), BaseTypeBuilder::stringType);
+            }
+            case "POINT" -> {
                 // todo...
                 return getSchemaFieldAssembler(fieldName, test, ParquetTypes.POINT.getType(), BaseTypeBuilder::stringType);
             }
@@ -181,16 +197,11 @@ public class ParquetUtil {
     }
 
     public static String getFieldName(String fieldName, String propertyType) {
-        return fieldName + "__" + propertyType;
+        return fieldName + TYPE_SEP + propertyType;
     }
 
 
     public static abstract class CustomConversion<T> extends Conversion<T> {
-
-        @Override
-        public Class<T> getConvertedType() {
-            return null;
-        }
 
 //        @Override
 //        public String getLogicalTypeName() {
@@ -235,32 +246,153 @@ public class ParquetUtil {
         }
     }
 
-    public static class NodeEntityConversion extends Conversion<Node> {
-//        public NodeEntityConversion() {
-//            super();
+//    public static class PathEntityConversion extends CustomConversion<Path> {
+//
+//        @Override
+//        public Path parseValue(CharSequence value) {
+//            Map parse = JsonUtil.parse(value.toString(), null, Map.class);
+//            return new VirtualRelationship(
+//                    (long) parse.remove(FIELD_ID),
+//                    new VirtualNode((long) parse.remove(FIELD_SOURCE_ID)),
+//                    new VirtualNode((long) parse.remove(FIELD_TARGET_ID)),
+//                    org.neo4j.graphdb.RelationshipType.withName((String) parse.remove(FIELD_TYPE)),
+//                    parse
+//            );// NodeEntity.parse(value);
+//        }
+//
+//        @Override
+//        public CharSequence serializeValue(Path value) {
+//            value.
+//            Map<String, Object> allProperties = value.getAllProperties();
+//            allProperties.put(FIELD_ID, value.getId());
+//            allProperties.put(FIELD_SOURCE_ID, value.getId());
+//            allProperties.put(FIELD_TARGET_ID, value.getId());
+//            allProperties.put(FIELD_TYPE, value.getType().name());
+//            return JsonUtil.writeValueAsString(allProperties);
+//        }
+//
+//        @Override
+//        public String getLogicalTypeName() {
+//            return RelationshipType.NEO4J_REL;
+//        }
+//    }
+
+    public static class RelationshipEntityConversion extends Conversion<RelationshipEntity> {
+
+//        @Override
+//        public RelationshipEntity parseValue(CharSequence value) {
+//            Map parse = JsonUtil.parse(value.toString(), null, Map.class);
+//            return new VirtualRelationship(
+//                    (long) parse.remove(FIELD_ID),
+//                    new VirtualNode((long) parse.remove(FIELD_SOURCE_ID)),
+//                    new VirtualNode((long) parse.remove(FIELD_TARGET_ID)),
+//                    org.neo4j.graphdb.RelationshipType.withName((String) parse.remove(FIELD_TYPE)),
+//                    parse
+//                    );
 //        }
 
         @Override
-        public Class<Node> getConvertedType() {
-            return null;
+        public CharSequence toCharSequence(RelationshipEntity value, Schema schema, LogicalType type) {
+            Map<String, Object> allProperties = value.getAllProperties();
+            allProperties.put(FIELD_ID, value.getId());
+            allProperties.put(FIELD_SOURCE_ID, value.getStartNodeId());
+            allProperties.put(FIELD_TARGET_ID, value.getEndNodeId());
+            allProperties.put(FIELD_TYPE, value.getType().name());
+            return JsonUtil.writeValueAsString(allProperties);
+        }
+
+        @Override
+        public Class<RelationshipEntity> getConvertedType() {
+            return RelationshipEntity.class;
         }
 
         @Override
         public String getLogicalTypeName() {
+            return RelationshipType.NEO4J_REL;
+        }
+    }
+
+    public static class NodeLoadConversion extends EntityLoadConversion {
+        @Override
+        public String getLogicalTypeName() {
+            return NodeType.NEO4J_NODE;
+        }
+    }
+
+    public static class RelationshipLoadConversion extends EntityLoadConversion {
+        @Override
+        public String getLogicalTypeName() {
+            return RelationshipType.NEO4J_REL;
+        }
+    }
+
+    public abstract static class EntityLoadConversion extends CustomConversion<Map> {
+
+        @Override
+        public Map parseValue(CharSequence value) {
+            return JsonUtil.parse(value.toString(), null, Map.class);
+        }
+
+        @Override
+        public Class<Map> getConvertedType() {
+            return Map.class;
+        }
+    }
+
+    public static class NodeEntityConversion extends CustomConversion<NodeEntity> {
+
+        @Override
+        public Class<NodeEntity> getConvertedType() {
+            return NodeEntity.class;
+        }
+
+        //        @Override
+//        public Class<Node> getConvertedType() {
+//            return Node.class;
+//        }
+//JsonUtil.parse( --> TODO --> VEDERE  @UserFunction("apoc.json.path") E @UserFunction("apoc.convert.toJson")
+        @Override
+        public String getLogicalTypeName() {
+            return NodeType.NEO4J_NODE;
+        }
+
+
+//        @Override
+//        public Class<Node> getConvertedType() {
+//            return Node.class;
+//        }
+
+        @Override
+        public NodeEntity parseValue(CharSequence value) {
+//            NodeEntity.
             return null;
+//            Map parse = JsonUtil.parse(value.toString(), null, Map.class);
+//            return new VirtualNode(
+//                    (long) parse.remove(FIELD_ID),
+//                    Util.labels(parse.remove(FIELD_LABELS)),
+//                    parse
+//            );
         }
 
         @Override
-        public Node fromMap(Map<?, ?> value, Schema schema, LogicalType type) {
-            // todo - for import????
-            return super.fromMap(value, schema, type);
+        public CharSequence serializeValue(NodeEntity value) {
+            Map<String, Object> allProperties = value.getAllProperties();
+            allProperties.put(FIELD_ID, value.getId());
+            allProperties.put(FIELD_LABELS, labelStrings(value));
+            return JsonUtil.writeValueAsString(allProperties);
         }
 
-        @Override
-        public Map<?, ?> toMap(Node value, Schema schema, LogicalType type) {
-            // todo - for export????
-            return super.toMap(value, schema, type);
-        }
+//        @Override
+//        public Node fromMap(Map<?, ?> value, Schema schema, LogicalType type) {
+//            // todo - for import????
+//            return super.fromMap(value, schema, type);
+//        }
+//
+//        @Override
+//        public Map<?, ?> toMap(Node value, Schema schema, LogicalType type) {
+//            // todo - for export????
+//            return super.toMap(value, schema, type);
+//        }
     }
 
 
@@ -370,7 +502,7 @@ public class ParquetUtil {
         }
     }
 
-    public static class NodeType extends LogicalType {
+    public static class NodeType extends CustomType {
 
         public static final String NEO4J_NODE = "neo4j-node";
 
@@ -379,12 +511,22 @@ public class ParquetUtil {
         }
 
         @Override
-        public void validate(Schema schema) {
-            super.validate(schema);
-            if (schema.getType() != Schema.Type.MAP) {
-                // TODO - error..
-                throw new IllegalArgumentException("Local timestamp (micros) can only be used with an underlying long type");
-            }
+        public String getLogicalTypeName() {
+            return NEO4J_NODE;
+        }
+    }
+
+    public static class RelationshipType extends CustomType {
+
+        public static final String NEO4J_REL = "relationship-node";
+
+        public RelationshipType() {
+            super(NEO4J_REL);
+        }
+
+        @Override
+        public String getLogicalTypeName() {
+            return NEO4J_REL;
         }
     }
 

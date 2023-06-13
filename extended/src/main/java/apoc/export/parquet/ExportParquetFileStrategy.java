@@ -24,12 +24,29 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static apoc.export.parquet.ExportParquetResultFileStrategy.mapToRecord;
+import static apoc.load.LoadParquet.registerCustomTypes;
 
 // todo - not mocked
 
 
 // todo - Stream<ProgressInfo> as OUT???
 public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStrategy<IN, Stream<ProgressInfo>> {
+
+    // todo - ParquetUtil
+    public static GenericData genericDataLoad;
+    static {
+        genericDataLoad = new GenericData();
+        // need to add logicalTime Support
+        genericDataLoad.addLogicalTypeConversion(new TimeConversions.DateConversion());
+//        timeSupport.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
+        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
+        genericDataLoad.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
+//        genericData.addLogicalTypeConversion(new ParquetUtil.DurationValueConversion());
+        for (ParquetTypes type: ParquetTypes.values()) {
+            genericDataLoad.addLogicalTypeConversion(type.getLoadConversion());
+        }
+    }
 
     // todo - ParquetUtil
     public static GenericData genericData;
@@ -41,8 +58,10 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
         genericData.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
         genericData.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
         genericData.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
-        genericData.addLogicalTypeConversion(new ParquetUtil.DurationValueConversion());
-        genericData.addLogicalTypeConversion(ParquetTypes.POINT.getConversion());//new ParquetUtil.PointValueConversion());
+//        genericData.addLogicalTypeConversion(new ParquetUtil.DurationValueConversion());
+        for (ParquetTypes type: ParquetTypes.values()) {
+            genericData.addLogicalTypeConversion(type.getConversion());//new ParquetUtil.PointValueConversion());
+        }
     }
 
     private final String fileName;
@@ -63,7 +82,6 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
         this.pools = pools;
         this.terminationGuard = terminationGuard;
         this.logger = logger;
-//        this.exportType = getType(Class<IN>);
     }
 
 
@@ -122,6 +140,7 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
         Schema schema = exportType.schemaFor(db, config, data);
 //        Iterator<GenericRecord> it = toIterator(reporter, data, schema);
 
+//        registerCustomTypes();
 
         Path fileToWrite = new org.apache.hadoop.fs.Path(fileName);
         try (ParquetWriter<GenericRecord> writer = AvroParquetWriter
@@ -137,15 +156,20 @@ public abstract class ExportParquetFileStrategy<IN> implements ExportParquetStra
 //                .withCompressionCodec(CompressionCodecName.SNAPPY)
                 // todo - config...
                 .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+                .withDataModel(genericData)
                 .build()) {
+
+            exportType.writeFirstBatch(writer, schema);
+
+//            registerCustomTypes();
 //        try (ParquetWriter<Object> writer = new CustomParquetWriter(fileToWrite, schema1, true, CompressionCodecName.GZIP)) {
 
             // todo - in interface=
-            if (exportType instanceof ParquetExportType.ResultType) {
-                System.out.println("writer = " + writer);
-                Map<String, Object> firstElement = ((ParquetExportType.ResultType) exportType).getFirstElement();
-                writer.write(mapToRecord(firstElement, schema));
-            }
+//            if (exportType instanceof ParquetExportType.ResultType) {
+//                System.out.println("writer = " + writer);
+//                Map<String, Object> firstElement = ((ParquetExportType.ResultType) exportType).getFirstElement();
+//                writer.write(mapToRecord(firstElement, schema));
+//            }
 
             for (Iterator<GenericRecord> it = toIterator(reporter, data, schema); it.hasNext(); ) {
                 GenericRecord record = it.next();
