@@ -84,6 +84,14 @@ public class ExportParquet {
 
     // todo - {stream: true}
 
+    @Procedure("apoc.export.parquet.all.stream")
+    @Description("Exports the full database to the provided CSV file.")
+    public Stream<ByteArrayResult> allStream(@Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+//        String source = String.format("database: nodes(%d), rels(%d)", Util.nodeCount(tx), Util.relCount(tx));
+        Stream<ByteArrayResult> byteArrayResultStream = exportParquet( /*source, */new DatabaseSubGraph(tx), new ParquetConfig(config));
+        return byteArrayResultStream;
+    }
+
     @Procedure("apoc.export.parquet.all")
     @Description("Exports the full database to the provided CSV file.")
     public Stream<ProgressInfo> all(@Name("file") String fileName, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
@@ -135,14 +143,14 @@ public class ExportParquet {
     }
 
 
-    public Stream<ByteArrayResult> stream(Object data, ParquetConfig config) {
+    public Stream<ByteArrayResult> exportParquet(Object data, ParquetConfig config) {
         // TODO
-        return null;
-//        if (data instanceof Result) {
-//            return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, logger).export((Result) data, config);
-//        } else {
-//            return new ExportParquetGraphStreamStrategy(db, pools, terminationGuard, logger).export((SubGraph) data, config);
-//        }
+//        return null;
+        if (data instanceof Result) {
+            return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, log).export((Result) data, config);
+        } else {
+            return new ExportParquetGraphStreamStrategy(db, pools, terminationGuard, log).export((SubGraph) data, config);
+        }
     }
 
     public Stream<ProgressInfo> file(String fileName, Object data, ParquetConfig config) {

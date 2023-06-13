@@ -285,53 +285,54 @@ public class ParquetReaderWriterWithAvro {
 
         ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
         BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(bytesOut);
-        ParquetBufferedWriter out = new ParquetBufferedWriter(bufferedOutputStream);
-
-//        try (ParquetWriter<GenericData.Record> writer = new ParquetWriter()
-//                /*<GenericData.Record>*/builder()
+        return "".getBytes();
+//        ParquetBufferedWriter out = new ParquetBufferedWriter(bufferedOutputStream);
+//
+////        try (ParquetWriter<GenericData.Record> writer = new ParquetWriter()
+////                /*<GenericData.Record>*/builder()
+////                .withRowGroupSize(DEFAULT_BLOCK_SIZE)
+////                .withPageSize(DEFAULT_PAGE_SIZE)
+////                .withSchema(SCHEMA)
+////                .build()) {
+////
+////            for (GenericData.Record record : recordsToWrite) {
+////                writer.write(record);
+////            }
+////        } catch (IOException e) {
+////            throw new IllegalStateException(e);
+////        }
+//
+//        try (ParquetWriter<GenericData.Record> writer = AvroParquetWriter.
+//                <GenericData.Record>builder(out)
 //                .withRowGroupSize(DEFAULT_BLOCK_SIZE)
 //                .withPageSize(DEFAULT_PAGE_SIZE)
 //                .withSchema(SCHEMA)
+//                // todo -- config...
+//                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+//
+//                // todo --> difference from compressionAlgo ??? -->.withCompressionCodec()
 //                .build()) {
 //
 //            for (GenericData.Record record : recordsToWrite) {
 //                writer.write(record);
 //            }
+//
+////            out.
+//
+//            byte[] bytes = bytesOut.toByteArray();
+//
+////            writer.
+////            System.out.println("new String(bytes) = " + new String(bytes));
+////            return bytes;
+////            return writer.
 //        } catch (IOException e) {
 //            throw new IllegalStateException(e);
 //        }
-
-        try (ParquetWriter<GenericData.Record> writer = AvroParquetWriter.
-                <GenericData.Record>builder(out)
-                .withRowGroupSize(DEFAULT_BLOCK_SIZE)
-                .withPageSize(DEFAULT_PAGE_SIZE)
-                .withSchema(SCHEMA)
-                // todo -- config...
-                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-
-                // todo --> difference from compressionAlgo ??? -->.withCompressionCodec()
-                .build()) {
-
-            for (GenericData.Record record : recordsToWrite) {
-                writer.write(record);
-            }
-
-//            out.
-
-            byte[] bytes = bytesOut.toByteArray();
-
-//            writer.
-//            System.out.println("new String(bytes) = " + new String(bytes));
-//            return bytes;
-//            return writer.
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-
-        byte[] bytes = bytesOut.toByteArray();
+//
 //        byte[] bytes = bytesOut.toByteArray();
-        System.out.println("new String(bytes) = " + new String(bytes));
-        return bytes;
+////        byte[] bytes = bytesOut.toByteArray();
+//        System.out.println("new String(bytes) = " + new String(bytes));
+//        return bytes;
 
         // todo - close???
 
@@ -346,66 +347,5 @@ public class ParquetReaderWriterWithAvro {
 //        }
     }
 
-    class ParquetBufferedWriter implements OutputFile {
 
-        public final BufferedOutputStream out;
-
-        public ParquetBufferedWriter(BufferedOutputStream out) {
-            this.out = out;
-        }
-
-        @Override
-        public PositionOutputStream create(long blockSizeHint) throws IOException {
-            return createPositionOutputstream();
-        }
-
-        private PositionOutputStream createPositionOutputstream() {
-            return new PositionOutputStream() {
-
-                int pos = 0;
-
-                @Override
-                public long getPos() throws IOException {
-                    return pos;
-                }
-
-                @Override
-                public void flush() throws IOException {
-                    out.flush();
-                };
-
-                @Override
-                public void close() throws IOException {
-                    out.close();
-                };
-
-                @Override
-                public void write(int b) throws IOException {
-                    out.write(b);
-                    pos++;
-                }
-
-                @Override
-                public void write(byte[] b, int off, int len) throws IOException {
-                    out.write(b, off, len);
-                    pos += len;
-                }
-            };
-        }
-
-        @Override
-        public PositionOutputStream createOrOverwrite(long blockSizeHint) throws IOException {
-            return createPositionOutputstream();
-        }
-
-        @Override
-        public boolean supportsBlockSize() {
-            return false;
-        }
-
-        @Override
-        public long defaultBlockSize() {
-            return 0;
-        }
-    }
 }

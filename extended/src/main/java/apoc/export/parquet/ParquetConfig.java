@@ -12,6 +12,7 @@ public class ParquetConfig {
     // -- todo -->  .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
 
     private final int batchSize;
+    private final boolean importId;
 
     private final Map<String, Object> config;
     private final ParquetFileWriter.Mode mode;
@@ -20,11 +21,17 @@ public class ParquetConfig {
         this.config = config == null ? Collections.emptyMap() : config;
         this.batchSize = Util.toInteger(this.config.getOrDefault("batchSize", 2000));
 
+        this.importId = Util.toBoolean(this.config.get("importId"));
+
         this.mode = ParquetFileWriter.Mode.valueOf((String) this.config.getOrDefault("mode", ParquetFileWriter.Mode.CREATE.name()));
     }
 
     public int getBatchSize() {
         return batchSize;
+    }
+
+    public boolean isImportId() {
+        return importId;
     }
 
     // todo - useful??

@@ -3,6 +3,7 @@ package apoc.export.parquet;
 import org.neo4j.graphdb.Result;
 
 public interface ExportParquetStrategy<IN, OUT> {
+
     OUT export(IN data, ParquetConfig config);
 
     // todo ??

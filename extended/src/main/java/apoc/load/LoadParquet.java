@@ -12,15 +12,24 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.io.DelegatingSeekableInputStream;
+import org.apache.parquet.io.InputFile;
+import org.apache.parquet.io.SeekableInputStream;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
+import org.neo4j.values.storable.DurationValue;
+import org.neo4j.values.storable.PointValue;
 import org.neo4j.values.storable.Values;
-import org.w3c.dom.Text;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,43 +37,57 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static apoc.export.parquet.ExportParquetFileStrategy.genericData;
-import static apoc.export.parquet.ExportParquetFileStrategy.genericDataLoad;
+//import static apoc.export.parquet.ExportParquetFileStrategy.genericData;
+//import static apoc.export.parquet.ExportParquetFileStrategy.genericDataLoad;
 import static apoc.export.parquet.ParquetUtil.DurationType.DURATION_VALUE;
 import static apoc.export.parquet.ParquetUtil.NodeType.NEO4J_NODE;
 import static apoc.export.parquet.ParquetUtil.PointType.POINT_VALUE;
 import static apoc.export.parquet.ParquetUtil.RelationshipType.NEO4J_REL;
 import static apoc.export.parquet.ParquetUtil.TYPE_SEP;
+import static apoc.export.parquet.ParquetUtil.genericDataLoad;
 import static org.neo4j.values.storable.NoValue.NO_VALUE;
 
 public class LoadParquet {
 
+    // todo - create a ReadParquetUtil
+
     @Context public Log log;
 
 
-    private static Object toValidValue(Object object) {
+    private static Object toValidValue(Object object, Schema.Field field) {
         if (object != null && object.getClass().isArray()) {
             // TODO...
             return null;//Arrays.stream(object)
         }
         if (object instanceof Collection) { // todo - if array...
+
+            String first = field.schema().getTypes().stream()
+                    .filter(i -> !i.getType().equals(Schema.Type.NULL))
+                    .findFirst()
+                    .map(i -> i.getLogicalType() != null ? i.getLogicalType().getName() : i.getType().name() )
+                    .orElse(Schema.Type.STRING.getName());
+//            Schema s = first
+//                    .orElse(Schema.create(Schema.Type.STRING));
+            final IntFunction<Object[]> prototype = getPrototypeFor(first);
+
             return ((Collection<?>) object).stream()
-                    .map(LoadParquet::toValidValue)
-                    .collect(Collectors.toList());
+                    .map(i -> LoadParquet.toValidValue(i, field))
+                    .toArray(prototype);
         }
         if (object instanceof Map) {
             return ((Map<String, Object>) object).entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> toValidValue(e.getValue())));
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> toValidValue(e.getValue(), field)));
         }
-        if (object instanceof Text) {
-            // todo - maybe delete...
-            System.out.println("object = " + object);
-            return object.toString();
-        }
+//        if (object instanceof Text) {
+//            // todo - maybe delete...
+//            System.out.println("object = " + object);
+//            return object.toString();
+//        }
         try {
             // we test if is a valid Neo4j type
             return Values.of(object);
@@ -74,7 +97,36 @@ public class LoadParquet {
         }
     }
 
-    private static Map<String, Object> mapFromRecord(GenericRecord record) {
+    private static IntFunction<Object[]> getPrototypeFor(String type) {
+        switch (type) {
+            case "INT":
+            case "LONG":
+                return Long[]::new;
+            case "FLOAT":
+            case "DOUBLE":
+                return Double[]::new;
+            case "BOOLEAN":
+                return Boolean[]::new;
+            case "BYTES":
+                return Byte[]::new;
+            case "DATETIME":
+                return ZonedDateTime[]::new;
+            case "time-micros":
+                return LocalTime[]::new;
+            case "local-timestamp-micros":
+                return LocalDateTime[]::new;
+            case POINT_VALUE:
+                return PointValue[]::new;
+            case "date":
+                return LocalDate[]::new;
+            case DURATION_VALUE:
+                return DurationValue[]::new;
+            default:
+                return String[]::new;
+        }
+    }
+
+    public static Map<String, Object> mapFromRecord(GenericRecord record) {
         return record.getSchema()
                 .getFields()
                 .stream()
@@ -82,7 +134,8 @@ public class LoadParquet {
                         (mapAccumulator, field) -> {
                             String name = field.name();
 
-                            Object value = toValidValue(record.get(name));
+                            Object object = record.get(name);
+                            Object value = toValidValue(object, field);
                             if (value != null && !NO_VALUE.equals(value)) {
                                 mapAccumulator.put(name.split(TYPE_SEP)[0], value);
                             }
@@ -155,19 +208,11 @@ public class LoadParquet {
 
     @Procedure(name = "apoc.load.parquet")
     @Description("Imports nodes and relationships from the provided arrow file.")
-    public Stream<MapResult> file(
-            @Name("file") String fileName,
+    public Stream<MapResult> load(
+            @Name("input") Object input,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws IOException {
-//        final SeekableByteChannel channel = FileUtils.inputStreamFor(fileName, null, null, null)
-//                .asChannel();
-//        RootAllocator allocator = new RootAllocator();
-//        ArrowFileReader streamReader = new ArrowFileReader(channel, allocator);
-//        VectorSchemaRoot schemaRoot = streamReader.getVectorSchemaRoot();
 
-
-
-        ParquetReader<GenericData.Record> reader = AvroParquetReader
-                .<GenericData.Record>builder(new Path(fileName))
+        ParquetReader<GenericData.Record> reader = getBuilder(input)
                 .withDataModel(genericDataLoad)
                 .withConf(new Configuration())
                 .build();
@@ -176,6 +221,15 @@ public class LoadParquet {
 
         return StreamSupport.stream(new ParquetSpliterator(reader), false)
                 .onClose(() -> Util.close(reader));
+    }
+
+    public static AvroParquetReader.Builder<GenericData.Record> getBuilder(Object source) {
+        if (source instanceof String) {
+            Path file = new Path((String) source);
+            return AvroParquetReader.builder(file);
+        }
+        ParquetStream file = new LoadParquet.ParquetStream((byte[]) source);
+        return AvroParquetReader.builder(file);
     }
 
     public static void registerCustomTypes() {
@@ -225,6 +279,59 @@ public class LoadParquet {
         LogicalTypes.register(POINT_VALUE, factory3);
         LogicalTypes.register(NEO4J_REL, factory4);
     }
+
+    public static class ParquetStream implements InputFile {
+//        private final String streamId;
+        private final byte[] data;
+
+        private static class SeekableByteArrayInputStream extends ByteArrayInputStream {
+            public SeekableByteArrayInputStream(byte[] buf) {
+                super(buf);
+            }
+
+            public void setPos(int pos) {
+                this.pos = pos;
+            }
+
+            public int getPos() {
+                return this.pos;
+            }
+        }
+
+        //        public ParquetStream(String streamId, ByteArrayOutputStream stream) {
+//
+//        }
+        public ParquetStream(/*String streamId, */byte[] stream) {
+//            this.streamId = streamId;
+            this.data = stream;//.toByteArray();
+        }
+
+        @Override
+        public long getLength() throws IOException {
+            return this.data.length;
+        }
+
+        @Override
+        public SeekableInputStream newStream() throws IOException {
+            return new DelegatingSeekableInputStream(new SeekableByteArrayInputStream(this.data)) {
+                @Override
+                public void seek(long newPos) throws IOException {
+                    ((SeekableByteArrayInputStream) this.getStream()).setPos((int) newPos);
+                }
+
+                @Override
+                public long getPos() throws IOException {
+                    return ((SeekableByteArrayInputStream) this.getStream()).getPos();
+                }
+            };
+        }
+
+//        @Override
+//        public String toString() {
+//            return "ParquetStream[" + streamId + "]";
+//        }
+    }
+
 
 
 }

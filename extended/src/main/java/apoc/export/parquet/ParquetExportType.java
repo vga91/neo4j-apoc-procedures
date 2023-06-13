@@ -81,7 +81,9 @@ public interface ParquetExportType<T> {
                         .filter(filterStream)
                         .forEach(m -> {
                             String propertyName = (String) m.get("propertyName");
-                            List<String> propertyTypes = (List<String>) m.get("propertyTypes");
+                            List<String> propertyTypes =  ((List<List<String>>) m.get("types"))
+                                    .stream().flatMap(List::stream)
+                                    .toList();
 //                            propertyTypes.forEach(
                                     /*propertyType -> */toField(propertyName, new HashSet<>(propertyTypes), test);
 //                            );
@@ -95,7 +97,13 @@ public interface ParquetExportType<T> {
             final Map<String, Object> parameters = Map.of("config", cfg);
 //            final Set<Field> allFields = new HashSet<>();
 //            Set<Field> nodeFields =
-            db.executeTransactionally("CALL apoc.meta.nodeTypeProperties($config)",
+
+            // group by `propertyName` in order to
+            String query = "CALL apoc.meta.%s($config) " +
+                           "YIELD propertyName, propertyTypes " +
+                           "RETURN propertyName, collect(propertyTypes) as types";
+
+            db.executeTransactionally(String.format(query, "nodeTypeProperties"),
                     parameters, parsePropertiesResult);
 
 
@@ -110,7 +118,7 @@ public interface ParquetExportType<T> {
 
             if (cfg.containsKey("includeRels")) {
 //                final Set<Field> relFields =
-                db.executeTransactionally("CALL apoc.meta.relTypeProperties($config)",
+                db.executeTransactionally(String.format(query, "relTypeProperties"),
                         parameters, parsePropertiesResult);
                 test.optionalLong(FIELD_SOURCE_ID);
                 test.optionalLong(FIELD_TARGET_ID);
@@ -206,9 +214,9 @@ public interface ParquetExportType<T> {
                     String inner = type.toString().substring("LIST OF ".length()).trim();
                     final apoc.meta.Types innerType = apoc.meta.Types.from(inner);
                     if (innerType == Types.LIST || innerType == Types.MAP ) {
-                        return "ANY_ARRAY";
+                        return "ANYARRAY";
                     }
-                    return fromMetaType(innerType) + "_ARRAY";
+                    return fromMetaType(innerType) + "ARRAY";
 //                case BOOLEAN:
 //                    return "Boolean";
 
@@ -234,7 +242,7 @@ public interface ParquetExportType<T> {
 //                case DURATION:
 //                    return "Duration";
                 default:
-                    return type.name()/*.replaceAll("_", "")*/.toUpperCase();
+                    return type.name().replaceAll("_", "").toUpperCase();
             }
         }
 

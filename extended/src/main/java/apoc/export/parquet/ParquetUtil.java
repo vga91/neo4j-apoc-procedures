@@ -1,36 +1,53 @@
 package apoc.export.parquet;
 
-import apoc.result.VirtualNode;
-import apoc.result.VirtualRelationship;
-import apoc.util.JsonUtil;
-import apoc.util.Util;
-import apoc.util.collection.Iterables;
-import org.apache.avro.Conversion;
 import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
-import org.neo4j.graphdb.Label;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Path;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
-import org.neo4j.kernel.impl.core.NodeEntity;
-import org.neo4j.kernel.impl.core.RelationshipEntity;
-import org.neo4j.values.storable.DurationValue;
-import org.neo4j.values.storable.PointValue;
+import org.apache.avro.data.TimeConversions;
+import org.apache.avro.generic.GenericData;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
 import static apoc.export.parquet.ParquetUtil.DurationType.DURATION_VALUE;
 import static apoc.export.parquet.ParquetUtil.PointType.POINT_VALUE;
-import static apoc.util.Util.labelStrings;
 import static org.apache.avro.SchemaBuilder.BaseTypeBuilder;
 
 public class ParquetUtil {
+
+    // todo - ParquetUtil
+    public static GenericData genericDataLoad;
+    static {
+        genericDataLoad = new GenericData();
+        // need to add logicalTime Support
+        genericDataLoad.addLogicalTypeConversion(new TimeConversions.DateConversion());
+//        timeSupport.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
+        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
+        genericDataLoad.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
+//        genericData.addLogicalTypeConversion(new ParquetUtil.DurationValueConversion());
+        for (ParquetTypes type: ParquetTypes.values()) {
+            genericDataLoad.addLogicalTypeConversion(type.getReadConversion());
+        }
+    }
+
+    // todo - ParquetUtil
+    public static GenericData genericData;
+    static {
+        genericData = new GenericData();
+        // need to add logicalTime Support
+        genericData.addLogicalTypeConversion(new TimeConversions.DateConversion());
+//        timeSupport.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+        genericData.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
+        genericData.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
+        genericData.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
+//        genericData.addLogicalTypeConversion(new ParquetUtil.DurationValueConversion());
+        for (ParquetTypes type: ParquetTypes.values()) {
+            genericData.addLogicalTypeConversion(type.getWriteConversion());//new ParquetUtil.PointValueConversion());
+        }
+    }
+
     public static final String TYPE_SEP = "___";
 
     // todo - creare analogo senza apoc.schema, perché senno non funziona mai senza jar core....
@@ -102,10 +119,10 @@ public class ParquetUtil {
             case "DOUBLE" -> {
                 return test.optionalDouble(fieldName);
             }
-            case "DATE_TIME" -> {
+            case "DATETIME" -> {
                 return getSchemaFieldAssembler(fieldName, test, LogicalTypes.timestampMicros(), BaseTypeBuilder::longType);
             }
-            case "LOCAL_TIME" -> {
+            case "LOCALTIME" -> {
                 // todo
                 return null;
             }
@@ -113,7 +130,7 @@ public class ParquetUtil {
                 // todo
                 return null;
             }
-            case "LOCAL_DATE_TIME" -> {
+            case "LOCALDATETIME" -> {
                 Schema schema2 = LogicalTypes.localTimestampMicros().addToSchema(SchemaBuilder.builder().longType());
                 return test.name(fieldName).type().optional().type(schema2);
             }
@@ -146,11 +163,11 @@ public class ParquetUtil {
             case "MAP" ->
                 // todo - test with this export.query, since map is not allowed as a property
                     throw new RuntimeException("todo - how to deal with it??");
-            case "DATE_TIME_ARRAY" -> {
+            case "DATETIMEARRAY" -> {
                 // todo...
                 return null;
             }
-            case "LOCAL_TIME_ARRAY" -> {
+            case "LOCALTIMEARRAY" -> {
                 // todo...
                 return null;
             }
@@ -158,33 +175,33 @@ public class ParquetUtil {
                 return null;
             }
             // todo...
-            case "LOCAL_DATE_TIME_ARRAY" -> {
+            case "LOCALDATETIMEARRAY" -> {
                 return null;
             }
             // todo...
-            case "DATE_ARRAY" -> {
+            case "DATEARRAY" -> {
                 return getArraySchemaFieldAssembler(fieldName, test, LogicalTypes.localTimestampMicros(), BaseTypeBuilder::intType);
             }
             // todo...
-            case "BOOLEAN_ARRAY" -> {
+            case "BOOLEANARRAY" -> {
                 return getItems(fieldName, test).booleanType();
             }
             // todo...
-            case "LONG_ARRAY" -> {
+            case "LONGARRAY" -> {
                 return getItems(fieldName, test).longType();
             }
             // todo...
-            case "DOUBLE_ARRAY" -> {
+            case "DOUBLEARRAY" -> {
                 return getItems(fieldName, test).doubleType();
             }
-            case "DURATION_ARRAY" -> {
+            case "DURATIONARRAY" -> {
                 return getArraySchemaFieldAssembler(fieldName, test, ParquetTypes.DURATION.getType(), BaseTypeBuilder::stringType);
             }
             // todo...
-            case "STRING_ARRAY" -> {
+            case "STRINGARRAY" -> {
                 return getItems(fieldName, test).stringType();
             }
-            case "POINT_ARRAY" -> {
+            case "POINTARRAY" -> {
                 return getArraySchemaFieldAssembler(fieldName, test, ParquetTypes.POINT.getType(), BaseTypeBuilder::stringType);
             }
             // todo...
@@ -201,334 +218,9 @@ public class ParquetUtil {
     }
 
 
-    public static abstract class CustomConversion<T> extends Conversion<T> {
-
-//        @Override
-//        public String getLogicalTypeName() {
-//            return null;
-//        }
-
-        public abstract T parseValue(CharSequence value);
-
-        public CharSequence serializeValue(T value) {
-            return value.toString();
-        }
-
-        @Override
-        public T fromCharSequence(CharSequence value, Schema schema, LogicalType type) {
-            if (value == null) {
-                return null;
-            }
-            return parseValue(value);
-        }
-
-        @Override
-        public CharSequence toCharSequence(T value, Schema schema, LogicalType type) {
-            return serializeValue(value);
-        }
-    }
 
 
-    public static abstract class CustomType extends LogicalType {
 
-        public CustomType(String logicalTypeName) {
-            super(logicalTypeName);
-        }
-
-        public abstract String getLogicalTypeName();
-
-        @Override
-        public void validate(Schema schema) {
-            super.validate(schema);
-            if (schema.getType() != Schema.Type.STRING) {
-                throw new IllegalArgumentException(getLogicalTypeName() + " can only be used with an underlying string type");
-            }
-        }
-    }
-
-//    public static class PathEntityConversion extends CustomConversion<Path> {
-//
-//        @Override
-//        public Path parseValue(CharSequence value) {
-//            Map parse = JsonUtil.parse(value.toString(), null, Map.class);
-//            return new VirtualRelationship(
-//                    (long) parse.remove(FIELD_ID),
-//                    new VirtualNode((long) parse.remove(FIELD_SOURCE_ID)),
-//                    new VirtualNode((long) parse.remove(FIELD_TARGET_ID)),
-//                    org.neo4j.graphdb.RelationshipType.withName((String) parse.remove(FIELD_TYPE)),
-//                    parse
-//            );// NodeEntity.parse(value);
-//        }
-//
-//        @Override
-//        public CharSequence serializeValue(Path value) {
-//            value.
-//            Map<String, Object> allProperties = value.getAllProperties();
-//            allProperties.put(FIELD_ID, value.getId());
-//            allProperties.put(FIELD_SOURCE_ID, value.getId());
-//            allProperties.put(FIELD_TARGET_ID, value.getId());
-//            allProperties.put(FIELD_TYPE, value.getType().name());
-//            return JsonUtil.writeValueAsString(allProperties);
-//        }
-//
-//        @Override
-//        public String getLogicalTypeName() {
-//            return RelationshipType.NEO4J_REL;
-//        }
-//    }
-
-    public static class RelationshipEntityConversion extends Conversion<RelationshipEntity> {
-
-//        @Override
-//        public RelationshipEntity parseValue(CharSequence value) {
-//            Map parse = JsonUtil.parse(value.toString(), null, Map.class);
-//            return new VirtualRelationship(
-//                    (long) parse.remove(FIELD_ID),
-//                    new VirtualNode((long) parse.remove(FIELD_SOURCE_ID)),
-//                    new VirtualNode((long) parse.remove(FIELD_TARGET_ID)),
-//                    org.neo4j.graphdb.RelationshipType.withName((String) parse.remove(FIELD_TYPE)),
-//                    parse
-//                    );
-//        }
-
-        @Override
-        public CharSequence toCharSequence(RelationshipEntity value, Schema schema, LogicalType type) {
-            Map<String, Object> allProperties = value.getAllProperties();
-            allProperties.put(FIELD_ID, value.getId());
-            allProperties.put(FIELD_SOURCE_ID, value.getStartNodeId());
-            allProperties.put(FIELD_TARGET_ID, value.getEndNodeId());
-            allProperties.put(FIELD_TYPE, value.getType().name());
-            return JsonUtil.writeValueAsString(allProperties);
-        }
-
-        @Override
-        public Class<RelationshipEntity> getConvertedType() {
-            return RelationshipEntity.class;
-        }
-
-        @Override
-        public String getLogicalTypeName() {
-            return RelationshipType.NEO4J_REL;
-        }
-    }
-
-    public static class NodeLoadConversion extends EntityLoadConversion {
-        @Override
-        public String getLogicalTypeName() {
-            return NodeType.NEO4J_NODE;
-        }
-    }
-
-    public static class RelationshipLoadConversion extends EntityLoadConversion {
-        @Override
-        public String getLogicalTypeName() {
-            return RelationshipType.NEO4J_REL;
-        }
-    }
-
-    public abstract static class EntityLoadConversion extends CustomConversion<Map> {
-
-        @Override
-        public Map parseValue(CharSequence value) {
-            return JsonUtil.parse(value.toString(), null, Map.class);
-        }
-
-        @Override
-        public Class<Map> getConvertedType() {
-            return Map.class;
-        }
-    }
-
-    public static class NodeEntityConversion extends CustomConversion<NodeEntity> {
-
-        @Override
-        public Class<NodeEntity> getConvertedType() {
-            return NodeEntity.class;
-        }
-
-        //        @Override
-//        public Class<Node> getConvertedType() {
-//            return Node.class;
-//        }
-//JsonUtil.parse( --> TODO --> VEDERE  @UserFunction("apoc.json.path") E @UserFunction("apoc.convert.toJson")
-        @Override
-        public String getLogicalTypeName() {
-            return NodeType.NEO4J_NODE;
-        }
-
-
-//        @Override
-//        public Class<Node> getConvertedType() {
-//            return Node.class;
-//        }
-
-        @Override
-        public NodeEntity parseValue(CharSequence value) {
-//            NodeEntity.
-            return null;
-//            Map parse = JsonUtil.parse(value.toString(), null, Map.class);
-//            return new VirtualNode(
-//                    (long) parse.remove(FIELD_ID),
-//                    Util.labels(parse.remove(FIELD_LABELS)),
-//                    parse
-//            );
-        }
-
-        @Override
-        public CharSequence serializeValue(NodeEntity value) {
-            Map<String, Object> allProperties = value.getAllProperties();
-            allProperties.put(FIELD_ID, value.getId());
-            allProperties.put(FIELD_LABELS, labelStrings(value));
-            return JsonUtil.writeValueAsString(allProperties);
-        }
-
-//        @Override
-//        public Node fromMap(Map<?, ?> value, Schema schema, LogicalType type) {
-//            // todo - for import????
-//            return super.fromMap(value, schema, type);
-//        }
-//
-//        @Override
-//        public Map<?, ?> toMap(Node value, Schema schema, LogicalType type) {
-//            // todo - for export????
-//            return super.toMap(value, schema, type);
-//        }
-    }
-
-
-    public static class PointValueConversion extends CustomConversion<PointValue> {
-
-        @Override
-        public Class<PointValue> getConvertedType() {
-            return PointValue.class;
-        }
-
-        @Override
-        public PointValue parseValue(CharSequence value) {
-            return PointValue.parse(value);
-        }
-
-        @Override
-        public String getLogicalTypeName() {
-            return POINT_VALUE;
-        }
-//
-//        @Override
-//        public PointValue fromCharSequence(CharSequence value, Schema schema, LogicalType type) {
-//            if (value == null) {
-//                return null;
-//            }
-//            return PointValue.parse(value);
-//        }
-//
-//        @Override
-//        public CharSequence toCharSequence(PointValue value, Schema schema, LogicalType type) {
-//            return value.toString();
-//        }
-    }
-
-    public static class PointType extends CustomType {
-
-        public static final String POINT_VALUE = "point-value";
-
-        @Override
-        public String getLogicalTypeName() {
-            return POINT_VALUE;
-        }
-
-        public PointType() {
-            super(POINT_VALUE);
-        }
-        //        public static String logicalTypeName = "";
-
-//        public PointType(String logicalTypeName) {
-//            super(logicalTypeName);
-//        }
-//        private static PointType INSTANCE;
-//
-//        public static PointType getInstance() {
-//            if(INSTANCE == null) {
-//                INSTANCE = new PointType();
-//            }
-//            return INSTANCE;
-//        }
-
-//        public static final String POINT_VALUE = "point-value";
-
-//        public PointType() {
-//            super(POINT_VALUE);
-//        }
-
-//        @Override
-//        public void validate(Schema schema) {
-//            super.validate(schema);
-//            if (schema.getType() != Schema.Type.STRING) {
-//                // TODO - error..
-//                throw new IllegalArgumentException("Local timestamp (micros) can only be used with an underlying long type");
-//            }
-//        }
-    }
-
-
-    public static class DurationValueConversion extends CustomConversion<DurationValue> {
-
-        @Override
-        public Class<DurationValue> getConvertedType() {
-            return DurationValue.class;
-        }
-
-        @Override
-        public String getLogicalTypeName() {
-            return DURATION_VALUE;
-        }
-
-        @Override
-        public DurationValue parseValue(CharSequence value) {
-            return DurationValue.parse(value);
-        }
-    }
-
-    public static class DurationType extends CustomType {
-
-        public static final String DURATION_VALUE = "duration-value";
-
-        public DurationType() {
-            super(DURATION_VALUE);
-        }
-
-        @Override
-        public String getLogicalTypeName() {
-            return DURATION_VALUE;
-        }
-    }
-
-    public static class NodeType extends CustomType {
-
-        public static final String NEO4J_NODE = "neo4j-node";
-
-        public NodeType() {
-            super(NEO4J_NODE);
-        }
-
-        @Override
-        public String getLogicalTypeName() {
-            return NEO4J_NODE;
-        }
-    }
-
-    public static class RelationshipType extends CustomType {
-
-        public static final String NEO4J_REL = "relationship-node";
-
-        public RelationshipType() {
-            super(NEO4J_REL);
-        }
-
-        @Override
-        public String getLogicalTypeName() {
-            return NEO4J_REL;
-        }
-    }
 
 
     public static String FIELD_ID = "_id";
