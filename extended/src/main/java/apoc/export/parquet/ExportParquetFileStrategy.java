@@ -10,6 +10,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetWriter;
+import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.logging.Log;
@@ -33,6 +34,7 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
     private final TerminationGuard terminationGuard;
     private final Log logger;
     private final ParquetExportType exportType;
+    ParquetWriter<GenericRecord> writer;
 
     public ExportParquetFileStrategy(String fileName, GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger, ParquetExportType exportType) {
         this.fileName = fileName;
@@ -50,6 +52,7 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
 
         Path fileToWrite = new org.apache.hadoop.fs.Path(fileName);
+
         final BlockingQueue<ProgressInfo> queue = new ArrayBlockingQueue<>(10);
 
         Util.inTxFuture(pools.getDefaultExecutorService(), db, tx -> {
@@ -76,6 +79,7 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
             } catch (Exception e) {
                 logger.error("Exception while extracting Parquet data:", e);
             } finally {
+                closeWriter();
                 reporter.done();
                 QueueUtil.put(queue, ProgressInfo.EMPTY, 10);
             }
@@ -86,15 +90,24 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         return StreamSupport.stream(spliterator, false);
     }
 
+    private void closeWriter() {
+        if (this.writer == null) return;
+        try {
+            this.writer.close();
+        } catch (IOException ignored) {}
+    }
+
     private void writeBatch(AvroParquetWriter.Builder<GenericRecord> builder, List<TYPE> rows, IN data, ParquetConfig config) {
 
         List conf = exportType.createConfig(rows, data, config);
         Schema schema = exportType.schemaFor(db, conf);
-        try (ParquetWriter<GenericRecord> writer = getBuild(schema, builder)) {
-            writeRows(rows, writer, exportType, schema);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+
+        if (writer == null) {
+            this.writer = getBuild(schema, builder);
         }
+        writeRows(rows, writer, exportType, schema);
+
+
     }
 
     public abstract String getSource(IN data);

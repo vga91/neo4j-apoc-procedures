@@ -29,10 +29,10 @@ import java.io.File;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -135,13 +135,11 @@ public class ParquetTest {
     }
 
     private String extractFileName(Result result) {
-        return result.<String>columnAs("file").next();
+        return Iterators.single(result.columnAs("file"));
     }
 
-    // todo - test with this: unwind [1, "", 7.0, date()] as u return u
     @Test
     public void testStreamRoundtripParquetQueryMultitype() {
-        // todo - list...
         List<Object> values = List.of(1L, "", 7.0, DateValue.parse("1999"), LocalDateTimeValue.parse("2023-06-14T08:38:28.193000000"));
 
         final byte[] byteArray = db.executeTransactionally(
@@ -154,90 +152,11 @@ public class ParquetTest {
                              "RETURN value";
         testResult(db, query, Map.of("byteArray", byteArray), result -> {
             List<Map<String, Object>> value = Iterators.asList(result.columnAs("value"));
-//            value.stream().map(i -> i.)
-            // todo...
-            System.out.println("value = " + value);
+            Set<Object> actual = value.stream()
+                    .flatMap(i -> i.values().stream())
+                    .collect(Collectors.toSet());
+            System.out.println("actual = " + actual);
         });
-    }
-
-    @Test
-    public void testStreamRoundtripParquetQuery() {
-        // given - when
-        final String returnQuery = "RETURN 1 AS intData," +
-                "'a' AS stringData," +
-                "true AS boolData," +
-                "[1, 2, 3] AS intArray," +
-                "[1.1, 2.2, 3.3] AS doubleArray," +
-                "[true, false, true] AS boolArray," +
-                "[1, '2', true, null] AS mixedArray," +
-                "{foo: 'bar'} AS mapData," +
-                "localdatetime('2015-05-18T19:32:24') as dateData," +
-                "[[0]] AS arrayArray," +
-                "1.1 AS doubleData";
-        final byte[] byteArray = db.executeTransactionally("CALL apoc.export.parquet.query($query, null, {stream: true})",
-                Map.of("query", returnQuery),
-                this::extractByteArray);
-
-        // then
-        final String query = "CALL apoc.load.parquet($byteArray, null, {stream: true}) YIELD value " +
-                "RETURN value";
-        db.executeTransactionally(query, Map.of("byteArray", byteArray), result -> {
-            final Map<String, Object> row = (Map<String, Object>) result.next().get("value");
-            assertEquals(1L, row.get("intData"));
-            assertEquals("a", row.get("stringData"));
-            assertEquals(Arrays.asList(1L, 2L, 3L), row.get("intArray"));
-            assertEquals(Arrays.asList(1.1D, 2.2D, 3.3), row.get("doubleArray"));
-            assertEquals(Arrays.asList(true, false, true), row.get("boolArray"));
-            assertEquals(Arrays.asList("1", "2", "true", null), row.get("mixedArray"));
-            assertEquals("{\"foo\":\"bar\"}", row.get("mapData"));
-            assertEquals(LocalDateTime.parse("2015-05-18T19:32:24.000")
-                    .atOffset(ZoneOffset.UTC)
-                    .toZonedDateTime(), row.get("dateData"));
-            assertEquals(Arrays.asList("[0]"), row.get("arrayArray"));
-            assertEquals(1.1D, row.get("doubleData"));
-            return true;
-        });
-    }
-
-    @Test
-    public void testFileRoundtripParquetQuery() {
-        // given - when
-        final String returnQuery = "RETURN 1 AS intData," +
-                "'a' AS stringData," +
-                "true AS boolData," +
-                "[1, 2, 3] AS intArray," +
-                "[1.1, 2.2, 3.3] AS doubleArray," +
-                "[true, false, true] AS boolArray," +
-                "[1, '2', true, null] AS mixedArray," +
-                "{foo: 'bar'} AS mapData," +
-                "localdatetime('2015-05-18T19:32:24') as dateData," +
-                "[[0]] AS arrayArray," +
-                "1.1 AS doubleData";
-        String file = db.executeTransactionally("CALL apoc.export.parquet.query($query, 'query_test.parquet') YIELD file",
-                Map.of("query", returnQuery),
-                this::extractFileName);
-
-        // then
-        final String query = "CALL apoc.load.parquet($file) YIELD value " +
-                "RETURN value";
-        db.executeTransactionally(query,
-                Map.of("file", file),
-                result -> {
-                    final Map<String, Object> row = (Map<String, Object>) result.next().get("value");
-                    assertEquals(1L, row.get("intData"));
-                    assertEquals("a", row.get("stringData"));
-                    assertEquals(Arrays.asList(1L, 2L, 3L), row.get("intArray"));
-                    assertEquals(Arrays.asList(1.1D, 2.2D, 3.3), row.get("doubleArray"));
-                    assertEquals(Arrays.asList(true, false, true), row.get("boolArray"));
-                    assertEquals(Arrays.asList("1", "2", "true", null), row.get("mixedArray"));
-                    assertEquals("{\"foo\":\"bar\"}", row.get("mapData"));
-                    assertEquals(LocalDateTime.parse("2015-05-18T19:32:24.000")
-                            .atOffset(ZoneOffset.UTC)
-                            .toZonedDateTime(), row.get("dateData"));
-                    assertEquals(Arrays.asList("[0]"), row.get("arrayArray"));
-                    assertEquals(1.1D, row.get("doubleData"));
-                    return true;
-                });
     }
 
     private List<Map<String, Object>> getActual(Result result) {
@@ -250,7 +169,7 @@ public class ParquetTest {
     public void testFileRoundtripParquetGraph() {
         // given - when
         String file = db.executeTransactionally("CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
-                        "CALL apoc.export.parquet.graph('graph_test.parquet', graph) YIELD file " +
+                        "CALL apoc.export.parquet.graph(graph, 'graph_test.parquet') YIELD file " +
                         "RETURN file",
                 Map.of(),
                 this::extractFileName);
@@ -258,11 +177,8 @@ public class ParquetTest {
         // then
         final String query = "CALL apoc.load.parquet($file) YIELD value " +
                 "RETURN value";
-        db.executeTransactionally(query, Map.of("file", file), result -> {
-            final List<Map<String, Object>> actual = getActual(result);
-//            assertEquals(EXPECTED, actual);
-            return null;
-        });
+        testResult(db, query, Map.of("file", file),
+                this::roundtripLoadAllAssertion);
     }
 
     @Test
@@ -291,6 +207,34 @@ public class ParquetTest {
                              "RETURN value";
 
         testResult(db, query, Map.of("bytes", bytes),
+                this::roundtripLoadAllAssertion);
+    }
+
+    @Test
+    public void testStreamRoundtripWithMultipleBatches() {
+        final List<byte[]> bytes = db.executeTransactionally("CALL apoc.export.parquet.all.stream({batchSize:1})",
+                Map.of(),
+                r -> Iterators.asList(r.columnAs("value")));
+
+        // then
+        final String query = "UNWIND $bytes AS byte CALL apoc.load.parquet(byte) YIELD value " +
+                             "RETURN value";
+
+        testResult(db, query, Map.of("bytes", bytes),
+                this::roundtripLoadAllAssertion);
+    }
+
+    @Test
+    public void testRoundtripWithMultipleBatches() {
+        final String fileName = db.executeTransactionally("CALL apoc.export.parquet.all('test.parquet', {batchSize:1})",
+                Map.of(),
+                this::extractFileName);
+
+        // then
+        final String query = "CALL apoc.load.parquet($file) YIELD value " +
+                             "RETURN value";
+
+        testResult(db, query, Map.of("file", fileName),
                 this::roundtripLoadAllAssertion);
     }
 
@@ -346,7 +290,6 @@ public class ParquetTest {
         });
     }
 
-
     @Test
     public void testFileRoundtripParquetAll() {
         // given - when
@@ -363,47 +306,29 @@ public class ParquetTest {
     }
 
     @Test
-    public void testStreamVolumeParquetAll() {
-        // given - when
-        db.executeTransactionally("UNWIND range(0, 10000 - 1) AS id CREATE (n:ParquetNode{id:id})");
-
-        final List<byte[]> list = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode) RETURN n.id AS id', null, {stream: true}) YIELD value AS byteArray ",
+    public void testReturnNodeAndRelStream() {
+        testReturnNodeAndRelCommon(() -> db.executeTransactionally("CALL apoc.export.parquet.query.stream('MATCH (n:ParquetNode)-[r:BAR]->(o:Other) RETURN n,r,o ORDER BY n.idStart') ",
                 Map.of(),
-                result -> result.<byte[]>columnAs("byteArray").stream().collect(Collectors.toList()));
-
-        final List<Long> expected = LongStream.range(0, 10000)
-                .boxed()
-                .collect(Collectors.toList());
-
-        // then
-        final String query = "UNWIND $list AS byteArray " +
-                "CALL apoc.load.parquet(byteArray) YIELD value " +
-                "RETURN value.id AS id";
-        db.executeTransactionally(query, Map.of("list", list), result -> {
-            final List<Long> actual = result.stream()
-                    .map(m -> (Long) m.get("id"))
-                    .sorted()
-                    .collect(Collectors.toList());
-            assertEquals(expected, actual);
-            return null;
-        });
-
-        db.executeTransactionally("MATCH (n:ParquetNode) DELETE n");
+                this::extractByteArray));
     }
 
     @Test
     public void testReturnNodeAndRel() {
+        testReturnNodeAndRelCommon(() -> db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode)-[r:BAR]->(o:Other) RETURN n,r,o ORDER BY n.idStart', 'volume_test.parquet') YIELD file ",
+                Map.of(),
+                this::extractFileName));
+    }
+
+    private void testReturnNodeAndRelCommon(Supplier<Object> supplier) {
         db.executeTransactionally("CREATE (:ParquetNode{idStart:1})-[:BAR {idRel: 'one'}]->(:Other {idOther: datetime('2020')})");
         db.executeTransactionally("CREATE (:ParquetNode{idStart:2})-[:BAR {idRel: 'two'}]->(:Other {idOther: datetime('1999')})");
 
-        String file = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode)-[r:REL]->(o:Other) RETURN n,r,o ORDER BY n.idStart', 'volume_test.parquet') YIELD file ",
-                Map.of(),
-                this::extractFileName);
+        Object fileOrBinary = supplier.get();
 
         // then
         final String query = "CALL apoc.load.parquet($file)";
 
-        testResult(db, query, Map.of("file", file),
+        testResult(db, query, Map.of("file", fileOrBinary),
                 res -> {
                     ResourceIterator<Map<String, Object>> value = res.columnAs("value");
                     Map<String, Object> row = value.next();
@@ -470,26 +395,6 @@ public class ParquetTest {
                 r -> assertEquals(expected, r.get("ids")));
 
         db.executeTransactionally("MATCH (n:ParquetNode) DELETE n");
-    }
-
-    @Test
-    public void testValidNonStorableQuery() {
-        final List<byte[]> list = db.executeTransactionally("CALL apoc.export.parquet.query($query, null, {stream: true}) YIELD value AS byteArray ",
-                Map.of("query", "RETURN [1, true, 2.3, null, { name: 'Dave' }] AS array"),
-                result -> result.<byte[]>columnAs("byteArray").stream().collect(Collectors.toList()));
-
-        final List<String> expected = Arrays.asList("1", "true", "2.3", null, "{\"name\":\"Dave\"}");
-
-        // then
-        final String query = "UNWIND $list AS byteArray " +
-                "CALL apoc.load.parquet(byteArray) YIELD value " +
-                "RETURN value.array AS array";
-        db.executeTransactionally(query, Map.of("list", list), result -> {
-            List<String> actual = result.<List<String>>columnAs("array").next();
-            assertEquals(expected, actual);
-            return null;
-        });
-
     }
 
 

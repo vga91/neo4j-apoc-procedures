@@ -15,7 +15,7 @@ public class ParquetConfig {
 
     public ParquetConfig(Map<String, Object> config) {
         this.config = config == null ? Collections.emptyMap() : config;
-        this.batchSize = Util.toInteger(this.config.getOrDefault("batchSize", 2000));
+        this.batchSize = Util.toInteger(this.config.getOrDefault("batchSize", 20000));
 
         this.mode = ParquetFileWriter.Mode.valueOf((String) this.config.getOrDefault("mode", ParquetFileWriter.Mode.CREATE.name()));
     }

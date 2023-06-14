@@ -67,7 +67,7 @@ public class ImportParquet {
                     }
                     final ParquetConfig conf = new ParquetConfig(config);
 
-                    final Map<LongValue, Long> idMapping = new HashMap<>();
+                    final Map<Long, Long> idMapping = new HashMap<>();
 
                     try (ParquetReader<GenericData.Record> reader = getReaderBuilder(input)
                             .withDataModel(genericDataLoad)
@@ -94,7 +94,7 @@ public class ImportParquet {
                                             .orElse(new Label[]{});
                                     final Node node = btx.getTransaction().createNode(labels);
 
-                                    LongValue remove = (LongValue) recordMap.remove(FIELD_ID);
+                                    long remove = (long) recordMap.remove(FIELD_ID);
                                     idMapping.put(remove, node.getId());
 
                                     recordMap.forEach((k,v)-> {
@@ -104,11 +104,11 @@ public class ImportParquet {
                                     reporter.update(1, 0, recordMap.size());
                                 } else {
                                     // is relationship
-                                    LongValue remove = (LongValue) recordMap.remove(FIELD_SOURCE_ID);
+                                    long remove = (long) recordMap.remove(FIELD_SOURCE_ID);
                                     Long idSource = idMapping.get(remove);
                                     final Node source = btx.getTransaction().getNodeById(idSource);
 
-                                    LongValue remove1 = (LongValue) recordMap.remove(FIELD_TARGET_ID);
+                                    long remove1 = (long) recordMap.remove(FIELD_TARGET_ID);
                                     Long idTarget = idMapping.get(remove1);
                                     final Node target = btx.getTransaction().getNodeById(idTarget);
 
