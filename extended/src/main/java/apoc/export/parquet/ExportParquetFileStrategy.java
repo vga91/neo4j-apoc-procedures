@@ -24,10 +24,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-// todo - not mocked
 
-
-// todo - Stream<ProgressInfo> as OUT???
 public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParquetStrategy<IN, Stream<ProgressInfo>> {
 
     private final String fileName;
@@ -46,25 +43,11 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         this.exportType = exportType;
     }
 
-    // todo - here ....
     public Stream<ProgressInfo> export(IN data, ParquetConfig config) {
 
-
-
-
-//        exportType.schemaFor(db, )
-
-        // todo --> "getSource(data)"
         ProgressInfo progressInfo = new ProgressInfo(fileName, getSource(data), "parquet");
         progressInfo.batchSize = config.getBatchSize();
         ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
-
-
-
-//        Iterator<GenericRecord> it = toIterator(reporter, data, schema);
-
-//        registerCustomTypes();
-
 
         Path fileToWrite = new org.apache.hadoop.fs.Path(fileName);
         final BlockingQueue<ProgressInfo> queue = new ArrayBlockingQueue<>(10);
@@ -78,7 +61,6 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
             try {
                 Iterator<TYPE> it = toIterator(reporter, data);
                 while (!Util.transactionIsTerminated(terminationGuard) && it.hasNext()) {
-//                    GenericRecord record = exportType.toRecord(schema, it.next());
                     rows.add(it.next());
 
                     if (batchCount > 0 && batchCount % config.getBatchSize() == 0) {
@@ -106,7 +88,8 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
 
     private void writeBatch(AvroParquetWriter.Builder<GenericRecord> builder, List<TYPE> rows, IN data, ParquetConfig config) {
 
-        Schema schema = exportType.schemaFor(db, exportType.createConfig(rows, data, config));
+        List conf = exportType.createConfig(rows, data, config);
+        Schema schema = exportType.schemaFor(db, conf);
         try (ParquetWriter<GenericRecord> writer = getBuild(schema, builder)) {
             writeRows(rows, writer, exportType, schema);
         } catch (IOException e) {

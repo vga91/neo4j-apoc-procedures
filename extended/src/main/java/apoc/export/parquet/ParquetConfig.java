@@ -24,8 +24,6 @@ public class ParquetConfig {
         return batchSize;
     }
 
-
-    // todo - useful??
     public Map<String, Object> getConfig() {
         return config;
     }

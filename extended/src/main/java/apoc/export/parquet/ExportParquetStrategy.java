@@ -18,7 +18,9 @@ public interface ExportParquetStrategy<IN, OUT> {
     OUT export(IN data, ParquetConfig config);
 
     default <T> void writeRows(List<T> rows, ParquetWriter<GenericRecord> writer, ParquetExportType type, Schema schema) {
-        rows.stream().map(i -> type.toRecord(schema, i)).forEach(i -> {
+        rows.stream()
+                .map(i -> type.toRecord(schema, i))
+                .forEach(i -> {
             try {
                 writer.write(i);
             } catch (IOException e) {
@@ -31,34 +33,16 @@ public interface ExportParquetStrategy<IN, OUT> {
     default ParquetWriter<GenericRecord> getBuild(Schema schema, AvroParquetWriter.Builder<GenericRecord> builder) throws IOException {
         return builder
                 .withSchema(schema)
+                // TODO - check other configs
                 .withConf(new Configuration())
                 .withDataModel(genericData)
-                // todo ---> other with
-
-                // todo - configurable?? this generate a .crc file
+                // TODO - configurable. This generate a .crc file
                 .withValidation(false)
-                // todo - config...
+                // TODO - config...
 //                .withCompressionCodec(CompressionCodecName.SNAPPY)
-                // todo - config...
+                // TODO - configurable...
                 .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-//                .withDataModel(genericData)
                 .build();
-    }
-
-    // todo ??
-    // Object convertValue(Object data);
-
-    // todo - TerminationGuard
-
-
-//    Schema schemaFor(List<Map<String, Object>> rows);
-
-    default ParquetExportType getType(IN data) {
-
-        if (data instanceof Result) {
-            return new ParquetExportType.ResultType();
-        }
-        return new ParquetExportType.GraphType();
     }
 
 }

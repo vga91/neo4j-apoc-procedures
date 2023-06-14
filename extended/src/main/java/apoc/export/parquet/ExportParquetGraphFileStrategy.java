@@ -4,7 +4,6 @@ import apoc.Pools;
 import apoc.export.util.ProgressReporter;
 import apoc.result.ProgressInfo;
 import apoc.util.collection.Iterables;
-import org.apache.avro.Schema;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;

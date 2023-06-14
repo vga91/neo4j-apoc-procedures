@@ -4,9 +4,8 @@ import apoc.export.ImportParquet;
 import apoc.graph.Graphs;
 import apoc.load.LoadParquet;
 import apoc.meta.Meta;
-import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import apoc.util.collection.Iterators;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -20,6 +19,7 @@ import org.neo4j.kernel.impl.util.ValueUtils;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.neo4j.values.AnyValue;
+import org.neo4j.values.storable.DateValue;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.LocalDateTimeValue;
 import org.neo4j.values.storable.PointValue;
@@ -29,6 +29,7 @@ import java.io.File;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,16 +63,13 @@ public class ParquetTest {
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath());
 
-
     private void assertFirstUserNode(Map<String, Object> map) {
-        assertTrue(map.get(FIELD_ID) instanceof Long);
-        assertArrayEquals(new String[] {"User"}, (String[]) map.get(FIELD_LABELS));
+        assertNodeAndLabel(map, "User");
         assertFirstUserNodeProps(map);
     }
 
     private void assertSecondUserNode(Map<String, Object> map) {
-        assertTrue(map.get(FIELD_ID) instanceof Long);
-        assertArrayEquals(new String[] {"User"}, (String[]) map.get(FIELD_LABELS));
+        assertNodeAndLabel(map, "User");
         assertSecondUserNodeProps(map);
     }
 
@@ -92,28 +90,14 @@ public class ParquetTest {
     }
 
     private void assertFirstMultiNodeProps(Map<String, Object> map) {
-        assertTrue(map.get(FIELD_ID) instanceof Long);
-        assertArrayEquals(new String[] {"Multi"}, (String[]) map.get(FIELD_LABELS));
+        assertNodeAndLabel(map, "Multi");
         assertEquals(1L, map.get("name"));
     }
 
     private void assertSecondMultiNodeProps(Map<String, Object> map) {
-        assertTrue(map.get(FIELD_ID) instanceof Long);
-        assertArrayEquals(new String[] {"Multi"}, (String[]) map.get(FIELD_LABELS));
+        assertNodeAndLabel(map, "Multi");
         assertEquals("Sam", map.get("name"));
     }
-
-    private static final HashMap<String, Object> E_3 = new HashMap<>() {{
-        put(FIELD_LABELS, List.of("Multi"));
-        put(FIELD_ID, 2L);
-        put("name", 1L);
-    }};
-
-    private static final HashMap<String, Object> E_4 = new HashMap<>() {{
-        put(FIELD_LABELS, List.of("Multi"));
-        put(FIELD_ID, 3L);
-        put("name", "Sam");
-    }};
 
     private void assertRelationship(Map<String, Object> map) {
         assertTrue(map.get(FIELD_ID) instanceof Long);
@@ -132,20 +116,6 @@ public class ParquetTest {
             "since", 1993L
     );
 
-    private static final HashMap<String, Object> E_5 = new HashMap<>() {{
-        put(FIELD_SOURCE_ID, 0L);
-        put(FIELD_ID, 0L);
-        put(FIELD_TYPE, "KNOWS");
-        put(FIELD_TARGET_ID, 1L);
-        putAll(E_5_PROPS);
-    }};
-
-//    public static final List<Map<String, Object>> EXPECTED = List.of(
-//            E_1,
-//            E_2,
-//            E_3
-//    );
-
     @BeforeClass
     public static void beforeClass() {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015-05-18T19:32:24.000'), place:point({latitude: 13.1, longitude: 33.46789, height: 100.0})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42})");
@@ -160,7 +130,7 @@ public class ParquetTest {
     }
 
     private byte[] extractByteArray(Result result) {
-        ResourceIterator<byte[]> value = result.<byte[]>columnAs("value");
+        ResourceIterator<byte[]> value = result.columnAs("value");
         return value.next();
     }
 
@@ -168,18 +138,27 @@ public class ParquetTest {
         return result.<String>columnAs("file").next();
     }
 
-    // todo - ??
-    private <T> T readValue(String json, Class<T> clazz) {
-        if (json == null) return null;
-        try {
-            return JsonUtil.OBJECT_MAPPER.readValue(json, clazz);
-        } catch (JsonProcessingException e) {
-            return null;
-        }
-    }
-
     // todo - test with this: unwind [1, "", 7.0, date()] as u return u
+    @Test
+    public void testStreamRoundtripParquetQueryMultitype() {
+        // todo - list...
+        List<Object> values = List.of(1L, "", 7.0, DateValue.parse("1999"), LocalDateTimeValue.parse("2023-06-14T08:38:28.193000000"));
 
+        final byte[] byteArray = db.executeTransactionally(
+                "CALL apoc.export.parquet.query.stream('UNWIND $values AS item RETURN item', {params: {values: $values}})",
+                Map.of("values", values),
+                this::extractByteArray);
+
+        // then
+        final String query = "CALL apoc.load.parquet($byteArray) YIELD value " +
+                             "RETURN value";
+        testResult(db, query, Map.of("byteArray", byteArray), result -> {
+            List<Map<String, Object>> value = Iterators.asList(result.columnAs("value"));
+//            value.stream().map(i -> i.)
+            // todo...
+            System.out.println("value = " + value);
+        });
+    }
 
     @Test
     public void testStreamRoundtripParquetQuery() {
@@ -261,33 +240,9 @@ public class ParquetTest {
                 });
     }
 
-//    @Test
-//    public void testStreamRoundtripParquetGraph() {
-//        // given - when
-//        final byte[] byteArray = db.executeTransactionally("CALL apoc.graph.fromDB('neo4j',{}) yield graph " +
-//                        "CALL apoc.export.parquet.graph(graph, null, {stream: true}) YIELD value" +
-//                        "RETURN value",
-//                Map.of(),
-//                this::extractByteArray);
-//
-//        // then
-//        final String query = "CALL apoc.load.parquet($byteArray, null, {stream: true}) YIELD value " +
-//                "RETURN value";
-//        db.executeTransactionally(query, Map.of("byteArray", byteArray), result -> {
-//            final List<Map<String, Object>> actual = getActual(result);
-//            assertEquals(EXPECTED, actual);
-//            return null;
-//        });
-//    }
-
     private List<Map<String, Object>> getActual(Result result) {
         return result.stream()
                 .map(m -> (Map<String, Object>) m.get("value"))
-//                .map(m -> {
-//                    final Map<String, Object> newMap = new HashMap(m);
-//                    newMap.put("place", readValue((String) m.get("place"), Map.class));
-//                    return newMap;
-//                })
                 .collect(Collectors.toList());
     }
 
@@ -417,7 +372,7 @@ public class ParquetTest {
                 result -> result.<byte[]>columnAs("byteArray").stream().collect(Collectors.toList()));
 
         final List<Long> expected = LongStream.range(0, 10000)
-                .mapToObj(l -> l)
+                .boxed()
                 .collect(Collectors.toList());
 
         // then
@@ -438,8 +393,8 @@ public class ParquetTest {
 
     @Test
     public void testReturnNodeAndRel() {
-        db.executeTransactionally("CREATE (:ParquetNode{idStart:1})-[:REL {idRel: 'one'}]->(:Other {idOther: datetime('2020')})");
-        db.executeTransactionally("CREATE (:ParquetNode{idStart:2})-[:REL {idRel: 'two'}]->(:Other {idOther: datetime('1999')})");
+        db.executeTransactionally("CREATE (:ParquetNode{idStart:1})-[:BAR {idRel: 'one'}]->(:Other {idOther: datetime('2020')})");
+        db.executeTransactionally("CREATE (:ParquetNode{idStart:2})-[:BAR {idRel: 'two'}]->(:Other {idOther: datetime('1999')})");
 
         String file = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode)-[r:REL]->(o:Other) RETURN n,r,o ORDER BY n.idStart', 'volume_test.parquet') YIELD file ",
                 Map.of(),
@@ -453,44 +408,45 @@ public class ParquetTest {
                     ResourceIterator<Map<String, Object>> value = res.columnAs("value");
                     Map<String, Object> row = value.next();
                     Map<String, Object> relTwo = (Map<String, Object>) row.get("r");
-                    assertEquals("one", relTwo.get("idRel"));
-                    assertEquals("REL", relTwo.get(FIELD_TYPE));
-                    assertTrue(relTwo.get(FIELD_ID) instanceof Long);
-                    assertTrue(relTwo.get(FIELD_SOURCE_ID) instanceof Long);
-                    assertTrue(relTwo.get(FIELD_TARGET_ID) instanceof Long);
+                    assertBarRel("one", relTwo);
 
                     Map<String, Object> startTwo = (Map<String, Object>) row.get("n");
-                    assertTrue(startTwo.get(FIELD_ID) instanceof Long);
+                    assertNodeAndLabel(startTwo, "ParquetNode");
                     assertEquals(1L, startTwo.get("idStart"));
-                    assertEquals(List.of("ParquetNode"), startTwo.get(FIELD_LABELS));
 
                     Map<String, Object> endTwo = (Map<String, Object>) row.get("o");
-                    assertTrue(endTwo.get(FIELD_ID) instanceof Long);
+                    assertNodeAndLabel(endTwo, "Other");
                     assertEquals("2020-01-01T00:00Z", endTwo.get("idOther"));
-                    assertEquals(List.of("Other"), endTwo.get(FIELD_LABELS));
 
                     row = value.next();
                     Map<String, Object> rel = (Map<String, Object>) row.get("r");
-                    assertEquals("two", rel.get("idRel"));
-                    assertEquals("REL", rel.get(FIELD_TYPE));
-                    assertTrue(rel.get(FIELD_ID) instanceof Long);
-                    assertTrue(rel.get(FIELD_SOURCE_ID) instanceof Long);
-                    assertTrue(rel.get(FIELD_TARGET_ID) instanceof Long);
+                    assertBarRel("two", rel);
 
                     Map<String, Object> start = (Map<String, Object>) row.get("n");
-                    assertTrue(start.get(FIELD_ID) instanceof Long);
+                    assertNodeAndLabel(start, "ParquetNode");
                     assertEquals(2L, start.get("idStart"));
-                    assertEquals(List.of("ParquetNode"), start.get(FIELD_LABELS));
 
                     Map<String, Object> end = (Map<String, Object>) row.get("o");
-                    assertTrue(end.get(FIELD_ID) instanceof Long);
+                    assertNodeAndLabel(end, "Other");
                     assertEquals("1999-01-01T00:00Z", end.get("idOther"));
-                    assertEquals(List.of("Other"), end.get(FIELD_LABELS));
 
                     assertFalse(res.hasNext());
                 });
 
         db.executeTransactionally("MATCH (n:ParquetNode), (o:Other) DETACH DELETE n, o");
+    }
+
+    private static void assertNodeAndLabel(Map<String, Object> startTwo, String ParquetNode) {
+        assertTrue(startTwo.get(FIELD_ID) instanceof Long);
+        assertArrayEquals(new String[]{ParquetNode}, (String[]) startTwo.get(FIELD_LABELS));
+    }
+
+    private static void assertBarRel(String one, Map<String, Object> relTwo) {
+        assertEquals(one, relTwo.get("idRel"));
+        assertEquals("BAR", relTwo.get(FIELD_TYPE));
+        assertTrue(relTwo.get(FIELD_ID) instanceof Long);
+        assertTrue(relTwo.get(FIELD_SOURCE_ID) instanceof Long);
+        assertTrue(relTwo.get(FIELD_TARGET_ID) instanceof Long);
     }
 
     @Test

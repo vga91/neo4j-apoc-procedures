@@ -134,18 +134,6 @@ public class CustomConversions {
             allProperties.put(FIELD_LABELS, labelStrings(value));
             return JsonUtil.writeValueAsString(allProperties);
         }
-
-//        @Override
-//        public Node fromMap(Map<?, ?> value, Schema schema, LogicalType type) {
-//            // todo - for import????
-//            return super.fromMap(value, schema, type);
-//        }
-//
-//        @Override
-//        public Map<?, ?> toMap(Node value, Schema schema, LogicalType type) {
-//            // todo - for export????
-//            return super.toMap(value, schema, type);
-//        }
     }
 
 

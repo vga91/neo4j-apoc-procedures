@@ -46,6 +46,12 @@ public interface ParquetExportType<TYPE, ROW> {
         }
     }
 
+    default SchemaBuilder.FieldAssembler<Schema> startFieldAssembler() {
+        return SchemaBuilder.record("apocExport")
+                .namespace("apoc.parquet")
+                .fields();
+    }
+
     Schema schemaFor(GraphDatabaseService db, List<Map<String,Object>> type);
     GenericRecord toRecord(Schema schema, ROW data);
     List<Map<String,Object>> createConfig(List<ROW> row, TYPE data, ParquetConfig config);
@@ -60,9 +66,7 @@ public interface ParquetExportType<TYPE, ROW> {
             if (this.schema != null) {
                 return this.schema;
             }
-            SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("apocExport")
-                    .namespace("apoc.parquet")
-                    .fields();
+            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
 
             final Predicate<Map<String, Object>> filterStream = m -> m.get("propertyName") != null;
             final ResultTransformer<Void> parsePropertiesResult = result -> {
@@ -73,7 +77,7 @@ public interface ParquetExportType<TYPE, ROW> {
                             List<String> propertyTypes =  ((List<List<String>>) m.get("types"))
                                     .stream().flatMap(List::stream)
                                     .toList();
-                            toField(propertyName, new HashSet<>(propertyTypes), test);
+                            toField(propertyName, new HashSet<>(propertyTypes), fieldAssembler);
                         });
                 return null;
             };
@@ -89,20 +93,18 @@ public interface ParquetExportType<TYPE, ROW> {
             db.executeTransactionally(String.format(query, "nodeTypeProperties"),
                     parameters, parsePropertiesResult);
 
-            test.optionalLong(FIELD_ID);
-            getItems(FIELD_LABELS, test).stringType();
+            fieldAssembler.optionalLong(FIELD_ID);
+            getItems(FIELD_LABELS, fieldAssembler).stringType();
 
             if (confMap.containsKey("includeRels")) {
                 db.executeTransactionally(String.format(query, "relTypeProperties"),
                         parameters, parsePropertiesResult);
-                test.optionalLong(FIELD_SOURCE_ID);
-                test.optionalLong(FIELD_TARGET_ID);
-                test.optionalString(FIELD_TYPE);
+                fieldAssembler.optionalLong(FIELD_SOURCE_ID);
+                fieldAssembler.optionalLong(FIELD_TARGET_ID);
+                fieldAssembler.optionalString(FIELD_TYPE);
             }
 
-            Schema schema = test.endRecord();
-
-            this.schema = schema;
+            this.schema = fieldAssembler.endRecord();
             return this.schema;
         }
 
@@ -144,37 +146,21 @@ public interface ParquetExportType<TYPE, ROW> {
         }
     }
 
-    class ResultType implements ParquetExportType<List<Map<String, Object>>, Map<String,Object>> {
+    class ResultType implements ParquetExportType<Result, Map<String,Object>> {
 
         @Override
         public Schema schemaFor(GraphDatabaseService db, List<Map<String, Object>> type) {
             // we re-calculate the schema for each batch
 
-            // todo - this row is equal
-            SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("apocExport")
-                    .namespace("apoc.parquet")
-                    .fields();
+            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
 
             type.stream()
                     .flatMap(m -> m.entrySet().stream())
                     .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
-                    .collect(Collectors.groupingBy(e -> e.getKey(), Collectors.mapping(e -> e.getValue(), Collectors.toSet())))
-                    .entrySet()
-                    .stream()
-                    .forEach(e -> toField(e.getKey(), e.getValue(), test));
+                    .collect(Collectors.groupingBy(AbstractMap.SimpleEntry::getKey, Collectors.mapping(AbstractMap.SimpleEntry::getValue, Collectors.toSet())))
+                    .forEach((key, value) -> toField(key, value, fieldAssembler));
 
-//            int batchSize = config.getBatchSize();
-//            int batchCount = 0;
-//            while (batchCount < batchSize && data.hasNext()) {
-//                firstBatch.add(data.next());
-//                ++batchCount;
-//            }
-
-            // todo - first batch
-//            this.firstElement = data.next();
-//            schemaForResult(test, firstBatch);
-
-            return test.endRecord();
+            return fieldAssembler.endRecord();
         }
 
         @Override
@@ -183,37 +169,8 @@ public interface ParquetExportType<TYPE, ROW> {
         }
 
         @Override
-        public List<Map<String, Object>> createConfig(List<Map<String, Object>> row, List<Map<String, Object>> data, ParquetConfig config) {
+        public List<Map<String, Object>> createConfig(List<Map<String, Object>> row, Result data, ParquetConfig config) {
             return row;
-        }
-
-//        void schemaForResult(SchemaBuilder.FieldAssembler<Schema> test, List<Map<String, Object>> records) {
-//            records.stream()
-//                    .flatMap(m -> m.entrySet().stream())
-//                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
-//                    .collect(Collectors.groupingBy(e -> e.getKey(), Collectors.mapping(e -> e.getValue(), Collectors.toSet())))
-//                    .entrySet()
-//                    .stream()
-//                    .forEach(e -> toField(e.getKey(), e.getValue(), test));
-//        }
-
-
-        public static String fromMetaType(apoc.meta.Types type) {
-            switch (type) {
-                case INTEGER:
-                    return "LONG";
-                case FLOAT:
-                    return "DOUBLE";
-                case LIST:
-                    String inner = type.toString().substring("LIST OF ".length()).trim();
-                    final apoc.meta.Types innerType = apoc.meta.Types.from(inner);
-                    if (innerType == Types.LIST || innerType == Types.MAP ) {
-                        return "ANYARRAY";
-                    }
-                    return fromMetaType(innerType) + "ARRAY";
-                default:
-                    return type.name().replaceAll("_", "").toUpperCase();
-            }
         }
     }
 
