@@ -6,7 +6,6 @@ import apoc.util.collection.Iterables;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.parquet.hadoop.ParquetWriter;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -17,30 +16,20 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.ResultTransformer;
 
-import java.io.IOException;
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static apoc.export.parquet.ParquetUtil.*;
 
-//
-//
-//// todo - spostare cose qui in caso...
-
-
-// todo - e se ci mettessi anche getFile?????
 public interface ParquetExportType<TYPE, ROW> {
     enum Type {
         RESULT(new ResultType()),
         GRAPH(new GraphType());
-
 
         private final ParquetExportType graphType;
 
@@ -57,32 +46,24 @@ public interface ParquetExportType<TYPE, ROW> {
         }
     }
 
-    Schema schemaFor(GraphDatabaseService db, ParquetConfig config, TYPE data);
+    Schema schemaFor(GraphDatabaseService db, List<Map<String,Object>> type);
     GenericRecord toRecord(Schema schema, ROW data);
-
-//    void writeBatch(ParquetWriter writer, Schema schema);
+    List<Map<String,Object>> createConfig(List<ROW> row, TYPE data, ParquetConfig config);
 
     class GraphType implements ParquetExportType<SubGraph, Entity> {
 
         private Schema schema;
+        private List<Map<String,Object>> config;
 
         @Override
-        public Schema schemaFor(GraphDatabaseService db, ParquetConfig config, SubGraph data) {
+        public Schema schemaFor(GraphDatabaseService db, List<Map<String,Object>> type) {
             if (this.schema != null) {
                 return this.schema;
             }
-            // todo - this row is equal
-            SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("test")
-                    .namespace("org.apache.avro.ipc")
+            SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("apocExport")
+                    .namespace("apoc.parquet")
                     .fields();
 
-//            final Function<Map<String, Object>, Stream<? extends Field>> flatMapStream =
-//            Consumer<Map> consumer = m -> {
-//                String propertyName = (String) m.get("propertyName");
-//                List<String> propertyTypes = (List<String>) m.get("propertyTypes");
-//                propertyTypes.stream()
-//                        .map(propertyType -> toField(propertyName, new HashSet<>(propertyTypes)));
-//            };
             final Predicate<Map<String, Object>> filterStream = m -> m.get("propertyName") != null;
             final ResultTransformer<Void> parsePropertiesResult = result -> {
                 result.stream()
@@ -92,19 +73,13 @@ public interface ParquetExportType<TYPE, ROW> {
                             List<String> propertyTypes =  ((List<List<String>>) m.get("types"))
                                     .stream().flatMap(List::stream)
                                     .toList();
-//                            propertyTypes.forEach(
-                                    /*propertyType -> */toField(propertyName, new HashSet<>(propertyTypes), test);
-//                            );
+                            toField(propertyName, new HashSet<>(propertyTypes), test);
                         });
                 return null;
             };
-//                    .flatMap(flatMapStream)
-//                    .collect(Collectors.toSet());
 
-            final Map<String, Object> cfg = createConfigMap(data, config);
-            final Map<String, Object> parameters = Map.of("config", cfg);
-//            final Set<Field> allFields = new HashSet<>();
-//            Set<Field> nodeFields =
+            Map<String, Object> confMap = type.get(0);
+            final Map<String, Object> parameters = Map.of("config", confMap);
 
             // group by `propertyName` in order to
             String query = "CALL apoc.meta.%s($config) " +
@@ -114,27 +89,15 @@ public interface ParquetExportType<TYPE, ROW> {
             db.executeTransactionally(String.format(query, "nodeTypeProperties"),
                     parameters, parsePropertiesResult);
 
-
-            //
-
-            // TODO - everything optional??? --> name(FIELD_LABELS).type().optional()
-
-            // todo - optional or required??
             test.optionalLong(FIELD_ID);
             getItems(FIELD_LABELS, test).stringType();
-//            allFields.addAll(nodeFields);
 
-            if (cfg.containsKey("includeRels")) {
-//                final Set<Field> relFields =
+            if (confMap.containsKey("includeRels")) {
                 db.executeTransactionally(String.format(query, "relTypeProperties"),
                         parameters, parsePropertiesResult);
                 test.optionalLong(FIELD_SOURCE_ID);
                 test.optionalLong(FIELD_TARGET_ID);
                 test.optionalString(FIELD_TYPE);
-//                allFields.add(FIELD_SOURCE_ID);
-//                allFields.add(FIELD_TARGET_ID);
-//                allFields.add(FIELD_TYPE);
-//                allFields.addAll(relFields);
             }
 
             Schema schema = test.endRecord();
@@ -159,15 +122,15 @@ public interface ParquetExportType<TYPE, ROW> {
             return flattened;
         }
 
-//        @Override
-//        public void writeBatch(ParquetWriter writer, Schema schema) {}
-
-        // todo - util?
-        static Map<String, Object> createConfigMap(SubGraph subGraph, ParquetConfig config) {
-            final List<String> allLabelsInUse = Iterables.stream(subGraph.getAllLabelsInUse())
+        @Override
+        public List<Map<String, Object>> createConfig(List<Entity> entity, SubGraph data, ParquetConfig config) {
+            if (this.config != null) {
+                return this.config;
+            }
+            final List<String> allLabelsInUse = Iterables.stream(data.getAllLabelsInUse())
                     .map(Label::name)
                     .collect(Collectors.toList());
-            final List<String> allRelationshipTypesInUse = Iterables.stream(subGraph.getAllRelationshipTypesInUse())
+            final List<String> allRelationshipTypesInUse = Iterables.stream(data.getAllRelationshipTypesInUse())
                     .map(RelationshipType::name)
                     .collect(Collectors.toList());
             Map<String, Object> configMap = new HashMap<>();
@@ -176,33 +139,40 @@ public interface ParquetExportType<TYPE, ROW> {
                 configMap.put("includeRels", allRelationshipTypesInUse);
             }
             configMap.putAll(config.getConfig());
-            return configMap;
+            this.config = List.of(configMap);
+            return this.config;
         }
     }
 
-    class ResultType implements ParquetExportType<Result, Map<String,Object>> {
-
-        private final List<Map<String, Object>> firstBatch = new ArrayList<>();
+    class ResultType implements ParquetExportType<List<Map<String, Object>>, Map<String,Object>> {
 
         @Override
-        public Schema schemaFor(GraphDatabaseService db, ParquetConfig config, Result data) {
+        public Schema schemaFor(GraphDatabaseService db, List<Map<String, Object>> type) {
             // we re-calculate the schema for each batch
 
             // todo - this row is equal
-            SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("test")
-                    .namespace("org.apache.avro.ipc")
+            SchemaBuilder.FieldAssembler<Schema> test = SchemaBuilder.record("apocExport")
+                    .namespace("apoc.parquet")
                     .fields();
 
-            int batchSize = config.getBatchSize();
-            int batchCount = 0;
-            while (batchCount < batchSize && data.hasNext()) {
-                firstBatch.add(data.next());
-                ++batchCount;
-            }
+            type.stream()
+                    .flatMap(m -> m.entrySet().stream())
+                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
+                    .collect(Collectors.groupingBy(e -> e.getKey(), Collectors.mapping(e -> e.getValue(), Collectors.toSet())))
+                    .entrySet()
+                    .stream()
+                    .forEach(e -> toField(e.getKey(), e.getValue(), test));
+
+//            int batchSize = config.getBatchSize();
+//            int batchCount = 0;
+//            while (batchCount < batchSize && data.hasNext()) {
+//                firstBatch.add(data.next());
+//                ++batchCount;
+//            }
 
             // todo - first batch
 //            this.firstElement = data.next();
-            schemaForResult(test, firstBatch);
+//            schemaForResult(test, firstBatch);
 
             return test.endRecord();
         }
@@ -212,22 +182,21 @@ public interface ParquetExportType<TYPE, ROW> {
             return mapToRecord(schema, map);
         }
 
-        void schemaForResult(SchemaBuilder.FieldAssembler<Schema> test, List<Map<String, Object>> records) {
-            Set<Map.Entry<String, Set<String>>> entries = records.stream()
-                    .flatMap(m -> m.entrySet().stream())
-                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
-                    .collect(Collectors.groupingBy(e -> e.getKey(), Collectors.mapping(e -> e.getValue(), Collectors.toSet())))
-                    .entrySet();
-            entries
-                    .stream()
-                    .forEach(e -> toField(e.getKey(), e.getValue(), test));
-//                    .collect(Collectors.toList());
-//            return new Schema(fields);
+        @Override
+        public List<Map<String, Object>> createConfig(List<Map<String, Object>> row, List<Map<String, Object>> data, ParquetConfig config) {
+            return row;
         }
-//
-//        public Map<String, Object> getFirstBatch() {
-//            return firstBatch;
+
+//        void schemaForResult(SchemaBuilder.FieldAssembler<Schema> test, List<Map<String, Object>> records) {
+//            records.stream()
+//                    .flatMap(m -> m.entrySet().stream())
+//                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
+//                    .collect(Collectors.groupingBy(e -> e.getKey(), Collectors.mapping(e -> e.getValue(), Collectors.toSet())))
+//                    .entrySet()
+//                    .stream()
+//                    .forEach(e -> toField(e.getKey(), e.getValue(), test));
 //        }
+
 
         public static String fromMetaType(apoc.meta.Types type) {
             switch (type) {
@@ -246,19 +215,6 @@ public interface ParquetExportType<TYPE, ROW> {
                     return type.name().replaceAll("_", "").toUpperCase();
             }
         }
-
-//        @Override
-//        public void writeBatch(ParquetWriter writer, Schema schema) {
-//            firstBatch.stream().map(item -> toRecord(schema, item)).forEach(i -> {
-//                try {
-//                    writer.write(i);
-//                } catch (IOException e) {
-//                    throw new RuntimeException(e);
-//                }
-//            });
-////            Map<String, Object> firstElement = ((ParquetExportType.ResultType) exportType).getFirstElement();
-////            writer.write(mapToRecord(firstElement, schema));
-//        }
     }
 
 }

@@ -2,7 +2,6 @@ package apoc.export.parquet;
 
 import org.apache.avro.LogicalType;
 import org.apache.avro.Schema;
-import org.neo4j.values.storable.DurationValue;
 
 public class CustomTypes {
 

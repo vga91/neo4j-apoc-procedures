@@ -2,7 +2,6 @@ package apoc.export.parquet;
 
 import apoc.Pools;
 import apoc.result.ByteArrayResult;
-import apoc.result.ProgressInfo;
 import apoc.util.QueueBasedSpliterator;
 import apoc.util.QueueUtil;
 import apoc.util.Util;
@@ -16,9 +15,9 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
 
-import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -30,15 +29,9 @@ import java.util.stream.StreamSupport;
 
 public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportParquetStrategy<IN, Stream<ByteArrayResult>>  {
 
-
-    // todo - these 4 are common with stream one
     private final GraphDatabaseService db;
     private final Pools pools;
-
-    // todo!!! --> test..
     private final TerminationGuard terminationGuard;
-
-
     private final Log logger;
     private final ParquetExportType exportType;
 
@@ -50,60 +43,26 @@ public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportPar
         this.exportType = exportType;
     }
 
-
     public Stream<ByteArrayResult> export(IN data, ParquetConfig config) {
-        final ParquetExportType exportType = getType(data);
-        Schema schema = exportType.schemaFor(db, config, data);
         final BlockingQueue<ByteArrayResult> queue = new ArrayBlockingQueue<>(100);
-
-//        try (ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-//             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(bytesOut)) {
-//
-//            ParquetBufferedWriter out = new ParquetBufferedWriter(bufferedOutputStream);
-//
-//            try(ParquetWriter<GenericRecord> writer = getBuild(schema, AvroParquetWriter.builder(out)) ) {
-//
-//                exportType.writeBatch(writer, schema);
-//
-//                for (Iterator<GenericRecord> it = toIterator(data, schema); it.hasNext(); ) {
-//                    GenericRecord record = it.next();
-//                    // todo - try catch...
-//                    try {
-//                        writer.write(record);
-////                        QueueUtil.put(queue, new ByteArrayResult(bytes), 10);
-//                    } catch (Exception e) {
-//                        // create something else - or another writer??
-//                        System.out.println("e = " + e);
-//                    }
-//                }
-//            }
-//
-//            ByteArrayResult item = new ByteArrayResult(bytesOut.toByteArray());
-//            QueueUtil.put(queue, item, 10);
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        } finally {
-//            QueueUtil.put(queue, ByteArrayResult.NULL, 10);
-//        }
 
         Util.inTxFuture(pools.getDefaultExecutorService(), db, tx -> {
             int batchCount = 0;
-            List<GenericRecord> rows = new ArrayList<>(config.getBatchSize());
+            List<TYPE> rows = new ArrayList<>(config.getBatchSize());
 
             try {
-                Iterator<TYPE> it = toIterator(data, schema);
+                Iterator<TYPE> it = toIterator(data);
                 while (!Util.transactionIsTerminated(terminationGuard) && it.hasNext()) {
-                    GenericRecord record = exportType.toRecord(schema, it.next());
-                    rows.add(record);
+                    rows.add(it.next());
 
                     if (batchCount > 0 && batchCount % config.getBatchSize() == 0) {
-                        byte[] bytes = writeBatch(exportType, rows, schema);
+                        byte[] bytes = writeBatch(rows, data, config);
                         QueueUtil.put(queue, new ByteArrayResult(bytes), 10);
                     }
                     ++batchCount;
                 }
                 if (!rows.isEmpty()) {
-                    byte[] bytes = writeBatch(exportType, rows, schema);
+                    byte[] bytes = writeBatch(rows, data, config);
                     QueueUtil.put(queue, new ByteArrayResult(bytes), 10);
                 }
                 return true;
@@ -115,19 +74,17 @@ public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportPar
             return true;
         });
 
-        // todo - batch??
         QueueBasedSpliterator<ByteArrayResult> spliterator = new QueueBasedSpliterator<>(queue, ByteArrayResult.NULL, terminationGuard, Integer.MAX_VALUE);
         return StreamSupport.stream(spliterator, false);
     }
 
-    private byte[] writeBatch(ParquetExportType exportType, List<GenericRecord> rows, Schema schema) {
-        try (ByteArrayOutputStream bytesOut = new ByteArrayOutputStream();
-             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(bytesOut)) {
-            ParquetBufferedWriter out = new ParquetBufferedWriter(bufferedOutputStream);
+    private byte[] writeBatch(List<TYPE> rows, IN data, ParquetConfig config) {
+        Schema schema = exportType.schemaFor(db, exportType.createConfig(rows, data, config));
+        try (ByteArrayOutputStream bytesOut = new ByteArrayOutputStream()) {
+            ParquetBufferedWriter out = new ParquetBufferedWriter(bytesOut);
 
             try (ParquetWriter<GenericRecord> writer = getBuild(schema, AvroParquetWriter.builder(out))) {
-                extracted(exportType, rows, schema, writer);
-                rows.clear();
+                writeRows(rows, writer, exportType, schema);
             }
 
             return bytesOut.toByteArray();
@@ -136,18 +93,17 @@ public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportPar
         }
     }
 
-    public abstract Iterator<TYPE> toIterator(IN data, Schema schema);
+    public abstract Iterator<TYPE> toIterator(IN data);
 
-    private static class ParquetBufferedWriter implements OutputFile {
+    private record ParquetBufferedWriter(OutputStream out) implements OutputFile {
 
-        public final BufferedOutputStream out;
-
-        public ParquetBufferedWriter(BufferedOutputStream out) {
-            this.out = out;
+        @Override
+        public PositionOutputStream create(long blockSizeHint) {
+            return createPositionOutputstream();
         }
 
         @Override
-        public PositionOutputStream create(long blockSizeHint) throws IOException {
+        public PositionOutputStream createOrOverwrite(long blockSizeHint) throws IOException {
             return createPositionOutputstream();
         }
 
@@ -164,12 +120,12 @@ public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportPar
                 @Override
                 public void flush() throws IOException {
                     out.flush();
-                };
+                }
 
                 @Override
                 public void close() throws IOException {
                     out.close();
-                };
+                }
 
                 @Override
                 public void write(int b) throws IOException {
@@ -183,11 +139,6 @@ public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportPar
                     pos += len;
                 }
             };
-        }
-
-        @Override
-        public PositionOutputStream createOrOverwrite(long blockSizeHint) throws IOException {
-            return createPositionOutputstream();
         }
 
         @Override
