@@ -52,22 +52,6 @@ task gitSubmoduleLoad {
 }
 
 dependencies {
-    // todo - external dep??
-    // todo - upgrade deps
-
-
-    compileOnly group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
-    testImplementation group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
-    compileOnly group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
-    testImplementation group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
-    compileOnly group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
-    testImplementation group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
-//    compileOnly group: 'org.apache.hadoop', name: 'hadoop-core', version: '1.2.1'
-//    testImplementation group: 'org.apache.hadoop', name: 'hadoop-core', version: '1.2.1'
-    compileOnly group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
-    testImplementation group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
-
-
 
     apt project(':processor')
     apt group: 'org.neo4j', name: 'neo4j', version: neo4jVersionEffective   // mandatory to run @ServiceProvider based META-INF code generation
@@ -88,6 +72,17 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-annotations'
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     }
+
+
+    // TODO - external dependencies??
+    compileOnly group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
+    testImplementation group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
+    compileOnly group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
+    testImplementation group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
+    compileOnly group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
+    testImplementation group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
+    compileOnly group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
+    testImplementation group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
 
     // These will be dependencies packaged with the .jar
     implementation project(':common')

@@ -13,24 +13,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-import static apoc.export.parquet.ParquetExportType.ResultType.fromMetaType;
 import static org.apache.avro.SchemaBuilder.BaseTypeBuilder;
 
 public class ParquetUtil {
-
-    public static GenericData genericDataLoad;
-    static {
-        genericDataLoad = new GenericData();
-        genericDataLoad.addLogicalTypeConversion(new TimeConversions.DateConversion());
-        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
-        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
-        genericDataLoad.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
-        for (ParquetTypes type: ParquetTypes.values()) {
-            genericDataLoad.addLogicalTypeConversion(type.getReadConversion());
-        }
-    }
-
-    // todo - ParquetUtil
     public static GenericData genericData;
     static {
         genericData = new GenericData();
@@ -43,9 +28,27 @@ public class ParquetUtil {
         }
     }
 
-    // todo - make configurable
+    // TODO - make configurable
     public static final String TYPE_SEP = "___";
 
+
+    public static String fromMetaType(apoc.meta.Types type) {
+        switch (type) {
+            case INTEGER:
+                return "LONG";
+            case FLOAT:
+                return "DOUBLE";
+            case LIST:
+                String inner = type.toString().substring("LIST OF ".length()).trim();
+                final apoc.meta.Types innerType = apoc.meta.Types.from(inner);
+                if (innerType == Types.LIST || innerType == Types.MAP ) {
+                    return "ANYARRAY";
+                }
+                return fromMetaType(innerType) + "ARRAY";
+            default:
+                return type.name().replaceAll("_", "").toUpperCase();
+        }
+    }
 
     public static GenericRecord mapToRecord(Schema schema, Map<String, Object> map) {
         GenericRecord flattened = new GenericData.Record(schema);
@@ -56,7 +59,6 @@ public class ParquetUtil {
                 if (!e.getMessage().contains("Not a valid schema field")) {
                     throw new RuntimeException(e);
                 }
-
                 String s = fromMetaType(Types.of(v));
                 flattened.put(getFieldName(k, s), v);
             }
@@ -168,6 +170,7 @@ public class ParquetUtil {
     }
 
     public static String getFieldName(String fieldName, String propertyType) {
+        // in case of multiple types with the same name, we add a suffix, i.e. `fieldName__<TYPEFIELD>`
         return fieldName + TYPE_SEP + propertyType;
     }
 

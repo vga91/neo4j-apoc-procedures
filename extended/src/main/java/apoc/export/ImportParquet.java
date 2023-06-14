@@ -4,7 +4,6 @@ import apoc.Pools;
 import apoc.export.parquet.ParquetConfig;
 import apoc.export.util.BatchTransaction;
 import apoc.export.util.ProgressReporter;
-import apoc.load.LoadParquet;
 import apoc.result.ProgressInfo;
 import apoc.util.Util;
 import org.apache.avro.generic.GenericData;
@@ -30,12 +29,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static apoc.export.parquet.ParquetReadUtil.genericDataLoad;
+import static apoc.export.parquet.ParquetReadUtil.getReaderBuilder;
+import static apoc.export.parquet.ParquetReadUtil.mapFromRecord;
 import static apoc.export.parquet.ParquetUtil.FIELD_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_LABELS;
 import static apoc.export.parquet.ParquetUtil.FIELD_SOURCE_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TARGET_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
-import static apoc.export.parquet.ParquetUtil.genericDataLoad;
 import static apoc.load.LoadParquet.registerCustomTypes;
 
 public class ImportParquet {
@@ -68,7 +69,7 @@ public class ImportParquet {
 
                     final Map<LongValue, Long> idMapping = new HashMap<>();
 
-                    try (ParquetReader<GenericData.Record> reader = LoadParquet.getBuilder(input)
+                    try (ParquetReader<GenericData.Record> reader = getReaderBuilder(input)
                             .withDataModel(genericDataLoad)
                             .withConf(new Configuration())
                             .build()) {
@@ -82,7 +83,7 @@ public class ImportParquet {
                         try {
                             GenericData.Record record;
                             while ((record = reader.read()) != null) {
-                                Map<String, Object> recordMap = LoadParquet.mapFromRecord(record);
+                                Map<String, Object> recordMap = mapFromRecord(record);
 
                                 String relType = (String) recordMap.remove(FIELD_TYPE);
                                 if (relType == null) {
