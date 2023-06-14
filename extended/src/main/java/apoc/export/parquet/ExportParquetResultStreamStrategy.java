@@ -18,9 +18,8 @@ public class ExportParquetResultStreamStrategy extends ExportParquetStreamStrate
     }
 
     @Override
-    public Iterator<Map<String,Object>> toIterator(Result data, Schema schema) {
+    public Iterator<Map<String,Object>> toIterator(Result data) {
         return data.stream()
-//                .map(row -> mapToRecord(row, schema))
                 .iterator();
     }
 }

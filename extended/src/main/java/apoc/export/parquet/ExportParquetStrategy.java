@@ -17,15 +17,15 @@ public interface ExportParquetStrategy<IN, OUT> {
 
     OUT export(IN data, ParquetConfig config);
 
-
-    default void extracted(ParquetExportType exportType, List<GenericRecord> rows, Schema schema, ParquetWriter<GenericRecord> writer) {
-        rows/*.stream().map(item -> exportType.toRecord(schema, item))*/.forEach(i -> {
+    default <T> void writeRows(List<T> rows, ParquetWriter<GenericRecord> writer, ParquetExportType type, Schema schema) {
+        rows.stream().map(i -> type.toRecord(schema, i)).forEach(i -> {
             try {
                 writer.write(i);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
+        rows.clear();
     }
 
     default ParquetWriter<GenericRecord> getBuild(Schema schema, AvroParquetWriter.Builder<GenericRecord> builder) throws IOException {

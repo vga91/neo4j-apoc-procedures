@@ -31,38 +31,7 @@ import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 
 public class ExportParquet {
-    // todo - batching
-    // todo - copy from arrow...
 
-
-
-
-    // todo --- http://www.hydrogen18.com/blog/writing-parquet-records.html
-
-
-    // https://blog.contactsunny.com/data-science/how-to-generate-parquet-files-in-java
-
-
-    // todo - check that finally
-    // https://arrow.apache.org/docs/cpp/parquet.html
-
-
-    // TODO!!!
-    // TODO!!!
-    // TODO!!!
-    // TODO!!!
-    // TODO!!!: howto transform in scala?? --> https://github.com/sderosiaux/parquet-custom-reader-writer/blob/master/src/main/scala/custom/CustomWriteSupport.scala
-
-
-    // todo - maybe preferred
-    // https://www.netjstech.com/2018/07/how-to-read-and-write-parquet-file-hadoop.html
-
-    // https://blog.contactsunny.com/data-science/how-to-generate-parquet-files-in-java
-
-
-
-
-//    // --- init parte procedure ---
     @Context
     public Transaction tx;
 
@@ -72,7 +41,6 @@ public class ExportParquet {
     @Context
     public GraphDatabaseService db;
 
-    // todo - termination guard handling...
     @Context
     public TerminationGuard terminationGuard;
 
@@ -82,7 +50,6 @@ public class ExportParquet {
     @Context
     public Pools pools;
 
-    // todo - {stream: true}
 
     @Procedure("apoc.export.parquet.all.stream")
     @Description("Exports the full database to the provided CSV file.")

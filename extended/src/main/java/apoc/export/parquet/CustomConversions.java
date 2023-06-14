@@ -21,11 +21,6 @@ public class CustomConversions {
 
     public static abstract class CustomConversion<T> extends Conversion<T> {
 
-//        @Override
-//        public String getLogicalTypeName() {
-//            return null;
-//        }
-
         public abstract T parseValue(CharSequence value);
 
         public CharSequence serializeValue(T value) {

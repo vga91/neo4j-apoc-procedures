@@ -35,12 +35,12 @@ public class ExportParquetResultFileStrategy extends ExportParquetFileStrategy<M
     }
 
     @Override
-    public String getSource(Result subGraph) {
-        return null;
+    public String getSource(Result result) {
+        return String.format("statement: cols(%d)", result.columns().size());
     }
 
     @Override
-    public Iterator<Map<String, Object>> toIterator(ProgressReporter reporter, Result data, Schema schema) {
+    public Iterator<Map<String, Object>> toIterator(ProgressReporter reporter, Result data) {
 
         return data.stream()
                 .peek(row -> {
