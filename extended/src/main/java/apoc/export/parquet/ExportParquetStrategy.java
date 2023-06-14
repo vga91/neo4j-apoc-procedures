@@ -30,19 +30,23 @@ public interface ExportParquetStrategy<IN, OUT> {
         rows.clear();
     }
 
-    default ParquetWriter<GenericRecord> getBuild(Schema schema, AvroParquetWriter.Builder<GenericRecord> builder) throws IOException {
-        return builder
-                .withSchema(schema)
-                // TODO - check other configs
-                .withConf(new Configuration())
-                .withDataModel(genericData)
-                // TODO - configurable. This generate a .crc file
-                .withValidation(false)
-                // TODO - config...
-//                .withCompressionCodec(CompressionCodecName.SNAPPY)
-                // TODO - configurable...
-                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-                .build();
+    default ParquetWriter<GenericRecord> getBuild(Schema schema, AvroParquetWriter.Builder<GenericRecord> builder)  {
+        try {
+            return builder
+                    .withSchema(schema)
+                    // TODO - check other configs
+                    .withConf(new Configuration())
+                    .withDataModel(genericData)
+                    // TODO - configurable. This generate a .crc file
+                    .withValidation(false)
+                    // TODO - config...
+    //                .withCompressionCodec(CompressionCodecName.SNAPPY)
+                    // TODO - configurable?
+                    .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+                    .build();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

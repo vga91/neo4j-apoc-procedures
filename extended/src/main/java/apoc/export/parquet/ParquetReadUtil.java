@@ -9,6 +9,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.PointValue;
+import org.neo4j.values.storable.StringValue;
 import org.neo4j.values.storable.Values;
 
 import java.time.LocalDate;
@@ -40,11 +41,10 @@ public class ParquetReadUtil {
         }
     }
 
-
     private static Object toValidValue(Object object, Schema.Field field) {
         if (object instanceof Collection) {
             final IntFunction<Object[]> prototype = getPrototypeFor(field);
-            return ((Collection<?>) object).toArray(prototype);
+            return ((Collection<?>) object).stream().map(i -> toValidValue(i, field)).toArray(prototype);
         }
         if (object instanceof Map) {
             return ((Map<String, Object>) object).entrySet().stream()
@@ -52,7 +52,8 @@ public class ParquetReadUtil {
         }
         try {
             // we test if is a valid Neo4j type
-            return Values.of(object);
+            Values.of(object);
+            return object;
         } catch (Exception e) {
             // otherwise we try to coerce it
             return object.toString();
@@ -63,7 +64,7 @@ public class ParquetReadUtil {
         String type = field.schema().getTypes().stream()
                 .filter(i -> !i.getType().equals(Schema.Type.NULL))
                 .findFirst()
-                .map(i -> i.getLogicalType() != null ? i.getLogicalType().getName() : i.getType().name() )
+                .map(i -> i.getLogicalType() != null ? i.getLogicalType().getName() : i.getElementType().getName() )
                 .orElse(Schema.Type.STRING.getName());
 
         switch (type) {
