@@ -1,17 +1,21 @@
 package apoc.export.parquet;
 
 import apoc.load.LoadParquet;
+import org.apache.parquet.example.data.Group;
 import org.apache.avro.Schema;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.PointValue;
 import org.neo4j.values.storable.StringValue;
 import org.neo4j.values.storable.Values;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -95,32 +99,39 @@ public class ParquetReadUtil {
         }
     }
 
-    public static Map<String, Object> mapFromRecord(GenericRecord record) {
-        return record.getSchema()
-                .getFields()
-                .stream()
-                .collect(HashMap::new, // workaround for https://bugs.openjdk.java.net/browse/JDK-8148463
-                        (mapAccumulator, field) -> {
-                            String name = field.name();
+    public static Map<String, Object> mapFromRecord(Group record) {
+//    public static Map<String, Object> mapFromRecord(GenericRecord record) {
 
-                            Object object = record.get(name);
-                            Object value = toValidValue(object, field);
-                            if (value != null && !NO_VALUE.equals(value)) {
-                                // we remove the possible `__<TYPE_FIELD>` suffix
-                                String key = name.split(TYPE_SEP)[0];
-                                mapAccumulator.put(key, value);
-                            }
-                        },
-                        HashMap::putAll);
+        return Map.of();
+//        return record.getSchema()
+//                .getFields()
+//                .stream()
+//                .collect(HashMap::new, // workaround for https://bugs.openjdk.java.net/browse/JDK-8148463
+//                        (mapAccumulator, field) -> {
+//                            String name = field.name();
+//
+//                            Object object = record.get(name);
+//                            Object value = toValidValue(object, field);
+//                            if (value != null && !NO_VALUE.equals(value)) {
+//                                // we remove the possible `__<TYPE_FIELD>` suffix
+//                                String key = name.split(TYPE_SEP)[0];
+//                                mapAccumulator.put(key, value);
+//                            }
+//                        },
+//                        HashMap::putAll);
     }
 
 
-    public static AvroParquetReader.Builder<GenericData.Record> getReaderBuilder(Object source) {
+    public static ParquetReader.Builder<Group> getReaderBuilder(Object source) {
         if (source instanceof String) {
             Path file = new Path((String) source);
-            return AvroParquetReader.builder(file);
+            return ParquetReader.builder(new GroupReadSupport(), file);
         }
         LoadParquet.ParquetStream file = new LoadParquet.ParquetStream((byte[]) source);
-        return AvroParquetReader.builder(file);
+        try {
+            return ParquetReader.read(file);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

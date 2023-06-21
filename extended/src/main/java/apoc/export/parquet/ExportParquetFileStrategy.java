@@ -8,10 +8,16 @@ import apoc.util.QueueUtil;
 import apoc.util.Util;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetWriter;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.example.data.GroupFactory;
+import org.apache.parquet.example.data.simple.SimpleGroupFactory;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Types;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
@@ -25,6 +31,11 @@ import java.util.concurrent.BlockingQueue;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static apoc.export.parquet.ParquetUtil.genericData;
+import static org.apache.parquet.schema.OriginalType.UTF8;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+
 
 public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParquetStrategy<IN, Stream<ProgressInfo>> {
 
@@ -34,7 +45,7 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
     private final TerminationGuard terminationGuard;
     private final Log logger;
     private final ParquetExportType exportType;
-    ParquetWriter<GenericRecord> writer;
+    ParquetWriter writer;
 
     public ExportParquetFileStrategy(String fileName, GraphDatabaseService db, Pools pools, TerminationGuard terminationGuard, Log logger, ParquetExportType exportType) {
         this.fileName = fileName;
@@ -58,7 +69,7 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         Util.inTxFuture(pools.getDefaultExecutorService(), db, tx -> {
             int batchCount = 0;
             List<TYPE> rows = new ArrayList<>(config.getBatchSize());
-            AvroParquetWriter.Builder<GenericRecord> builder = AvroParquetWriter
+            ExampleParquetWriterCustom.Builder builder = ExampleParquetWriterCustom
                     .builder(fileToWrite);
 
             try {
@@ -97,10 +108,10 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         } catch (IOException ignored) {}
     }
 
-    private void writeBatch(AvroParquetWriter.Builder<GenericRecord> builder, List<TYPE> rows, IN data, ParquetConfig config) {
+    private void writeBatch(ExampleParquetWriterCustom.Builder builder, List<TYPE> rows, IN data, ParquetConfig config) {
 
-        List conf = exportType.createConfig(rows, data, config);
-        Schema schema = exportType.schemaFor(db, conf);
+//        List conf = exportType.createConfig(rows, data, config);
+//        Schema schema = exportType.schemaFor(db, conf);
 
         if (writer == null) {
             this.writer = getBuild(schema, builder);
@@ -110,7 +121,50 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
 
     }
 
+//    void writeRows(List<TYPE> rows, ParquetWriter writer, ParquetExportType type/*, Schema schema*/) {
+//        GroupFactory factory = new SimpleGroupFactory(schema);
+//
+//        rows.stream()
+//                .map(i -> type.toRecord(schema, i))
+//                .forEach(i -> {
+//                    try {
+//                        writer.write((Group) i);
+//                    } catch (IOException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                });
+//        rows.clear();
+//    }
+//
+//    ParquetWriter<Group> getBuild(/*Schema schema, */ExampleParquetWriterCustom.Builder builder)  {
+//
+//         MessageType type = Types.buildMessage()
+//                 .required(INT64).named("id")
+//                 .required(BINARY).as(UTF8).named("data")
+//                 .named("test");
+//
+//        try {
+//            ParquetWriter<Group> build = builder
+//                    .withType(type)
+////                    .withSchema(schema)
+//                    // TODO - check other configs
+////                    .withConf(new Configuration())
+////                    .withDataModel(genericData)
+//                    // TODO - configurable. This generate a .crc file
+////                    .withValidation(false)
+//                    // TODO - config...
+//                    //                .withCompressionCodec(CompressionCodecName.SNAPPY)
+//                    // TODO - configurable?
+//                    .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+//                    .build();
+//            return build;
+//        } catch (Exception e) {
+//            throw new RuntimeException(e);
+//        }
+//    }
+
     public abstract String getSource(IN data);
 
     public abstract Iterator<TYPE> toIterator(ProgressReporter reporter, IN data);
+
 }
