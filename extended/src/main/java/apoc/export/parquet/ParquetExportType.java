@@ -3,9 +3,11 @@ package apoc.export.parquet;
 import apoc.meta.Types;
 import apoc.util.Util;
 import apoc.util.collection.Iterables;
-import org.apache.avro.Schema;
-import org.apache.avro.SchemaBuilder;
-import org.apache.avro.generic.GenericRecord;
+//import org.apache.avro.Schema;
+//import org.apache.avro.SchemaBuilder;
+//import org.apache.avro.generic.GenericRecord;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.schema.MessageType;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -46,27 +48,27 @@ public interface ParquetExportType<TYPE, ROW> {
         }
     }
 
-    default SchemaBuilder.FieldAssembler<Schema> startFieldAssembler() {
-        return SchemaBuilder.record("apocExport")
-                .namespace("apoc.parquet")
-                .fields();
-    }
+//    default SchemaBuilder.FieldAssembler<MessageType> startFieldAssembler() {
+//        return SchemaBuilder.record("apocExport")
+//                .namespace("apoc.parquet")
+//                .fields();
+//    }
 
-    Schema schemaFor(GraphDatabaseService db, List<Map<String,Object>> type);
-    GenericRecord toRecord(Schema schema, ROW data);
+    MessageType schemaFor(GraphDatabaseService db, List<Map<String,Object>> type);
+    Group toRecord(MessageType schema, ROW data);
     List<Map<String,Object>> createConfig(List<ROW> row, TYPE data, ParquetConfig config);
 
     class GraphType implements ParquetExportType<SubGraph, Entity> {
 
-        private Schema schema;
+        private MessageType schema;
         private List<Map<String,Object>> config;
 
         @Override
-        public Schema schemaFor(GraphDatabaseService db, List<Map<String,Object>> type) {
+        public MessageType schemaFor(GraphDatabaseService db, List<Map<String,Object>> type) {
             if (this.schema != null) {
                 return this.schema;
             }
-            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
+//            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
 
             final Predicate<Map<String, Object>> filterStream = m -> m.get("propertyName") != null;
             final ResultTransformer<Void> parsePropertiesResult = result -> {
@@ -76,7 +78,7 @@ public interface ParquetExportType<TYPE, ROW> {
                             String propertyName = (String) m.get("propertyName");
                             List<String> propertyTypes =  ((List<List<String>>) m.get("types"))
                                     .stream().flatMap(List::stream)
-                                    .toList();
+                                    .collect(Collectors.toList());
                             toField(propertyName, new HashSet<>(propertyTypes), fieldAssembler);
                         });
                 return null;
@@ -109,7 +111,7 @@ public interface ParquetExportType<TYPE, ROW> {
         }
 
         @Override
-        public GenericRecord toRecord(Schema schema, Entity entity) {
+        public Group toRecord(MessageType schema, Entity entity) {
             GenericRecord flattened = mapToRecord(schema, entity.getAllProperties());
             flattened.put(FIELD_ID, entity.getId());
             if (entity instanceof Node) {
@@ -164,7 +166,7 @@ public interface ParquetExportType<TYPE, ROW> {
         }
 
         @Override
-        public GenericRecord toRecord(Schema schema, Map<String, Object> map) {
+        public Group toRecord(MessageType schema, Map<String, Object> map) {
             return mapToRecord(schema, map);
         }
 

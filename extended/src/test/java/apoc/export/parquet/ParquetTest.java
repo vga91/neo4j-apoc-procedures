@@ -1,6 +1,6 @@
 package apoc.export.parquet;
 
-import apoc.export.ImportParquet;
+//import apoc.export.ImportParquet;
 import apoc.graph.Graphs;
 import apoc.load.LoadParquet;
 import apoc.meta.Meta;
@@ -120,7 +120,7 @@ public class ParquetTest {
     public static void beforeClass() {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015-05-18T19:32:24.000'), place:point({latitude: 13.1, longitude: 33.46789, height: 100.0})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42})");
         db.executeTransactionally("CREATE (:Multi {name:1}), (:Multi {name:'Sam'})");
-        TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class, ImportParquet.class, Graphs.class, Meta.class);
+        TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class,/* ImportParquet.class, */Graphs.class, Meta.class);
     }
 
     @Before

@@ -8,6 +8,7 @@ import org.apache.avro.LogicalTypes;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.io.DelegatingSeekableInputStream;
 import org.apache.parquet.io.InputFile;
@@ -38,7 +39,7 @@ public class LoadParquet {
 
     private static class ParquetSpliterator extends Spliterators.AbstractSpliterator<MapResult> {
 
-        private final ParquetReader<GenericRecord> reader;
+        private final ParquetReader<Group> reader;
 
         public ParquetSpliterator(ParquetReader reader){
             super(Long.MAX_VALUE, Spliterator.ORDERED);
@@ -48,7 +49,7 @@ public class LoadParquet {
         @Override
         public synchronized boolean tryAdvance(Consumer<? super MapResult> action) {
             try {
-                GenericRecord read = reader.read();
+                Group read = reader.read();
                 if (read != null) {
                     action.accept(new MapResult(mapFromRecord(read)));
                     return true;
@@ -68,9 +69,9 @@ public class LoadParquet {
             @Name("input") Object input,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws IOException {
 
-        ParquetReader<GenericData.Record> reader = getReaderBuilder(input)
-                .withDataModel(genericDataLoad)
-                .withConf(new Configuration())
+        ParquetReader<Group> reader = getReaderBuilder(input)
+//                .withDataModel(genericDataLoad)
+//                .withConf(new Configuration())
                 .build();
 
         registerCustomTypes();

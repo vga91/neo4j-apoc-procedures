@@ -1,11 +1,13 @@
 package apoc.export.parquet;
 
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
+//import org.apache.avro.Schema;
+//import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.parquet.avro.AvroParquetWriter;
+//import org.apache.parquet.avro.AvroParquetWriter;
+import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.schema.MessageType;
 import org.neo4j.graphdb.Result;
 
 import java.io.IOException;
@@ -17,7 +19,7 @@ public interface ExportParquetStrategy<IN, OUT> {
 
     OUT export(IN data, ParquetConfig config);
 
-    default <T> void writeRows(List<T> rows, ParquetWriter<GenericRecord> writer, ParquetExportType type, Schema schema) {
+    default <T> void writeRows(List<T> rows, ParquetWriter<Group> writer, ParquetExportType type, MessageType schema) {
         rows.stream()
                 .map(i -> type.toRecord(schema, i))
                 .forEach(i -> {
@@ -30,13 +32,13 @@ public interface ExportParquetStrategy<IN, OUT> {
         rows.clear();
     }
 
-    default ParquetWriter<GenericRecord> getBuild(Schema schema, AvroParquetWriter.Builder<GenericRecord> builder)  {
+    default ParquetWriter<Group> getBuild(MessageType schema, ExampleParquetWriterCustom.Builder builder)  {
         try {
             return builder
-                    .withSchema(schema)
+                    .withType(schema)
                     // TODO - check other configs
                     .withConf(new Configuration())
-                    .withDataModel(genericData)
+//                    .withDataModel(genericData)
                     // TODO - configurable. This generate a .crc file
                     .withValidation(false)
                     // TODO - config...
