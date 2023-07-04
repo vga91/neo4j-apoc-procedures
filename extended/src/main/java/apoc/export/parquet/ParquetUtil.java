@@ -1,11 +1,11 @@
 package apoc.export.parquet;
 
 import apoc.meta.Types;
-import org.apache.avro.LogicalType;
-import org.apache.avro.LogicalTypes;
+//import org.apache.avro.LogicalType;
+//import org.apache.avro.LogicalTypes;
 //import org.apache.avro.Schema;
 //import org.apache.avro.SchemaBuilder;
-import org.apache.avro.data.TimeConversions;
+//import org.apache.avro.data.TimeConversions;
 //import org.apache.avro.generic.GenericData;
 //import org.apache.avro.generic.GenericRecord;
 import org.apache.parquet.example.data.Group;
@@ -18,20 +18,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 
-import static org.apache.avro.SchemaBuilder.BaseTypeBuilder;
+//import static org.apache.avro.SchemaBuilder.BaseTypeBuilder;
 
 public class ParquetUtil {
-    public static GenericData genericData;
-    static {
-        genericData = new GenericData();
-        genericData.addLogicalTypeConversion(new TimeConversions.DateConversion());
-        genericData.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
-        genericData.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
-        genericData.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
-        for (ParquetTypes type: ParquetTypes.values()) {
-            genericData.addLogicalTypeConversion(type.getWriteConversion());
-        }
-    }
+//    public static GenericData genericData;
+//    static {
+//        genericData = new GenericData();
+//        genericData.addLogicalTypeConversion(new TimeConversions.DateConversion());
+//        genericData.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
+//        genericData.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
+//        genericData.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
+//        for (ParquetTypes type: ParquetTypes.values()) {
+//            genericData.addLogicalTypeConversion(type.getWriteConversion());
+//        }
+//    }
 
     // TODO - make configurable
     public static final String TYPE_SEP = "___";

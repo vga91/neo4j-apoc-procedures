@@ -40,7 +40,7 @@ public class LoadHdfsTest {
 		FileSystem fs = miniDFSCluster.getFileSystem();
 		String fileName = "test.csv";
 		Path file = new Path(fileName);
-		try (OutputStream out = fs.create(file);) {
+		try (OutputStream out = fs.create(file, false, 0, (short) 0,0L);) {
 			URL url = ClassLoader.getSystemResource(fileName);
 			try (InputStream in = url.openStream();) {
 				IOUtils.copy(in, out);

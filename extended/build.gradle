@@ -73,18 +73,35 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     }
 
+    // The logger will come from the :common project via slf4j-simple
+    def withoutLoggers = {
+        exclude group: 'org.slf4j', module: 'slf4j-log4j12'
+        exclude group: 'org.slf4j', module: 'slf4j-reload4j'
+    }
+
 
     // TODO - external dependencies??
-    compileOnly group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
-    testImplementation group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
-    compileOnly group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
-    testImplementation group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
+
+
+//    compileOnly group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
+//    testImplementation group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
+//    compileOnly group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
+//    testImplementation group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
+
+
+//    implementation group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.3.2'
+//    implementation group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.3.2'
+
+//    testImplementation group: 'blue.strategic.parquet', name: 'parquet-floor', version: '1.39', {
+//        exclude module: 'org.apache'
+//    }
+
 //    compileOnly group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
 //    testImplementation group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
 //    compileOnly group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
 //    testImplementation group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
-    compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.1.0'
-    testImplementation group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.1.0'
+//    compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.3.2'
+//    testImplementation group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.3.2'
 
     // These will be dependencies packaged with the .jar
     implementation project(':common')
@@ -92,6 +109,20 @@ dependencies {
     implementation group: 'org.jsoup', name: 'jsoup', version: '1.15.3'
     implementation group: 'com.opencsv', name: 'opencsv', version: '5.7.1'
     implementation group: 'us.fatehi', name: 'schemacrawler', version: '15.04.01'
+
+    compileOnly group: 'blue.strategic.parquet', name: 'parquet-floor', version: '1.39', {
+        exclude group: 'org.apache.hadoop'
+        exclude module: 'org.apache.hadoop'
+    }
+
+
+    testImplementation group: 'blue.strategic.parquet', name: 'parquet-floor', version: '1.39', {
+        exclude group: 'org.apache.hadoop'
+        exclude module: 'org.apache.hadoop'
+    }
+
+    compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.3.6', withoutServers
+    testImplementation group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.3.6', withoutServers.andThen(withoutLoggers)
 
     // These will be dependencies not packaged with the .jar
     // They need to be provided either through the database or in an extra .jar

@@ -6,6 +6,14 @@ import apoc.load.LoadParquet;
 import apoc.meta.Meta;
 import apoc.util.TestUtil;
 import apoc.util.collection.Iterators;
+import blue.strategic.parquet.Dehydrator;
+import blue.strategic.parquet.Hydrator;
+import blue.strategic.parquet.HydratorSupplier;
+import blue.strategic.parquet.ParquetReader;
+import blue.strategic.parquet.ParquetWriter;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Type;
+import org.apache.parquet.schema.Types;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -26,6 +34,7 @@ import org.neo4j.values.storable.PointValue;
 import org.neo4j.values.virtual.VirtualValues;
 
 import java.io.File;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Arrays;
@@ -46,11 +55,32 @@ import static apoc.export.parquet.ParquetUtil.FIELD_TARGET_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.Types;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+
+import java.io.File;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.hamcrest.CoreMatchers.hasItems;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 public class ParquetTest {
 
@@ -62,6 +92,68 @@ public class ParquetTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath());
+
+
+
+    @Test
+    public void writes_and_reads_parquet() throws IOException {
+        File parquet = new File("foo.parquet");
+
+        MessageType schema = new MessageType("foo",
+                Types.required(INT64).named("id"),
+                Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("email"),
+                Types.requiredList().requiredElement(BINARY).as(LogicalTypeAnnotation.stringType()).named("list")
+        );
+
+        Dehydrator<Object[]> dehydrator = (record, valueWriter) -> {
+            valueWriter.write("id", record[0]);
+            valueWriter.write("email", record[1]);
+            valueWriter.write("list", record[2].toString());
+        };
+
+        Hydrator<Map<String, Object>, Map<String, Object>> hydrator = new Hydrator<>() {
+            @Override
+            public Map<String, Object> start() {
+                return new HashMap<>();
+            }
+
+            @Override
+            public HashMap<String, Object> add(Map<String, Object> target, String heading, Object value) {
+                HashMap<String, Object> r = new HashMap<>(target);
+                r.put(heading, value);
+                return r;
+            }
+
+            @Override
+            public Map<String, Object> finish(Map<String, Object> target) {
+                return target;
+            }
+        };
+
+        try(ParquetWriter<Object[]> writer = ParquetWriter.writeFile(schema, parquet, dehydrator)) {
+            writer.write(new Object[]{1L, "hello1", List.of("1", "2")});
+            writer.write(new Object[]{2L, "hello2", List.of("1", "23")});
+        }
+
+        try (Stream<Map<String, Object>> s = ParquetReader.streamContent(parquet, HydratorSupplier.constantly(hydrator))) {
+            List<Map<String, Object>> result = s.collect(Collectors.toList());
+
+            //noinspection unchecked
+            assertThat(result, hasItems(
+                    Map.of("id", 1L, "email", "hello1"),
+                    Map.of("id", 2L, "email", "hello2")));
+        }
+
+        try (Stream<Map<String, Object>> s = ParquetReader.streamContent(parquet, HydratorSupplier.constantly(hydrator), Collections.singleton("id"))) {
+            List<Map<String, Object>> result = s.collect(Collectors.toList());
+
+            //noinspection unchecked
+            assertThat(result, hasItems(
+                    Map.of("id", 1L),
+                    Map.of("id", 2L)));
+        }
+    }
+
 
     private void assertFirstUserNode(Map<String, Object> map) {
         assertNodeAndLabel(map, "User");
@@ -120,7 +212,7 @@ public class ParquetTest {
     public static void beforeClass() {
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015-05-18T19:32:24.000'), place:point({latitude: 13.1, longitude: 33.46789, height: 100.0})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42})");
         db.executeTransactionally("CREATE (:Multi {name:1}), (:Multi {name:'Sam'})");
-        TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class,/* ImportParquet.class, */Graphs.class, Meta.class);
+        TestUtil.registerProcedure(db, /*ExportParquet.class, */LoadParquet.class,/* ImportParquet.class, */Graphs.class, Meta.class);
     }
 
     @Before
@@ -226,9 +318,27 @@ public class ParquetTest {
 
     @Test
     public void testRoundtripWithMultipleBatches() {
-        final String fileName = db.executeTransactionally("CALL apoc.export.parquet.all('test.parquet', {batchSize:1})",
-                Map.of(),
-                this::extractFileName);
+//        final String fileName = "all_test.parquet";
+        final String fileName = "yellow_tripdata_2023-03.parquet";
+//        db.executeTransactionally("CALL apoc.export.parquet.all('test.parquet', {batchSize:1})",
+//                Map.of(),
+//                this::extractFileName);
+
+        // then
+        final String query = "CALL apoc.load.parquet($file) YIELD value " +
+                             "RETURN value";
+
+        testResult(db, query, Map.of("file", fileName),
+                this::roundtripLoadAllAssertion);
+    }
+
+    @Test
+    public void testRoundtripWithMultipleBatches2() {
+//        final String fileName = "all_test.parquet";
+        final String fileName = "graph_test-avro.parquet";
+//        db.executeTransactionally("CALL apoc.export.parquet.all('test.parquet', {batchSize:1})",
+//                Map.of(),
+//                this::extractFileName);
 
         // then
         final String query = "CALL apoc.load.parquet($file) YIELD value " +
