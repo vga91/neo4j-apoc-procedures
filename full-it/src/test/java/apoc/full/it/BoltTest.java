@@ -65,6 +65,7 @@ import static org.neo4j.driver.Values.point;
  * @since 29.08.17
  */
 public class BoltTest {
+    private static final String ADMIN_PWD = "neo4j2020";
 
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
@@ -72,8 +73,11 @@ public class BoltTest {
     private static Neo4jContainerExtension neo4jContainer;
 
     @BeforeClass
-    public static void setUp() throws Exception {
-        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.FULL), true).withInitScript("init_neo4j_bolt.cypher");
+    public static void setUp() {
+        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.FULL), true)
+                .withLogging()
+                .withInitScript("init_neo4j_bolt.cypher")
+                .withAdminPassword(ADMIN_PWD);
         neo4jContainer.start();
         TestUtil.registerProcedure(db, Bolt.class, ExportCypher.class, Cypher.class);
     }
@@ -195,7 +199,7 @@ public class BoltTest {
         String query = "MATCH (:Person{name: 'John', surname: 'Green'})-[r]->(:Person{name: 'Jim', surname: 'Brown'}) RETURN r";
 
         // when
-        TestUtil.testCall(db, "call apoc.bolt.load(" + BOLT_URL + ",$query, null, $config)",
+        TestUtil.testCall(db, "call apoc.bolt.load(" + getBoltUrl() + ",$query, null, $config)",
                 map("query", query, "config", map("virtual", true, "withRelationshipNodeProperties", true)),
                 r -> {
                     // then
@@ -223,7 +227,7 @@ public class BoltTest {
         String remoteStatement = "MATCH (:Person{name: name, surname: 'Green'})-[r]->(:Person{name: 'Jim', surname: 'Brown'}) RETURN r";
 
         // when
-        TestUtil.testCall(db, "call apoc.bolt.load.fromLocal(" + BOLT_URL + ", $localStatement, $remoteStatement, $config)",
+        TestUtil.testCall(db, "call apoc.bolt.load.fromLocal(" + getBoltUrl() + ", $localStatement, $remoteStatement, $config)",
                 map("localStatement", localStatement, "remoteStatement", remoteStatement, "config", map("virtual", true, "withRelationshipNodeProperties", true)),
                 r -> {
                     // then
@@ -533,6 +537,8 @@ public class BoltTest {
     }
 
     private String getBoltUrl() {
-        return "'" + "bolt://neo4j:apoc@" + neo4jContainer.getContainerIpAddress() + ":" + neo4jContainer.getMappedPort(7687) + "'";
+        return String.format("'bolt://neo4j:%s@%s:%s'",
+                ADMIN_PWD, neo4jContainer.getContainerIpAddress(), neo4jContainer.getMappedPort(7687));
+
     }
 }

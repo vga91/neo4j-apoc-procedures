@@ -125,7 +125,7 @@ public class StartupTest {
                 ex.printStackTrace();
                 fail("Should not have thrown exception when trying to start Neo4j: " + ex);
             } else {
-                fail( "The docker image could not be loaded. Check whether it's available locally / in the CI. Exception:" + ex);
+                fail( "The docker image " + TestContainerUtil.neo4jEnterpriseDockerImageVersion + " should be available in the CI. Exception:" + ex);
             }
         }
     }

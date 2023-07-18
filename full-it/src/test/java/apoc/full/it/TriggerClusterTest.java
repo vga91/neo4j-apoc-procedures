@@ -19,10 +19,8 @@
 package apoc.full.it;
 
 import apoc.util.TestContainerUtil;
-import apoc.util.TestUtil;
 import apoc.util.TestcontainersCausalCluster;
 import org.junit.AfterClass;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -35,10 +33,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import static apoc.util.TestUtil.isRunningInCI;
+import static apoc.util.TestContainerUtil.ApocPackage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
@@ -52,24 +49,17 @@ public class TriggerClusterTest {
 
     @BeforeClass
     public static void setupCluster() {
-        assumeFalse(isRunningInCI());
-        TestUtil.ignoreException(() ->  cluster = TestContainerUtil
-                .createEnterpriseCluster(List.of(TestContainerUtil.ApocPackage.FULL), 3, 1, Collections.emptyMap(), MapUtil.stringMap(
-                        "apoc.trigger.refresh", "100",
-                        "apoc.trigger.enabled", "true"
-                )),
-                Exception.class);
-        Assume.assumeNotNull(cluster);
-        Assume.assumeTrue(cluster.isRunning());
-
-        cluster.getSession().run("CREATE DATABASE " + DB_FOO);
+        cluster = TestContainerUtil.createEnterpriseCluster(
+                List.of(ApocPackage.CORE, ApocPackage.FULL),
+                3,
+                1,
+                Collections.emptyMap(),
+                MapUtil.stringMap("apoc.trigger.refresh", "100", "apoc.trigger.enabled", "true"));
     }
 
     @AfterClass
     public static void bringDownCluster() {
-        if (cluster != null) {
-            cluster.close();
-        }
+        cluster.close();
     }
 
     @Before

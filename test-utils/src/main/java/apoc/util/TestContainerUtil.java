@@ -147,6 +147,7 @@ public class TestContainerUtil {
                 .withNeo4jConfig("dbms.logs.debug.level", "DEBUG")
                 .withNeo4jConfig("dbms.routing.driver.logging.level", "DEBUG")
                 .withFileSystemBind(canonicalPath, "/var/lib/neo4j/import") // map the "target/import" dir as the Neo4j's import dir
+                .withEnv("NEO4J_ACCEPT_LICENSE_AGREEMENT", "yes")
                 .withCreateContainerCmdModifier(cmd -> cmd.withMemory(2024 * 1024 * 1024L)) // 2gb
                 .withExposedPorts(7687, 7473, 7474)
 //                .withDebugger()  // attach debugger
@@ -171,15 +172,17 @@ public class TestContainerUtil {
         }
         return neo4jContainer;
     }
+
     public static void copyFilesToPlugin(File directory, IOFileFilter instance, File pluginsFolder) {
         Collection<File> files = FileUtils.listFiles(directory, instance, null);
-        for (File file: files) {
+        for (File file : files) {
             try {
                 FileUtils.copyFileToDirectory(file, pluginsFolder);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         }
+    }
 
     public static void executeGradleTasks(File baseDir, String... tasks) {
         try (ProjectConnection connection = GradleConnector.newConnector()

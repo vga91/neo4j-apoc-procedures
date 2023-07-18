@@ -14,6 +14,7 @@ import org.testcontainers.containers.Neo4jContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
 import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.testcontainers.ext.ScriptUtils;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
+import static apoc.util.TestContainerUtil.Neo4jVersion.ENTERPRISE;
 import static java.net.HttpURLConnection.HTTP_OK;
 
 /**
@@ -115,7 +117,7 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
         return driver;
     }
 
-    private AuthToken getAuth() {
+    public AuthToken getAuth() {
         return getAdminPassword() != null && !getAdminPassword().isEmpty()
                 ? AuthTokens.basic("neo4j", getAdminPassword()): AuthTokens.none();
     }
@@ -158,7 +160,8 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
         return this;
     }
 
-    public Neo4jContainerExtension withWaitForNeo4jDatabaseReady(String password, Neo4jVersion version) {
+    // todo - delete?
+    public Neo4jContainerExtension withWaitForNeo4jDatabaseReady(String password, TestContainerUtil.Neo4jVersion version) {
         return withWaitForDatabaseReady("neo4j", password, "neo4j", Duration.ofSeconds(120), version);
     }
 

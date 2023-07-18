@@ -19,32 +19,23 @@
 package apoc.full.it;
 
 import apoc.util.Neo4jContainerExtension;
-import apoc.util.TestContainerUtil;
-import apoc.util.TestUtil;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.neo4j.driver.Driver;
-import org.neo4j.driver.GraphDatabase;
-import org.neo4j.driver.Record;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
-import static apoc.util.TestContainerUtil.*;
+import static apoc.util.TestContainerUtil.ApocPackage;
+import static apoc.util.TestContainerUtil.createEnterpriseDB;
+import static apoc.util.TestContainerUtil.testCall;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static apoc.util.TestUtil.isRunningInCI;
-import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeNotNull;
-import static org.junit.Assume.assumeTrue;
-import static org.neo4j.test.assertion.Assert.assertEventually;
 
 public class TTLMultiDbTest {
 
@@ -61,7 +52,7 @@ public class TTLMultiDbTest {
 
     @BeforeClass
     public static void setupContainer() {
-        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.EXTENDED), true)
+        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.FULL), true)
                 .withEnv(Map.of("apoc.ttl.enabled." + DB_TEST, "false",
                         "apoc.ttl.enabled", "true",
                         "apoc.ttl.schedule", "2",

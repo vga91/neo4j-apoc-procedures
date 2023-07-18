@@ -52,6 +52,7 @@ import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.TestContainerUtil.importFolder;
 import static apoc.util.TestContainerUtil.testCall;
 import static apoc.util.TestContainerUtil.testResult;
+import static apoc.util.TestContainerUtil.ApocPackage;
 import static apoc.util.Util.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -67,7 +68,7 @@ public class CypherEnterpriseExtendedTest {
     @BeforeClass
     public static void beforeAll() {
         // We build the project, the artifact will be placed into ./build/libs
-        neo4jContainer = createEnterpriseDB(List.of(TestContainerUtil.ApocPackage.FULL), !TestUtil.isRunningInCI())
+        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.FULL), true)
                 .withNeo4jConfig("dbms.transaction.timeout", "5s");
         neo4jContainer.start();
 
@@ -215,6 +216,29 @@ public class CypherEnterpriseExtendedTest {
         Map<String, Object> params = Map.of("file", SIMPLE_RETURN_QUERIES);
 
         testCypherMapParallelCommon(query, params);
+    }
+
+    @Test
+    public void testParallelTransactionGuard() {
+        // given
+        String parallelQuery = "UNWIND range(0,9) as id CALL apoc.util.sleep(10000) WITH id RETURN id";
+
+        // when
+        try {
+            int size = 10_000;
+            testResult(neo4jContainer.getSession(),
+                    "CALL apoc.cypher.parallel2('" + parallelQuery + "', {a: range(1, $size)}, 'a')",
+                    map("size", size),
+                    r -> {});
+        } catch (Exception ignored) {}
+
+        // then
+        boolean anyLingeringParallelTx = neo4jContainer.getSession().readTransaction(tx -> {
+            var currentTxs = tx.run("SHOW TRANSACTIONS").stream();
+            return currentTxs.anyMatch( record -> record.get( "currentQuery" ).toString().contains(parallelQuery));
+        });
+
+        Assert.assertFalse(anyLingeringParallelTx);
     }
 
     private void testCypherMapParallelCommon(String query, Map<String, Object> params) {
