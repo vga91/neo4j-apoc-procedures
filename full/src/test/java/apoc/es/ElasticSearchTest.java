@@ -35,9 +35,7 @@ import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import java.io.IOException;
 import java.util.*;
 
-import static apoc.util.TestUtil.isRunningInCI;
 import static org.junit.Assert.*;
-import static org.junit.Assume.*;
 
 /**
  * @author mh

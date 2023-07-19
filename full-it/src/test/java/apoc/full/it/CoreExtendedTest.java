@@ -20,7 +20,6 @@ package apoc.full.it;
 
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
-import apoc.util.TestUtil;
 import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 import apoc.util.TestContainerUtil.ApocPackage;

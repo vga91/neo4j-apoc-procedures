@@ -46,15 +46,11 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static apoc.util.TestUtil.getUrlFileName;
-import static apoc.util.TestUtil.isRunningInCI;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testCallEmpty;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeNotNull;
-import static org.junit.Assume.assumeTrue;
 
 public class DataVirtualizationCatalogTest {
 

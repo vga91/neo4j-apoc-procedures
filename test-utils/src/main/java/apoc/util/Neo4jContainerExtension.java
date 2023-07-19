@@ -1,33 +1,22 @@
 package apoc.util;
 
-import org.apache.commons.io.FileUtils;
 import org.neo4j.driver.AuthToken;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Session;
-import org.neo4j.driver.internal.summary.InternalSummaryCounters;
-import org.neo4j.driver.summary.SummaryCounters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Neo4jContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
-import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
-import org.testcontainers.containers.wait.strategy.WaitStrategy;
 import org.testcontainers.ext.ScriptUtils;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Scanner;
 
 import static apoc.util.TestContainerUtil.Neo4jVersion.ENTERPRISE;
-import static java.net.HttpURLConnection.HTTP_OK;
 
 /**
  * Extension for the Neo4jcontainer class of Testcontainers
@@ -158,11 +147,6 @@ public class Neo4jContainerExtension extends Neo4jContainer<Neo4jContainerExtens
         }
 
         return this;
-    }
-
-    // todo - delete?
-    public Neo4jContainerExtension withWaitForNeo4jDatabaseReady(String password, TestContainerUtil.Neo4jVersion version) {
-        return withWaitForDatabaseReady("neo4j", password, "neo4j", Duration.ofSeconds(120), version);
     }
 
     @Override
