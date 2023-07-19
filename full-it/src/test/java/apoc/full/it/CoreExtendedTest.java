@@ -108,6 +108,7 @@ public class CoreExtendedTest {
             assertEquals(different.toString(), 0, different.size());
 
             neo4jContainer.close();
+            // to test
         } catch (Exception ex) {
             if (TestContainerUtil.isDockerImageAvailable(ex)) {
                 ex.printStackTrace();
