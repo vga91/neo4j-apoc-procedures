@@ -7,7 +7,10 @@ import apoc.util.collection.Iterables;
 //import org.apache.avro.SchemaBuilder;
 //import org.apache.avro.generic.GenericRecord;
 import org.apache.parquet.example.data.Group;
+import org.apache.parquet.example.data.GroupFactory;
+import org.apache.parquet.example.data.simple.SimpleGroupFactory;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType;
 import org.neo4j.cypher.export.SubGraph;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -19,6 +22,7 @@ import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.ResultTransformer;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +31,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static apoc.export.parquet.ParquetUtil.*;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.*;
 
 public interface ParquetExportType<TYPE, ROW> {
     enum Type {
@@ -65,10 +70,21 @@ public interface ParquetExportType<TYPE, ROW> {
 
         @Override
         public MessageType schemaFor(GraphDatabaseService db, List<Map<String,Object>> type) {
+//            if (true) {
+//                org.apache.parquet.schema.Types.GroupBuilder<MessageType> messageTypeBuilder = org.apache.parquet.schema.Types.buildMessage();
+//                getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.BINARY, FIELD_LABELS);//.stringType();
+//
+//                return messageTypeBuilder.named("msg");
+//            }
+
+
+
             if (this.schema != null) {
                 return this.schema;
             }
 //            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
+
+            org.apache.parquet.schema.Types.GroupBuilder<MessageType> messageTypeBuilder = org.apache.parquet.schema.Types.buildMessage();
 
             final Predicate<Map<String, Object>> filterStream = m -> m.get("propertyName") != null;
             final ResultTransformer<Void> parsePropertiesResult = result -> {
@@ -79,7 +95,7 @@ public interface ParquetExportType<TYPE, ROW> {
                             List<String> propertyTypes =  ((List<List<String>>) m.get("types"))
                                     .stream().flatMap(List::stream)
                                     .collect(Collectors.toList());
-                            toField(propertyName, new HashSet<>(propertyTypes), fieldAssembler);
+                            toField(propertyName, new HashSet<>(propertyTypes), messageTypeBuilder);
                         });
                 return null;
             };
@@ -95,32 +111,46 @@ public interface ParquetExportType<TYPE, ROW> {
             db.executeTransactionally(String.format(query, "nodeTypeProperties"),
                     parameters, parsePropertiesResult);
 
-            fieldAssembler.optionalLong(FIELD_ID);
-            getItems(FIELD_LABELS, fieldAssembler).stringType();
+//            messageTypeBuilder.addField(org.apache.parquet.schema.Types.optional(INT64).named(FIELD_ID));
+            getField(messageTypeBuilder, INT64, FIELD_ID);
+//            messageTypeBuilder.optionalLong(FIELD_ID);
+            getItems(FIELD_LABELS, messageTypeBuilder, PrimitiveType.PrimitiveTypeName.BINARY);//.stringType();
+//            getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.BINARY, FIELD_LABELS);//.stringType();
 
             if (confMap.containsKey("includeRels")) {
                 db.executeTransactionally(String.format(query, "relTypeProperties"),
                         parameters, parsePropertiesResult);
-                fieldAssembler.optionalLong(FIELD_SOURCE_ID);
-                fieldAssembler.optionalLong(FIELD_TARGET_ID);
-                fieldAssembler.optionalString(FIELD_TYPE);
+                getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.INT64, FIELD_SOURCE_ID);
+                getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.INT64, FIELD_TARGET_ID);
+                getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.BINARY, FIELD_TYPE);
+//                fieldAssembler.optionalLong(FIELD_SOURCE_ID);
+//                fieldAssembler.optionalLong(FIELD_TARGET_ID);
+//                fieldAssembler.optionalString(FIELD_TYPE);
             }
 
-            this.schema = fieldAssembler.endRecord();
+            this.schema = messageTypeBuilder.named("apocExport");// fieldAssembler.endRecord();
             return this.schema;
         }
 
         @Override
         public Group toRecord(MessageType schema, Entity entity) {
-            GenericRecord flattened = mapToRecord(schema, entity.getAllProperties());
-            flattened.put(FIELD_ID, entity.getId());
+//            if (true) {
+//                GroupFactory factory = new SimpleGroupFactory(schema);
+//                return
+//            }
+
+
+            Group flattened = mapToRecord(schema, entity.getAllProperties());
+            flattened.append(FIELD_ID, entity.getId());
             if (entity instanceof Node) {
-                flattened.put(FIELD_LABELS, Util.labelStrings((Node) entity));
+                // todo - mocked toString()
+                extracted(flattened, FIELD_LABELS, Util.labelStrings((Node) entity));
+//                flattened.add(FIELD_LABELS, Util.labelStrings((Node) entity));
             } else {
                 Relationship rel = (Relationship) entity;
-                flattened.put(FIELD_TYPE, rel.getType().name());
-                flattened.put(FIELD_SOURCE_ID, rel.getStartNodeId());
-                flattened.put(FIELD_TARGET_ID, rel.getEndNodeId());
+                flattened.append(FIELD_TYPE, rel.getType().name());
+                flattened.append(FIELD_SOURCE_ID, rel.getStartNodeId());
+                flattened.append(FIELD_TARGET_ID, rel.getEndNodeId());
             }
 
             return flattened;
@@ -151,18 +181,21 @@ public interface ParquetExportType<TYPE, ROW> {
     class ResultType implements ParquetExportType<Result, Map<String,Object>> {
 
         @Override
-        public Schema schemaFor(GraphDatabaseService db, List<Map<String, Object>> type) {
+        public MessageType schemaFor(GraphDatabaseService db, List<Map<String, Object>> type) {
+            // todo - implement
+            return null;
+
             // we re-calculate the schema for each batch
 
-            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
-
-            type.stream()
-                    .flatMap(m -> m.entrySet().stream())
-                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
-                    .collect(Collectors.groupingBy(AbstractMap.SimpleEntry::getKey, Collectors.mapping(AbstractMap.SimpleEntry::getValue, Collectors.toSet())))
-                    .forEach((key, value) -> toField(key, value, fieldAssembler));
-
-            return fieldAssembler.endRecord();
+//            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
+//
+//            type.stream()
+//                    .flatMap(m -> m.entrySet().stream())
+//                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
+//                    .collect(Collectors.groupingBy(AbstractMap.SimpleEntry::getKey, Collectors.mapping(AbstractMap.SimpleEntry::getValue, Collectors.toSet())))
+//                    .forEach((key, value) -> toField(key, value, fieldAssembler));
+//
+//            return fieldAssembler.endRecord();
         }
 
         @Override

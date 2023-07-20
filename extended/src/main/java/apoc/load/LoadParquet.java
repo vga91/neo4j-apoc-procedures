@@ -1,13 +1,11 @@
 package apoc.load;
 
-import apoc.export.parquet.CustomTypes;
-import apoc.export.parquet.ParquetTypes;
+//import apoc.export.parquet.CustomTypes;
+//import apoc.export.parquet.ParquetTypes;
+import apoc.export.parquet.ParquetConfig;
 import apoc.result.MapResult;
 import apoc.util.Util;
-import org.apache.avro.LogicalTypes;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.hadoop.conf.Configuration;
+//import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.io.DelegatingSeekableInputStream;
@@ -29,7 +27,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static apoc.export.parquet.ParquetReadUtil.mapFromRecord;
-import static apoc.export.parquet.ParquetReadUtil.genericDataLoad;
+//import static apoc.export.parquet.ParquetReadUtil.genericDataLoad;
 import static apoc.export.parquet.ParquetReadUtil.getReaderBuilder;
 
 public class LoadParquet {
@@ -40,10 +38,12 @@ public class LoadParquet {
     private static class ParquetSpliterator extends Spliterators.AbstractSpliterator<MapResult> {
 
         private final ParquetReader<Group> reader;
+        private final ParquetConfig conf;
 
-        public ParquetSpliterator(ParquetReader reader){
+        public ParquetSpliterator(ParquetReader reader, ParquetConfig conf){
             super(Long.MAX_VALUE, Spliterator.ORDERED);
             this.reader = reader;
+            this.conf = conf;
         }
 
         @Override
@@ -51,7 +51,8 @@ public class LoadParquet {
             try {
                 Group read = reader.read();
                 if (read != null) {
-                    action.accept(new MapResult(mapFromRecord(read)));
+                    MapResult result = new MapResult(mapFromRecord(read, conf));
+                    action.accept(result);
                     return true;
                 }
 
@@ -69,6 +70,7 @@ public class LoadParquet {
             @Name("input") Object input,
             @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws IOException {
 
+        ParquetConfig conf = new ParquetConfig(config);
         ParquetReader<Group> reader = getReaderBuilder(input)
 //                .withDataModel(genericDataLoad)
 //                .withConf(new Configuration())
@@ -76,16 +78,16 @@ public class LoadParquet {
 
         registerCustomTypes();
 
-        return StreamSupport.stream(new ParquetSpliterator(reader), false)
+        return StreamSupport.stream(new ParquetSpliterator(reader, conf), false)
                 .onClose(() -> Util.close(reader));
     }
 
     public static void registerCustomTypes() {
 
-        for (ParquetTypes type: ParquetTypes.values()) {
-            CustomTypes.AbstractCustomType customType = type.getType();
-            LogicalTypes.register(customType.getLogicalTypeName(), schema -> customType);
-        }
+//        for (ParquetTypes type: ParquetTypes.values()) {
+//            CustomTypes.AbstractCustomType customType = type.getType();
+//            LogicalTypes.register(customType.getLogicalTypeName(), schema -> customType);
+//        }
     }
 
     public static class ParquetStream implements InputFile {

@@ -133,11 +133,13 @@ public class ExportParquet {
     }
 
     public Stream<ByteArrayResult> exportParquet(Object data, ParquetConfig config) {
-        ParquetExportType exportType = ParquetExportType.Type.from(data);
-        if (data instanceof Result) {
-            return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, log, exportType).export((Result) data, config);
-        }
-        return new ExportParquetGraphStreamStrategy(db, pools, terminationGuard, log, exportType).export((SubGraph) data, config);
+        // todo - implement
+        return Stream.empty();
+//        ParquetExportType exportType = ParquetExportType.Type.from(data);
+//        if (data instanceof Result) {
+//            return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, log, exportType).export((Result) data, config);
+//        }
+//        return new ExportParquetGraphStreamStrategy(db, pools, terminationGuard, log, exportType).export((SubGraph) data, config);
     }
 }
 

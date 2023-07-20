@@ -77,8 +77,8 @@ dependencies {
     // TODO - external dependencies??
     compileOnly group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
     testImplementation group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
-    compileOnly group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
-    testImplementation group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
+//    compileOnly group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
+//    testImplementation group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
 //    compileOnly group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
 //    testImplementation group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
 //    compileOnly group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
