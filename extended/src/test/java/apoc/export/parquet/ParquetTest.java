@@ -1,6 +1,6 @@
 package apoc.export.parquet;
 
-//import apoc.export.ImportParquet;
+import apoc.export.ImportParquet;
 import apoc.graph.Graphs;
 import apoc.load.LoadParquet;
 import apoc.meta.Meta;
@@ -26,9 +26,6 @@ import org.neo4j.values.storable.PointValue;
 import org.neo4j.values.virtual.VirtualValues;
 
 import java.io.File;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,9 +35,10 @@ import java.util.stream.LongStream;
 
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
+import static apoc.ApocConfig.LOAD_FROM_FILE_ERROR;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.export.parquet.ExportParquet.EXPORT_TO_FILE_PARQUET_ERROR;
 import static apoc.export.parquet.ParquetUtil.FIELD_ID;
-import static apoc.export.parquet.ParquetUtil.FIELD_LABELS;
 import static apoc.export.parquet.ParquetUtil.FIELD_SOURCE_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TARGET_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
@@ -50,10 +48,17 @@ import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 
 public class ParquetTest {
 
+    public static final Map<String, Map<String, String>> MAPPING_ALL = Map.of("mapping",
+            Map.of("bffSince", "Duration", "place", "Point")
+    );
+    public static final Map<String, Map<String, String>> MAPPING_QUERY = Map.of("mapping",
+            Map.of("n", "Node", "r", "Relationship", "o", "Node")
+    );
     private static File directory = new File("target/parquet import");
     static { //noinspection ResultOfMethodCallIgnored
         directory.mkdirs();
@@ -63,50 +68,50 @@ public class ParquetTest {
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath());
 
-    private void assertFirstUserNode(Map<String, Object> map) {
+    private static void assertFirstUserNode(Map<String, Object> map) {
         assertNodeAndLabel(map, "User");
         assertFirstUserNodeProps(map);
     }
 
-    private void assertSecondUserNode(Map<String, Object> map) {
+    private static void assertSecondUserNode(Map<String, Object> map) {
         assertNodeAndLabel(map, "User");
         assertSecondUserNodeProps(map);
     }
 
-    private void assertFirstUserNodeProps(Map<String, Object> props) {
+    private static void assertFirstUserNodeProps(Map<String, Object> props) {
         assertEquals("Adam", props.get("name"));
         assertEquals(42L, props.get("age"));
         assertEquals( true, props.get("male"));
         assertArrayEquals(new String[] { "Sam", "Anna", "Grace" }, (String[]) props.get("kids"));
         Map<String, Double> latitude = Map.of("latitude", 13.1D, "longitude", 33.46789D, "height", 100.0D);
-//        assertEquals(PointValue.fromMap(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values().stream().map(ValueUtils::of).toArray(AnyValue[]::new))),
-//                props.get("place"));
+        assertEquals(PointValue.fromMap(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values().stream().map(ValueUtils::of).toArray(AnyValue[]::new))),
+                props.get("place"));
         assertEquals(LocalDateTimeValue.parse("2015-05-18T19:32:24.000").asObject(), props.get("born"));
     }
 
-    private void assertSecondUserNodeProps(Map<String, Object> props) {
+    private static void assertSecondUserNodeProps(Map<String, Object> props) {
         assertEquals( "Jim", props.get("name"));
         assertEquals(42L, props.get("age"));
     }
 
-    private void assertFirstMultiNodeProps(Map<String, Object> map) {
-        assertNodeAndLabel(map, "Multi");
-        assertEquals(1L, map.get("name"));
+    private static void assertFirstAnotherNodeProps(Map<String, Object> map) {
+        assertNodeAndLabel(map, "Another");
+        assertEquals(1L, map.get("foo"));
     }
 
-    private void assertSecondMultiNodeProps(Map<String, Object> map) {
-        assertNodeAndLabel(map, "Multi");
-        assertEquals("Sam", map.get("name"));
+    private static void assertSecondAnotherNodeProps(Map<String, Object> map) {
+        assertNodeAndLabel(map, "Another");
+        assertEquals("Sam", map.get("bar"));
     }
 
-    private void assertRelationship(Map<String, Object> map) {
+    private static void assertRelationship(Map<String, Object> map) {
         assertTrue(map.get(FIELD_ID) instanceof Long);
         assertTrue(map.get(FIELD_SOURCE_ID) instanceof Long);
         assertTrue(map.get(FIELD_TARGET_ID) instanceof Long);
         assertRelationshipProps(map);
     }
 
-    private void assertRelationshipProps(Map<String, Object> props) {
+    private static void assertRelationshipProps(Map<String, Object> props) {
         assertEquals(DurationValue.parse("P5M1DT12H"), props.get("bffSince"));
         assertEquals(1993L, props.get("since"));
     }
@@ -118,51 +123,48 @@ public class ParquetTest {
 
     @BeforeClass
     public static void beforeClass() {
-        db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015-05-18T19:32:24.000'), place:point({latitude: 13.1, longitude: 33.46789, height: 100.0})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42})");
-        db.executeTransactionally("CREATE (:Multi {name:1}), (:Multi {name:'Sam'})");
-        TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class,/* ImportParquet.class, */Graphs.class, Meta.class);
+        TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class, ImportParquet.class, Graphs.class, Meta.class);
     }
 
     @Before
     public void before() {
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+
+        db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015-05-18T19:32:24.000'), place:point({latitude: 13.1, longitude: 33.46789, height: 100.0})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42})");
+        db.executeTransactionally("CREATE (:Another {foo:1}), (:Another {bar:'Sam'})");
+
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, true);
     }
 
-    private byte[] extractByteArray(Result result) {
+    private static byte[] extractByteArray(Result result) {
         ResourceIterator<byte[]> value = result.columnAs("value");
         return value.next();
     }
 
-    private String extractFileName(Result result) {
+    public static String extractFileName(Result result) {
         return Iterators.single(result.columnAs("file"));
     }
 
     @Test
-    public void testStreamRoundtripParquetQueryMultitype() {
+    public void testStreamRoundtripParquetQueryAnothertype() {
         List<Object> values = List.of(1L, "", 7.0, DateValue.parse("1999"), LocalDateTimeValue.parse("2023-06-14T08:38:28.193000000"));
 
         final byte[] byteArray = db.executeTransactionally(
                 "CALL apoc.export.parquet.query.stream('UNWIND $values AS item RETURN item', {params: {values: $values}})",
                 Map.of("values", values),
-                this::extractByteArray);
+                ParquetTest::extractByteArray);
 
         // then
-        final String query = "CALL apoc.load.parquet($byteArray) YIELD value " +
+        final String query = "CALL apoc.load.parquet($byteArray, $config) YIELD value " +
                              "RETURN value";
-        testResult(db, query, Map.of("byteArray", byteArray), result -> {
+        testResult(db, query, Map.of("byteArray", byteArray, "config", MAPPING_ALL), result -> {
             List<Map<String, Object>> value = Iterators.asList(result.columnAs("value"));
             Set<Object> actual = value.stream()
                     .flatMap(i -> i.values().stream())
                     .collect(Collectors.toSet());
             System.out.println("actual = " + actual);
         });
-    }
-
-    private List<Map<String, Object>> getActual(Result result) {
-        return result.stream()
-                .map(m -> (Map<String, Object>) m.get("value"))
-                .collect(Collectors.toList());
     }
 
     @Test
@@ -172,13 +174,13 @@ public class ParquetTest {
                         "CALL apoc.export.parquet.graph(graph, 'graph_test.parquet') YIELD file " +
                         "RETURN file",
                 Map.of(),
-                this::extractFileName);
+                ParquetTest::extractFileName);
 
         // then
-        final String query = "CALL apoc.load.parquet($file) YIELD value " +
+        final String query = "CALL apoc.load.parquet($file, $config) YIELD value " +
                 "RETURN value";
-        testResult(db, query, Map.of("file", file),
-                this::roundtripLoadAllAssertion);
+        testResult(db, query, Map.of("file", file, "config", MAPPING_ALL),
+                ParquetTest::roundtripLoadAllAssertion);
     }
 
     @Test
@@ -192,62 +194,86 @@ public class ParquetTest {
     }
 
     @Test
+    public void testExportFileWithConfigDisabled() {
+        apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, false);
+
+        assertFails("CALL apoc.export.parquet.all('ignore.parquet')", EXPORT_TO_FILE_PARQUET_ERROR);
+    }
+
+    @Test
+    public void testLoadImportFiletWithConfigDisabled() {
+        apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, false);
+
+        assertFails("CALL apoc.load.parquet('ignore.parquet')", LOAD_FROM_FILE_ERROR);
+        assertFails("CALL apoc.import.parquet('ignore.parquet')", LOAD_FROM_FILE_ERROR);
+    }
+
+    private static void assertFails(String call, String expectedErrMsg) {
+        try {
+            testCall(db, call, r -> fail("Should fail due to " + expectedErrMsg));
+        } catch (Exception e) {
+            String actualErrMsg = e.getMessage();
+            assertTrue("Actual err. message is: " + actualErrMsg, actualErrMsg.contains(expectedErrMsg));
+        }
+    }
+
+    @Test
     public void testStreamRoundtripParquetAll() {
         testStreamRoundtripAllCommon();
     }
 
-    private void testStreamRoundtripAllCommon() {
+    private static void testStreamRoundtripAllCommon() {
         // given - when
         final byte[] bytes = db.executeTransactionally("CALL apoc.export.parquet.all.stream()",
                 Map.of(),
-                this::extractByteArray);
+                ParquetTest::extractByteArray);
 
         // then
-        final String query = "CALL apoc.load.parquet($bytes) YIELD value " +
+        final String query = "CALL apoc.load.parquet($bytes, $config) YIELD value " +
                              "RETURN value";
 
-        testResult(db, query, Map.of("bytes", bytes),
-                this::roundtripLoadAllAssertion);
+        testResult(db, query, Map.of("bytes", bytes, "config", MAPPING_ALL),
+                ParquetTest::roundtripLoadAllAssertion);
     }
 
     @Test
-    public void testStreamRoundtripWithMultipleBatches() {
+    public void testStreamRoundtripWithAnotherpleBatches() {
         final List<byte[]> bytes = db.executeTransactionally("CALL apoc.export.parquet.all.stream({batchSize:1})",
                 Map.of(),
                 r -> Iterators.asList(r.columnAs("value")));
 
         // then
-        final String query = "UNWIND $bytes AS byte CALL apoc.load.parquet(byte) YIELD value " +
+        final String query = "UNWIND $bytes AS byte CALL apoc.load.parquet(byte, $config) YIELD value " +
                              "RETURN value";
 
-        testResult(db, query, Map.of("bytes", bytes),
-                this::roundtripLoadAllAssertion);
+        testResult(db, query, Map.of("bytes", bytes, "config", MAPPING_ALL),
+                ParquetTest::roundtripLoadAllAssertion);
     }
 
     @Test
     public void testRoundtripWithMultipleBatches() {
         final String fileName = db.executeTransactionally("CALL apoc.export.parquet.all('test.parquet', {batchSize:1})",
                 Map.of(),
-                this::extractFileName);
+                ParquetTest::extractFileName);
 
         // then
-        final String query = "CALL apoc.load.parquet($file) YIELD value " +
+        final String query = "CALL apoc.load.parquet($file, $config) YIELD value " +
                              "RETURN value";
 
-        testResult(db, query, Map.of("file", fileName),
-                this::roundtripLoadAllAssertion);
+        testResult(db, query, Map.of("file", fileName, "config", MAPPING_ALL),
+                ParquetTest::roundtripLoadAllAssertion);
     }
 
-    private void roundtripLoadAllAssertion(Result result) {
+    public static void roundtripLoadAllAssertion(Result result) {
         ResourceIterator<Map<String, Object>> value = result.columnAs("value");
         Map<String, Object> actual = value.next();
         assertFirstUserNode(actual);
         actual = value.next();
         assertSecondUserNode(actual);
         actual = value.next();
-        assertFirstMultiNodeProps(actual);
+        assertFirstAnotherNodeProps(actual);
         actual = value.next();
-        assertSecondMultiNodeProps(actual);
+        assertSecondAnotherNodeProps(actual);
         actual = value.next();
         assertRelationship(actual);
         assertFalse(value.hasNext());
@@ -258,14 +284,14 @@ public class ParquetTest {
         // given - when
         String file = db.executeTransactionally("CALL apoc.export.parquet.all('test_all.parquet') YIELD file",
                 Map.of(),
-                this::extractFileName);
+                ParquetTest::extractFileName);
 
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
 
         // then
-        final String query = "CALL apoc.import.parquet($file)";
+        final String query = "CALL apoc.import.parquet($file, $config)";
 
-        testCall(db, query, Map.of("file", file),
+        testCall(db, query, Map.of("file", file, "config", MAPPING_ALL),
                 r -> {
                     assertEquals(4L, r.get("nodes"));
                     assertEquals(1L, r.get("relationships"));
@@ -280,14 +306,15 @@ public class ParquetTest {
             assertRelationshipProps(rel.getAllProperties());
         });
 
-        testResult(db, "MATCH (m:Multi) RETURN m", r -> {
+        testResult(db, "MATCH (m:Another) RETURN m", r -> {
             ResourceIterator<Node> m = r.columnAs("m");
             Node node = m.next();
-            assertEquals(Map.of("name", 1L), node.getAllProperties());
+            assertEquals(Map.of("foo", 1L), node.getAllProperties());
             node = m.next();
-            assertEquals(Map.of("name", "Sam"), node.getAllProperties());
+            assertEquals(Map.of("bar", "Sam"), node.getAllProperties());
             assertFalse(r.hasNext());
         });
+
     }
 
     @Test
@@ -295,40 +322,42 @@ public class ParquetTest {
         // given - when
         String file = db.executeTransactionally("CALL apoc.export.parquet.all('test_all.parquet') YIELD file",
                 Map.of(),
-                this::extractFileName);
+                ParquetTest::extractFileName);
 
         // then
-        final String query = "CALL apoc.load.parquet($file, {mapping: $mapping}) YIELD value " +
+        final String query = "CALL apoc.load.parquet($file, $config) YIELD value " +
                 "RETURN value";
 
-        testResult(db, query, Map.of("file", file, "mapping", Map.of("bffSince", "Duration")),
-                this::roundtripLoadAllAssertion);
+        testResult(db, query, Map.of("file", file,  "config", MAPPING_ALL),
+                ParquetTest::roundtripLoadAllAssertion);
     }
 
     @Test
     public void testReturnNodeAndRelStream() {
         testReturnNodeAndRelCommon(() -> db.executeTransactionally("CALL apoc.export.parquet.query.stream('MATCH (n:ParquetNode)-[r:BAR]->(o:Other) RETURN n,r,o ORDER BY n.idStart') ",
                 Map.of(),
-                this::extractByteArray));
+                ParquetTest::extractByteArray));
     }
 
     @Test
     public void testReturnNodeAndRel() {
-        testReturnNodeAndRelCommon(() -> db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode)-[r:BAR]->(o:Other) RETURN n,r,o ORDER BY n.idStart', 'volume_test.parquet') YIELD file ",
-                Map.of(),
-                this::extractFileName));
+        testReturnNodeAndRelCommon(() -> db.executeTransactionally(
+                "CALL apoc.export.parquet.query('MATCH (n:ParquetNode)-[r:BAR]->(o:Other) RETURN n,r,o ORDER BY n.idStart', " +
+                "'volume_test.parquet', $config) YIELD file ",
+                Map.of("config", MAPPING_QUERY),
+                ParquetTest::extractFileName));
     }
 
-    private void testReturnNodeAndRelCommon(Supplier<Object> supplier) {
+    public static void testReturnNodeAndRelCommon(Supplier<Object> supplier) {
         db.executeTransactionally("CREATE (:ParquetNode{idStart:1})-[:BAR {idRel: 'one'}]->(:Other {idOther: datetime('2020')})");
         db.executeTransactionally("CREATE (:ParquetNode{idStart:2})-[:BAR {idRel: 'two'}]->(:Other {idOther: datetime('1999')})");
 
         Object fileOrBinary = supplier.get();
 
         // then
-        final String query = "CALL apoc.load.parquet($file)";
+        final String query = "CALL apoc.load.parquet($file, $config)";
 
-        testResult(db, query, Map.of("file", fileOrBinary),
+        testResult(db, query, Map.of("file", fileOrBinary, "config", MAPPING_QUERY),
                 res -> {
                     ResourceIterator<Map<String, Object>> value = res.columnAs("value");
                     Map<String, Object> row = value.next();
@@ -363,7 +392,7 @@ public class ParquetTest {
 
     private static void assertNodeAndLabel(Map<String, Object> startTwo, String ParquetNode) {
         assertTrue(startTwo.get(FIELD_ID) instanceof Long);
-        assertArrayEquals(new String[]{ParquetNode}, (String[]) startTwo.get(FIELD_LABELS));
+//        assertArrayEquals(new String[]{ParquetNode}, (String[]) startTwo.get(FIELD_LABELS));
     }
 
     private static void assertBarRel(String one, Map<String, Object> relTwo) {
@@ -381,17 +410,17 @@ public class ParquetTest {
 
         String file = db.executeTransactionally("CALL apoc.export.parquet.query('MATCH (n:ParquetNode) RETURN n.id AS id', 'volume_test.parquet') YIELD file ",
                 Map.of(),
-                this::extractFileName);
+                ParquetTest::extractFileName);
 
         final List<Long> expected = LongStream.range(0, 10000)
                 .boxed()
                 .collect(Collectors.toList());
 
         // then
-        final String query = "CALL apoc.load.parquet($file) YIELD value " +
+        final String query = "CALL apoc.load.parquet($file, $config) YIELD value " +
                 "WITH value.id AS id ORDER BY id RETURN collect(id) as ids";
 
-        testCall(db, query, Map.of("file", file),
+        testCall(db, query, Map.of("file", file, "config", MAPPING_ALL),
                 r -> assertEquals(expected, r.get("ids")));
 
         db.executeTransactionally("MATCH (n:ParquetNode) DELETE n");

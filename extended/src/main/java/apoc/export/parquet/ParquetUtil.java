@@ -1,28 +1,20 @@
 package apoc.export.parquet;
 
-//import apoc.meta.Types;
-//import org.apache.avro.LogicalType;
-//import org.apache.avro.LogicalTypes;
-//import org.apache.avro.Schema;
-//import org.apache.avro.SchemaBuilder;
-//import org.apache.avro.data.TimeConversions;
-//import org.apache.avro.generic.GenericData;
-//import org.apache.avro.generic.GenericRecord;
+
 import apoc.convert.ConvertUtils;
-import org.apache.avro.Schema;
+import apoc.util.JsonUtil;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.GroupFactory;
 import org.apache.parquet.example.data.simple.NanoTime;
-import org.apache.parquet.example.data.simple.SimpleGroup;
 import org.apache.parquet.example.data.simple.SimpleGroupFactory;
 import org.apache.parquet.io.api.Binary;
-import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
 import org.apache.parquet.schema.Types;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Relationship;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,14 +24,11 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
-//import static org.apache.avro.SchemaBuilder.BaseTypeBuilder;
-import static org.apache.parquet.schema.Types.MessageTypeBuilder;
+import static apoc.util.Util.labelStrings;
 import static org.apache.parquet.schema.Types.optionalList;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.*;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.*;
@@ -127,78 +116,27 @@ public class ParquetUtil {
         GroupFactory factory = new SimpleGroupFactory(schema);
         Group group = factory.newGroup();
 
-//        GenericRecord flattened = new GenericData.Record(schema);
         map.forEach((k, v)-> {
             try {
                 Type type = schema.getType(k);
-                    if (type.getLogicalTypeAnnotation() instanceof ListLogicalTypeAnnotation) {
-//                    SimpleGroup simpleGroup = new SimpleGroup((GroupType) type);
-//                    simpleGroup.add("list", "prova");
-//                    simpleGroup.add("list", "prova2");
-
-//                    group.addGroup("kids");
-                    extracted(group, k, v);
-//                    Group group2 = group1.addGroup(0);
-//                    group2.add(0, "test");
-//                    group2 = group1.addGroup(0);
-//                    group2.add(0, "test33");
-//                    group2.add(1, "test2");
-//                    Group group22 = group1.addGroup(0);
-//                    group22.add(0, "test23");
-//                    group22.add(0, "test234444");
-//                    group22.add(1, "test24");
-//                    ConvertUtils.convertToList(v).forEach(item -> group1.add("list", item.toString()));
-//                    ConvertUtils.convertToList(v).forEach(item -> group2.add(0, item.toString()));//.add("list", item.toString()));
+                if (type.getLogicalTypeAnnotation() instanceof ListLogicalTypeAnnotation) {
+                    appendList(group, k, v);
                 } else {
                     append(group, k, v, schema);
                 }
-//                group.append(k, (String) v);
-
-//                group.addGroup(k, v);
-            } catch (Exception e) {
-
-                try {
-                    // todo - creare config, per gestire sia multitype che type "speciali" ... altrimento casto tutto e vaffanculo
-                    // todo - decommentare questo e.getMessage() probabilmente?
-//                    if (!e.getMessage().contains("Not a valid schema field")) {
-//                        throw new RuntimeException(e);
-//                    }
-                    String s = fromMetaType(apoc.meta.Types.of(v));
-
-                    String fieldName = getFieldName(k, s);
-                    Type type = schema.getType(fieldName);
-//                logicalTypeAnnotation.accept();
-
-//                    if (type instanceof PrimitiveType && ((PrimitiveType) type).getPrimitiveTypeName().equals(INT64)) {
-//                        // todo - demock it, just to see if converts well
-//                        append(group, fieldName, (long) 123L);
-//                    } else if (type instanceof PrimitiveType && ((PrimitiveType) type).getPrimitiveTypeName().equals(INT32)) {
-//                        // todo - demock it, just to see if converts well
-//                        append(group, fieldName, (int) 456);
-//                    } else
-                        if (type.getLogicalTypeAnnotation() instanceof ListLogicalTypeAnnotation) {
-                        System.out.println("type = " + type);
-//                        Group group1 = group.addGroup(k);
-//                        ConvertUtils.convertToList(v).forEach(item -> group1.add("list", item.toString()));
-                    } else {
-                        append(group, fieldName, v, schema);
-                    }
-//                group.append(k, s);
-//                flattened.put(getFieldName(k, s), v);
-                } catch (Exception e2) {
-                    System.out.println("e = " + e2);
-                }
+            } catch (Exception e2) {
+                System.out.println("error during write = " + e2);
             }
         });
         return group;
     }
 
-    public static void extracted(Group group, String k, Object v) {
+    public static void appendList(Group group, String k, Object v) {
+        // todo - other data types handling
         Group group1 = group.addGroup(k);
         ConvertUtils.convertToList(v).forEach(item -> {
             Group group2 = group1.addGroup(0);
             group2.add(0, item.toString());
-//                        group1.add("list", item.toString())
         });
     }
 
@@ -226,29 +164,55 @@ public class ParquetUtil {
 
         if (schema.getType(fieldName).asPrimitiveType().getPrimitiveTypeName().equals(INT64)) {
             group.append(fieldName, writeDateMilliVector(value));
+        } else if (schema.getType(fieldName).asPrimitiveType().getPrimitiveTypeName().equals(BINARY)) {
+            group.append(fieldName, serializeValue(value));
         } else {
 
-            if (value instanceof Integer) {
-                group.append(fieldName, (int) value);
-            } else if (value instanceof Float) {
-                group.append(fieldName, (float) value);
-            } else if (value instanceof Double) {
-                group.append(fieldName, (double) value);
-            } else if (value instanceof Long) {
-                group.append(fieldName, (long) value);
-            } else if (value instanceof NanoTime) {
-                group.append(fieldName, (NanoTime) value);
-            } else if (value instanceof Boolean) {
-                group.append(fieldName, (boolean) value);
-            } else if (value instanceof Binary) {
-                group.append(fieldName, (Binary) value);
-            } else if (value == null) {
-                // todo do stuff?
-                throw new RuntimeException("stuff");
-            } else {
-                group.append(fieldName, value.toString());
-            }
+                if (value instanceof Integer) {
+                    group.append(fieldName, (int) value);
+                } else if (value instanceof Float) {
+                    group.append(fieldName, (float) value);
+                } else if (value instanceof Double) {
+                    group.append(fieldName, (double) value);
+                } else if (value instanceof Long) {
+                    group.append(fieldName, (long) value);
+                } else if (value instanceof NanoTime) {
+                    group.append(fieldName, (NanoTime) value);
+                } else if (value instanceof Boolean) {
+                    group.append(fieldName, (boolean) value);
+                } else if (value instanceof Binary) {
+                    group.append(fieldName, (Binary) value);
+                } else if (value == null) {
+                    // todo do stuff?
+                    throw new RuntimeException("stuff");
+                } else {
+                    group.append(fieldName, serializeValue(value));
+                }
+
         }
+    }
+
+    private static String serializeValue(Object val){
+        if (val instanceof Node) {
+            Node value = (Node) val;
+            Map<String, Object> allProperties = value.getAllProperties();
+            allProperties.put(FIELD_ID, value.getId());
+            allProperties.put(FIELD_LABELS, labelStrings(value));
+            return JsonUtil.writeValueAsString(allProperties);
+        }
+        if (val instanceof Relationship) {
+            Relationship value = (Relationship) val;
+            Map<String, Object> allProperties = value.getAllProperties();
+            allProperties.put(FIELD_ID, value.getId());
+            allProperties.put(FIELD_SOURCE_ID, value.getStartNodeId());
+            allProperties.put(FIELD_TARGET_ID, value.getEndNodeId());
+            allProperties.put(FIELD_TYPE, value.getType().name());
+            return JsonUtil.writeValueAsString(allProperties);
+        }
+        if (val instanceof Map) {
+            return JsonUtil.writeValueAsString(val);
+        }
+        return val.toString();
     }
 
     // todo - try putting MessageTypeBuilder instead of GroupBuilder
@@ -257,44 +221,26 @@ public class ParquetUtil {
         if (type == null) {
             optional.as(logicalType);
         }
-        test.addField(optionalList().element(Types.optional(BINARY).named("element"))/*.setElementType(optional.named("element"))*/.named(fieldName));
+        test.addField(optionalList().element(Types.optional(BINARY).named("element")).named(fieldName));
     }
 
     public static void getItems(String fieldName, org.apache.parquet.schema.Types.GroupBuilder test, PrimitiveType.PrimitiveTypeName type) {
         getItems(fieldName, test, type, null);
     }
 
-//    private static void getSchemaFieldAssembler(String fieldName,
-//                                                SchemaBuilder.FieldAssembler<Schema> test,
-//                                                LogicalType timestampMicros,
-//                                                Function<SchemaBuilder.TypeBuilder<Schema>, Schema> function) {
-////        Schema schema1 = timestampMicros.addToSchema(function.apply(SchemaBuilder.builder()));
-//        test.name(fieldName).type().optional().type(schema1);
-//    }
-//
-//    private static void getArraySchemaFieldAssembler(String fieldName,
-//                                                     SchemaBuilder.FieldAssembler<Schema> test,
-//                                                     LogicalType timestampMicros,
-//                                                     Function<SchemaBuilder.TypeBuilder<Schema>, Schema> function) {
-//        Schema schema1 = timestampMicros.addToSchema(function.apply(SchemaBuilder.builder()));
-//        getItems(fieldName, test, schema1);//.type(schema1);
-//    }
-//
     static void toField(String fieldName, Set<String> propertyTypes, org.apache.parquet.schema.Types.GroupBuilder builder) {
 
         if (propertyTypes.size() > 1) {
-            // todo - change here
-            propertyTypes.forEach(type -> {
-                getSchemaFieldAssembler(fieldName, type, builder, true);
-            });
+            // multi type handled as a string
+            getSchemaFieldAssembler(builder, fieldName, "String");
         } else {
-            getSchemaFieldAssembler(fieldName, propertyTypes.iterator().next(), builder);
+            getSchemaFieldAssembler(builder, fieldName, propertyTypes.iterator().next());
         }
     }
 
-    private static void getSchemaFieldAssembler(String fieldName, String propertyType, org.apache.parquet.schema.Types.GroupBuilder builder) {
-        getSchemaFieldAssembler(fieldName, propertyType, builder, false);
-    }
+//    private static void getSchemaFieldAssembler(String fieldName, String propertyType, org.apache.parquet.schema.Types.GroupBuilder builder) {
+//        getSchemaFieldAssembler(fieldName, propertyType, builder, false);
+//    }
 
 //    public static void addItem(String fieldName, org.apache.parquet.schema.Types.GroupBuilder builder, PrimitiveType.PrimitiveTypeName type) {
 //        builder.addField(Types.optional(type).as().named(fieldName));
@@ -304,17 +250,9 @@ public class ParquetUtil {
         builder.addField(optional(type).named(fieldName));
     }
 
-    private static void getSchemaFieldAssembler(String fieldName, String propertyType, org.apache.parquet.schema.Types.GroupBuilder builder, boolean multiType) {
+    private static void getSchemaFieldAssembler(GroupBuilder builder, String fieldName, String propertyType) {
         propertyType = propertyType.toUpperCase();
 
-//        if (multiType) {
-//            // todo - change here -- with point and duration as well
-//            fieldName = getFieldName(fieldName, propertyType);
-//        }
-        List<String> neo4jTypes = List.of("DURATION", "NODE", "RELATIONSHIP", "POINT");
-        if(multiType || neo4jTypes.contains(propertyType)) {
-            fieldName = getFieldName(fieldName, propertyType);
-        }
         switch (propertyType) {
 
             case "BOOLEAN" -> builder.addField(optional(BOOLEAN).named(fieldName));
@@ -323,18 +261,13 @@ public class ParquetUtil {
             case "DATETIME" -> {
                 // todo - evaluate DateTimeValue.parse(), maybe is better to convert...
                 //  in case add to List.of("DURATION"....)
-
                 builder.addField(optional(INT64).as(TimestampLogicalTypeAnnotation.timestampType(true, LogicalTypeAnnotation.TimeUnit.MILLIS)).named(fieldName));
-//                addItem(fieldName, builder, BINARY);
             }
             case "LOCALDATETIME" -> {
                 builder.addField(optional(INT64).as(TimestampLogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MILLIS)).named(fieldName));
-//                getSchemaFieldAssembler(fieldName, assembler, LogicalTypes.localTimestampMicros(), BaseTypeBuilder::longType);
             }
             case "DATE" -> {
-                builder.addField(optional(INT64).as(DateLogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MILLIS)).named(fieldName));
-
-//                getSchemaFieldAssembler(fieldName, assembler, LogicalTypes.date(), BaseTypeBuilder::intType);
+                builder.addField(optional(INT64).as(DateLogicalTypeAnnotation.dateType()).named(fieldName));
             }
             case "DURATION", "NODE", "RELATIONSHIP", "POINT" -> {
 //                if (!multiType) {

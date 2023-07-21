@@ -7,6 +7,7 @@ import apoc.result.MapResult;
 import apoc.util.Util;
 //import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.example.data.Group;
+import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.io.DelegatingSeekableInputStream;
 import org.apache.parquet.io.InputFile;
@@ -72,22 +73,10 @@ public class LoadParquet {
 
         ParquetConfig conf = new ParquetConfig(config);
         ParquetReader<Group> reader = getReaderBuilder(input)
-//                .withDataModel(genericDataLoad)
-//                .withConf(new Configuration())
                 .build();
-
-        registerCustomTypes();
 
         return StreamSupport.stream(new ParquetSpliterator(reader, conf), false)
                 .onClose(() -> Util.close(reader));
-    }
-
-    public static void registerCustomTypes() {
-
-//        for (ParquetTypes type: ParquetTypes.values()) {
-//            CustomTypes.AbstractCustomType customType = type.getType();
-//            LogicalTypes.register(customType.getLogicalTypeName(), schema -> customType);
-//        }
     }
 
     public static class ParquetStream implements InputFile {

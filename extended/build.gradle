@@ -73,19 +73,6 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     }
 
-
-    // TODO - external dependencies??
-    compileOnly group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
-    testImplementation group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.0'
-//    compileOnly group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
-//    testImplementation group: 'org.apache.parquet', name: 'parquet-common', version: '1.13.0'
-//    compileOnly group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
-//    testImplementation group: 'org.apache.parquet', name: 'parquet-avro', version: '1.13.0'
-//    compileOnly group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
-//    testImplementation group: 'org.apache.hadoop', name: 'hadoop-client', version: '3.3.5'
-    compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.1.0'
-    testImplementation group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.1.0'
-
     // These will be dependencies packaged with the .jar
     implementation project(':common')
     implementation group: 'com.novell.ldap', name: 'jldap', version: '2009-10-07'
@@ -116,6 +103,12 @@ dependencies {
     compileOnly group: 'com.sun.mail', name: 'javax.mail', version: '1.6.0'
     compileOnly group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: '1.6.0'
 
+    // TODO - external dependencies in `hadoop`
+    compileOnly group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.1', withoutServers
+    // testImplementation analogous is not needed since is bundled via `test-utils` submodule
+    compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.1.0', withoutServers
+
+
     // These dependencies affect the tests only, they will not be packaged in the resulting .jar
     testImplementation project(':test-utils')
     testImplementation project(':core')
@@ -144,6 +137,7 @@ dependencies {
     testImplementation group: 'com.sun.mail', name: 'javax.mail', version: '1.6.0'
     testImplementation group: 'org.postgresql', name: 'postgresql', version: '42.1.4'
     testImplementation group: 'org.zapodot', name: 'embedded-ldap-junit', version: '0.9.0'
+    testImplementation group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.1', withoutServers
 
 
     configurations.all {

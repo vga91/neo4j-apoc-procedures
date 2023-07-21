@@ -6,9 +6,6 @@ import apoc.result.ProgressInfo;
 import apoc.util.QueueBasedSpliterator;
 import apoc.util.QueueUtil;
 import apoc.util.Util;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 //import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.column.ParquetProperties;
@@ -74,8 +71,6 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         Util.inTxFuture(pools.getDefaultExecutorService(), db, tx -> {
             int batchCount = 0;
             List<TYPE> rows = new ArrayList<>(config.getBatchSize());
-//            ExampleParquetWriter.Builder builder = ExampleParquetWriter
-//                    .builder(fileToWrite);
             ExampleParquetWriter.Builder builder = ExampleParquetWriter
                     .builder(fileToWrite);
 
@@ -121,43 +116,11 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         MessageType schema = exportType.schemaFor(db, conf);
 
         if (writer == null) {
-            try {
+//            try {
                 // todo - remove the delete
-                new File(fileName).delete();
+//                new File(fileName).delete();
 
-                this.writer = builder
-                        .withType(schema)
-                        // TODO - check other configs
-                        .withConf(new Configuration())
-//                    .withDataModel(genericData)
-                        // TODO - configurable. This generate a .crc file
-                        .withValidation(false)
-                        // TODO - config...
-                        //                .withCompressionCodec(CompressionCodecName.SNAPPY)
-                        // TODO - configurable?
-
-                        .withDictionaryEncoding(false)
-//                        .withDictionaryPageSize(2*1024)
-
-                        .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-                        .build();
-
-//                this.writer = new ParquetWriter<>(
-//                        new Path(fileName),
-//                        new CustomGroupWriteSupport(schema),
-//                        CompressionCodecName.UNCOMPRESSED,
-//                        1024,
-//                        1024,
-//                        512,
-//                        true,
-//                        false,
-//                        ParquetProperties.WriterVersion.PARQUET_2_0,
-//                        new Configuration());
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-
-            //getBuild(schema, builder);
+                this.writer = getBuild(schema, builder);
         }
         writeRows(rows, writer, exportType, schema);
 

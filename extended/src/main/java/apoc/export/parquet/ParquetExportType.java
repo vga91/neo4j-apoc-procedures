@@ -3,12 +3,7 @@ package apoc.export.parquet;
 import apoc.meta.Types;
 import apoc.util.Util;
 import apoc.util.collection.Iterables;
-//import org.apache.avro.Schema;
-//import org.apache.avro.SchemaBuilder;
-//import org.apache.avro.generic.GenericRecord;
 import org.apache.parquet.example.data.Group;
-import org.apache.parquet.example.data.GroupFactory;
-import org.apache.parquet.example.data.simple.SimpleGroupFactory;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.neo4j.cypher.export.SubGraph;
@@ -22,7 +17,6 @@ import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.ResultTransformer;
 
 import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -134,26 +128,21 @@ public interface ParquetExportType<TYPE, ROW> {
 
         @Override
         public Group toRecord(MessageType schema, Entity entity) {
-//            if (true) {
-//                GroupFactory factory = new SimpleGroupFactory(schema);
-//                return
-//            }
 
-
-            Group flattened = mapToRecord(schema, entity.getAllProperties());
-            flattened.append(FIELD_ID, entity.getId());
+            Group group = mapToRecord(schema, entity.getAllProperties());
+            group.append(FIELD_ID, entity.getId());
             if (entity instanceof Node) {
                 // todo - mocked toString()
-                extracted(flattened, FIELD_LABELS, Util.labelStrings((Node) entity));
+                appendList(group, FIELD_LABELS, Util.labelStrings((Node) entity));
 //                flattened.add(FIELD_LABELS, Util.labelStrings((Node) entity));
             } else {
                 Relationship rel = (Relationship) entity;
-                flattened.append(FIELD_TYPE, rel.getType().name());
-                flattened.append(FIELD_SOURCE_ID, rel.getStartNodeId());
-                flattened.append(FIELD_TARGET_ID, rel.getEndNodeId());
+                group.append(FIELD_TYPE, rel.getType().name());
+                group.append(FIELD_SOURCE_ID, rel.getStartNodeId());
+                group.append(FIELD_TARGET_ID, rel.getEndNodeId());
             }
 
-            return flattened;
+            return group;
         }
 
         @Override
@@ -183,19 +172,18 @@ public interface ParquetExportType<TYPE, ROW> {
         @Override
         public MessageType schemaFor(GraphDatabaseService db, List<Map<String, Object>> type) {
             // todo - implement
-            return null;
 
             // we re-calculate the schema for each batch
-
+            org.apache.parquet.schema.Types.GroupBuilder<MessageType> messageTypeBuilder = org.apache.parquet.schema.Types.buildMessage();
 //            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
-//
-//            type.stream()
-//                    .flatMap(m -> m.entrySet().stream())
-//                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
-//                    .collect(Collectors.groupingBy(AbstractMap.SimpleEntry::getKey, Collectors.mapping(AbstractMap.SimpleEntry::getValue, Collectors.toSet())))
-//                    .forEach((key, value) -> toField(key, value, fieldAssembler));
-//
-//            return fieldAssembler.endRecord();
+
+            type.stream()
+                    .flatMap(m -> m.entrySet().stream())
+                    .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), fromMetaType(Types.of(e.getValue()))))
+                    .collect(Collectors.groupingBy(AbstractMap.SimpleEntry::getKey, Collectors.mapping(AbstractMap.SimpleEntry::getValue, Collectors.toSet())))
+                    .forEach((key, value) -> toField(key, value, messageTypeBuilder));
+
+            return messageTypeBuilder.named("apocExport");
         }
 
         @Override

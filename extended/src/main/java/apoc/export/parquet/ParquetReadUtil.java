@@ -1,23 +1,21 @@
 package apoc.export.parquet;
 
+import apoc.ApocConfig;
 import apoc.load.LoadParquet;
+import apoc.util.JsonUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.parquet.example.data.Group;
 import org.apache.hadoop.fs.Path;
-import org.apache.parquet.hadoop.ParquetReader;
-import org.apache.parquet.hadoop.example.GroupReadSupport;
-import org.apache.parquet.schema.GroupType;
+import org.apache.parquet.example.data.Group;
+//import org.apache.hadoop.fs.Path;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
-import org.jetbrains.annotations.Nullable;
 import org.neo4j.values.storable.DateTimeValue;
 import org.neo4j.values.storable.DateValue;
 import org.neo4j.values.storable.DurationValue;
 import org.neo4j.values.storable.LocalDateTimeValue;
 import org.neo4j.values.storable.LocalTimeValue;
 import org.neo4j.values.storable.PointValue;
-import org.neo4j.values.storable.StringValue;
 import org.neo4j.values.storable.TimeValue;
 import org.neo4j.values.storable.Values;
 
@@ -39,10 +37,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
-//import static apoc.export.parquet.CustomTypes.DurationType.DURATION_VALUE;
-//import static apoc.export.parquet.CustomTypes.PointType.POINT_VALUE;
-import static apoc.export.parquet.ParquetUtil.TYPE_SEP;
+
 import static org.neo4j.values.storable.NoValue.NO_VALUE;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 public class ParquetReadUtil {
 
@@ -50,8 +47,6 @@ public class ParquetReadUtil {
     private static Object convertValue(String value, String typeName) {
         switch (typeName) {
             case "Point":
-                // replace all eventual `\` char, see testPointList()
-                value = value.replaceAll("\\\\,", ",");
                 return PointValue.parse(value);
             case "LocalDateTime":
                 return LocalDateTimeValue.parse(value).asObjectCopy();
@@ -75,6 +70,9 @@ public class ParquetReadUtil {
                 return Float.parseFloat(value);
             case "Short":
                 return Short.parseShort(value);
+            case "Node", "Relationship":
+                return JsonUtil.parse(value, null, Map.class);
+            // todo - needed
             case "NO_VALUE":
                 return null;
             default:
@@ -94,6 +92,7 @@ public class ParquetReadUtil {
         }
     }
 
+    // TODO - test and handle array types
     static Object[] getPrototypeFor(String type) {
         switch (type) {
             case "Long":
@@ -132,27 +131,18 @@ public class ParquetReadUtil {
         }
     }
 
-//    public static GenericData genericDataLoad;
-//    static {
-//        genericDataLoad = new GenericData();
-//        genericDataLoad.addLogicalTypeConversion(new TimeConversions.DateConversion());
-//        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
-//        genericDataLoad.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
-//        genericDataLoad.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
-//        for (ParquetTypes type: ParquetTypes.values()) {
-//            genericDataLoad.addLogicalTypeConversion(type.getReadConversion());
-//        }
-//    }
-//
     private static Object toValidValue(Object object, Type field, ParquetConfig config) {
+        // if there is a mapping config, we use that one to convert the current object
         Object fieldName = config.getMapping().get(field.getName());
-        if (fieldName != null) {
+        if (object != null && fieldName != null) {
             return convertValue(object.toString(), fieldName.toString());
         }
 
         if (object instanceof Collection) {
-            final IntFunction<Object[]> prototype = getPrototypeFor(field);
-            return ((Collection<?>) object).stream().map(i -> toValidValue(i, field, config)).toArray(prototype);
+            final Object[] prototype = getPrototypeFor(field);
+            return ((Collection<?>) object).stream().map(i -> toValidValue(i, field, config))
+                    .collect(Collectors.toList())
+                    .toArray(prototype);
         }
         if (object instanceof Map) {
             return ((Map<String, Object>) object).entrySet().stream()
@@ -176,38 +166,36 @@ public class ParquetReadUtil {
         };
     }
 
-    private static Object getValue(Type field, Group record) {
-        PrimitiveType.PrimitiveTypeName typeName;
-        System.out.println("typeName = ");
-        try {
-            typeName = ((PrimitiveType) field).getPrimitiveTypeName();
-        } catch (Exception e) {
-            System.out.println("e = " + e);
-            try {
+    private static Object getValue(Type field, Group group) {
+        if (field instanceof PrimitiveType) {
+            PrimitiveTypeName typeName = field.asPrimitiveType().getPrimitiveTypeName();
+            LogicalTypeAnnotation logicalTypeAnnotation = field.getLogicalTypeAnnotation();
 
-            Group kids = record.getGroup(field.getName(), 0);
-            List<Type> fields = ((GroupType) kids.getType().getFields().get(0)).getFields();
+            return getObject(field.getName(), group, typeName, logicalTypeAnnotation);
+        }
+
+        try {
+
+            Group subGroup = group.getGroup(field.getName(), 0);
 
             List<Object> list = new ArrayList<>();
-            for (int i = 0; i < kids.getFieldRepetitionCount("list"); i++) {
-                Object list1 = getObject("element", kids.getGroup("list", i), PrimitiveType.PrimitiveTypeName.BINARY, null);
+            for (int i = 0; i < subGroup.getFieldRepetitionCount("list"); i++) {
+                // todo - handle array data types
+                Group listItem = subGroup.getGroup("list", i);
+                Object list1 = getObject("element", listItem, PrimitiveTypeName.BINARY, null);
                 list.add(list1);
             }
             return list;
-            } catch (Exception e2) {
-                System.out.println("e2 = " + e2);
+        } catch (RuntimeException e) {
+            // todo - common - when element is not found in the current group
+            if (e.getMessage().contains("not found")) {
                 return null;
             }
-
+            throw e;
         }
-
-        // todo
-        LogicalTypeAnnotation logicalTypeAnnotation = field.getLogicalTypeAnnotation();
-
-        return getObject(field.getName(), record, typeName, logicalTypeAnnotation);
     }
 
-    private static Object getObject(String field, Group record, PrimitiveType.PrimitiveTypeName typeName, LogicalTypeAnnotation logicalTypeAnnotation) {
+    private static Object getObject(String field, Group record, PrimitiveTypeName typeName, LogicalTypeAnnotation logicalTypeAnnotation) {
         try {
             return switch (typeName) {
                 case FLOAT -> record.getFloat(field, 0);
@@ -228,19 +216,52 @@ public class ParquetReadUtil {
                 case DOUBLE -> record.getDouble(field, 0);
                 case BOOLEAN -> record.getBoolean(field, 0);
                 // todo - if logical type = STRING, convert to string
-                //      else to byte[]
+                //      else to byte[] ??
                 case BINARY -> record.getString(field, 0);
                 default -> null;
             };
         } catch (RuntimeException e) {
-            System.out.println("e = " + e);
-            return null;
+            if (e.getMessage().contains("not found")) {
+                return null;
+            }
+            throw e;
         }
     }
 
+    public static Map<String, Object> mapFromRecord(Group record, ParquetConfig config) {
+        return record.getType()
+                .getFields()
+                .stream()
+                .collect(HashMap::new, // workaround for https://bugs.openjdk.java.net/browse/JDK-8148463
+                        (mapAccumulator, field) -> {
+                            String name = field.getName();
 
-    private static IntFunction<Object[]> getPrototypeFor(Type field) {
-        return String[]::new;
+                            Object value = getValue(field, record);
+                            value = toValidValue(value, field, config);
+                            if (value != null && !NO_VALUE.equals(value)) {
+                                mapAccumulator.put(name, value);
+                            }
+                        },
+                        HashMap::putAll);
+    }
+
+    public static ApocParquetReaderBuilder getReaderBuilder(Object source) {
+        if (source instanceof String) {
+            ApocConfig.apocConfig().isImportFileEnabled();
+            Path file = new Path((String) source);
+            return ApocParquetReaderBuilder.builder(file);
+        }
+        LoadParquet.ParquetStream file = new LoadParquet.ParquetStream((byte[]) source);
+        try {
+            return ApocParquetReaderBuilder.read(file);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    // TODO - handle array types --> copy CsvPropertyConverter.getPrototypeFor(String type) {
+    private static Object[] getPrototypeFor(Type field) {
+        return new String[]{};
 //        field.asGroupType().getFields().get(0).
 
 //        String type = field.get().getTypes().stream()
@@ -275,48 +296,5 @@ public class ParquetReadUtil {
 //            default:
 //                return String[]::new;
 //        }
-    }
-
-    public static Map<String, Object> mapFromRecord(Group record, ParquetConfig config) {
-//    public static Map<String, Object> mapFromRecord(GenericRecord record) {
-
-//        return Map.of();
-        return record.getType()
-                .getFields()
-                .stream()
-                .collect(HashMap::new, // workaround for https://bugs.openjdk.java.net/browse/JDK-8148463
-                        (mapAccumulator, field) -> {
-                            String name = field.getName();
-
-                            Object object = null;//record.get(name);
-                            Object value = getValue(field, record);// toValidValue(object, field);
-                            value = toValidValue(value, field, config);
-                            if (value != null && !NO_VALUE.equals(value)) {
-                                // we remove the possible `__<TYPE_FIELD>` suffix
-                                String key = name.split(TYPE_SEP)[0];
-                                mapAccumulator.put(key, value);
-                            }
-
-//                            try {
-//                                record.getGroup(name, 0)
-//                            } catch (RuntimeException e) {
-//                                // todo not found
-//                            }
-                        },
-                        HashMap::putAll);
-    }
-
-
-    public static ParquetReader.Builder<Group> getReaderBuilder(Object source) {
-        if (source instanceof String) {
-            Path file = new Path((String) source);
-            return ParquetReader.builder(new GroupReadSupport(), file);
-        }
-        LoadParquet.ParquetStream file = new LoadParquet.ParquetStream((byte[]) source);
-        try {
-            return ParquetReader.read(file);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 }
