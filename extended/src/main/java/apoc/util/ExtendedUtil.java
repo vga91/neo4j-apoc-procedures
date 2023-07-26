@@ -43,4 +43,8 @@ public class ExtendedUtil
         final StringBuilder builder = formatProperties(map);
         return "{" + formatToString(builder) + "}";
     }
+
+    public static boolean isInTeamcity() {
+        return System.getenv("TEAMCITY_VERSION") != null;
+    }
 }

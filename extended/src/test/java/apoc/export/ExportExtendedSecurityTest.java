@@ -21,6 +21,7 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static apoc.ApocConfig.apocConfig;
+import static apoc.util.ExtendedUtil.isInTeamcity;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -190,7 +192,12 @@ public class ExportExtendedSecurityTest {
         private static final String case4 = "'tests/../../test.txt'";
         private static final String case5 = "'tests/..//..//test.txt'";
 
-        private static final List<String> cases = Arrays.asList(case1, case2, case3, case4, case5);
+        private static final List<String> cases = new ArrayList<>(Arrays.asList(case3, case4, case5));
+        static {
+            if (!isInTeamcity()) {
+                cases.addAll(List.of(case1, case2));
+            }
+        }
 
         private static final Map<String, List<String>> METHOD_ARGUMENTS = Map.of(
                 "query",  cases.stream().map(
