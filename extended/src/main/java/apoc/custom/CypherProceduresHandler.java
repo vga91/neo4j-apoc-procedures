@@ -132,7 +132,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public Mode mode(String s) {
-        return s == null ? Mode.READ : Mode.valueOf(s.toUpperCase());
+        return CustomHandler.mode(s);
     }
 
     public Stream<ProcedureOrFunctionDescriptor> readSignatures() {
@@ -280,15 +280,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     private String serializeSignatures(List<FieldSignature> signatures) {
-        List<Map<String, Object>> mapped = signatures.stream().map(fs -> {
-            final Map<String, Object> map = map(
-                    "name", fs.name(),
-                    "type", fs.neo4jType().toString()
-            );
-            fs.defaultValue().map(defVal -> map.put("default", defVal.value()));
-            return map;
-        }).collect(Collectors.toList());
-        return Util.toJson(mapped);
+        return CustomHandler.serializeSignatures(signatures);
     }
 
     public static List<FieldSignature> deserializeSignatures(String s) {
@@ -472,7 +464,13 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         return inputSignature;
     }
 
-    private static Neo4jTypes.AnyType typeof(String typeName) {
+    public List<FieldSignature> outputSignatures(@Name(value = "outputs", defaultValue = "null") List<List<String>> outputs) {
+        return outputs == null ? singletonList(FieldSignature.inputField("row", NTMap)) :
+                outputs.stream().map(pair -> FieldSignature.outputField(pair.get(0), typeof(pair.get(1)))).collect(Collectors.toList());
+    }
+
+    // todo - move to NewProcs Handler - because is static
+    public static Neo4jTypes.AnyType typeof(String typeName) {
         typeName = typeName.replaceAll("\\?", "");
         typeName = typeName.toUpperCase();
         if (typeName.startsWith("LIST OF ")) return NTList(typeof(typeName.substring(8)));

@@ -1,17 +1,18 @@
 package apoc.custom;
 
 import apoc.Extended;
-import apoc.util.collection.Iterables;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Notification;
 import org.neo4j.graphdb.QueryExecutionType;
 import org.neo4j.graphdb.Result;
+import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.kernel.api.exceptions.ProcedureException;
 import org.neo4j.internal.kernel.api.procs.DefaultParameterValue;
 import org.neo4j.internal.kernel.api.procs.ProcedureSignature;
 import org.neo4j.internal.kernel.api.procs.UserFunctionSignature;
 import org.neo4j.internal.kernel.api.procs.FieldSignature;
 import org.neo4j.internal.kernel.api.procs.Neo4jTypes;
+import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.kernel.api.exceptions.Status;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
@@ -45,7 +46,7 @@ public class CypherProcedures {
     // visible for testing
     public static final String ERROR_MISMATCHED_INPUTS = "Required query parameters do not match provided input arguments.";
     public static final String ERROR_MISMATCHED_OUTPUTS = "Query results do not match requested output.";
-    
+
     @Context
     public GraphDatabaseAPI api;
 
@@ -86,38 +87,14 @@ public class CypherProcedures {
     @Procedure(value = "apoc.custom.list", mode = Mode.READ)
     @Description("apoc.custom.list() - provide a list of custom procedures/function registered")
     public Stream<CustomProcedureInfo> list() {
-        return cypherProceduresHandler.readSignatures().map( descriptor -> {
-            if (descriptor instanceof CypherProceduresHandler.ProcedureDescriptor) {
-                CypherProceduresHandler.ProcedureDescriptor procedureDescriptor = (CypherProceduresHandler.ProcedureDescriptor) descriptor;
-                ProcedureSignature signature = procedureDescriptor.getSignature();
-                return new CustomProcedureInfo(
-                        PROCEDURE,
-                        signature.name().toString().substring(PREFIX.length() + 1),
-                        signature.description().orElse(null),
-                        signature.mode().toString().toLowerCase(),
-                        procedureDescriptor.getStatement(),
-                        convertInputSignature(signature.inputSignature()),
-                        Iterables.stream(signature.outputSignature())
-                                .map(f -> Arrays.asList(f.name(), prettyPrintType(f.neo4jType())))
-                                        .collect(Collectors.toList()), 
-                        null);
-            } else {
-                CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor = (CypherProceduresHandler.UserFunctionDescriptor) descriptor;
-                UserFunctionSignature signature = userFunctionDescriptor.getSignature();
-                return new CustomProcedureInfo(
-                        FUNCTION,
-                        signature.name().toString().substring(PREFIX.length() + 1),
-                        signature.description().orElse(null),
-                        null,
-                        userFunctionDescriptor.getStatement(),
-                        convertInputSignature(signature.inputSignature()),
-                        prettyPrintType(signature.outputType()),
-                        userFunctionDescriptor.isForceSingle());
-            }
-        });
+        return cypherProceduresHandler.readSignatures()
+                .map(CustomProcedureInfo::getInfoFromDescriptor);
     }
 
-    @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE)
+
+
+    @Deprecated
+    @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installProcedure")
     @Description("apoc.custom.removeProcedure(name) - remove the targeted custom procedure")
     public void removeProcedure(@Name("name") String name) {
         Objects.requireNonNull(name, "name");
@@ -125,7 +102,8 @@ public class CypherProcedures {
     }
 
 
-    @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE)
+    @Deprecated
+    @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installFunction")
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
     public void removeFunction(@Name("name") String name) {
         Objects.requireNonNull(name, "name");
@@ -135,17 +113,17 @@ public class CypherProcedures {
     private void validateFunction(String statement, List<FieldSignature> input) {
         validateProcedure(statement, input, DEFAULT_MAP_OUTPUT, null);
     }
-    
+
     private void validateProcedure(String statement, List<FieldSignature> input, List<FieldSignature> output, Mode mode) {
 
         final Set<String> outputSet = output.stream().map(FieldSignature::name).collect(Collectors.toSet());
 
         api.executeTransactionally("EXPLAIN " + statement,
-                input.stream().collect(HashMap::new, 
-                                (map, value) -> map.put(value.name(), null), HashMap::putAll),
+                input.stream().collect(HashMap::new,
+                        (map, value) -> map.put(value.name(), null), HashMap::putAll),
                 result -> {
                     if (!DEFAULT_MAP_OUTPUT.equals(output)) {
-                        // when there are multiple variables with the same name, e.g within an "UNION ALL" Neo4j adds a suffix "@<number>" to distinguish them, 
+                        // when there are multiple variables with the same name, e.g within an "UNION ALL" Neo4j adds a suffix "@<number>" to distinguish them,
                         //  so to check the correctness of the output parameters we must first remove this suffix from the column names
                         final Set<String> columns = result.columns().stream()
                                 .map(i -> i.replaceFirst("@[0-9]+", "").trim())
@@ -168,12 +146,12 @@ public class CypherProcedures {
                 QueryExecutionType.QueryType.READ_WRITE, Mode.WRITE,
                 QueryExecutionType.QueryType.DBMS, Mode.DBMS,
                 QueryExecutionType.QueryType.SCHEMA_WRITE, Mode.SCHEMA);
-        
+
         if (!map.get(queryType).equals(mode)) {
             throw new RuntimeException(String.format("The query execution type is %s, but you provided mode %s.\n" +
                             "Supported modes are %s",
-                    queryType.name(), 
-                    mode.name(), 
+                    queryType.name(),
+                    mode.name(),
                     map.values().stream().sorted().collect(Collectors.toList())));
         }
     }
@@ -184,7 +162,7 @@ public class CypherProcedures {
             throw new RuntimeException(ERROR_MISMATCHED_OUTPUTS);
         }
     }
-    
+
     private void checkInputParams(Result result) {
         String missingParameters = StreamSupport.stream(result.getNotifications().spliterator(), false)
                 .filter(i -> i.getCode().equals(Status.Statement.ParameterMissing.code().serialize()))
@@ -196,48 +174,7 @@ public class CypherProcedures {
         }
     }
 
-    private List<List<String>> convertInputSignature(List<FieldSignature> signatures) {
 
-        return Iterables.stream(signatures).map(f -> {
-            List<String> list = new ArrayList<>(3);
-            list.add(f.name());
-            list.add(prettyPrintType(f.neo4jType()));
-            final Optional<DefaultParameterValue> defaultParameterValue = f.defaultValue();
-            defaultParameterValue.map(DefaultParameterValue::value).ifPresent(v -> list.add(v.toString()));
-            return list;
-        }).collect(Collectors.toList());
-    }
 
-    private String prettyPrintType(Neo4jTypes.AnyType type) {
-        String s = type.toString().toLowerCase();
-        if (s.endsWith("?")) {
-            s = s.substring(0, s.length()-1);
-        }
-        return s;
-    }
-
-    public static class CustomProcedureInfo {
-        public String type;
-        public String name;
-        public String description;
-        public String mode;
-        public String statement;
-        public List<List<String>>inputs;
-        public Object outputs;
-        public Boolean forceSingle;
-
-        public CustomProcedureInfo(String type, String name, String description, String mode,
-                                   String statement, List<List<String>> inputs, Object outputs,
-                                   Boolean forceSingle){
-            this.type = type;
-            this.name = name;
-            this.description = description;
-            this.statement = statement;
-            this.outputs = outputs;
-            this.inputs = inputs;
-            this.forceSingle = forceSingle;
-            this.mode = mode;
-        }
-    }
 
 }

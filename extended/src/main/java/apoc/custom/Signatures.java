@@ -260,6 +260,11 @@ public class Signatures {
         }
     }
 
+    public UserFunctionSignature asFunctionSignature(String signature, String description) {
+        SignatureParser.FunctionContext functionContext = parseFunction(signature);
+        return toFunctionSignature(functionContext, description);
+    }
+
     public ProcedureSignature asProcedureSignature(String signature, String description, Mode mode) {
         SignatureParser.ProcedureContext ctx = parseProcedure(signature);
         return toProcedureSignature(ctx, description, mode);
