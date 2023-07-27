@@ -4,13 +4,10 @@ import apoc.util.ExtendedTestContainerUtil;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestContainerUtil.Neo4jVersion;
-import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 import org.neo4j.driver.Session;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -30,34 +27,47 @@ import static org.junit.Assert.fail;
  */
 public class StartupExtendedTest {
     private static final String APOC_HELP_QUERY = "CALL apoc.help('') YIELD core, type, name WHERE core = $core and type = $type RETURN name";
-    private static final List<String> EXPECTED_EXTENDED_NAMES;
+
+    private static final List<String> EXPECTED_EXTENDED_PROC_NAMES = new ArrayList<>(ApocSignaturesExtended.PROCEDURES);
 
     static {
-        // retrieve every extended procedure and function via the extended.txt file
-        final File extendedFile = new File(TestContainerUtil.extendedDir, "src/main/resources/extended.txt");
-        try {
-            EXPECTED_EXTENDED_NAMES = FileUtils.readLines(extendedFile, StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        // add Kotlin Procedures, not detected by ApocProcessor.java
+        EXPECTED_EXTENDED_PROC_NAMES.addAll(List.of(
+                "apoc.nlp.aws.entities.graph",
+                "apoc.nlp.aws.entities.stream",
+                "apoc.nlp.aws.keyPhrases.graph",
+                "apoc.nlp.aws.keyPhrases.stream",
+                "apoc.nlp.aws.sentiment.graph",
+                "apoc.nlp.aws.sentiment.stream",
+                "apoc.nlp.azure.entities.graph",
+                "apoc.nlp.azure.entities.stream",
+                "apoc.nlp.azure.keyPhrases.graph",
+                "apoc.nlp.azure.keyPhrases.stream",
+                "apoc.nlp.azure.sentiment.graph",
+                "apoc.nlp.azure.sentiment.stream",
+                "apoc.nlp.gcp.classify.graph",
+                "apoc.nlp.gcp.classify.stream",
+                "apoc.nlp.gcp.entities.graph",
+                "apoc.nlp.gcp.entities.stream"
+        ));
     }
 
     @Test
     public void checkCoreAndFullWithExtraDependenciesJars() {
         // we check that with apoc-extended, apoc-core jar and all extra-dependencies jars every procedure/function is detected
+        // and that `extended.txt` (used by apoc.help procedure), contains with the procedures actually present
         startContainerSessionWithExtraDeps((version) -> createDB(version, List.of(CORE, EXTENDED), true),
                 session -> {
                     checkCoreProcsAndFuncsExistence(session);
 
                     // all full procedures and functions are present, also the ones which require extra-deps, e.g. the apoc.export.xls.*
-                    final List<String> actualExtNames = getNames(session, APOC_HELP_QUERY,
-                            Map.of("core", false, "type", "function") );
                     final List<String> functionExtNames = getNames(session, APOC_HELP_QUERY,
+                            Map.of("core", false, "type", "function") );
+                    final List<String> procExtNames = getNames(session, APOC_HELP_QUERY,
                             Map.of("core", false, "type", "procedure") );
 
-                    actualExtNames.addAll(functionExtNames);
-
-                    assertEquals(sorted(EXPECTED_EXTENDED_NAMES), sorted(actualExtNames));
+                    assertEquals(sorted(ApocSignaturesExtended.FUNCTIONS), functionExtNames);
+                    assertEquals(sorted(EXPECTED_EXTENDED_PROC_NAMES), procExtNames);
                 });
     }
 
@@ -67,12 +77,11 @@ public class StartupExtendedTest {
         startContainerSessionWithExtraDeps((version) -> createDB(version, List.of(EXTENDED), true),
                 session -> {
                     // all full procedures and functions are present, also the ones which require extra-deps, e.g. the apoc.export.xls.*
-                    final List<String> actualExtNames = getNames(session, "SHOW PROCEDURES YIELD name WHERE name STARTS WITH 'apoc.' RETURN name");
+                    final List<String> procExtNames = getNames(session, "SHOW PROCEDURES YIELD name WHERE name STARTS WITH 'apoc.' RETURN name");
                     final List<String> functionExtNames = getNames(session, "SHOW FUNCTIONS YIELD name WHERE name STARTS WITH 'apoc.' RETURN name");
 
-                    actualExtNames.addAll(functionExtNames);
-
-                    assertEquals(sorted(EXPECTED_EXTENDED_NAMES), sorted(actualExtNames));
+                    assertEquals(sorted(ApocSignaturesExtended.FUNCTIONS), functionExtNames);
+                    assertEquals(sorted(EXPECTED_EXTENDED_PROC_NAMES), procExtNames);
                 });
     }
 
