@@ -21,7 +21,6 @@ public interface ExportParquetStrategy<IN, OUT> {
             try {
                 writer.write(i);
             } catch (Exception e) {
-//            } catch (IOException e) {
                 throw new RuntimeException(e);
             }
         });
@@ -32,17 +31,9 @@ public interface ExportParquetStrategy<IN, OUT> {
         try {
             return builder
                     .withType(schema)
-                    // TODO - check other configs
-//                    .withConf(new Configuration())
-//                    .withDataModel(genericData)
                     // TODO - configurable. This generate a .crc file
                     .withValidation(false)
-                    // TODO - config...
-    //                .withCompressionCodec(CompressionCodecName.SNAPPY)
-                    // TODO - configurable?
-//                    .enableDictionaryEncoding()
-//                    .withDictionaryPageSize(2*1024)
-
+                    // TODO - check other configs, e.g. .enableDictionaryEncoding(), .withDictionaryPageSize(2*1024) etc..
                     .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
                     .build();
         } catch (IOException e) {

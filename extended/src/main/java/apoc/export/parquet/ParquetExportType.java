@@ -47,12 +47,6 @@ public interface ParquetExportType<TYPE, ROW> {
         }
     }
 
-//    default SchemaBuilder.FieldAssembler<MessageType> startFieldAssembler() {
-//        return SchemaBuilder.record("apocExport")
-//                .namespace("apoc.parquet")
-//                .fields();
-//    }
-
     MessageType schemaFor(GraphDatabaseService db, List<Map<String,Object>> type);
     Group toRecord(MessageType schema, ROW data);
     List<Map<String,Object>> createConfig(List<ROW> row, TYPE data, ParquetConfig config);
@@ -64,20 +58,10 @@ public interface ParquetExportType<TYPE, ROW> {
 
         @Override
         public MessageType schemaFor(GraphDatabaseService db, List<Map<String,Object>> type) {
-//            if (true) {
-//                org.apache.parquet.schema.Types.GroupBuilder<MessageType> messageTypeBuilder = org.apache.parquet.schema.Types.buildMessage();
-//                getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.BINARY, FIELD_LABELS);//.stringType();
-//
-//                return messageTypeBuilder.named("msg");
-//            }
-
-
 
             if (this.schema != null) {
                 return this.schema;
             }
-//            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
-
             org.apache.parquet.schema.Types.GroupBuilder<MessageType> messageTypeBuilder = org.apache.parquet.schema.Types.buildMessage();
 
             final Predicate<Map<String, Object>> filterStream = m -> m.get("propertyName") != null;
@@ -105,11 +89,8 @@ public interface ParquetExportType<TYPE, ROW> {
             db.executeTransactionally(String.format(query, "nodeTypeProperties"),
                     parameters, parsePropertiesResult);
 
-//            messageTypeBuilder.addField(org.apache.parquet.schema.Types.optional(INT64).named(FIELD_ID));
             getField(messageTypeBuilder, INT64, FIELD_ID);
-//            messageTypeBuilder.optionalLong(FIELD_ID);
-            getItems(FIELD_LABELS, messageTypeBuilder, PrimitiveType.PrimitiveTypeName.BINARY);//.stringType();
-//            getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.BINARY, FIELD_LABELS);//.stringType();
+            addListItem(FIELD_LABELS, messageTypeBuilder);
 
             if (confMap.containsKey("includeRels")) {
                 db.executeTransactionally(String.format(query, "relTypeProperties"),
@@ -117,12 +98,9 @@ public interface ParquetExportType<TYPE, ROW> {
                 getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.INT64, FIELD_SOURCE_ID);
                 getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.INT64, FIELD_TARGET_ID);
                 getField(messageTypeBuilder, PrimitiveType.PrimitiveTypeName.BINARY, FIELD_TYPE);
-//                fieldAssembler.optionalLong(FIELD_SOURCE_ID);
-//                fieldAssembler.optionalLong(FIELD_TARGET_ID);
-//                fieldAssembler.optionalString(FIELD_TYPE);
             }
 
-            this.schema = messageTypeBuilder.named("apocExport");// fieldAssembler.endRecord();
+            this.schema = messageTypeBuilder.named("apocExport");
             return this.schema;
         }
 
@@ -134,7 +112,6 @@ public interface ParquetExportType<TYPE, ROW> {
             if (entity instanceof Node) {
                 // todo - mocked toString()
                 appendList(group, FIELD_LABELS, Util.labelStrings((Node) entity));
-//                flattened.add(FIELD_LABELS, Util.labelStrings((Node) entity));
             } else {
                 Relationship rel = (Relationship) entity;
                 group.append(FIELD_TYPE, rel.getType().name());
@@ -175,7 +152,6 @@ public interface ParquetExportType<TYPE, ROW> {
 
             // we re-calculate the schema for each batch
             org.apache.parquet.schema.Types.GroupBuilder<MessageType> messageTypeBuilder = org.apache.parquet.schema.Types.buildMessage();
-//            SchemaBuilder.FieldAssembler<Schema> fieldAssembler = startFieldAssembler();
 
             type.stream()
                     .flatMap(m -> m.entrySet().stream())

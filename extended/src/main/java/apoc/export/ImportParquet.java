@@ -66,12 +66,7 @@ public class ImportParquet {
                     final Map<Long, Long> idMapping = new HashMap<>();
 
                     try (ParquetReader<Group> reader = getReaderBuilder(input)
-//                            .withFilter()
-//                            .withDataModel(genericDataLoad)
-//                            .withConf(new Configuration())
                             .build()) {
-
-//                        registerCustomTypes();
 
                         final ProgressReporter reporter = new ProgressReporter(null, null, new ProgressInfo(file, sourceInfo, "parquet"));
 

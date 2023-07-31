@@ -8,6 +8,7 @@ import org.apache.parquet.example.data.GroupFactory;
 import org.apache.parquet.example.data.simple.NanoTime;
 import org.apache.parquet.example.data.simple.SimpleGroupFactory;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -16,83 +17,32 @@ import org.apache.parquet.schema.Types;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 
-import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import static apoc.util.Util.labelStrings;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.ListLogicalTypeAnnotation;
+import static org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BOOLEAN;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.DOUBLE;
+import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
+import static org.apache.parquet.schema.Types.GroupBuilder;
+import static org.apache.parquet.schema.Types.optional;
 import static org.apache.parquet.schema.Types.optionalList;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.*;
-import static org.apache.parquet.schema.LogicalTypeAnnotation.*;
-import static org.apache.parquet.schema.Types.*;
 
 public class ParquetUtil {
-    public static class TimeConversions {
-        public static LocalDate dateFromInt(Integer daysFromEpoch) {
-            return LocalDate.ofEpochDay(daysFromEpoch);
-        }
-
-        public static LocalTime timeFromInt(Integer millisFromMidnight) {
-            return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(millisFromMidnight));
-        }
-
-        public static LocalTime localTimeFromLong(Long microsFromMidnight) {
-            return LocalTime.ofNanoOfDay(TimeUnit.MICROSECONDS.toNanos(microsFromMidnight));
-        }
-
-        public static Instant instantFromLong(Long millisFromEpoch) {
-            return Instant.ofEpochMilli(millisFromEpoch);
-        }
-
-        public static Instant fromLong(Long microsFromEpoch) {
-            long epochSeconds = microsFromEpoch / (1_000_000L);
-            long nanoAdjustment = (microsFromEpoch % (1_000_000L)) * 1_000L;
-
-            return Instant.ofEpochSecond(epochSeconds, nanoAdjustment);
-        }
-
-        public static LocalDateTime localDateTimeFromLongMillis(Long millisFromEpoch) {
-            Instant instant = instantFromLong(millisFromEpoch);
-            return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
-        }
-
-        public static LocalDateTime localDateTimeFromLongMicros(Long microsFromEpoch) {
-            Instant instant = instantFromLong(microsFromEpoch);
-            return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
-        }
-
-//        public static LocalDateTime localDateTimeFromLongMicros(Long microsFromEpoch) {
-//            Instant instant = instantFromLong(microsFromEpoch);
-//            return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
-//        }
-    }
-
-
-
-
-//    public static GenericData genericData;
-//    static {
-//        genericData = new GenericData();
-//        genericData.addLogicalTypeConversion(new TimeConversions.DateConversion());
-//        genericData.addLogicalTypeConversion(new TimeConversions.TimestampMicrosConversion());
-//        genericData.addLogicalTypeConversion(new TimeConversions.TimeMicrosConversion());
-//        genericData.addLogicalTypeConversion(new TimeConversions.LocalTimestampMicrosConversion());
-//        for (ParquetTypes type: ParquetTypes.values()) {
-//            genericData.addLogicalTypeConversion(type.getWriteConversion());
-//        }
-//    }
-
-    // TODO - make configurable
-    public static final String TYPE_SEP = "___";
-
+    public static String FIELD_ID = "_id";
+    public static String FIELD_LABELS = "_labels";
+    public static String FIELD_SOURCE_ID = "_source_id";
+    public static String FIELD_TARGET_ID = "_target_id";
+    public static String FIELD_TYPE = "_type";
 
     public static String fromMetaType(apoc.meta.Types type) {
         switch (type) {
@@ -125,7 +75,7 @@ public class ParquetUtil {
                     append(group, k, v, schema);
                 }
             } catch (Exception e2) {
-                System.out.println("error during write = " + e2);
+                throw new RuntimeException(e2);
             }
         });
         return group;
@@ -216,16 +166,12 @@ public class ParquetUtil {
     }
 
     // todo - try putting MessageTypeBuilder instead of GroupBuilder
-    public static void getItems(String fieldName, org.apache.parquet.schema.Types.GroupBuilder test, PrimitiveType.PrimitiveTypeName type, LogicalTypeAnnotation logicalType) {
-        PrimitiveBuilder<PrimitiveType> optional = optional(type);
-        if (type == null) {
-            optional.as(logicalType);
-        }
-        test.addField(optionalList().element(Types.optional(BINARY).named("element")).named(fieldName));
-    }
-
-    public static void getItems(String fieldName, org.apache.parquet.schema.Types.GroupBuilder test, PrimitiveType.PrimitiveTypeName type) {
-        getItems(fieldName, test, type, null);
+    public static void addListItem(String fieldName, org.apache.parquet.schema.Types.GroupBuilder test) {
+        PrimitiveType element = optional(BINARY).named("element");
+        GroupType groupType = optionalList()
+                .element(element)
+                .named(fieldName);
+        test.addField(groupType);
     }
 
     static void toField(String fieldName, Set<String> propertyTypes, org.apache.parquet.schema.Types.GroupBuilder builder) {
@@ -238,14 +184,6 @@ public class ParquetUtil {
         }
     }
 
-//    private static void getSchemaFieldAssembler(String fieldName, String propertyType, org.apache.parquet.schema.Types.GroupBuilder builder) {
-//        getSchemaFieldAssembler(fieldName, propertyType, builder, false);
-//    }
-
-//    public static void addItem(String fieldName, org.apache.parquet.schema.Types.GroupBuilder builder, PrimitiveType.PrimitiveTypeName type) {
-//        builder.addField(Types.optional(type).as().named(fieldName));
-//    }
-
     public static void getField(GroupBuilder builder, PrimitiveType.PrimitiveTypeName type, String fieldName) {
         builder.addField(optional(type).named(fieldName));
     }
@@ -254,84 +192,39 @@ public class ParquetUtil {
         propertyType = propertyType.toUpperCase();
 
         switch (propertyType) {
-
             case "BOOLEAN" -> builder.addField(optional(BOOLEAN).named(fieldName));
             case "LONG" -> builder.addField(optional(INT64).named(fieldName));
             case "DOUBLE" -> builder.addField(optional(DOUBLE).named(fieldName));
-            case "DATETIME" -> {
-                // todo - evaluate DateTimeValue.parse(), maybe is better to convert...
-                //  in case add to List.of("DURATION"....)
-                builder.addField(optional(INT64).as(TimestampLogicalTypeAnnotation.timestampType(true, LogicalTypeAnnotation.TimeUnit.MILLIS)).named(fieldName));
-            }
-            case "LOCALDATETIME" -> {
-                builder.addField(optional(INT64).as(TimestampLogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MILLIS)).named(fieldName));
-            }
+            case "DATETIME" -> addDateTimeField(builder, fieldName, true);
+            case "LOCALDATETIME" -> addDateTimeField(builder, fieldName, false);
             case "DATE" -> {
-                builder.addField(optional(INT64).as(DateLogicalTypeAnnotation.dateType()).named(fieldName));
+                PrimitiveType type = optional(INT64)
+                        .as(DateLogicalTypeAnnotation.dateType())
+                        .named(fieldName);
+                builder.addField(type);
             }
             case "DURATION", "NODE", "RELATIONSHIP", "POINT" -> {
-//                if (!multiType) {
-//                    fieldName = getFieldName(fieldName, propertyType);
-//                }
+                // convert every type not manageable from parquet to string,
+                // which can be re-imported via mapping config
                 builder.addField(optional(BINARY).named(fieldName));
-//                getSchemaFieldAssembler(fieldName, assembler, ParquetTypes.DURATION.getType(), BaseTypeBuilder::stringType);
             }
-            //                getSchemaFieldAssembler(fieldName, assembler, ParquetTypes.NODE.getType(), BaseTypeBuilder::stringType);
-            //                getSchemaFieldAssembler(fieldName, assembler, ParquetTypes.RELATIONSHIP.getType(), BaseTypeBuilder::stringType);
-            //                getSchemaFieldAssembler(fieldName, assembler, ParquetTypes.POINT.getType(), BaseTypeBuilder::stringType);
-
-            // todo - vedere se intanto funziona il resto
-//            case "DATETIMEARRAY" -> {
-//                getArraySchemaFieldAssembler(fieldName, builder, LogicalTypes.timestampMicros(), BaseTypeBuilder::longType);
-//            }
-//            case "LOCALDATETIMEARRAY" -> {
-//                getArraySchemaFieldAssembler(fieldName, assembler, LogicalTypes.localTimestampMicros(), BaseTypeBuilder::longType);
-//            }
-//            case "DATEARRAY" -> {
-//                getArraySchemaFieldAssembler(fieldName, assembler, LogicalTypes.date(), BaseTypeBuilder::intType);
-//            }
-//            case "BOOLEANARRAY" -> {
-//                getItems(fieldName, assembler).booleanType();
-//            }
-//            case "LONGARRAY" -> {
-//                getItems(fieldName, assembler).longType();
-//            }
-//            case "DOUBLEARRAY" -> {
-//                getItems(fieldName, assembler).doubleType();
-//            }
-//            case "DURATIONARRAY" -> {
-//                getArraySchemaFieldAssembler(fieldName, assembler, ParquetTypes.DURATION.getType(), BaseTypeBuilder::stringType);
-//            }
-//            case "STRINGARRAY" -> {
-//                getItems(fieldName, assembler).stringType();
-//            }
-//            case "POINTARRAY" -> {
-//                getArraySchemaFieldAssembler(fieldName, assembler, ParquetTypes.POINT.getType(), BaseTypeBuilder::stringType);
-//            }
             default -> {
                 if (propertyType.endsWith("ARRAY")) {
-                    // todo - cambiare questo // todo
-                    getItems(fieldName, builder, BINARY);//.stringType();
-//// todo
-                    // todo
-//                    builder.addField(optional(BINARY).named(fieldName));
+                    // convert every type not manageable from parquet to string,
+                    // which can be re-imported via mapping config
+                    addListItem(fieldName, builder);
                 } else {
-                    // todo - in case, put here POINT, DURATION, NODE and RELATIONSHIP, WITH --> fieldName = getFieldName(fieldName, propertyType);
-//                    assembler.optionalString(fieldName);
                     builder.addField(optional(BINARY).named(fieldName));
                 }
             }
         }
     }
 
-    public static String getFieldName(String fieldName, String propertyType) {
-        // in case of multiple types with the same name, we add a suffix, i.e. `fieldName__<TYPEFIELD>`
-        return fieldName + TYPE_SEP + propertyType;
+    private static Types.BaseGroupBuilder addDateTimeField(GroupBuilder builder, String fieldName, boolean isAdjustedToUTC) {
+        TimestampLogicalTypeAnnotation type = TimestampLogicalTypeAnnotation.timestampType(isAdjustedToUTC, LogicalTypeAnnotation.TimeUnit.MILLIS);
+        PrimitiveType primitiveType = optional(INT64)
+                .as(type)
+                .named(fieldName);
+        return builder.addField(primitiveType);
     }
-
-    public static String FIELD_ID = "_id";
-    public static String FIELD_LABELS = "_labels";
-    public static String FIELD_SOURCE_ID = "_source_id";
-    public static String FIELD_TARGET_ID = "_target_id";
-    public static String FIELD_TYPE = "_type";
 }

@@ -7,23 +7,13 @@ import apoc.util.QueueBasedSpliterator;
 import apoc.util.QueueUtil;
 import apoc.util.Util;
 import org.apache.hadoop.fs.Path;
-//import org.apache.parquet.avro.AvroParquetWriter;
-import org.apache.parquet.column.ParquetProperties;
-import org.apache.parquet.example.data.Group;
-import org.apache.parquet.example.data.GroupFactory;
-import org.apache.parquet.example.data.simple.SimpleGroupFactory;
-import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.example.ExampleParquetWriter;
-import org.apache.parquet.hadoop.example.GroupWriteSupport;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.Types;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.TerminationGuard;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -32,11 +22,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-
-//import static apoc.export.parquet.ParquetUtil.genericData;
-import static org.apache.parquet.schema.OriginalType.UTF8;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
 
 
 public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParquetStrategy<IN, Stream<ProgressInfo>> {
@@ -116,58 +101,12 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         MessageType schema = exportType.schemaFor(db, conf);
 
         if (writer == null) {
-//            try {
-                // todo - remove the delete
-//                new File(fileName).delete();
-
                 this.writer = getBuild(schema, builder);
         }
         writeRows(rows, writer, exportType, schema);
 
 
     }
-
-//    void writeRows(List<TYPE> rows, ParquetWriter writer, ParquetExportType type/*, Schema schema*/) {
-//        GroupFactory factory = new SimpleGroupFactory(schema);
-//
-//        rows.stream()
-//                .map(i -> type.toRecord(schema, i))
-//                .forEach(i -> {
-//                    try {
-//                        writer.write((Group) i);
-//                    } catch (IOException e) {
-//                        throw new RuntimeException(e);
-//                    }
-//                });
-//        rows.clear();
-//    }
-//
-//    ParquetWriter<Group> getBuild(/*Schema schema, */ExampleParquetWriterCustom.Builder builder)  {
-//
-//         MessageType type = Types.buildMessage()
-//                 .required(INT64).named("id")
-//                 .required(BINARY).as(UTF8).named("data")
-//                 .named("test");
-//
-//        try {
-//            ParquetWriter<Group> build = builder
-//                    .withType(type)
-////                    .withSchema(schema)
-//                    // TODO - check other configs
-////                    .withConf(new Configuration())
-////                    .withDataModel(genericData)
-//                    // TODO - configurable. This generate a .crc file
-////                    .withValidation(false)
-//                    // TODO - config...
-//                    //                .withCompressionCodec(CompressionCodecName.SNAPPY)
-//                    // TODO - configurable?
-//                    .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-//                    .build();
-//            return build;
-//        } catch (Exception e) {
-//            throw new RuntimeException(e);
-//        }
-//    }
 
     public abstract String getSource(IN data);
 

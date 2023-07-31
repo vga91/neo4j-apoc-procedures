@@ -1,13 +1,9 @@
 package apoc.load;
 
-//import apoc.export.parquet.CustomTypes;
-//import apoc.export.parquet.ParquetTypes;
 import apoc.export.parquet.ParquetConfig;
 import apoc.result.MapResult;
 import apoc.util.Util;
-//import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.example.data.Group;
-import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.io.DelegatingSeekableInputStream;
 import org.apache.parquet.io.InputFile;
@@ -28,7 +24,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static apoc.export.parquet.ParquetReadUtil.mapFromRecord;
-//import static apoc.export.parquet.ParquetReadUtil.genericDataLoad;
 import static apoc.export.parquet.ParquetReadUtil.getReaderBuilder;
 
 public class LoadParquet {
@@ -59,9 +54,8 @@ public class LoadParquet {
 
                 return false;
             } catch (Exception e) {
-                return false;
+                throw new RuntimeException(e);
             }
-
         }
     }
 

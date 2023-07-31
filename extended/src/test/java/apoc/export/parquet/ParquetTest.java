@@ -1,5 +1,6 @@
 package apoc.export.parquet;
 
+import apoc.convert.ConvertUtils;
 import apoc.export.ImportParquet;
 import apoc.graph.Graphs;
 import apoc.load.LoadParquet;
@@ -26,6 +27,7 @@ import org.neo4j.values.storable.PointValue;
 import org.neo4j.values.virtual.VirtualValues;
 
 import java.io.File;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +41,7 @@ import static apoc.ApocConfig.LOAD_FROM_FILE_ERROR;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.export.parquet.ExportParquet.EXPORT_TO_FILE_PARQUET_ERROR;
 import static apoc.export.parquet.ParquetUtil.FIELD_ID;
+import static apoc.export.parquet.ParquetUtil.FIELD_LABELS;
 import static apoc.export.parquet.ParquetUtil.FIELD_SOURCE_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TARGET_ID;
 import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
@@ -54,7 +57,8 @@ import static org.junit.Assert.fail;
 public class ParquetTest {
 
     public static final Map<String, Map<String, String>> MAPPING_ALL = Map.of("mapping",
-            Map.of("bffSince", "Duration", "place", "Point")
+            Map.of("bffSince", "Duration", "place", "Point",
+                    "listDate", "DateArray", "listInt", "LongArray")
     );
     public static final Map<String, Map<String, String>> MAPPING_QUERY = Map.of("mapping",
             Map.of("n", "Node", "r", "Relationship", "o", "Node")
@@ -94,13 +98,26 @@ public class ParquetTest {
         assertEquals(42L, props.get("age"));
     }
 
-    private static void assertFirstAnotherNodeProps(Map<String, Object> map) {
+    private static void assertFirstAnotherNode(Map<String, Object> map) {
         assertNodeAndLabel(map, "Another");
+        assertFirstAnotherNodeProps(map);
+    }
+
+    private static void assertFirstAnotherNodeProps(Map<String, Object> map) {
         assertEquals(1L, map.get("foo"));
+        List<LocalDate> listDate = ConvertUtils.convertToList(map.get("listDate"));
+        assertEquals(2, listDate.size());
+        assertEquals(LocalDate.of(1999, 1, 1), listDate.get(0));
+        assertEquals(LocalDate.of(2000, 1, 1), listDate.get(1));
+        assertArrayEquals(new long[] {1L, 2L}, (long[]) map.get("listInt"));
+    }
+
+    private static void assertSecondAnotherNode(Map<String, Object> map) {
+        assertNodeAndLabel(map, "Another");
+        assertSecondAnotherNodeProps(map);
     }
 
     private static void assertSecondAnotherNodeProps(Map<String, Object> map) {
-        assertNodeAndLabel(map, "Another");
         assertEquals("Sam", map.get("bar"));
     }
 
@@ -131,7 +148,7 @@ public class ParquetTest {
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
 
         db.executeTransactionally("CREATE (f:User {name:'Adam',age:42,male:true,kids:['Sam','Anna','Grace'], born:localdatetime('2015-05-18T19:32:24.000'), place:point({latitude: 13.1, longitude: 33.46789, height: 100.0})})-[:KNOWS {since: 1993, bffSince: duration('P5M1.5D')}]->(b:User {name:'Jim',age:42})");
-        db.executeTransactionally("CREATE (:Another {foo:1}), (:Another {bar:'Sam'})");
+        db.executeTransactionally("CREATE (:Another {foo:1, listDate: [date('1999'), date('2000')], listInt: [1,2]}), (:Another {bar:'Sam'})");
 
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, true);
@@ -271,9 +288,9 @@ public class ParquetTest {
         actual = value.next();
         assertSecondUserNode(actual);
         actual = value.next();
-        assertFirstAnotherNodeProps(actual);
+        assertFirstAnotherNode(actual);
         actual = value.next();
-        assertSecondAnotherNodeProps(actual);
+        assertSecondAnotherNode(actual);
         actual = value.next();
         assertRelationship(actual);
         assertFalse(value.hasNext());
@@ -309,12 +326,11 @@ public class ParquetTest {
         testResult(db, "MATCH (m:Another) RETURN m", r -> {
             ResourceIterator<Node> m = r.columnAs("m");
             Node node = m.next();
-            assertEquals(Map.of("foo", 1L), node.getAllProperties());
+            assertFirstAnotherNodeProps(node.getAllProperties());
             node = m.next();
-            assertEquals(Map.of("bar", "Sam"), node.getAllProperties());
+            assertSecondAnotherNodeProps(node.getAllProperties());
             assertFalse(r.hasNext());
         });
-
     }
 
     @Test
@@ -390,9 +406,9 @@ public class ParquetTest {
         db.executeTransactionally("MATCH (n:ParquetNode), (o:Other) DETACH DELETE n, o");
     }
 
-    private static void assertNodeAndLabel(Map<String, Object> startTwo, String ParquetNode) {
+    private static void assertNodeAndLabel(Map<String, Object> startTwo, String label) {
         assertTrue(startTwo.get(FIELD_ID) instanceof Long);
-//        assertArrayEquals(new String[]{ParquetNode}, (String[]) startTwo.get(FIELD_LABELS));
+        assertEquals(ValueUtils.of(List.of(label)), ValueUtils.of(startTwo.get(FIELD_LABELS)));
     }
 
     private static void assertBarRel(String one, Map<String, Object> relTwo) {

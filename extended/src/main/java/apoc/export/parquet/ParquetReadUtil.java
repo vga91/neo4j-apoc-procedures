@@ -6,7 +6,6 @@ import apoc.util.JsonUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.example.data.Group;
-//import org.apache.hadoop.fs.Path;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
@@ -34,7 +33,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.function.IntFunction;
 import java.util.stream.Collectors;
 
 
@@ -42,7 +40,6 @@ import static org.neo4j.values.storable.NoValue.NO_VALUE;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 public class ParquetReadUtil {
-
 
     private static Object convertValue(String value, String typeName) {
         switch (typeName) {
@@ -70,6 +67,10 @@ public class ParquetReadUtil {
                 return Float.parseFloat(value);
             case "Short":
                 return Short.parseShort(value);
+            case "Int":
+                return Integer.parseInt(value);
+            case "Long":
+                return Long.parseLong(value);
             case "Node", "Relationship":
                 return JsonUtil.parse(value, null, Map.class);
             // todo - needed
@@ -85,19 +86,20 @@ public class ParquetReadUtil {
                     final Object[] prototype = getPrototypeFor(array);
                     return Arrays.stream(value.split(","))
                             .map(item -> convertValue(StringUtils.trim(item), array))
-                            .collect(Collectors.toList())
+                            .toList()
                             .toArray(prototype);
                 }
                 return value;
         }
     }
 
-    // TODO - test and handle array types
+    // similar to CsvPropertyConverter
     static Object[] getPrototypeFor(String type) {
         switch (type) {
             case "Long":
-            case "Integer":
                 return new Long[]{};
+            case "Integer":
+                return new Integer[]{};
             case "Double":
                 return new Double[]{};
             case "Float":
@@ -139,10 +141,11 @@ public class ParquetReadUtil {
         }
 
         if (object instanceof Collection) {
-            final Object[] prototype = getPrototypeFor(field);
-            return ((Collection<?>) object).stream().map(i -> toValidValue(i, field, config))
+            // if there isn't a mapping config, we convert the list to a String[]
+            return ((Collection<?>) object).stream()
+                    .map(i -> toValidValue(i, field, config))
                     .collect(Collectors.toList())
-                    .toArray(prototype);
+                    .toArray(new String[0]);
         }
         if (object instanceof Map) {
             return ((Map<String, Object>) object).entrySet().stream()
@@ -201,22 +204,20 @@ public class ParquetReadUtil {
                 case FLOAT -> record.getFloat(field, 0);
                 case INT32 -> record.getInteger(field, 0);
                 case INT64 -> {
-                    long aLong = record.getLong(field, 0);
+                    long recordLong = record.getLong(field, 0);
                     if (logicalTypeAnnotation instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
                         LogicalTypeAnnotation.TimestampLogicalTypeAnnotation logicalTypeAnnotation1 = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) logicalTypeAnnotation;
                         if (logicalTypeAnnotation1.isAdjustedToUTC()) {
-                            yield Instant.EPOCH.plus(aLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit());
+                            yield Instant.EPOCH.plus(recordLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit());
                         } else {
-                            yield LocalDateTime.ofInstant(Instant.EPOCH.plus(aLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit()), ZoneId.of("UTC"));//  logicalTypeAnnotation1.getUnit()
+                            yield LocalDateTime.ofInstant(Instant.EPOCH.plus(recordLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit()), ZoneId.of("UTC"));//  logicalTypeAnnotation1.getUnit()
                         }
                     }
-                    yield aLong;
+                    yield recordLong;
                 }
                 case INT96 -> record.getInt96(field, 0);
                 case DOUBLE -> record.getDouble(field, 0);
                 case BOOLEAN -> record.getBoolean(field, 0);
-                // todo - if logical type = STRING, convert to string
-                //      else to byte[] ??
                 case BINARY -> record.getString(field, 0);
                 default -> null;
             };
@@ -257,44 +258,5 @@ public class ParquetReadUtil {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    // TODO - handle array types --> copy CsvPropertyConverter.getPrototypeFor(String type) {
-    private static Object[] getPrototypeFor(Type field) {
-        return new String[]{};
-//        field.asGroupType().getFields().get(0).
-
-//        String type = field.get().getTypes().stream()
-//                .filter(i -> !i.getType().equals(Schema.Type.NULL))
-//                .findFirst()
-//                .map(i -> i.getLogicalType() != null ? i.getLogicalType().getName() : i.getElementType().getName() )
-//                .orElse(Schema.Type.STRING.getName());
-//
-//        switch (type) {
-//            case "INT":
-//            case "LONG":
-//                return Long[]::new;
-//            case "FLOAT":
-//            case "DOUBLE":
-//                return Double[]::new;
-//            case "BOOLEAN":
-//                return Boolean[]::new;
-//            case "BYTES":
-//                return Byte[]::new;
-//            case "DATETIME":
-//                return ZonedDateTime[]::new;
-//            case "time-micros":
-//                return LocalTime[]::new;
-//            case "local-timestamp-micros":
-//                return LocalDateTime[]::new;
-//            case POINT_VALUE:
-//                return PointValue[]::new;
-//            case "date":
-//                return LocalDate[]::new;
-//            case DURATION_VALUE:
-//                return DurationValue[]::new;
-//            default:
-//                return String[]::new;
-//        }
     }
 }
