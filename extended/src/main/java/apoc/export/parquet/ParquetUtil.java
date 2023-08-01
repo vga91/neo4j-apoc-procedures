@@ -166,7 +166,7 @@ public class ParquetUtil {
     }
 
     // todo - try putting MessageTypeBuilder instead of GroupBuilder
-    public static void addListItem(String fieldName, org.apache.parquet.schema.Types.GroupBuilder test) {
+    public static void addListItem(String fieldName, GroupBuilder test) {
         PrimitiveType element = optional(BINARY).named("element");
         GroupType groupType = optionalList()
                 .element(element)
@@ -174,7 +174,7 @@ public class ParquetUtil {
         test.addField(groupType);
     }
 
-    static void toField(String fieldName, Set<String> propertyTypes, org.apache.parquet.schema.Types.GroupBuilder builder) {
+    static void toField(String fieldName, Set<String> propertyTypes, GroupBuilder builder) {
 
         if (propertyTypes.size() > 1) {
             // multi type handled as a string

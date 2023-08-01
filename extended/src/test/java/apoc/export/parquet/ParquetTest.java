@@ -1,7 +1,6 @@
 package apoc.export.parquet;
 
 import apoc.convert.ConvertUtils;
-import apoc.export.ImportParquet;
 import apoc.graph.Graphs;
 import apoc.load.LoadParquet;
 import apoc.meta.Meta;
@@ -180,7 +179,6 @@ public class ParquetTest {
             Set<Object> actual = value.stream()
                     .flatMap(i -> i.values().stream())
                     .collect(Collectors.toSet());
-            System.out.println("actual = " + actual);
         });
     }
 

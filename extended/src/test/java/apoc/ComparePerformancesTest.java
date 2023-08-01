@@ -1,6 +1,6 @@
 package apoc;
 
-import apoc.export.ImportParquet;
+import apoc.export.parquet.ImportParquet;
 import apoc.export.csv.ExportCSV;
 import apoc.export.csv.ImportCsv;
 import apoc.export.parquet.ExportParquet;
@@ -8,8 +8,6 @@ import apoc.load.LoadParquet;
 import apoc.meta.Meta;
 import apoc.util.TestUtil;
 import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -25,7 +23,6 @@ import java.util.stream.IntStream;
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
-import static org.junit.Assert.assertEquals;
 import static org.neo4j.configuration.GraphDatabaseSettings.TransactionStateMemoryAllocation.OFF_HEAP;
 import static org.neo4j.configuration.SettingValueParsers.BYTES;
 

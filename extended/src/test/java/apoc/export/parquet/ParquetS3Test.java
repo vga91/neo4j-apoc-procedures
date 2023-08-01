@@ -1,6 +1,5 @@
 package apoc.export.parquet;
 
-import apoc.export.ImportParquet;
 import apoc.graph.Graphs;
 import apoc.load.LoadParquet;
 import apoc.meta.Meta;
