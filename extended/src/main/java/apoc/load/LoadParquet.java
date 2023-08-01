@@ -68,48 +68,6 @@ public class LoadParquet {
                 .onClose(() -> Util.close(reader));
     }
 
-    public static class ParquetStream implements InputFile {
-        private final byte[] data;
-
-        private static class SeekableByteArrayInputStream extends ByteArrayInputStream {
-            public SeekableByteArrayInputStream(byte[] buf) {
-                super(buf);
-            }
-
-            public void setPos(int pos) {
-                this.pos = pos;
-            }
-
-            public int getPos() {
-                return this.pos;
-            }
-        }
-
-        public ParquetStream(byte[] stream) {
-            this.data = stream;
-        }
-
-        @Override
-        public long getLength() {
-            return this.data.length;
-        }
-
-        @Override
-        public SeekableInputStream newStream() {
-            return new DelegatingSeekableInputStream(new SeekableByteArrayInputStream(this.data)) {
-                @Override
-                public void seek(long newPos) {
-                    ((SeekableByteArrayInputStream) this.getStream()).setPos((int) newPos);
-                }
-
-                @Override
-                public long getPos() {
-                    return ((SeekableByteArrayInputStream) this.getStream()).getPos();
-                }
-            };
-        }
-    }
-
 
 
 }

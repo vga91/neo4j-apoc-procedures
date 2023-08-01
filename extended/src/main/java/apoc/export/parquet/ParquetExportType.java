@@ -108,9 +108,8 @@ public interface ParquetExportType<TYPE, ROW> {
         public Group toRecord(MessageType schema, Entity entity) {
 
             Group group = mapToRecord(schema, entity.getAllProperties());
-            group.append(FIELD_ID, entity.getId());
             if (entity instanceof Node) {
-                // todo - mocked toString()
+                group.append(FIELD_ID, entity.getId());
                 appendList(group, FIELD_LABELS, Util.labelStrings((Node) entity));
             } else {
                 Relationship rel = (Relationship) entity;
@@ -148,8 +147,6 @@ public interface ParquetExportType<TYPE, ROW> {
 
         @Override
         public MessageType schemaFor(GraphDatabaseService db, List<Map<String, Object>> type) {
-            // todo - implement
-
             // we re-calculate the schema for each batch
             org.apache.parquet.schema.Types.GroupBuilder<MessageType> messageTypeBuilder = org.apache.parquet.schema.Types.buildMessage();
 

@@ -49,15 +49,12 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         progressInfo.batchSize = config.getBatchSize();
         ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
 
-        Path fileToWrite = new org.apache.hadoop.fs.Path(fileName);
-
+        Path fileToWrite = new Path(fileName);
         final BlockingQueue<ProgressInfo> queue = new ArrayBlockingQueue<>(10);
-
         Util.inTxFuture(pools.getDefaultExecutorService(), db, tx -> {
             int batchCount = 0;
             List<TYPE> rows = new ArrayList<>(config.getBatchSize());
-            ExampleParquetWriter.Builder builder = ExampleParquetWriter
-                    .builder(fileToWrite);
+            ExampleParquetWriter.Builder builder = ExampleParquetWriter.builder(fileToWrite);
 
             try {
                 Iterator<TYPE> it = toIterator(reporter, data);
@@ -101,15 +98,12 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         MessageType schema = exportType.schemaFor(db, conf);
 
         if (writer == null) {
-                this.writer = getBuild(schema, builder);
+            this.writer = getBuild(schema, builder);
         }
         writeRows(rows, writer, exportType, schema);
-
-
     }
 
     public abstract String getSource(IN data);
 
     public abstract Iterator<TYPE> toIterator(ProgressReporter reporter, IN data);
-
 }

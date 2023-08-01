@@ -7,7 +7,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
+import org.apache.parquet.io.DelegatingSeekableInputStream;
 import org.apache.parquet.io.InputFile;
+import org.apache.parquet.io.SeekableInputStream;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.neo4j.values.storable.DateTimeValue;
 import org.neo4j.values.storable.DateValue;
@@ -18,6 +20,7 @@ import org.neo4j.values.storable.PointValue;
 import org.neo4j.values.storable.TimeValue;
 import org.neo4j.values.storable.Values;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -174,7 +177,7 @@ public class ParquetReadUtil {
             Path file = new Path(fileName);
             return HadoopInputFile.fromPath(file, new Configuration());
         }
-        return new LoadParquet.ParquetStream((byte[]) source);
+        return new ParquetStream((byte[]) source);
     }
 
     public static ApocParquetReader getReader(Object source, ParquetConfig conf) {
@@ -183,6 +186,48 @@ public class ParquetReadUtil {
             return new ApocParquetReader(getInputFile(source), conf);
         } catch (IOException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public static class ParquetStream implements InputFile {
+        private final byte[] data;
+
+        private static class SeekableByteArrayInputStream extends ByteArrayInputStream {
+            public SeekableByteArrayInputStream(byte[] buf) {
+                super(buf);
+            }
+
+            public void setPos(int pos) {
+                this.pos = pos;
+            }
+
+            public int getPos() {
+                return this.pos;
+            }
+        }
+
+        public ParquetStream(byte[] stream) {
+            this.data = stream;
+        }
+
+        @Override
+        public long getLength() {
+            return this.data.length;
+        }
+
+        @Override
+        public SeekableInputStream newStream() {
+            return new DelegatingSeekableInputStream(new SeekableByteArrayInputStream(this.data)) {
+                @Override
+                public void seek(long newPos) {
+                    ((SeekableByteArrayInputStream) this.getStream()).setPos((int) newPos);
+                }
+
+                @Override
+                public long getPos() {
+                    return ((SeekableByteArrayInputStream) this.getStream()).getPos();
+                }
+            };
         }
     }
 }

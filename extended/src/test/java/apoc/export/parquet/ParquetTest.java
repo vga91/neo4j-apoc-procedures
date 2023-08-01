@@ -71,72 +71,6 @@ public class ParquetTest {
     public static DbmsRule db = new ImpermanentDbmsRule()
             .withSetting(GraphDatabaseSettings.load_csv_file_url_root, directory.toPath().toAbsolutePath());
 
-    private static void assertFirstUserNode(Map<String, Object> map) {
-        assertNodeAndLabel(map, "User");
-        assertFirstUserNodeProps(map);
-    }
-
-    private static void assertSecondUserNode(Map<String, Object> map) {
-        assertNodeAndLabel(map, "User");
-        assertSecondUserNodeProps(map);
-    }
-
-    private static void assertFirstUserNodeProps(Map<String, Object> props) {
-        assertEquals("Adam", props.get("name"));
-        assertEquals(42L, props.get("age"));
-        assertEquals( true, props.get("male"));
-        assertArrayEquals(new String[] { "Sam", "Anna", "Grace", "Qwe" }, (String[]) props.get("kids"));
-        Map<String, Double> latitude = Map.of("latitude", 13.1D, "longitude", 33.46789D, "height", 100.0D);
-        assertEquals(PointValue.fromMap(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values().stream().map(ValueUtils::of).toArray(AnyValue[]::new))),
-                props.get("place"));
-        assertEquals(LocalDateTimeValue.parse("2015-05-18T19:32:24.000").asObject(), props.get("born"));
-    }
-
-    private static void assertSecondUserNodeProps(Map<String, Object> props) {
-        assertEquals( "Jim", props.get("name"));
-        assertEquals(42L, props.get("age"));
-    }
-
-    private static void assertFirstAnotherNode(Map<String, Object> map) {
-        assertNodeAndLabel(map, "Another");
-        assertFirstAnotherNodeProps(map);
-    }
-
-    private static void assertFirstAnotherNodeProps(Map<String, Object> map) {
-        assertEquals(1L, map.get("foo"));
-        List<LocalDate> listDate = ConvertUtils.convertToList(map.get("listDate"));
-        assertEquals(2, listDate.size());
-        assertEquals(LocalDate.of(1999, 1, 1), listDate.get(0));
-        assertEquals(LocalDate.of(2000, 1, 1), listDate.get(1));
-        assertArrayEquals(new long[] {1L, 2L}, (long[]) map.get("listInt"));
-    }
-
-    private static void assertSecondAnotherNode(Map<String, Object> map) {
-        assertNodeAndLabel(map, "Another");
-        assertSecondAnotherNodeProps(map);
-    }
-
-    private static void assertSecondAnotherNodeProps(Map<String, Object> map) {
-        assertEquals("Sam", map.get("bar"));
-    }
-
-    private static void assertRelationship(Map<String, Object> map) {
-        assertTrue(map.get(FIELD_ID) instanceof Long);
-        assertTrue(map.get(FIELD_SOURCE_ID) instanceof Long);
-        assertTrue(map.get(FIELD_TARGET_ID) instanceof Long);
-        assertRelationshipProps(map);
-    }
-
-    private static void assertRelationshipProps(Map<String, Object> props) {
-        assertEquals(DurationValue.parse("P5M1DT12H"), props.get("bffSince"));
-        assertEquals(1993L, props.get("since"));
-    }
-
-    private static final Map<String, Object> E_5_PROPS = Map.of(
-            "bffSince", DurationValue.parse("P5M1DT12H"),
-            "since", 1993L
-    );
-
     @BeforeClass
     public static void beforeClass() {
         TestUtil.registerProcedure(db, ExportParquet.class, LoadParquet.class, ImportParquet.class, Graphs.class, Meta.class);
@@ -163,7 +97,7 @@ public class ParquetTest {
     }
 
     @Test
-    public void testStreamRoundtripParquetQueryAnothertype() {
+    public void testStreamRoundtripParquetQueryMultipleTypes() {
         List<Object> values = List.of(1L, "", 7.0, DateValue.parse("1999"), LocalDateTimeValue.parse("2023-06-14T08:38:28.193000000"));
 
         final byte[] byteArray = db.executeTransactionally(
@@ -174,11 +108,13 @@ public class ParquetTest {
         // then
         final String query = "CALL apoc.load.parquet($byteArray, $config) YIELD value " +
                              "RETURN value";
-        testResult(db, query, Map.of("byteArray", byteArray, "config", MAPPING_ALL), result -> {
+        testResult(db, query, Map.of("byteArray", byteArray, "config", MAPPING_QUERY), result -> {
             List<Map<String, Object>> value = Iterators.asList(result.columnAs("value"));
+            Set<String> expected = Set.of("", "1", "7.0", "2023-06-14T08:38:28.193", "1999-01-01");
             Set<Object> actual = value.stream()
                     .flatMap(i -> i.values().stream())
                     .collect(Collectors.toSet());
+            assertEquals(expected, actual);
         });
     }
 
@@ -439,6 +375,69 @@ public class ParquetTest {
 
         db.executeTransactionally("MATCH (n:ParquetNode) DELETE n");
     }
+    private static void assertFirstUserNode(Map<String, Object> map) {
+        assertNodeAndLabel(map, "User");
+        assertFirstUserNodeProps(map);
+    }
 
+    private static void assertSecondUserNode(Map<String, Object> map) {
+        assertNodeAndLabel(map, "User");
+        assertSecondUserNodeProps(map);
+    }
+
+    private static void assertFirstUserNodeProps(Map<String, Object> props) {
+        assertEquals("Adam", props.get("name"));
+        assertEquals(42L, props.get("age"));
+        assertEquals( true, props.get("male"));
+        assertArrayEquals(new String[] { "Sam", "Anna", "Grace", "Qwe" }, (String[]) props.get("kids"));
+        Map<String, Double> latitude = Map.of("latitude", 13.1D, "longitude", 33.46789D, "height", 100.0D);
+        assertEquals(PointValue.fromMap(VirtualValues.map(latitude.keySet().toArray(new String[0]), latitude.values().stream().map(ValueUtils::of).toArray(AnyValue[]::new))),
+                props.get("place"));
+        assertEquals(LocalDateTimeValue.parse("2015-05-18T19:32:24.000").asObject(), props.get("born"));
+    }
+
+    private static void assertSecondUserNodeProps(Map<String, Object> props) {
+        assertEquals( "Jim", props.get("name"));
+        assertEquals(42L, props.get("age"));
+    }
+
+    private static void assertFirstAnotherNode(Map<String, Object> map) {
+        assertNodeAndLabel(map, "Another");
+        assertFirstAnotherNodeProps(map);
+    }
+
+    private static void assertFirstAnotherNodeProps(Map<String, Object> map) {
+        assertEquals(1L, map.get("foo"));
+        List<LocalDate> listDate = ConvertUtils.convertToList(map.get("listDate"));
+        assertEquals(2, listDate.size());
+        assertEquals(LocalDate.of(1999, 1, 1), listDate.get(0));
+        assertEquals(LocalDate.of(2000, 1, 1), listDate.get(1));
+        assertArrayEquals(new long[] {1L, 2L}, (long[]) map.get("listInt"));
+    }
+
+    private static void assertSecondAnotherNode(Map<String, Object> map) {
+        assertNodeAndLabel(map, "Another");
+        assertSecondAnotherNodeProps(map);
+    }
+
+    private static void assertSecondAnotherNodeProps(Map<String, Object> map) {
+        assertEquals("Sam", map.get("bar"));
+    }
+
+    private static void assertRelationship(Map<String, Object> map) {
+        assertTrue(map.get(FIELD_SOURCE_ID) instanceof Long);
+        assertTrue(map.get(FIELD_TARGET_ID) instanceof Long);
+        assertRelationshipProps(map);
+    }
+
+    private static void assertRelationshipProps(Map<String, Object> props) {
+        assertEquals(DurationValue.parse("P5M1DT12H"), props.get("bffSince"));
+        assertEquals(1993L, props.get("since"));
+    }
+
+    private static final Map<String, Object> E_5_PROPS = Map.of(
+            "bffSince", DurationValue.parse("P5M1DT12H"),
+            "since", 1993L
+    );
 
 }

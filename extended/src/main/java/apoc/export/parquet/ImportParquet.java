@@ -128,7 +128,7 @@ public class ImportParquet {
             return ((Value) object).asObject();
         }
         if (object instanceof Collection) {
-            // convert to String[], other array types can be converted via mapping config
+            // convert to String[], other array types can be converted via `mapping` config
             return ((Collection) object)
                     .stream()
                     .map(Object::toString).toArray(String[]::new);

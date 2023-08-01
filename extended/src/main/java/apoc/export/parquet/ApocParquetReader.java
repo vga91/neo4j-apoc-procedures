@@ -34,7 +34,6 @@ public final class ApocParquetReader implements Closeable {
     private final MessageType schema;
     private final GroupConverter recordConverter;
     private final String createdBy;
-    private final Map<String, Integer> index;
 
     private long currentRowGroupSize = -1L;
     private List<ColumnReader> currentRowGroupColumnReaders;
@@ -52,11 +51,6 @@ public final class ApocParquetReader implements Closeable {
                 .stream()
                 .collect(Collectors.toList());
 
-        this.index = new HashMap<>(columns.size());
-        int idx = 0;
-        for (ColumnDescriptor d : columns) {
-            this.index.put(d.getPath()[0], idx++);
-        }
         this.config = config;
     }
 
@@ -80,6 +74,7 @@ public final class ApocParquetReader implements Closeable {
                 case INT32:
                     return columnReader.getInteger();
                 case INT64:
+                    // convert int to Temporal, if logical type is not null
                     long recordLong = columnReader.getLong();
                     LogicalTypeAnnotation logicalTypeAnnotation = primitiveType.getLogicalTypeAnnotation();
                     if (logicalTypeAnnotation instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
@@ -87,7 +82,7 @@ public final class ApocParquetReader implements Closeable {
                         if (logicalTypeAnnotation1.isAdjustedToUTC()) {
                             return Instant.EPOCH.plus(recordLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit());
                         } else {
-                            return LocalDateTime.ofInstant(Instant.EPOCH.plus(recordLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit()), ZoneId.of("UTC"));//  logicalTypeAnnotation1.getUnit()
+                            return LocalDateTime.ofInstant(Instant.EPOCH.plus(recordLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit()), ZoneId.of("UTC"));
                         }
                     }
                     return recordLong;
@@ -95,6 +90,7 @@ public final class ApocParquetReader implements Closeable {
                     throw new IllegalArgumentException("Unsupported type: " + primitiveType);
             }
         } else {
+            // fallback
             return null;
         }
     }
@@ -116,7 +112,7 @@ public final class ApocParquetReader implements Closeable {
             this.currentRowIndex = 0L;
         }
 
-        Object[] record = new Object[index.size()];
+        HashMap<String, Object> record = new HashMap<>();
         for (ColumnReader columnReader: this.currentRowGroupColumnReaders) {
             // if it's a list we have use columnReader.consume() multiple times (until columnReader.getCurrentRepetitionLevel() == 0, i.e. totally consumed)
             // to collect the list elements
@@ -128,41 +124,38 @@ public final class ApocParquetReader implements Closeable {
 
         this.currentRowIndex++;
 
-        return this.index.entrySet().stream()
-                .filter(e -> {
-                    try {
-                        return record[e.getValue()] != null;
-                    } catch (Exception ex) {
-                        return false;
-                    }
-                })
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> toValidValue(record[e.getValue()], e.getKey(), config)));
+        return record.entrySet()
+                .stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> toValidValue(e.getValue(), e.getKey(), config))
+                );
     }
 
-    public void addRecord(Object[] record, ColumnReader columnReader) {
+    public void addRecord(Map<String, Object> record, ColumnReader columnReader) {
         Object value = readValue(columnReader);
         if (value== null) {
             return;
         }
         String[] path = columnReader.getDescriptor().getPath();
-        String heading = path[0];
-        if (index.get(heading) == null) {
-            return;
-        }
+        String fieldName = path[0];
         try {
+            // if it's a list, create a list of consumed sub-records
             boolean isAList = path.length == 3 && path[1].equals("list");
-            if (isAList) {
-                List curr2 = (List) record[index.get(heading)];
-                if (curr2 == null) {
-                    ArrayList<Object> objects = new ArrayList<>();
-                    objects.add(value);
-                    record[index.get(heading)] = objects;
-                } else {
-                    curr2.add(value);
+            record.compute(fieldName, (k, v) -> {
+                if (v == null) {
+                    if (isAList) {
+                        return new ArrayList<>() {{ add(value); }};
+                    }
+                    return value;
                 }
-            } else {
-                record[index.get(heading)] = value;
-            }
+                if (isAList) {
+                    List list = (List) v;
+                    list.add(value);
+                    return list;
+                }
+                throw new RuntimeException("Multiple element with the same key found, but the element type is not a list");
+            });
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

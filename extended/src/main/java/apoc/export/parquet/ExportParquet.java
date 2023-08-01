@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.EXPORT_NOT_ENABLED_ERROR;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.export.parquet.ParquetExportType.Type.from;
 
 @Extended
 public class ExportParquet {
@@ -135,7 +136,7 @@ public class ExportParquet {
         if (!apocConfig().getBoolean(APOC_EXPORT_FILE_ENABLED)) {
             throw new RuntimeException(EXPORT_TO_FILE_PARQUET_ERROR);
         }
-        ParquetExportType exportType = ParquetExportType.Type.from(data);
+        ParquetExportType exportType = from(data);
         if (data instanceof Result) {
             return new ExportParquetResultFileStrategy(fileName, db, pools, terminationGuard, log, exportType).export((Result) data, config);
         }
@@ -144,7 +145,7 @@ public class ExportParquet {
 
     public Stream<ByteArrayResult> exportParquet(Object data, ParquetConfig config) {
 
-        ParquetExportType exportType = ParquetExportType.Type.from(data);
+        ParquetExportType exportType = from(data);
         if (data instanceof Result) {
             return new ExportParquetResultStreamStrategy(db, pools, terminationGuard, log, exportType).export((Result) data, config);
         }

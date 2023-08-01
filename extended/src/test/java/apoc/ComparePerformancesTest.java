@@ -12,7 +12,6 @@ import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.configuration.GraphDatabaseSettings;
-import org.neo4j.graphdb.Result;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -27,7 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.neo4j.configuration.GraphDatabaseSettings.TransactionStateMemoryAllocation.OFF_HEAP;
 import static org.neo4j.configuration.SettingValueParsers.BYTES;
 
-//@Ignore("This test compare import/export procedures performances, we ignore it since it's slow and just log the times spent")
+@Ignore("This test compare import/export procedures performances, we ignore it since it's slow and just log the times spent")
 public class ComparePerformancesTest {
     private static final File directory = new File("target/import");
     static { //noinspection ResultOfMethodCallIgnored

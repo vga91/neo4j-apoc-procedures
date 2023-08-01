@@ -38,11 +38,11 @@ import static org.apache.parquet.schema.Types.optional;
 import static org.apache.parquet.schema.Types.optionalList;
 
 public class ParquetUtil {
-    public static String FIELD_ID = "_id";
-    public static String FIELD_LABELS = "_labels";
-    public static String FIELD_SOURCE_ID = "_source_id";
-    public static String FIELD_TARGET_ID = "_target_id";
-    public static String FIELD_TYPE = "_type";
+    public static String FIELD_ID = "__id";
+    public static String FIELD_LABELS = "__labels";
+    public static String FIELD_SOURCE_ID = "__source_id";
+    public static String FIELD_TARGET_ID = "__target_id";
+    public static String FIELD_TYPE = "__type";
 
     public static String fromMetaType(apoc.meta.Types type) {
         switch (type) {
@@ -72,7 +72,7 @@ public class ParquetUtil {
                 if (type.getLogicalTypeAnnotation() instanceof ListLogicalTypeAnnotation) {
                     appendList(group, k, v);
                 } else {
-                    append(group, k, v, schema);
+                    appendElement(group, k, v, schema);
                 }
             } catch (Exception e2) {
                 throw new RuntimeException(e2);
@@ -82,7 +82,6 @@ public class ParquetUtil {
     }
 
     public static void appendList(Group group, String k, Object v) {
-        // todo - other data types handling
         Group group1 = group.addGroup(k);
         ConvertUtils.convertToList(v).forEach(item -> {
             Group group2 = group1.addGroup(0);
@@ -110,36 +109,35 @@ public class ParquetUtil {
         }
     }
 
-    public static <T> void append(Group group, String fieldName, Object value, MessageType schema) {
-
-        if (schema.getType(fieldName).asPrimitiveType().getPrimitiveTypeName().equals(INT64)) {
-            group.append(fieldName, writeDateMilliVector(value));
-        } else if (schema.getType(fieldName).asPrimitiveType().getPrimitiveTypeName().equals(BINARY)) {
-            group.append(fieldName, serializeValue(value));
-        } else {
-
-                if (value instanceof Integer) {
-                    group.append(fieldName, (int) value);
-                } else if (value instanceof Float) {
-                    group.append(fieldName, (float) value);
-                } else if (value instanceof Double) {
-                    group.append(fieldName, (double) value);
-                } else if (value instanceof Long) {
-                    group.append(fieldName, (long) value);
-                } else if (value instanceof NanoTime) {
-                    group.append(fieldName, (NanoTime) value);
-                } else if (value instanceof Boolean) {
-                    group.append(fieldName, (boolean) value);
-                } else if (value instanceof Binary) {
-                    group.append(fieldName, (Binary) value);
-                } else if (value == null) {
-                    // todo do stuff?
-                    throw new RuntimeException("stuff");
-                } else {
-                    group.append(fieldName, serializeValue(value));
-                }
-
+    public static <T> void appendElement(Group group, String fieldName, Object value, MessageType schema) {
+        if (value == null) {
+            return;
         }
+
+        PrimitiveType.PrimitiveTypeName typeName = schema.getType(fieldName)
+                .asPrimitiveType()
+                .getPrimitiveTypeName();
+        if (typeName.equals(INT64)) {
+            group.append(fieldName, writeDateMilliVector(value));
+        } else if (typeName.equals(BINARY)) {
+            group.append(fieldName, serializeValue(value));
+        } else if (value instanceof Integer) {
+            group.append(fieldName, (int) value);
+        } else if (value instanceof Float) {
+            group.append(fieldName, (float) value);
+        } else if (value instanceof Double) {
+            group.append(fieldName, (double) value);
+        } else if (value instanceof Long) {
+            group.append(fieldName, (long) value);
+        } else if (value instanceof NanoTime) {
+            group.append(fieldName, (NanoTime) value);
+        } else if (value instanceof Boolean) {
+            group.append(fieldName, (boolean) value);
+        } else {
+            // fallback
+            group.append(fieldName, serializeValue(value));
+        }
+
     }
 
     private static String serializeValue(Object val){
@@ -165,7 +163,6 @@ public class ParquetUtil {
         return val.toString();
     }
 
-    // todo - try putting MessageTypeBuilder instead of GroupBuilder
     public static void addListItem(String fieldName, GroupBuilder test) {
         PrimitiveType element = optional(BINARY).named("element");
         GroupType groupType = optionalList()
@@ -204,13 +201,13 @@ public class ParquetUtil {
                 builder.addField(type);
             }
             case "DURATION", "NODE", "RELATIONSHIP", "POINT" -> {
-                // convert every type not manageable from parquet to string,
+                // convert each type not manageable from parquet to string,
                 // which can be re-imported via mapping config
                 builder.addField(optional(BINARY).named(fieldName));
             }
             default -> {
                 if (propertyType.endsWith("ARRAY")) {
-                    // convert every type not manageable from parquet to string,
+                    // convert each type not manageable from parquet to string,
                     // which can be re-imported via mapping config
                     addListItem(fieldName, builder);
                 } else {
