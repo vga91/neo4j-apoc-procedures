@@ -103,7 +103,6 @@ dependencies {
     compileOnly group: 'com.sun.mail', name: 'javax.mail', version: '1.6.0'
     compileOnly group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: '1.6.0'
 
-    // TODO - external dependencies in `hadoop`
     compileOnly group: 'org.apache.parquet', name: 'parquet-hadoop', version: '1.13.1', withoutServers
     // testImplementation analogous is not needed since is bundled via `test-utils` submodule
     compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.1.0', withoutServers

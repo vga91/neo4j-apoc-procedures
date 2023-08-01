@@ -5,6 +5,10 @@ import apoc.load.LoadParquet;
 import apoc.util.JsonUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.column.ColumnReadStore;
+import org.apache.parquet.column.ColumnReader;
+import org.apache.parquet.column.impl.ColumnReadStoreImpl;
+import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
@@ -36,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 
+import static apoc.util.FileUtils.changeFileUrlIfImportDirectoryConstrained;
 import static org.neo4j.values.storable.NoValue.NO_VALUE;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
@@ -133,9 +138,39 @@ public class ParquetReadUtil {
         }
     }
 
-    private static Object toValidValue(Object object, Type field, ParquetConfig config) {
+    public static Object toValidValue1(Object object, Type field, ParquetConfig config) {
         // if there is a mapping config, we use that one to convert the current object
         Object fieldName = config.getMapping().get(field.getName());
+        if (object != null && fieldName != null) {
+            return convertValue(object.toString(), fieldName.toString());
+        }
+
+        if (object instanceof Collection) {
+            // if there isn't a mapping config, we convert the list to a String[]
+            return ((Collection<?>) object).stream()
+                    .map(i -> toValidValue1(i, field, config))
+                    .collect(Collectors.toList())
+                    .toArray(new String[0]);
+        }
+        if (object instanceof Map) {
+            return ((Map<String, Object>) object).entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> toValidValue1(e.getValue(), field, config)));
+        }
+        try {
+            // we test if is a valid Neo4j type
+            Values.of(object);
+            return object;
+        } catch (Exception e) {
+            // otherwise we try to coerce it
+            return object.toString();
+        }
+    }
+
+//    public static Object toValidValue(Object object, ColumnReader columnReader, ParquetConfig config) {
+        // if there is a mapping config, we use that one to convert the current object
+//        Object field = columnReader.getDescriptor().getPath()[0];// config.getMapping().get(field.getName());
+    public static Object toValidValue(Object object, String field, ParquetConfig config) {
+        Object fieldName = config.getMapping().get(field);
         if (object != null && fieldName != null) {
             return convertValue(object.toString(), fieldName.toString());
         }
@@ -161,7 +196,7 @@ public class ParquetReadUtil {
         }
     }
 
-    private static java.util.concurrent.TimeUnit toTimeUnitJava(LogicalTypeAnnotation.TimeUnit unit) {
+    public static java.util.concurrent.TimeUnit toTimeUnitJava(LogicalTypeAnnotation.TimeUnit unit) {
         return switch (unit) {
             case NANOS -> TimeUnit.NANOSECONDS;
             case MICROS -> TimeUnit.MICROSECONDS;
@@ -169,7 +204,69 @@ public class ParquetReadUtil {
         };
     }
 
-    private static Object getValue(Type field, Group group) {
+//    private static Object getValue(Type field, Group group) {
+//        if (field instanceof PrimitiveType) {
+//            PrimitiveTypeName typeName = field.asPrimitiveType().getPrimitiveTypeName();
+//            LogicalTypeAnnotation logicalTypeAnnotation = field.getLogicalTypeAnnotation();
+//
+//            return getObject(field.getName(), group, typeName, logicalTypeAnnotation);
+//        }
+////        return "";
+//
+//
+//        try {
+//
+//            Group subGroup = group.getGroup(field.getName(), 0);
+//
+//            List<Object> list = new ArrayList<>();
+//            for (int i = 0; i < subGroup.getFieldRepetitionCount("list"); i++) {
+//                // todo - handle array data types
+//                Group listItem = subGroup.getGroup("list", i);
+//                Object list1 = getObject("element", listItem, PrimitiveTypeName.BINARY, null);
+//                list.add(list1);
+//            }
+//            return list;
+//        } catch (RuntimeException e) {
+//            // todo - common - when element is not found in the current group
+//            if (e.getMessage().contains("not found")) {
+//                return null;
+//            }
+//            throw e;
+//        }
+//    }
+
+//    private static Object getObject(String field, Group record, PrimitiveTypeName typeName, LogicalTypeAnnotation logicalTypeAnnotation) {
+//        try {
+//            return switch (typeName) {
+//                case FLOAT -> record.getFloat(field, 0);
+//                case INT32 -> record.getInteger(field, 0);
+//                case INT64 -> {
+//////                    long recordLong = record.getLong(field, 0);
+//////                    if (logicalTypeAnnotation instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
+//////                        LogicalTypeAnnotation.TimestampLogicalTypeAnnotation logicalTypeAnnotation1 = (LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) logicalTypeAnnotation;
+//////                        if (logicalTypeAnnotation1.isAdjustedToUTC()) {
+//////                            yield Instant.EPOCH.plus(recordLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit());
+//////                        } else {
+//////                            yield LocalDateTime.ofInstant(Instant.EPOCH.plus(recordLong, toTimeUnitJava(logicalTypeAnnotation1.getUnit()).toChronoUnit()), ZoneId.of("UTC"));//  logicalTypeAnnotation1.getUnit()
+//////                        }
+//////                    }
+//                    yield record.getLong(field, 0);
+//                }
+////                case INT96 -> record.getInt96(field, 0);
+////                case DOUBLE -> record.getDouble(field, 0);
+//                case BOOLEAN -> record.getBoolean(field, 0);
+//                case BINARY -> record.getString(field, 0);
+//                default -> null;
+//            };
+//        } catch (RuntimeException e) {
+//            if (e.getMessage().contains("not found")) {
+//                return null;
+//            }
+//            throw e;
+//        }
+//    }
+
+    public static Object getValue(Type field, Group group) {
         if (field instanceof PrimitiveType) {
             PrimitiveTypeName typeName = field.asPrimitiveType().getPrimitiveTypeName();
             LogicalTypeAnnotation logicalTypeAnnotation = field.getLogicalTypeAnnotation();
@@ -238,7 +335,7 @@ public class ParquetReadUtil {
                             String name = field.getName();
 
                             Object value = getValue(field, record);
-                            value = toValidValue(value, field, config);
+                            value = toValidValue1(value, field, config);
                             if (value != null && !NO_VALUE.equals(value)) {
                                 mapAccumulator.put(name, value);
                             }
@@ -246,17 +343,46 @@ public class ParquetReadUtil {
                         HashMap::putAll);
     }
 
-    public static ApocParquetReaderBuilder getReaderBuilder(Object source) {
-        if (source instanceof String) {
-            ApocConfig.apocConfig().isImportFileEnabled();
-            Path file = new Path((String) source);
-            return ApocParquetReaderBuilder.builder(file);
-        }
-        LoadParquet.ParquetStream file = new LoadParquet.ParquetStream((byte[]) source);
-        try {
-            return ApocParquetReaderBuilder.read(file);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    public static Map<String, Object> mapFromRecord(PageReadStore rowGroup, ParquetConfig config) {
+//        ColumnReadStore columnReadStore = new ColumnReadStoreImpl(rowGroup, this.recordConverter, this.schema, this.createdBy);
+
+//        schema.getColumns().stream()
+//                .filter(c -> columnNames.isEmpty() || columnNames.contains(c.getPath()[0]))
+//                .collect(Collectors.toList());
+
+        long currentRowGroupSize = rowGroup.getRowCount();
+//        List<ColumnReader> currentRowGroupColumnReaders = columns.stream().map(columnReadStore::getColumnReader).collect(Collectors.toList());
+//        long currentRowIndex = 0L;
+
+        return null;
+//        return record.getType()
+//                .getFields()
+//                .stream()
+//                .collect(HashMap::new, // workaround for https://bugs.openjdk.java.net/browse/JDK-8148463
+//                        (mapAccumulator, field) -> {
+//                            String name = field.getName();
+//
+//                            Object value = getValue(field, record);
+////                            value = toValidValue(value, field, config);
+////                            if (value != null && !NO_VALUE.equals(value)) {
+//                                mapAccumulator.put(name, value);
+////                            }
+//                        },
+//                        HashMap::putAll);
     }
+
+//    public static ApocParquetReaderBuilder getReaderBuilder(Object source) {
+//        try {
+//            if (source instanceof String) {
+//                ApocConfig.apocConfig().isImportFileEnabled();
+//                String fileName = changeFileUrlIfImportDirectoryConstrained((String) source);
+//                Path file = new Path(fileName);
+//                return ApocParquetReaderBuilder.builder(file);
+//            }
+//            LoadParquet.ParquetStream file = new LoadParquet.ParquetStream((byte[]) source);
+//                return ApocParquetReaderBuilder.read(file);
+//        } catch (IOException e) {
+//            throw new RuntimeException(e);
+//        }
+//    }
 }
