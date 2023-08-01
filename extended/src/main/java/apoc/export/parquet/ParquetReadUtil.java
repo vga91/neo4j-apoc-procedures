@@ -6,16 +6,9 @@ import apoc.util.JsonUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.apache.parquet.column.ColumnReadStore;
-import org.apache.parquet.column.ColumnReader;
-import org.apache.parquet.column.impl.ColumnReadStoreImpl;
-import org.apache.parquet.column.page.PageReadStore;
-import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.io.InputFile;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
-import org.apache.parquet.schema.PrimitiveType;
-import org.apache.parquet.schema.Type;
 import org.neo4j.values.storable.DateTimeValue;
 import org.neo4j.values.storable.DateValue;
 import org.neo4j.values.storable.DurationValue;
@@ -26,30 +19,54 @@ import org.neo4j.values.storable.TimeValue;
 import org.neo4j.values.storable.Values;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-
 import static apoc.util.FileUtils.changeFileUrlIfImportDirectoryConstrained;
-import static org.neo4j.values.storable.NoValue.NO_VALUE;
-import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
 public class ParquetReadUtil {
 
+    public static Object toValidValue(Object object, String field, ParquetConfig config) {
+        Object fieldName = config.getMapping().get(field);
+        if (object != null && fieldName != null) {
+            return convertValue(object.toString(), fieldName.toString());
+        }
+
+        if (object instanceof Collection) {
+            // if there isn't a mapping config, we convert the list to a String[]
+            return ((Collection<?>) object).stream()
+                    .map(i -> toValidValue(i, field, config))
+                    .collect(Collectors.toList())
+                    .toArray(new String[0]);
+        }
+        if (object instanceof Map) {
+            return ((Map<String, Object>) object).entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey, e -> toValidValue(e.getValue(), field, config)));
+        }
+        try {
+            // we test if is a valid Neo4j type
+            Values.of(object);
+            return object;
+        } catch (Exception e) {
+            // otherwise we try to coerce it
+            return object.toString();
+        }
+    }
+
+    /**
+     * In case of complex type non-readable from Parquet, i.e. Duration, Point, List of Neo4j Types...
+     * we can use the `mapping: {keyToConvert: valueTypeName}` config to convert them.
+     * For example `mapping: {myPropertyKey: "DateArray"}`
+     */
     private static Object convertValue(String value, String typeName) {
         switch (typeName) {
             case "Point":
@@ -138,33 +155,6 @@ public class ParquetReadUtil {
                 return new DurationValue[]{};
             default:
                 throw new IllegalStateException("Type " + type + " not supported.");
-        }
-    }
-
-    public static Object toValidValue(Object object, String field, ParquetConfig config) {
-        Object fieldName = config.getMapping().get(field);
-        if (object != null && fieldName != null) {
-            return convertValue(object.toString(), fieldName.toString());
-        }
-
-        if (object instanceof Collection) {
-            // if there isn't a mapping config, we convert the list to a String[]
-            return ((Collection<?>) object).stream()
-                    .map(i -> toValidValue(i, field, config))
-                    .collect(Collectors.toList())
-                    .toArray(new String[0]);
-        }
-        if (object instanceof Map) {
-            return ((Map<String, Object>) object).entrySet().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, e -> toValidValue(e.getValue(), field, config)));
-        }
-        try {
-            // we test if is a valid Neo4j type
-            Values.of(object);
-            return object;
-        } catch (Exception e) {
-            // otherwise we try to coerce it
-            return object.toString();
         }
     }
 

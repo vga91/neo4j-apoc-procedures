@@ -96,6 +96,7 @@ public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportPar
 
     public abstract Iterator<TYPE> toIterator(IN data);
 
+    // create OutputFile
     private record ParquetBufferedWriter(OutputStream out) implements OutputFile {
 
         @Override

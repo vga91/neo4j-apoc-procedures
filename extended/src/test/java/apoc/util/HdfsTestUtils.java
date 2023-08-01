@@ -43,10 +43,10 @@ public class HdfsTestUtils {
     public static MiniDFSCluster getLocalHDFSCluster() throws Exception {
     	setHadoopHomeWindows();
     	Configuration conf = new HdfsConfiguration();
-//    	conf.set("fs.defaultFS", "hdfs://localhost");
+    	conf.set("fs.defaultFS", "hdfs://localhost");
 		File hdfsPath = new File(System.getProperty("user.dir") + File.separator + "hadoop" + File.separator + "hdfs");
         hdfsPath.setWritable(true);
-//        conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, hdfsPath.getAbsolutePath());
+        conf.set(MiniDFSCluster.HDFS_MINIDFS_BASEDIR, hdfsPath.getAbsolutePath());
 		MiniDFSCluster miniDFSCluster = new MiniDFSCluster.Builder(conf)
                 .nameNodePort(getFreePort())
 //                .nameNodeHttpPort(12341)

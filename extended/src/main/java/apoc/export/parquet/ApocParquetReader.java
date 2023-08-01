@@ -9,6 +9,7 @@ import org.apache.parquet.example.data.simple.convert.GroupRecordConverter;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.io.InputFile;
+import org.apache.parquet.io.api.GroupConverter;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
@@ -31,7 +32,7 @@ public final class ApocParquetReader implements Closeable {
     private final ParquetFileReader reader;
     private final List<ColumnDescriptor> columns;
     private final MessageType schema;
-    private final GroupRecordConverter recordConverter;
+    private final GroupConverter recordConverter;
     private final String createdBy;
     private final Map<String, Integer> index;
 
@@ -44,7 +45,7 @@ public final class ApocParquetReader implements Closeable {
         this.reader = ParquetFileReader.open(file);
         FileMetaData meta = reader.getFooter().getFileMetaData();
         this.schema = meta.getSchema();
-        this.recordConverter = new GroupRecordConverter(this.schema);//.getRootConverter();
+        this.recordConverter = new GroupRecordConverter(this.schema).getRootConverter();
         this.createdBy = meta.getCreatedBy();
 
         this.columns = schema.getColumns()
@@ -98,25 +99,6 @@ public final class ApocParquetReader implements Closeable {
         }
     }
 
-    @Override
-    public void close() throws IOException {
-        reader.close();
-    }
-
-    public Map<String, Object> getFinish(Object[] target) {
-        this.currentRowIndex++;
-
-        return this.index.entrySet().stream()
-                .filter(e -> {
-                    try {
-                        return target[e.getValue()] != null;
-                    } catch (Exception ex) {
-                        return false;
-                    }
-                })
-                .collect(Collectors.toMap(Map.Entry::getKey, e -> toValidValue(target[e.getValue()], e.getKey(), config)));
-    }
-
     public Map<String, Object> getRecord() throws IOException {
         if (currentRowIndex == currentRowGroupSize) {
 
@@ -125,7 +107,7 @@ public final class ApocParquetReader implements Closeable {
                 return null;
             }
 
-            ColumnReadStore columnReadStore = new ColumnReadStoreImpl(rowGroup, this.recordConverter.getRootConverter(), this.schema, this.createdBy);
+            ColumnReadStore columnReadStore = new ColumnReadStoreImpl(rowGroup, this.recordConverter, this.schema, this.createdBy);
 
             this.currentRowGroupSize = rowGroup.getRowCount();
             this.currentRowGroupColumnReaders = columns.stream()
@@ -136,13 +118,25 @@ public final class ApocParquetReader implements Closeable {
 
         Object[] record = new Object[index.size()];
         for (ColumnReader columnReader: this.currentRowGroupColumnReaders) {
+            // if it's a list we have use columnReader.consume() multiple times (until columnReader.getCurrentRepetitionLevel() == 0, i.e. totally consumed)
+            // to collect the list elements
             do {
                 addRecord(record, columnReader);
                 columnReader.consume();
             } while (columnReader.getCurrentRepetitionLevel() != 0);
         }
 
-        return getFinish(record);
+        this.currentRowIndex++;
+
+        return this.index.entrySet().stream()
+                .filter(e -> {
+                    try {
+                        return record[e.getValue()] != null;
+                    } catch (Exception ex) {
+                        return false;
+                    }
+                })
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> toValidValue(record[e.getValue()], e.getKey(), config)));
     }
 
     public void addRecord(Object[] record, ColumnReader columnReader) {
@@ -164,7 +158,6 @@ public final class ApocParquetReader implements Closeable {
                     objects.add(value);
                     record[index.get(heading)] = objects;
                 } else {
-//                    List curr2 = (List) record[index.get(heading)];
                     curr2.add(value);
                 }
             } else {
@@ -173,6 +166,11 @@ public final class ApocParquetReader implements Closeable {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void close() throws IOException {
+        reader.close();
     }
 }
 

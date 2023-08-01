@@ -23,10 +23,11 @@ import java.util.stream.IntStream;
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
+import static org.junit.Assert.assertEquals;
 import static org.neo4j.configuration.GraphDatabaseSettings.TransactionStateMemoryAllocation.OFF_HEAP;
 import static org.neo4j.configuration.SettingValueParsers.BYTES;
 
-@Ignore("This test compare import/export procedures performances, we ignore it since it's slow and just log the times spent")
+//@Ignore("This test compare import/export procedures performances, we ignore it since it's slow and just log the times spent")
 public class ComparePerformancesTest {
     private static final File directory = new File("target/import");
     static { //noinspection ResultOfMethodCallIgnored
@@ -77,22 +78,19 @@ public class ComparePerformancesTest {
     }
 
     private void importParquet() {
-//        testPerformanceCommon("CALL apoc.load.parquet('/Users/giuseppevillani/Documents/Projects/neo4j-apoc-procedures/extended/target/import/test.parquet') YIELD value RETURN count(*)", "endImportParquet = ");
-        testPerformanceCommon("CALL apoc.import.parquet('/Users/giuseppevillani/Documents/Projects/neo4j-apoc-procedures/extended/target/import/test.parquet')", "endImportParquet = ");
+        testPerformanceCommon("CALL apoc.import.parquet('test.parquet')", "endImportParquet = ");
     }
 
     private void testPerformanceCommon(String call, String printTime) {
         long start = System.currentTimeMillis();
-        String s = db.executeTransactionally(call, Map.of(), Result::resultAsString);
-        System.out.println("s = " + s);
-//        TestUtil.testCall(db, call, this::progressInfoAssertion);
+        TestUtil.testCall(db, call, this::progressInfoAssertion);
         long end = System.currentTimeMillis() - start;
         System.out.println(printTime + end);
     }
 
     private void progressInfoAssertion(Map<String, Object> r) {
-//        assertEquals(1000000L, r.get("nodes"));
-//        assertEquals(500000L, r.get("relationships"));
+        assertEquals(2000000L, r.get("nodes"));
+        assertEquals(1000000L, r.get("relationships"));
     }
 
 }

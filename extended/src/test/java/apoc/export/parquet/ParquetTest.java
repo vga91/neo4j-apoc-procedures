@@ -308,8 +308,8 @@ public class ParquetTest {
 
         testCall(db, query, Map.of("file", file, "config", MAPPING_ALL),
                 r -> {
-//                    assertEquals(4L, r.get("nodes"));
-//                    assertEquals(1L, r.get("relationships"));
+                    assertEquals(4L, r.get("nodes"));
+                    assertEquals(1L, r.get("relationships"));
                 });
 
         testCall(db, "MATCH (start:User)-[rel:KNOWS]->(end:User) RETURN start, rel, end", r -> {
