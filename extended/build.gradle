@@ -109,6 +109,8 @@ dependencies {
     compileOnly group: 'org.apache.hadoop', name: 'hadoop-common', version: '3.1.0', withoutServers
 
 
+    compileOnly group: 'org.neo4j.community', name: 'it-test-support', version: neo4jVersionEffective
+
     // These dependencies affect the tests only, they will not be packaged in the resulting .jar
     testImplementation project(':test-utils')
     testImplementation project(':core')
