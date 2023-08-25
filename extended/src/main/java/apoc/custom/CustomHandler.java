@@ -4,9 +4,7 @@ import apoc.ExtendedSystemPropertyKeys;
 import apoc.SystemPropertyKeys;
 import apoc.util.SystemDbUtil;
 import apoc.util.Util;
-import apoc.uuid.UuidInfo;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
@@ -28,7 +26,6 @@ import java.util.stream.Stream;
 
 import static apoc.ExtendedSystemLabels.ApocCypherProcedures;
 import static apoc.ExtendedSystemLabels.ApocCypherProceduresMeta;
-import static apoc.ExtendedSystemLabels.ApocUuidMeta;
 import static apoc.ExtendedSystemLabels.Function;
 import static apoc.ExtendedSystemLabels.Procedure;
 import static apoc.SystemPropertyKeys.*;
@@ -37,7 +34,6 @@ import static apoc.custom.CustomProcedureInfo.convertInputSignature;
 import static apoc.custom.CustomProcedureInfo.prettyPrintType;
 import static apoc.custom.CypherProceduresHandler.*;
 import static apoc.util.SystemDbUtil.getSystemNodes;
-import static apoc.util.SystemDbUtil.setLastUpdate;
 import static apoc.util.SystemDbUtil.withSystemDb;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
 
@@ -58,9 +54,6 @@ public class CustomHandler {
             node.setProperty(mode.name(), signature.mode().name());
 
             setLastUpdate(tx, databaseName);
-
-//            registerProcedure(signature, statement);
-//            return null;
         });
     }
 
@@ -71,6 +64,7 @@ public class CustomHandler {
                     Pair.of(name.name(), signature.name().name()),
                     Pair.of(prefix.name(), signature.name().namespace())
             );
+            System.out.println("node = " + node);
             node.setProperty(description.name(), signature.description().orElse(null));
             node.setProperty(SystemPropertyKeys.statement.name(), statement);
             node.setProperty(inputs.name(), serializeSignatures(signature.inputSignature()));
@@ -92,10 +86,13 @@ public class CustomHandler {
                     .stream()
                     .map(node -> {
                         // we'll return previous uuid info
-                        CustomProcedureInfo info = getCustomProcedureInfo(node);
+                        CustomProcedureInfo info = CustomProcedureInfo.fromNode(node);
                         node.delete();
                         return info;
                     })
+                    .sorted(Comparator.comparing((CustomProcedureInfo i) -> i.name)
+                            .thenComparing(i -> i.type)
+                    )
                     .collect(Collectors.toList());
 
             setLastUpdate(tx, databaseName);
@@ -105,28 +102,11 @@ public class CustomHandler {
     }
 
     public static Stream<CustomProcedureInfo> show(String databaseName, Transaction tx) {
-        /*List<CypherProceduresHandler.ProcedureOrFunctionDescriptor> descriptors;*/
-//        return /*Stream<CypherProceduresHandler.ProcedureOrFunctionDescriptor> stream =*/ withSystemDb(apocConfig(), tx -> {
         return getCustomNodes(databaseName, tx).stream()
-                .map(CustomHandler::getCustomProcedureInfo)
+                .map(CustomProcedureInfo::fromNode)
                 .sorted(Comparator.comparing((CustomProcedureInfo i) -> i.name)
                         .thenComparing(i -> i.type)
                 );
-//        })
-//        .map(CustomProcedureInfo::getInfoFromDescriptor);
-
-//        return descriptors.stream();
-    }
-
-    // todo - in CustomProcedureInfo class
-    private static CustomProcedureInfo getCustomProcedureInfo(Node node) {
-        if (node.hasLabel(Procedure)) {
-            return getProcedureInfo(node);
-        } else if (node.hasLabel(Function)) {
-            return getFunctionInfo(node);
-        } else {
-            throw new IllegalStateException("don't know what to do with systemdb node " + node);
-        }
     }
 
     public static ResourceIterator<Node> getCustomNodes(String databaseName, Transaction tx) {
@@ -137,115 +117,21 @@ public class CustomHandler {
         return getSystemNodes(tx, databaseName, ApocCypherProcedures, props);
     }
 
-    // todo - common method in SystemDbUtils
-//    public static Stream<UuidInfo> getCustomNodesList(String databaseName, Transaction tx) {
-//        return getCustomNodes(databaseName, tx)
-//                .stream();
-//                .map(CustomProcedureInfo::fromNode);
-//    }
-
     public static CustomProcedureInfo getFunctionInfo(Node node) {
         String statement = (String) node.getProperty(SystemPropertyKeys.statement.name());
-
-        String name = (String) node.getProperty(SystemPropertyKeys.name.name());
-        String description = (String) node.getProperty(ExtendedSystemPropertyKeys.description.name(), null);
-        String[] prefix = (String[]) node.getProperty(ExtendedSystemPropertyKeys.prefix.name(), new String[]{PREFIX});
-
-        String property = (String) node.getProperty(inputs.name());
-        List<FieldSignature> inputs = deserializeSignatures(property);
-
         boolean forceSingle = (boolean) node.getProperty(ExtendedSystemPropertyKeys.forceSingle.name(), false);
+        UserFunctionSignature signature = getUserFunctionSignature(node);
 
-        UserFunctionSignature signature = new UserFunctionSignature(
-                new QualifiedName(prefix, name),
-                inputs,
-                typeof((String) node.getProperty(output.name())),
-                null,
-                description,
-                "apoc.custom",
-                false,
-                false,
-                false,
-                false
-        );
-
-//        CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor = (CypherProceduresHandler.UserFunctionDescriptor) descriptor;
-//        UserFunctionSignature signature = userFunctionDescriptor.getSignature();
-        return new CustomProcedureInfo(
-                FUNCTION,
-                signature.name().toString().substring(PREFIX.length() + 1),
-                signature.description().orElse(null),
-                null,
-                statement,
-                convertInputSignature(signature.inputSignature()),
-                prettyPrintType(signature.outputType()),
-                forceSingle);
+        return CustomProcedureInfo.getCustomFunctionInfo(signature, forceSingle, statement);
     }
 
     public static CustomProcedureInfo getProcedureInfo(Node node) {
         String statement = (String) node.getProperty(SystemPropertyKeys.statement.name());
+        ProcedureSignature signature = getProcedureSignature(node);
 
-        String name = (String) node.getProperty(SystemPropertyKeys.name.name());
-        String description = (String) node.getProperty(ExtendedSystemPropertyKeys.description.name(), null);
-        String[] prefix = (String[]) node.getProperty(ExtendedSystemPropertyKeys.prefix.name(), new String[]{PREFIX});
-
-        String property = (String) node.getProperty(ExtendedSystemPropertyKeys.inputs.name());
-        List<FieldSignature> inputs = deserializeSignatures(property);
-
-        List<FieldSignature> outputSignature = deserializeSignatures((String) node.getProperty(ExtendedSystemPropertyKeys.outputs.name()));
-
-        ProcedureSignature signature = Signatures.createProcedureSignature(
-                new QualifiedName(prefix, name),
-                inputs,
-                outputSignature,
-                Mode.valueOf((String) node.getProperty(ExtendedSystemPropertyKeys.mode.name())),
-                false,
-                null,
-                new String[0],
-                description,
-                null,
-                false,
-                false,
-                false,
-                false,
-                false);
-
-        return new CustomProcedureInfo(
-                PROCEDURE,
-                signature.name().toString().substring(PREFIX.length() + 1),
-                signature.description().orElse(null),
-                signature.mode().toString().toLowerCase(),
-                statement,
-                convertInputSignature(signature.inputSignature()),
-                Iterables.asList(Iterables.map(f -> Arrays.asList(f.name(), prettyPrintType(f.neo4jType())), signature.outputSignature())),
-                null);
-
+        return CustomProcedureInfo.getCustomProcedureInfo(signature, statement);
     }
 
-//    private static CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor(Node node) {
-//        String statement = (String) node.getProperty(SystemPropertyKeys.statement.name());
-//
-//        String name = (String) node.getProperty(SystemPropertyKeys.name.name());
-//        String description = (String) node.getProperty(SystemPropertyKeys.description.name(), null);
-//        String[] prefix = (String[]) node.getProperty(SystemPropertyKeys.prefix.name(), new String[]{PREFIX});
-//
-//        String property = (String) node.getProperty(SystemPropertyKeys.inputs.name());
-//        List<FieldSignature> inputs = deserializeSignatures(property);
-//
-//        boolean forceSingle = (boolean) node.getProperty(SystemPropertyKeys.forceSingle.name(), false);
-//        return new CypherProceduresHandler.UserFunctionDescriptor(new UserFunctionSignature(
-//                new QualifiedName(prefix, name),
-//                inputs,
-//                typeof((String) node.getProperty(SystemPropertyKeys.output.name())),
-//                null,
-//                new String[0],
-//                description,
-//                "apoc.custom",
-//                false
-//        ), statement, forceSingle);
-//    }
-
-    // todo - dropFunction
     public static void dropFunction(String databaseName, String name) {
         withSystemDb(tx -> {
             QualifiedName qName = qualifiedName(name);
@@ -261,7 +147,6 @@ public class CustomHandler {
         });
     }
 
-    // todo - dropProcedure
     public static void dropProcedure(String databaseName, String name) {
         withSystemDb(tx -> {
             QualifiedName qName = qualifiedName(name);
@@ -270,14 +155,9 @@ public class CustomHandler {
                     SystemPropertyKeys.name.name(), qName.name(),
                     prefix.name(), qName.namespace()
             ).stream().filter(n -> n.hasLabel(Procedure)).forEach(node -> {
-//                CypherProceduresHandler.ProcedureDescriptor descriptor = procedureDescriptor(node);
-//                registerProcedure(descriptor.getSignature(), null);
-//                registeredProcedureSignatures.remove(descriptor.getSignature());
                 node.delete();
-
                 setLastUpdate(tx, databaseName);
             });
-//            return null;
         });
     }
 
@@ -303,6 +183,56 @@ public class CustomHandler {
 
     private static void setLastUpdate(Transaction tx, String databaseName) {
         SystemDbUtil.setLastUpdate(tx, databaseName, ApocCypherProceduresMeta);
+    }
+
+    public static UserFunctionSignature getUserFunctionSignature(Node node) {
+        String name = (String) node.getProperty(SystemPropertyKeys.name.name());
+        String description = (String) node.getProperty(ExtendedSystemPropertyKeys.description.name(), null);
+        String[] prefix = (String[]) node.getProperty(ExtendedSystemPropertyKeys.prefix.name(), new String[]{PREFIX});
+
+        String property = (String) node.getProperty(ExtendedSystemPropertyKeys.inputs.name());
+        List<FieldSignature> inputs = deserializeSignatures(property);
+
+        UserFunctionSignature signature = new UserFunctionSignature(
+                new QualifiedName(prefix, name),
+                inputs,
+                typeof((String) node.getProperty(ExtendedSystemPropertyKeys.output.name())),
+                null,
+                description,
+                "apoc.custom",
+                false,
+                false,
+                false,
+                false
+        );
+        return signature;
+    }
+
+    public static ProcedureSignature getProcedureSignature(Node node) {
+        String name = (String) node.getProperty(SystemPropertyKeys.name.name());
+        String description = (String) node.getProperty( ExtendedSystemPropertyKeys.description.name(), null);
+        String[] prefix = (String[]) node.getProperty(ExtendedSystemPropertyKeys.prefix.name(), new String[]{PREFIX});
+
+        String property = (String) node.getProperty(ExtendedSystemPropertyKeys.inputs.name());
+        List<FieldSignature> inputs = deserializeSignatures(property);
+
+        List<FieldSignature> outputSignature = deserializeSignatures((String) node.getProperty(ExtendedSystemPropertyKeys.outputs.name()));
+        ProcedureSignature procedureSignature = Signatures.createProcedureSignature(
+                new QualifiedName(prefix, name),
+                inputs,
+                outputSignature,
+                Mode.valueOf((String) node.getProperty(ExtendedSystemPropertyKeys.mode.name())),
+                false,
+                null,
+                description,
+                null,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false);
+        return procedureSignature;
     }
 
 }

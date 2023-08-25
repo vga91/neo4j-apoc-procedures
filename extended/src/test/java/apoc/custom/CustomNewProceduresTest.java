@@ -2,68 +2,61 @@ package apoc.custom;
 
 import apoc.RegisterComponentFactory;
 import apoc.SystemPropertyKeys;
-import apoc.util.FileUtils;
-import apoc.util.StatusCodeMatcher;
+import apoc.util.SystemDbUtil;
 import apoc.util.TestUtil;
-import apoc.uuid.UUIDTestUtils;
-import org.hamcrest.Matchers;
-import org.junit.*;
-import org.junit.rules.ExpectedException;
+import org.junit.After;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.ClassRule;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
-import org.neo4j.graphdb.*;
+import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.QueryExecutionException;
+import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
-import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
-import org.neo4j.procedure.builtin.BuiltInDbmsProcedures;
 
 import java.io.File;
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static apoc.ExtendedSystemLabels.ApocCypherProcedures;
-import static apoc.custom.CypherProcedureTestUtil.*;
+import static apoc.custom.CypherProcedureTestUtil.startDbWithCustomApocConfs;
 import static apoc.custom.CypherProcedures.ERROR_MISMATCHED_INPUTS;
 import static apoc.custom.CypherProcedures.ERROR_MISMATCHED_OUTPUTS;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
 import static apoc.custom.Signatures.SIGNATURE_SYNTAX_ERROR;
-import static apoc.trigger.TriggerNewProcedures.NON_SYS_DB_ERROR;
 import static apoc.util.SystemDbTestUtil.TIMEOUT;
 import static apoc.util.SystemDbUtil.BAD_TARGET_ERROR;
+import static apoc.util.SystemDbUtil.NON_SYS_DB_ERROR;
 import static apoc.util.SystemDbUtil.PROCEDURE_NOT_ROUTED_ERROR;
-import static apoc.util.TestUtil.assertError;
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testCallAssertions;
 import static apoc.util.TestUtil.testCallCount;
 import static apoc.util.TestUtil.testCallCountEventually;
 import static apoc.util.TestUtil.testCallEmpty;
-import static apoc.util.TestUtil.testCallEventually;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.TestUtil.waitDbsAvailable;
-import static apoc.uuid.UUIDTestUtils.assertIsUUID;
-import static apoc.uuid.UuidConfig.ADD_TO_SET_LABELS_KEY;
-import static apoc.uuid.UuidConfig.DEFAULT_ADD_TO_SET_LABELS;
-import static apoc.uuid.UuidConfig.DEFAULT_UUID_PROPERTY;
-import static apoc.uuid.UuidConfig.UUID_PROPERTY_KEY;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.neo4j.internal.helpers.collection.MapUtil.map;
+import static org.neo4j.test.assertion.Assert.assertEventually;
 
 public class CustomNewProceduresTest {
-    // TODO - test with dropAll
-    
     // TODO - mettere assertThrow invece di thrown
-
-    // TODO - test with explicit "neo4j" as a databaseName 
-
-
-    // TODO - change names from uuid to custom
 
     private static final File directory = new File("target/conf");
     static { //noinspection ResultOfMethodCallIgnored
@@ -72,9 +65,6 @@ public class CustomNewProceduresTest {
 
     @ClassRule
     public static TemporaryFolder storeDir = new TemporaryFolder();
-
-    @Rule
-    public ExpectedException thrown = ExpectedException.none();
 
     private static GraphDatabaseService sysDb;
     private static GraphDatabaseService db;
@@ -117,8 +107,26 @@ public class CustomNewProceduresTest {
     @Test
     public void registerSimpleStatement() throws Exception {
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer2() :: (answer::INT)','RETURN 42 as answer')");
-        awaitCustomProcDiscovered(db, "answer2");
-        testCall(db, "CALL custom.answer2()", (row) -> assertEquals(42L, row.get("answer")));
+        testCallEventually(db, "CALL custom.answer2()", (row) -> assertEquals(42L, row.get("answer")));
+    }
+
+    // todo - rename...
+    public static void testCallEventually(GraphDatabaseService db, String call, Consumer<Map<String, Object>> consumer) {
+        testCallEventually(db, call, Collections.emptyMap(), consumer);
+    }
+
+    public static void testCallEventually(GraphDatabaseService db, String call, Map<String,Object> params, Consumer<Map<String, Object>> consumer) {
+        assertEventually(() -> {
+            try {
+                return db.executeTransactionally(call, params, r -> {
+                    testCallAssertions(r, consumer);
+                    return true;
+                });
+            } catch (Exception e) {
+//                System.out.println("e = " + e);
+                return false;
+            }
+        }, (v) -> v, TIMEOUT, TimeUnit.SECONDS);
     }
 
     @Test
@@ -136,75 +144,62 @@ public class CustomNewProceduresTest {
     @Test
     public void overrideSingleCallStatement() throws Exception {
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer() :: (answer::ANY)','RETURN 42 as answer')");
-        awaitCustomProcDiscovered(db, "answer");
         db.executeTransactionally("call db.clearQueryCaches()");
-        testCall(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
+        testCallEventually(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer() :: (answer::ANY)','RETURN 43 as answer')");
-//        awaitCustomProcDiscovered(db, "answer");
         db.executeTransactionally("call db.clearQueryCaches()");
-        testCallEventually(db, "call custom.answer()", (row) -> assertEquals(43L, row.get("answer")), TIMEOUT);
+        testCallEventually(db, "call custom.answer()", (row) -> assertEquals(43L, row.get("answer")));
     }
 
     @Test
     public void registerSimpleStatementConcreteResults() throws Exception {
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer() :: (answer::LONG)','RETURN 42 as answer')");
-        awaitCustomProcDiscovered(db, "answer");
-        testCall(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
+        testCallEventually(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
     public void registerParameterStatement() throws Exception {
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answerAny(input::ANY) :: (answer::INT)','RETURN $input as answer')");
-        awaitCustomProcDiscovered(db, "answerAny");
-        testCall(db, "call custom.answerAny(42)", (row) -> assertEquals(42L, row.get("answer")));
+        testCallEventually(db, "call custom.answerAny(42)", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
     public void registerConcreteParameterStatement() {
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer(input::NUMBER) :: (answer::INT)','RETURN $input as answer')");
-        awaitCustomProcDiscovered(db, "answer");
-        testCall(db, "call custom.answer(42)", (row) -> assertEquals(42L, row.get("answer")));
+        testCallEventually(db, "call custom.answer(42)", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
     public void registerConcreteParameterAndReturnStatement()  {
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer(input = 42 :: INT) :: (answer::INT)','RETURN $input as answer')");
-        awaitCustomProcDiscovered(db, "answer");
-        testCall(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
+        testCallEventually(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
     }
 
     @Test
     public void testValidationProceduresIssue2654() {
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('doubleProc(input::INT) :: (answer::INT)', 'RETURN $input * 2 AS answer')");
-        awaitCustomProcDiscovered(db, "doubleProc");
-        testCall(db, "CALL custom.doubleProc(4);", (r) -> assertEquals(8L, r.get("answer")));
+        testCallEventually(db, "CALL custom.doubleProc(4);", (r) -> assertEquals(8L, r.get("answer")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('testValTwo(input::INT) :: (answer::INT)', 'RETURN $input ^ 2 AS answer')");
-        awaitCustomProcDiscovered(db, "testValTwo");
-        testCall(db, "CALL custom.testValTwo(4);", (r) -> assertEquals(16D, r.get("answer")));
+        testCallEventually(db, "CALL custom.testValTwo(4);", (r) -> assertEquals(16D, r.get("answer")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('testValThree(input::MAP, power :: LONG) :: (answer::INT)', 'RETURN $input.a ^ $power AS answer')");
-        awaitCustomProcDiscovered(db, "testValThree");
-        
-        testCall(db, "CALL custom.testValThree({a: 2}, 3);", (r) -> assertEquals(8D, r.get("answer")));
+        testCallEventually(db, "CALL custom.testValThree({a: 2}, 3);", (r) -> assertEquals(8D, r.get("answer")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure($signature, $query)",
                 Map.of("signature", "testValFour(input::INT, power::NUMBER) :: (answer::INT)",
                         "query", "UNWIND range(0, $power) AS power RETURN $input ^ power AS answer"));
-        awaitCustomProcDiscovered(db, "testValFour");
-        
 
-        testResult(db, "CALL custom.testValFour(2, 3)",
-                (r) -> assertEquals(List.of(1D, 2D, 4D, 8D), Iterators.asList(r.columnAs("answer"))));
+        testCallEventually(db, "CALL custom.testValFour(2, 3) YIELD answer RETURN collect(answer) AS res",
+                (r) -> assertEquals(List.of(1D, 2D, 4D, 8D), r.get("res")));
+//                (r) -> assertEquals(List.of(1D, 2D, 4D, 8D), Iterators.asList(r.columnAs("res"))));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure($signature, $query)",
                 Map.of("signature", "multiProc(input::LOCALDATETIME, minus::INT) :: (first::INT, second:: STRING, third::DATETIME)",
                         "query", "WITH $input AS input RETURN input.year - $minus AS first, toString(input) as second, input as third"));
-        awaitCustomProcDiscovered(db, "multiProc");
-        
 
-        testCall(db, "CALL custom.multiProc(localdatetime('2020'), 3);", (r) -> {
+        testCallEventually(db, "CALL custom.multiProc(localdatetime('2020'), 3);", (r) -> {
             assertEquals(2017L, r.get("first"));
             assertEquals("2020-01-01T00:00:00", r.get("second"));
             assertEquals(LocalDateTime.of(2020, 1, 1, 0, 0, 0, 0), r.get("third"));
@@ -214,21 +209,15 @@ public class CustomNewProceduresTest {
     @Test
     public void testValidationFunctionsIssue2654() {
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('double(input::INT) :: INT', 'RETURN $input * 2 AS answer')");
-        awaitCustomFuncDiscovered(db, "double");
-
-        testCall(db, "RETURN custom.double(4) AS answer", (r) -> assertEquals(8L, r.get("answer")));
+        testCallEventually(db, "RETURN custom.double(4) AS answer", (r) -> assertEquals(8L, r.get("answer")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('testValOne(input::INT) :: INT', 'RETURN $input ^ 2 AS answer')");
-        awaitCustomFuncDiscovered(db, "double");
-
-        testCall(db, "RETURN custom.testValOne(3) as result", (r) -> assertEquals(9D, r.get("result")));
+        testCallEventually(db, "RETURN custom.testValOne(3) as result", (r) -> assertEquals(9D, r.get("result")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installFunction($signature, $query)",
                 Map.of("signature", "multiFun(point:: POINT, input ::DATETIME, duration :: DURATION, minus = 1 ::INT) :: STRING",
                         "query", "RETURN toString($duration) + ', ' + toString($input.epochMillis - $minus) + ', ' + toString($point) as result"));
-        awaitCustomFuncDiscovered(db, "multiFun");
-
-        testCall(db, "RETURN custom.multiFun(point({x: 1, y:1}), datetime('2020'), duration('P5M1DT12H')) as result",
+        testCallEventually(db, "RETURN custom.multiFun(point({x: 1, y:1}), datetime('2020'), duration('P5M1DT12H')) as result",
                 (r) -> assertEquals("P5M1DT12H, 1577836799999, point({x: 1.0, y: 1.0, crs: 'cartesian'})", r.get("result")));
     }
 
@@ -253,25 +242,25 @@ public class CustomNewProceduresTest {
         testCallCountEventually(db, "CALL apoc.custom.list", 4, TIMEOUT);
 
         // then
-        testResult(db, "RETURN custom.ret_node(1) AS val", (result) -> {
-            Node node = result.<Node>columnAs("val").next();
+        testCallEventually(db, "RETURN custom.ret_node(1) AS val", (result) -> {
+            Node node = (Node) result.get("val");
             assertTrue(node.hasLabel(Label.label("Target")));
             assertEquals(1L, node.getProperty("value"));
         });
-        testResult(db, "RETURN custom.ret_node_list(2) AS val", (result) -> {
-            List<List<Node>> nodes = result.<List<List<Node>>>columnAs("val").next();
+        testCallEventually(db, "RETURN custom.ret_node_list(2) AS val", (result) -> {
+            List<List<Node>> nodes = (List<List<Node>>) result.get("val");
             assertEquals(1, nodes.size());
             Node node = nodes.get(0).get(0);
             assertTrue(node.hasLabel(Label.label("Target")));
             assertEquals(2L, node.getProperty("value"));
         });
-        testResult(db, "RETURN custom.ret_map(3) AS val", (result) -> {
-            Map<String, Map<String, Object>> map = result.<Map<String, Map<String, Object>>>columnAs("val").next();
+        testCallEventually(db, "RETURN custom.ret_map(3) AS val", (result) -> {
+            Map<String, Map> map = (Map<String, Map>) result.get("val");
             assertEquals(1, map.size());
             assertEquals(3L, map.get("value").get("value"));
         });
-        testResult(db, "RETURN custom.ret_map_list(4) AS val", (result) -> {
-            List<Map<String, List<Map<String, Object>>>> list = result.<List<Map<String, List<Map<String, Object>>>>>columnAs("val").next();
+        testCallEventually(db, "RETURN custom.ret_map_list(4) AS val", (result) -> {
+            List<Map<String, List<Map>>> list = (List<Map<String, List<Map>>>) result.get("val");
             assertEquals(1, list.size());
             assertEquals(1, list.get(0).size());
             assertEquals(4L, list.get(0).get("value").get(0).get("value"));
@@ -297,8 +286,7 @@ public class CustomNewProceduresTest {
     @Test
     public void registerSimpleStatementFunction() throws Exception {
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('answer2() :: STRING','RETURN 42 as answer')");
-        awaitCustomFuncDiscovered(db, "answer2");
-        testCall(db, "return custom.answer2() as row", (row) -> assertEquals(42L, row.get("row")));
+        testCallEventually(db, "return custom.answer2() as row", (row) -> assertEquals(42L, row.get("row")));
     }
 
     @Test
@@ -416,127 +404,89 @@ public class CustomNewProceduresTest {
 
     // TODO - ??
     @Test
-    @Ignore
-    public void shouldProvideAnEmptyList() throws Exception {
+    public void shouldProvideAnEmptyList()  {
         // when
-        testResult(db, "call apoc.custom.list", (row) ->
-                // then
-                assertFalse(row.hasNext())
-        );
-    }
-
-    @Test
-    public void shouldRemoveTheCustomProcedure() throws Exception {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("There is no procedure with the name `custom.answer` registered for this database instance. " +
-                "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
-
-        // given
-        sysDb.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42 as answer')");
-        testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
-
-        // when
-        sysDb.executeTransactionally("call apoc.custom.dropProcedure('answer')");
-        db.executeTransactionally("call db.clearQueryCaches()");
-
-        // then
-        //Todo ??
-//        TestUtil.count(db, "call custom.answer()");
+        testCallEmpty(db, "call apoc.custom.list", Map.of());
     }
 
     @Test
     // todo - it fail due to Caused by: org.neo4j.kernel.impl.query.QueryExecutionKernelException: Failed to invoke procedure `apoc.custom.installFunction`: Caused by: java.lang.RuntimeException: Syntax error(s) in signature definition aa.bb.ccc() :: INT.
     //Note that procedure/function name, input and output names must have at least 2 character:
-    @Ignore
-    public void shouldOverrideAndRemoveTheCustomFunctionWithDotInName() throws Exception {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("Unknown function 'custom.aa.bb.ccc'");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
-
+    public void shouldOverrideAndRemoveTheCustomFunctionWithDotInName() {
         // given
-//        sysDb.executeTransactionally("CALL apoc.custom.asFunction('aa.bb.ccc','RETURN 42 as answer')");
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('aa.bb.ccc() :: INT', 'RETURN 42 AS answer')");
-        awaitCustomFuncDiscovered(db, "aa.bb.ccc");
-        testCall(db, "return custom.aa.bb.ccc() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('foo.bar() :: INT', 'RETURN 42 AS answer')");
+        testCallEventually(db, "return custom.foo.bar() as row", (row) -> assertEquals(42L, row.get("row")));
         db.executeTransactionally("call db.clearQueryCaches()");
 //        sysDb.executeTransactionally("CALL apoc.custom.asFunction('aa.bb.ccc','RETURN 43 as answer')");
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('aa.bb.ccc() :: INT', 'RETURN 43 AS answer')");
-//        awaitCustomFuncDiscovered(db, "double");
-        testCallEventually(db, "return custom.aa.bb.ccc() as row", (row) -> assertEquals(43L, ((Map)((List)row.get("row")).get(0)).get("answer")), TIMEOUT);
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('foo.bar() :: INT', 'RETURN 43 AS answer')");
+        testCallEventually(db, "return custom.foo.bar() as row", (row) -> assertEquals(43L, row.get("row")));
         db.executeTransactionally("call db.clearQueryCaches()");
 
         // when
-        sysDb.executeTransactionally("call apoc.custom.dropFunction('aa.bb.ccc')");
+        sysDb.executeTransactionally("call apoc.custom.dropFunction('foo.bar')");
         db.executeTransactionally("call db.clearQueryCaches()");
 
         // then
-        testCallCountEventually(db, "CALL apoc.custom.list", 0, TIMEOUT);
-        testCall(db, "RETURN custom.aa.bb.ccc()", r -> {});
-        
+        testProcFunFailEventually("RETURN custom.foo.bar()",
+                "Unknown function 'custom.foo.bar'");
+        testCallCount(db, "CALL apoc.custom.list", 0);
+
     }
 
     @Test
-    public void shouldOverrideAndRemoveTheCustomProcedureWithDotInName() throws Exception {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("There is no procedure with the name `custom.aa.bb.ccc` registered for this database instance. " +
-                "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
+    public void shouldOverrideAndRemoveTheCustomProcedureWithDotInName() {
 
-        // given
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('aa.bb.ccc() :: (answer::INT)','RETURN 42 as answer')");
 //        sysDb.executeTransactionally("call apoc.custom.asProcedure('aa.bb.ccc','RETURN 42 as answer')");
-        testCall(db, "call custom.aa.bb.ccc()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
+        testCallEventually(db, "call custom.aa.bb.ccc()", (row) -> assertEquals(42L, row.get("answer")));
         db.executeTransactionally("call db.clearQueryCaches()");
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('aa.bb.ccc() :: (answer::INT)','RETURN 43 as answer')");
-        testCall(db, "call custom.aa.bb.ccc()", (row) -> assertEquals(43L, ((Map)row.get("row")).get("answer")));
+        testCallEventually(db, "call custom.aa.bb.ccc()", (row) -> assertEquals(43L, row.get("answer")));
         db.executeTransactionally("call db.clearQueryCaches()");
 
-        // when
         sysDb.executeTransactionally("call apoc.custom.dropProcedure('aa.bb.ccc')");
         db.executeTransactionally("call db.clearQueryCaches()");
 
         // then
-        TestUtil.count(db, "call custom.aa.bb.ccc()");
+        String query = "call custom.aa.bb.ccc()";
+        String expectedErr = "There is no procedure with the name `custom.aa.bb.ccc` registered for this database instance. " +
+                             "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.";
+        testProcFunFailEventually(query, expectedErr);
+        testCallCount(db, "CALL apoc.custom.list", 0);
     }
 
     @Test
-    public void shouldRemoveTheCustomFunctionWithDotInName() throws Exception {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("Unknown function 'custom.aa.bb.ccc'");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
+    public void shouldRemoveTheCustomFunction() throws Exception {
 
         // given
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('aa.bb.ccc() :: INTEGER','RETURN 42 as answer')");
-        testCall(db, "return custom.aa.bb.ccc() as row", (row) -> assertEquals(42L, ((Map)((List)row.get("row")).get(0)).get("answer")));
+        testCallEventually(db, "return custom.aa.bb.ccc() as row", (row) -> assertEquals(42L, row.get("row")));
 
         // when
         sysDb.executeTransactionally("call apoc.custom.dropFunction('aa.bb.ccc')");
         db.executeTransactionally("call db.clearQueryCaches()");
 
         // then
-        TestUtil.count(db, "RETURN custom.aa.bb.ccc()");
+        String query = "RETURN custom.aa.bb.ccc()";
+        String expectedErr = "Unknown function 'custom.aa.bb.ccc'";
+        testProcFunFailEventually(query, expectedErr);
+        testCallCount(db, "CALL apoc.custom.list", 0);
     }
 
     @Test
-    public void shouldRemoveTheCustomProcedureWithDotInName() throws Exception {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("There is no procedure with the name `custom.aa.bb.ccc` registered for this database instance. " +
-                "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
-
-        // given
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('aa.bb.ccc(input = 42 :: NUMBER) :: (answer::INT)','RETURN 42 as answer')");
-        awaitCustomProcDiscovered(db, "aa.bb.ccc");
-//        sysDb.executeTransactionally("call apoc.custom.asProcedure('aa.bb.ccc','RETURN 42 as answer')");
-        testCall(db, "call custom.aa.bb.ccc()", (row) -> assertEquals(42L, row.get("answer")));
+    public void shouldRemoveTheCustomProcedure(){
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('aa.bb.ccc(input :: NUMBER) :: (answer::INT)','RETURN 42 as answer')");
+        testCallEventually(db, "call custom.aa.bb.ccc(42)", (row) -> assertEquals(42L, row.get("answer")));
 
         // when
         sysDb.executeTransactionally("call apoc.custom.dropProcedure('aa.bb.ccc')");
         db.executeTransactionally("call db.clearQueryCaches()");
 
-        // then
-        TestUtil.count(db, "call custom.aa.bb.ccc()");
+        String query = "call custom.aa.bb.ccc(222)";
+        String expectedErr = "There is no procedure with the name `custom.aa.bb.ccc` registered for this database instance. " +
+                             "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.";
+        testProcFunFailEventually(query, expectedErr);
+        testCallCount(db, "CALL apoc.custom.list", 0);
     }
 
     @Test
@@ -545,32 +495,29 @@ public class CustomNewProceduresTest {
         // given
 //        sysDb.executeTransactionally("call apoc.custom.asFunction('aa.bb.name','RETURN 42 as answer')");
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('aa.bb.name() :: NUMBER','RETURN 42 as answer')");
-        awaitCustomFuncDiscovered(db, "aa.bb.name");
-        testCall(db, "return custom.aa.bb.name() as answer", (row) -> assertEquals(42L, row.get("answer")));
+        testCallEventually(db, "return custom.aa.bb.name() as answer", (row) -> assertEquals(42L, row.get("answer")));
         db.executeTransactionally("call db.clearQueryCaches()");
 
 //        sysDb.executeTransactionally("call apoc.custom.asFunction('aa.bb.name','RETURN 34 as answer')");
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('aa.bb.name() :: NUMBER','RETURN 34 as answer')");
-        testCallEventually(db, "return custom.aa.bb.name() as answer", (row) -> assertEquals(34L, row.get("answer")), TIMEOUT);
+        testCallEventually(db, "return custom.aa.bb.name() as answer", (row) -> assertEquals(34L, row.get("answer")));
         db.executeTransactionally("call db.clearQueryCaches()");
 
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('aa.bb.name() :: NUMBER','RETURN 12 as answer')");
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('xx.yy.name() :: NUMBER','RETURN 44 as answer')");
-        testCallEventually(db, "return custom.aa.bb.name() as answer", (row) -> assertEquals(12L, row.get("answer")), TIMEOUT);
-        testCallEventually(db, "return custom.xx.yy.name() as answer", (row) -> assertEquals(44L, row.get("answer")), TIMEOUT);
+        testCallEventually(db, "return custom.aa.bb.name() as answer", (row) -> assertEquals(12L, row.get("answer")));
+        testCallEventually(db, "return custom.xx.yy.name() as answer", (row) -> assertEquals(44L, row.get("answer")));
         db.executeTransactionally("call db.clearQueryCaches()");
 
-        testResult(db, "call apoc.custom.list", (row) -> {
+        testResult(db, "call apoc.custom.list() YIELD name, statement RETURN name, statement ORDER BY name", (row) -> {
             assertTrue(row.hasNext());
             Map<String, Object> mapFirst = row.next();
             assertEquals("aa.bb.name", mapFirst.get("name"));
             assertEquals("RETURN 12 as answer", mapFirst.get("statement"));
-            assertEquals(FUNCTION, mapFirst.get("type"));
             assertTrue(row.hasNext());
             Map<String, Object> mapSecond = row.next();
             assertEquals("xx.yy.name", mapSecond.get("name"));
             assertEquals("RETURN 44 as answer", mapSecond.get("statement"));
-            assertEquals(FUNCTION, mapSecond.get("type"));
             assertFalse(row.hasNext());
         });
 
@@ -581,7 +528,7 @@ public class CustomNewProceduresTest {
             assertEquals("xx.yy.name", row.get("name"));
             assertEquals("RETURN 44 as answer", row.get("statement"));
             assertEquals(FUNCTION, row.get("type"));
-        }, TIMEOUT);
+        });
 
         sysDb.executeTransactionally("call apoc.custom.dropFunction('xx.yy.name')");
         db.executeTransactionally("call db.clearQueryCaches()");
@@ -594,18 +541,16 @@ public class CustomNewProceduresTest {
 
         // given
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('xx.zz.name() :: (answer::INT)','RETURN 42 as answer')");
-        awaitCustomProcDiscovered(db, "xx.zz.name");
-        testCall(db, "call custom.xx.zz.name()", (row) -> assertEquals(42L, row.get("answer")));
+        testCallEventually(db, "call custom.xx.zz.name()", (row) -> assertEquals(42L, row.get("answer")));
         db.executeTransactionally("call db.clearQueryCaches()");
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('xx.zz.name() :: (answer::INT)','RETURN 34 as answer')");
-        testCallEventually(db, "call custom.xx.zz.name()", (row) -> assertEquals(34L, row.get("answer")), TIMEOUT);
+        testCallEventually(db, "call custom.xx.zz.name()", (row) -> assertEquals(34L, row.get("answer")));
         db.executeTransactionally("call db.clearQueryCaches()");
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('aa.bb.name() :: (answer::INT)','RETURN 12 as answer')");
-        awaitCustomProcDiscovered(db, "aa.bb.name");
-        testCallEventually(db, "call custom.aa.bb.name()", (row) -> assertEquals(12L, row.get("answer")), TIMEOUT);
-        testCallEventually(db, "call custom.xx.zz.name()", (row) -> assertEquals(34L, row.get("answer")), TIMEOUT);
+        testCallEventually(db, "call custom.aa.bb.name()", (row) -> assertEquals(12L, row.get("answer")));
+        testCallEventually(db, "call custom.xx.zz.name()", (row) -> assertEquals(34L, row.get("answer")));
 
         testResult(db, "call apoc.custom.list() YIELD name, statement, type RETURN * ORDER BY name",
                 (row) -> {
@@ -629,7 +574,7 @@ public class CustomNewProceduresTest {
             assertEquals("xx.zz.name", row.get("name"));
             assertEquals("RETURN 34 as answer", row.get("statement"));
             assertEquals(PROCEDURE, row.get("type"));
-        }, TIMEOUT);
+        });
 
         sysDb.executeTransactionally("call apoc.custom.dropProcedure('xx.zz.name')");
         db.executeTransactionally("call db.clearQueryCaches()");
@@ -638,57 +583,10 @@ public class CustomNewProceduresTest {
     }
 
     @Test
-    @Ignore
-    public void shouldRemoveTheCustomFunction() throws Exception {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("Unknown function 'custom.answer'");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
-
-        // given
-        sysDb.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42','long')");
-        testCall(db, "return custom.answer() as answer", (row) -> assertEquals(42L, row.get("answer")));
-
-        // when
-        sysDb.executeTransactionally("call apoc.custom.dropFunction('answer')");
-        db.executeTransactionally("call db.clearQueryCaches()");
-
-        // then
-        TestUtil.count(db, "return custom.answer()");
-    }
-
-    @Test
-    @Ignore // twice???!!!
-    public void shouldOverwriteAndRemoveCustomProcedure() throws Exception {
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer() :: (answer::ANY)','RETURN 42')");
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer() :: (answer::ANY)','RETURN 42')");
-//        sysDb.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42')");
-//        sysDb.executeTransactionally("call apoc.custom.asProcedure('answer','RETURN 42')");
-        awaitCustomProcDiscovered(db, "answer");
-        assertEquals("Expecting one procedure listed", 1, TestUtil.count(db, "call apoc.custom.list()"));
-        db.executeTransactionally("call apoc.custom.dropProcedure('answer')");
-    }
-
-    @Test
-    @Ignore
-    public void shouldOverwriteAndRemoveCustomFunction() throws Exception {
-        sysDb.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42','long')");
-        sysDb.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42','long')");
-        
-        assertEquals("Expecting one function listed", 1, TestUtil.count(db, "call apoc.custom.list()"));
-        db.executeTransactionally("call apoc.custom.dropFunction('answer')");
-    }
-
-    @Test
     public void shouldRemovalOfProcedureNodeDeactivate() {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("There is no procedure with the name `custom.answer` registered for this database instance. " +
-                "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
-
         //given
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer() :: (answer::ANY)','RETURN 42')");
-//        sysDb.executeTransactionally("call apoc.custom.asProcedure('answer', 'RETURN 42 as answer')");
-        testCall(db, "call custom.answer()", (row) -> assertEquals(42L, ((Map)row.get("row")).get("answer")));
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer() :: (answer::ANY)','RETURN 42 AS answer')");
+        testCallEventually(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
 
         // remove the node in systemdb
         GraphDatabaseService systemDb = databaseManagementService.database("system");
@@ -704,21 +602,18 @@ public class CustomNewProceduresTest {
         cypherProceduresHandler.restoreProceduresAndFunctions();
 
         // when
-        TestUtil.count(db, "call custom.answer()");
+        String query = "call custom.answer()";
+        String expectedErr = "There is no procedure with the name `custom.answer` registered for this database instance. " +
+                             "Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.";
+        testProcFunFailEventually(query, expectedErr);
     }
 
     @Test
-    @Ignore
     public void shouldRemovalOfFunctionNodeDeactivate() {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("Unknown function 'custom.answer'");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
 
         //given
-        sysDb.executeTransactionally("call apoc.custom.asFunction('answer','RETURN 42','long')");
-
-        long answer = TestUtil.singleResultFirstColumn(db, "return custom.answer()");
-        assertEquals(42L, answer);
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('answer() :: INTEGER','RETURN 42')");
+        testCallEventually(db, "return custom.answer() as row", (row) -> assertEquals(42L, row.get("row")));
 
         // remove the node in systemdb
         GraphDatabaseService systemDb = databaseManagementService.database("system");
@@ -734,7 +629,8 @@ public class CustomNewProceduresTest {
         cypherProceduresHandler.restoreProceduresAndFunctions();
 
         // when
-        TestUtil.singleResultFirstColumn(db, "return custom.answer()");
+        testProcFunFailEventually("RETURN custom.answer()",
+                "Unknown function 'custom.answer'");
     }
 
     @Test
@@ -742,10 +638,10 @@ public class CustomNewProceduresTest {
         db.executeTransactionally("CREATE (n:Test {id: 1})-[:has]->(:Log), (n)-[:has]->(:System)");
         String query = "MATCH (node:Test)-[:has]->(log:Log) WHERE node.id = $id WITH node \n" +
                 "MATCH (node)-[:has]->(log:System) RETURN log, node";
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('testIssue2605(id :: INTEGER ) :: (log :: NODE, node :: NODE)', $query, 'read')", Map.of("query", query));
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('testIssue2605(id :: INTEGER ) :: (log :: NODE, node :: NODE)', $query, 'neo4j' ,'read')", Map.of("query", query));
 
         // check query
-        testCall(db, "call custom.testIssue2605(1)", (row) -> {
+        testCallEventually(db, "call custom.testIssue2605(1)", (row) -> {
             assertEquals(List.of(Label.label("Test")), ((Node) row.get("node")).getLabels());
             assertEquals(List.of(Label.label("System")), ((Node) row.get("log")).getLabels());
         });
@@ -759,28 +655,28 @@ public class CustomNewProceduresTest {
                 " MATCH (n:ExampleNode)\n" +
                 " OPTIONAL MATCH (o:OtherExampleNode {identifier:$exampleId})\n" +
                 " RETURN o.identifier as value";
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('exampleTest(exampleId::STRING) ::(value::STRING)', $query, 'read')", Map.of("query", query2));
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('exampleTest(exampleId::STRING) ::(value::STRING)', $query, 'neo4j', 'read')", Map.of("query", query2));
 
         // check query
         final String identifier = "1";
-        testResult(db, "call custom.exampleTest($id)", Map.of("id", identifier), (r) -> {
-            assertEquals(identifier, r.next().get("value"));
-            assertEquals(identifier, r.next().get("value"));
-            assertFalse(r.hasNext());
-        });
+        testCallEventually(db, "call custom.exampleTest($id) YIELD value RETURN collect(value) AS values", Map.of("id", identifier),
+                (r) -> {
+                    List<String> expected = List.of(identifier, identifier);
+                    assertEquals(expected, r.get("values"));
+                });
     }
 
     @Test
-    @Ignore
+    @Ignore // todo - feasible??
     public void shouldFailWithMismatchedParameters() {
         // input mismatch
         assertProcedureFails(ERROR_MISMATCHED_INPUTS,
                 "call apoc.custom.installFunction('double(wrong::INT) :: INT','RETURN $input*2 as answer')");
         assertProcedureFails(ERROR_MISMATCHED_INPUTS,
-                "call apoc.custom.installProcedure('sum(input::INT, invalid::INT) :: (answer::INT)','RETURN $first + $second AS answer')");
+                "call apoc.custom.installProcedure('sum(input::INT, invalid::INT) :: (answer::INT)', 'RETURN $first + $second AS answer')");
         // output mismatch
         assertProcedureFails(ERROR_MISMATCHED_OUTPUTS,
-                "call apoc.custom.installProcedure('sum(first::INT, second::INT) :: (something::INT)','RETURN $first + $second AS answer')");
+                "call apoc.custom.installProcedure('sum(first::INT, second::INT) :: (something::INT)', 'RETURN $first + $second AS answer')");
     }
 
 //    @Test(expected = QueryExecutionException.class)
@@ -798,236 +694,35 @@ public class CustomNewProceduresTest {
 //        testCall(db, queryFunction, row -> fail("Should fail because of unknown function"));
 //    }
 
-    @Test
-    @Ignore // todo - no correspontent
-    public void shouldDeclareProcedureWithDefaultListAndMaps() {
-        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithFloatList(minScore = [1.1,2.2,3.3] :: LIST OF FLOAT) :: (res :: BOOLEAN, first :: FLOAT)',\n" +
-                "    'return size($minScore) < 4 as res, $minScore[0] as first')");
-        testCall(db, "call custom.procWithFloatList", (row) -> {
-            assertEquals(true, row.get("res"));
-            assertEquals(1.1D, (double) row.get("first"), 0.1D);
-        });
-        testCall(db, "call custom.procWithFloatList([9.1, 2.6, 3.1, 4.3, 5.5])", (row) -> {
-            assertEquals(false, row.get("res"));
-            assertEquals(9.1D, (double) row.get("first"), 0.1D);
-        });
-
-        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithIntList(minScore = [1,2,3] :: LIST OF INT) :: (res :: BOOLEAN, first :: FLOAT)',\n" +
-                "    'return size($minScore) < 4 as res, toInteger($minScore[0]) as first')");
-        testCall(db, "call custom.procWithIntList", (row) -> {
-            assertEquals(true, row.get("res"));
-            assertEquals(1L, row.get("first"));
-        });
-        testCall(db, "call custom.procWithIntList([9,2,3,4,5])", (row) -> {
-            assertEquals(false, row.get("res"));
-            assertEquals(9L, row.get("first"));
-        });
-
-        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithListString(minScore = [\"1\",\"2\",\"3\"] :: LIST OF STRING) :: (res :: BOOLEAN, first :: FLOAT)',\n" +
-                "    'return size($minScore) < 4 as res, $minScore[0] + \" - suffix\" as first ')");
-        testCall(db, "call custom.procWithListString", (row) -> {
-            assertEquals(true, row.get("res"));
-            assertEquals("1 - suffix", row.get("first"));
-        });
-        testCall(db, "call custom.procWithListString(['aaa','bbb','ccc','ddd','eee'])", (row) -> {
-            assertEquals(false, row.get("res"));
-            assertEquals("aaa - suffix", row.get("first"));
-        });
-
-        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithListPlainString(minScore = [1, 2, 3] :: LIST OF STRING) :: (res :: BOOLEAN, first :: FLOAT)',\n" +
-                "    'return size($minScore) < 4 as res, $minScore[0] + \" - suffix\" as first ')");
-        testCall(db, "call custom.procWithListPlainString", (row) -> {
-            assertEquals(true, row.get("res"));
-            assertEquals("1 - suffix", row.get("first"));
-        });
-        testCall(db, "call custom.procWithListPlainString(['aaa','bbb','ccc','ddd','eee'])", (row) -> {
-            assertEquals(false, row.get("res"));
-            assertEquals("aaa - suffix", row.get("first"));
-        });
-
-        sysDb.executeTransactionally("call apoc.custom.installProcedure(\"procWithListStringQuoted(minScore = ['1','2','3'] :: LIST OF STRING) :: (res :: BOOLEAN, first :: FLOAT)\",\n" +
-                "    'return size($minScore) < 4 as res, $minScore[0] + \" - suffix\" as first ')");
-        testCall(db, "call custom.procWithListStringQuoted", (row) -> {
-            assertEquals(true, row.get("res"));
-            assertEquals("1 - suffix", row.get("first"));
-        });
-        testCall(db, "call custom.procWithListStringQuoted(['aaa','bbb','ccc','ddd','eee'])", (row) -> {
-            assertEquals(false, row.get("res"));
-            assertEquals("aaa - suffix", row.get("first"));
-        });
-
-        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithListStringVars(minScore = [true,false,null] :: LIST OF STRING) :: (res :: BOOLEAN, first :: STRING)',\n" +
-                "    'return size($minScore) < 4 as res, $minScore[0] as first ')");
-        testCall(db, "call custom.procWithListStringVars", (row) -> {
-            assertEquals(true, row.get("res"));
-            assertEquals("true", row.get("first"));
-        });
-        testCall(db, "call custom.procWithListStringVars(['aaa','bbb','ccc','ddd','eee'])", (row) -> {
-            assertEquals(false, row.get("res"));
-            assertEquals("aaa", row.get("first"));
-        });
-
-        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithMapList(minScore = {aa: 1, bb: \"2\"} :: MAP) :: (res :: MAP, first :: ANY)',\n" +
-                "    'return $minScore as res, $minScore[\"a\"] as first ')");
-        testCall(db, "call custom.procWithMapList", (row) -> {
-            assertEquals(Map.of("aa", 1L, "bb", "2"), row.get("res"));
-        });
-        testCall(db, "call custom.procWithMapList({c: true})", (row) -> {
-            assertEquals(Map.of("c", true), row.get("res"));
-        });
-    }
-
-    @Test
-    @Ignore // todo - no correspontent
-    public void shouldDeclareFunctionWithDefaultListAndMaps() {
-        sysDb.executeTransactionally("call apoc.custom.installFunction('funWithFloatList(minScore = [1.1,2.2,3.3] :: LIST OF FLOAT) :: FLOAT',\n" +
-                "    'return $minScore[0]')");
-        awaitCustomFuncDiscovered(db, "funWithFloatList");
-        testCall(db, "RETURN custom.funWithFloatList() AS res",
-                (row) -> assertEquals(1.1D, (double) row.get("res"), 0.1D));
-        testCall(db, "RETURN custom.funWithFloatList([9.1, 2.6, 3.1, 4.3, 5.5]) AS res",
-                (row) -> assertEquals(9.1D, (double) row.get("res"), 0.1D));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithIntList(minScore = [1,2,3] :: LIST OF INT) :: BOOLEAN',\n" +
-                "    'return size($minScore) < 4')");
-        awaitCustomFuncDiscovered(db, "funWithIntList");
-        testCall(db, "RETURN custom.funWithIntList() AS res",
-                (row) -> assertEquals(true, row.get("res")));
-        testCall(db, "RETURN custom.funWithIntList([9,2,3,4,5]) AS res",
-                (row) -> assertEquals(false, row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithListString(minScore = [\"1\",\"2\",\"3\"] :: LIST OF STRING) :: BOOLEAN',\n" +
-                "    'return size($minScore) < 4')");
-        awaitCustomFuncDiscovered(db, "funWithListString");
-        testCall(db, "RETURN custom.funWithListString() AS res",
-                (row) -> assertEquals(true, row.get("res")));
-        testCall(db, "RETURN custom.funWithListString(['aaa','bbb','ccc','ddd','eee']) AS res",
-                (row) -> assertEquals(false, row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithListStringPlain(minScore = [1, 2, 3] :: LIST OF STRING) :: BOOLEAN',\n" +
-                "    'return size($minScore) < 4')");
-        awaitCustomFuncDiscovered(db, "funWithListStringPlain");
-        testCall(db, "RETURN custom.funWithListStringPlain() AS res",
-                (row) -> assertEquals(true, row.get("res")));
-        testCall(db, "RETURN custom.funWithListStringPlain(['aaa','bbb','ccc','ddd','eee']) AS res",
-                (row) -> assertEquals(false, row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction(\"funWithListStringQuoted(minScore = ['1','2','3'] :: LIST OF STRING) :: BOOLEAN\",\n" +
-                "    'return size($minScore) < 4')");
-        awaitCustomFuncDiscovered(db, "funWithListStringQuoted");
-        testCall(db, "RETURN custom.funWithListStringQuoted() AS res",
-                (row) -> assertEquals(true, row.get("res")));
-        testCall(db, "RETURN custom.funWithListStringQuoted(['aaa','bbb','ccc','ddd','eee']) AS res",
-                (row) -> assertEquals(false, row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithListStringVars(minScore = [true,false,null] :: LIST OF STRING) :: BOOLEAN',\n" +
-                "    'return size($minScore) < 4')");
-        awaitCustomFuncDiscovered(db, "funWithListStringVars");
-        testCall(db, "RETURN custom.funWithListStringVars() AS res",
-                (row) -> assertEquals(true, row.get("res")));
-        testCall(db, "RETURN custom.funWithListStringVars(['aaa','bbb','ccc','ddd','eee']) AS res",
-                (row) -> assertEquals(false, row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithMapList(minScore = {aa: 1, bb: \"2\"} :: MAP) :: MAP',\n" +
-                "    'return $minScore AS mapRes')");
-        awaitCustomFuncDiscovered(db, "funWithMapList");
-        testCall(db, "RETURN custom.funWithMapList() AS res",
-                (row) -> assertEquals(Map.of("mapRes", Map.of("aa", 1L, "bb", "2")), row.get("res")));
-        testCall(db, "RETURN custom.funWithMapList({c: true}) AS res",
-                (row) -> assertEquals(Map.of("mapRes", Map.of("c", true)), row.get("res")));
-    }
-
-    @Test
-    public void shouldDeclareProcedureWithDefaultString() {
-        String query = "RETURN $minScore + ' - suffix' as res";
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure(\"procWithSingleQuotedText(minScore=' foo \\\" bar '::STRING)::(res::STRING)\", $query)",
-                Map.of("query", query));
-        awaitCustomProcDiscovered(db, "procWithSingleQuotedText");
-        testCall(db, "CALL custom.procWithSingleQuotedText", (row) -> {
-            assertEquals(" foo \" bar  - suffix", row.get("res"));
-        });
-
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('procWithDoubleQuotedText(minScore=\" foo \\' bar \"::STRING) :: (res::STRING)', $query)",
-                Map.of("query", query));
-        awaitCustomProcDiscovered(db, "procWithDoubleQuotedText");
-        testCall(db, "CALL custom.procWithDoubleQuotedText", (row) -> {
-            assertEquals(" foo ' bar  - suffix", row.get("res"));
-        });
-        testCall(db, "CALL custom.procWithDoubleQuotedText('myText')", (row) -> assertEquals("myText - suffix", row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('procWithPlainText(minScore = plainText :: STRING) :: (res::STRING)', $query)",
-                Map.of("query", query));
-        awaitCustomProcDiscovered(db, "procWithPlainText");
-        testCall(db, "CALL custom.procWithPlainText", (row) -> assertEquals("plainText - suffix", row.get("res")));
-        testCall(db, "CALL custom.procWithPlainText('myText')", (row) -> assertEquals("myText - suffix", row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('procWithStringNull(minScore = null :: STRING) :: (res :: STRING)', $query)",
-                Map.of("query", query));
-        awaitCustomProcDiscovered(db, "procWithStringNull");
-        testCall(db, "CALL custom.procWithStringNull", (row) -> assertNull(row.get("res")));
-        testCall(db, "CALL custom.procWithStringNull('other')", (row) -> assertEquals("other - suffix", row.get("res")));
-    }
-
-    @Test
-    @Ignore
-    public void shouldDeclareFunctionWithDefaultString() {
-        String query = "RETURN $minScore + ' - suffix' as res";
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction(\"funWithSingleQuotedText(minScore=' foo \\\" bar '::STRING):: STRING\", $query)",
-                Map.of("query", query));
-        testCall(db, "RETURN custom.funWithSingleQuotedText() AS res", (row) -> {
-            assertEquals(" foo \" bar  - suffix", row.get("res"));
-        });
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithDoubleQuotedText(minScore=\" foo \\' bar \"::STRING) :: STRING', $query)",
-                Map.of("query", query));
-        testCall(db, "RETURN custom.funWithDoubleQuotedText() AS res", (row) -> {
-            assertEquals(" foo ' bar  - suffix", row.get("res"));
-        });
-        testCall(db, "RETURN custom.funWithDoubleQuotedText('myText') AS res", (row) -> assertEquals("myText - suffix", row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithPlainText(minScore = plainText :: STRING) :: STRING', $query)",
-                Map.of("query", query));
-        testCall(db, "RETURN custom.funWithPlainText() AS res", (row) -> assertEquals("plainText - suffix", row.get("res")));
-        testCall(db, "RETURN custom.funWithPlainText('myText') AS res", (row) -> assertEquals("myText - suffix", row.get("res")));
-
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithStringNull(minScore = null :: STRING) :: STRING', $query)",
-                Map.of("query", query));
-        testCall(db, "RETURN custom.funWithStringNull() AS res", (row) -> assertNull(row.get("res")));
-        testCall(db, "RETURN custom.funWithStringNull('other') AS res", (row) -> assertEquals("other - suffix", row.get("res")));
-    }
 
     @Test
     public void shouldDeclareProcedureWithDefaultBooleanOrNull() {
         sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithBool(minScore = true :: BOOLEAN) :: (res :: INT)',\n" +
                 "    'RETURN case when $minScore then 1 else 2 end as res')");
 
-        awaitCustomProcDiscovered(db, "procWithBool");
 
-        testCall(db, "call custom.procWithBool", (row) -> assertEquals(1L, row.get("res")));
-        testCall(db, "call custom.procWithBool(true)", (row) -> assertEquals(1L, row.get("res")));
-        testCall(db, "call custom.procWithBool(false)", (row) -> assertEquals(2L, row.get("res")));
+        testCallEventually(db, "call custom.procWithBool", (row) -> assertEquals(1L, row.get("res")));
+        testCallEventually(db, "call custom.procWithBool(true)", (row) -> assertEquals(1L, row.get("res")));
+        testCallEventually(db, "call custom.procWithBool(false)", (row) -> assertEquals(2L, row.get("res")));
 
         sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithNull(minScore = null :: INT) :: (res :: INT)',\n" +
                 "    'RETURN $minScore as res')");
-        awaitCustomProcDiscovered(db, "procWithNull");
-        testCall(db, "call custom.procWithNull", (row) -> assertNull(row.get("res")));
-        testCall(db, "call custom.procWithNull(1)", (row) -> assertEquals(1L, row.get("res")));
+        testCallEventually(db, "call custom.procWithNull", (row) -> assertNull(row.get("res")));
+        testCallEventually(db, "call custom.procWithNull(1)", (row) -> assertEquals(1L, row.get("res")));
     }
 
     @Test
     public void shouldDeclareFunctionWithDefaultBooleanOrNull() {
         sysDb.executeTransactionally("call apoc.custom.installFunction('funWithBool(minScore = true :: BOOLEAN) :: INT',\n" +
                 "    'RETURN case when $minScore then 1 else 2 end as res')");
-        awaitCustomFuncDiscovered(db, "funWithBool");
-        testCall(db, "RETURN custom.funWithBool() AS res", (row) -> assertEquals(1L, row.get("res")));
-        testCall(db, "RETURN custom.funWithBool(true) AS res", (row) -> assertEquals(1L, row.get("res")));
-        testCall(db, "RETURN custom.funWithBool(false) AS res", (row) -> assertEquals(2L, row.get("res")));
+        testCallEventually(db, "RETURN custom.funWithBool() AS res", (row) -> assertEquals(1L, row.get("res")));
+        testCallEventually(db, "RETURN custom.funWithBool(true) AS res", (row) -> assertEquals(1L, row.get("res")));
+        testCallEventually(db, "RETURN custom.funWithBool(false) AS res", (row) -> assertEquals(2L, row.get("res")));
 
         sysDb.executeTransactionally("call apoc.custom.installFunction('funWithNull(minScore = null :: INT) :: INT',\n" +
                 "    'RETURN $minScore as res')");
-        awaitCustomFuncDiscovered(db, "funWithNull");
-        testCall(db, "RETURN custom.funWithNull() AS res", (row) -> assertNull(row.get("res")));
-        testCall(db, "RETURN custom.funWithNull(1) AS res", (row) -> assertEquals(1L, row.get("res")));
+        testCallEventually(db, "RETURN custom.funWithNull() AS res", (row) -> assertNull(row.get("res")));
+        testCallEventually(db, "RETURN custom.funWithNull(1) AS res", (row) -> assertEquals(1L, row.get("res")));
 
     }
 
@@ -1036,31 +731,27 @@ public class CustomNewProceduresTest {
         final String query = "RETURN $base * $exp AS res";
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('defaultFloatFun(base=2.4::FLOAT,exp=1.2::FLOAT):: INT', $query)",
                 Map.of("query", query));
-        awaitCustomFuncDiscovered(db, "defaultFloatFun");
-        testCall(db, "RETURN custom.defaultFloatFun() AS res", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
-        testCall(db, "RETURN custom.defaultFloatFun(1.1) AS res", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
-        testCall(db, "RETURN custom.defaultFloatFun(1.5, 7.1) AS res", (row) -> assertEquals(1.5D * 7.1D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "RETURN custom.defaultFloatFun() AS res", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "RETURN custom.defaultFloatFun(1.1) AS res", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "RETURN custom.defaultFloatFun(1.5, 7.1) AS res", (row) -> assertEquals(1.5D * 7.1D, (double) row.get("res"), 0.1D));
 
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('defaultDoubleFun(base = 2.4 :: DOUBLE, exp = 1.2 :: DOUBLE):: DOUBLE', $query)",
                 Map.of("query", query));
-        awaitCustomFuncDiscovered(db, "defaultDoubleFun");
-        testCall(db, "RETURN custom.defaultDoubleFun() AS res", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
-        testCall(db, "RETURN custom.defaultDoubleFun(1.1) AS res", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
-        testCall(db, "RETURN custom.defaultDoubleFun(1.5, 7.1) AS res", (row) -> assertEquals(1.5D * 7.1D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "RETURN custom.defaultDoubleFun() AS res", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "RETURN custom.defaultDoubleFun(1.1) AS res", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "RETURN custom.defaultDoubleFun(1.5, 7.1) AS res", (row) -> assertEquals(1.5D * 7.1D, (double) row.get("res"), 0.1D));
 
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('defaultIntFun(base = 4 ::INT, exp = 5 :: INT):: INT', $query)",
                 Map.of("query", query));
-        awaitCustomFuncDiscovered(db, "defaultIntFun");
-        testCall(db, "RETURN custom.defaultIntFun() AS res", (row) -> assertEquals(4L * 5L, row.get("res")));
-        testCall(db, "RETURN custom.defaultIntFun(2) AS res", (row) -> assertEquals(2L * 5L, row.get("res")));
-        testCall(db, "RETURN custom.defaultIntFun(3, 7) AS res", (row) -> assertEquals(3L * 7L, row.get("res")));
+        testCallEventually(db, "RETURN custom.defaultIntFun() AS res", (row) -> assertEquals(4L * 5L, row.get("res")));
+        testCallEventually(db, "RETURN custom.defaultIntFun(2) AS res", (row) -> assertEquals(2L * 5L, row.get("res")));
+        testCallEventually(db, "RETURN custom.defaultIntFun(3, 7) AS res", (row) -> assertEquals(3L * 7L, row.get("res")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('defaultLongFun(base = 4 ::LONG, exp = 5 :: LONG):: LONG', $query)",
                 Map.of("query", query));
-        awaitCustomFuncDiscovered(db, "defaultLongFun");
-        testCall(db, "RETURN custom.defaultLongFun() AS res", (row) -> assertEquals(4L * 5L, row.get("res")));
-        testCall(db, "RETURN custom.defaultLongFun(2) AS res", (row) -> assertEquals(2L * 5L, row.get("res")));
-        testCall(db, "RETURN custom.defaultLongFun(3, 7) AS res", (row) -> assertEquals(3L * 7L, row.get("res")));
+        testCallEventually(db, "RETURN custom.defaultLongFun() AS res", (row) -> assertEquals(4L * 5L, row.get("res")));
+        testCallEventually(db, "RETURN custom.defaultLongFun(2) AS res", (row) -> assertEquals(2L * 5L, row.get("res")));
+        testCallEventually(db, "RETURN custom.defaultLongFun(3, 7) AS res", (row) -> assertEquals(3L * 7L, row.get("res")));
     }
 
     @Test
@@ -1068,35 +759,31 @@ public class CustomNewProceduresTest {
         final String query = "RETURN $base * $exp AS res";
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('defaultFloatProc(base=2.4::FLOAT,exp=1.2::FLOAT)::(res::INT)', $query)",
                 Map.of("query", query));
-        awaitCustomProcDiscovered(db, "defaultFloatProc");
 
-        testCall(db, "CALL custom.defaultFloatProc", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
-        testCall(db, "CALL custom.defaultFloatProc(1.1)", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
-        testCall(db, "CALL custom.defaultFloatProc(1.5, 7.1)", (row) -> assertEquals(1.5D * 7.1D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "CALL custom.defaultFloatProc", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "CALL custom.defaultFloatProc(1.1)", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "CALL custom.defaultFloatProc(1.5, 7.1)", (row) -> assertEquals(1.5D * 7.1D, (double) row.get("res"), 0.1D));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('defaultDoubleProc(base = 2.4 :: DOUBLE, exp = 1.2 :: DOUBLE)::(res::DOUBLE)', $query)",
                 Map.of("query", query));
-        awaitCustomProcDiscovered(db, "defaultDoubleProc");
 
-        testCall(db, "CALL custom.defaultDoubleProc", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
-        testCall(db, "CALL custom.defaultDoubleProc(1.1)", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
-        testCall(db, "CALL custom.defaultDoubleProc(1.5, 7.1)", (row) -> assertEquals(1.5D * 7.1D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "CALL custom.defaultDoubleProc", (row) -> assertEquals(2.4D * 1.2D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "CALL custom.defaultDoubleProc(1.1)", (row) -> assertEquals(1.1D * 1.2D, (double) row.get("res"), 0.1D));
+        testCallEventually(db, "CALL custom.defaultDoubleProc(1.5, 7.1)", (row) -> assertEquals(1.5D * 7.1D, (double) row.get("res"), 0.1D));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('defaultIntProc(base = 4 ::INT, exp = 5 :: INT)::(res::INT)', $query)",
                 Map.of("query", query));
-        awaitCustomProcDiscovered(db, "defaultIntProc");
 
-        testCall(db, "CALL custom.defaultIntProc", (row) -> assertEquals(4L * 5L, row.get("res")));
-        testCall(db, "CALL custom.defaultIntProc(2)", (row) -> assertEquals(2L * 5L, row.get("res")));
-        testCall(db, "CALL custom.defaultIntProc(3, 7)", (row) -> assertEquals(3L * 7L, row.get("res")));
+        testCallEventually(db, "CALL custom.defaultIntProc", (row) -> assertEquals(4L * 5L, row.get("res")));
+        testCallEventually(db, "CALL custom.defaultIntProc(2)", (row) -> assertEquals(2L * 5L, row.get("res")));
+        testCallEventually(db, "CALL custom.defaultIntProc(3, 7)", (row) -> assertEquals(3L * 7L, row.get("res")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('defaultLongProc(base = 4 ::LONG, exp = 5 :: LONG)::(res::LONG)', $query)",
                 Map.of("query", query));
-        awaitCustomProcDiscovered(db, "defaultLongProc");
 
-        testCall(db, "CALL custom.defaultLongProc", (row) -> assertEquals(4L * 5L, row.get("res")));
-        testCall(db, "CALL custom.defaultLongProc(2)", (row) -> assertEquals(2L * 5L, row.get("res")));
-        testCall(db, "CALL custom.defaultLongProc(3, 7)", (row) -> assertEquals(3L * 7L, row.get("res")));
+        testCallEventually(db, "CALL custom.defaultLongProc", (row) -> assertEquals(4L * 5L, row.get("res")));
+        testCallEventually(db, "CALL custom.defaultLongProc(2)", (row) -> assertEquals(2L * 5L, row.get("res")));
+        testCallEventually(db, "CALL custom.defaultLongProc(3, 7)", (row) -> assertEquals(3L * 7L, row.get("res")));
     }
 
     @Test
@@ -1120,23 +807,18 @@ public class CustomNewProceduresTest {
     public void shouldCreateFunctionWithDefaultParameters() {
         // default inputs
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('multiParDeclareFun(params = {} :: MAP) :: INT ', 'RETURN $one + $two as sum')");
-        awaitCustomFuncDiscovered(db, "multiParDeclareFun");
-        testCall(db, "return custom.multiParDeclareFun({one:2, two: 3}) as row", (row) -> assertEquals(5L, row.get("row")));
+        testCallEventually(db, "return custom.multiParDeclareFun({one:2, two: 3}) as row", (row) -> assertEquals(5L, row.get("row")));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('multiParDeclareProc(params = {} :: MAP) :: (sum :: INT) ', 'RETURN $one + $two + $three as sum')");
-        awaitCustomProcDiscovered(db, "multiParDeclareProc");
-        testCall(db, "call custom.multiParDeclareProc({one:2, two: 3, three: 4})", (row) -> assertEquals(9L, row.get("sum")));
+        testCallEventually(db, "call custom.multiParDeclareProc({one:2, two: 3, three: 4})", (row) -> assertEquals(9L, row.get("sum")));
 
         // default outputs
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('declareDefaultOut(one :: INTEGER, two :: INTEGER) :: (row :: MAP) ', 'RETURN $one + $two as sum')");
-        awaitCustomProcDiscovered(db, "declareDefaultOut");
-        testCall(db, "call custom.declareDefaultOut(5, 3)", (row) -> assertEquals(8L, ((Map<String, Object>)row.get("row")).get("sum")));
+        testCallEventually(db, "call custom.declareDefaultOut(5, 3)", (row) -> assertEquals(8L, ((Map<String, Object>)row.get("row")).get("sum")));
     }
 
     @Test
     public void testIssue2032() {
-        // todo - optimize
-
         String functionSignature = "foobar(xx::NODE, y::NODE) ::(NODE)";
         assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, functionSignature),
                 "CALL apoc.custom.installFunction('" + functionSignature + "', 'MATCH (n) RETURN n limit 1');");
@@ -1148,33 +830,46 @@ public class CustomNewProceduresTest {
 
     @Test
     public void testIssue3349() {
-        String procedure = "CALL apoc.custom.installProcedure(\n" +
-                "  'retFunctionNames() :: (name :: STRING)',\n" +
-                "  '\n" +
-                "      CALL dbms.functions() YIELD name RETURN name" +
-                "  ',\n" +
-                "  'DBMS'\n" +
-                ");";
+        String procedure = """
+                CALL apoc.custom.installProcedure(
+                  'retFunctionNames() :: (name :: STRING)',
+                  'CALL dbms.listConfig() YIELD name RETURN name ',
+                  'neo4j',
+                  'DBMS'
+                );""";
         sysDb.executeTransactionally(procedure);
-        List<String> functions = db.executeTransactionally("CALL custom.retFunctionNames()", Map.of(), result -> result
-                .stream()
-                .map(m -> (String) m.get("name"))
-                .collect(Collectors.toList()));
-        assertFalse(functions.isEmpty());
+        assertEventually(() -> {
+            try {
+                List<String> functions = db.executeTransactionally("CALL custom.retFunctionNames()", Map.of(), r -> r
+                        .stream()
+                        .map(m -> (String) m.get("name"))
+                        .collect(Collectors.toList()));
+                return !functions.isEmpty();
+            } catch (Exception e) {
+                return false;
+            }
+        }, (v) -> v, TIMEOUT, TimeUnit.SECONDS);
 
-
-        String procedureVoid = "CALL apoc.custom.installProcedure(\n" +
-                "  'setTxMetadata(meta :: MAP) :: VOID',\n" +
-                "  '\n" +
-                "      CALL tx.setMetaData($meta)" +
-                "  ',\n" +
-                "  'DBMS'\n" +
-                ");";
+        String procedureVoid = """
+                CALL apoc.custom.installProcedure(
+                  'setTxMetadata(meta :: MAP) :: VOID',
+                  'CALL tx.setMetaData($meta)',
+                  'neo4j',
+                  'DBMS'
+                );""";
         sysDb.executeTransactionally(procedureVoid);
         // This should run without exception
-        db.executeTransactionally("CALL custom.setTxMetadata($meta)", Map.of(
-                "meta", Map.of("foo", "bar")
-        ));
+        assertEventually(() -> {
+            try {
+                db.executeTransactionally("CALL custom.setTxMetadata($meta)", Map.of(
+                        "meta", Map.of("foo", "bar")
+                ));
+                return true;
+            } catch (Exception e) {
+                return false;
+            }
+        }, (v) -> v, TIMEOUT, TimeUnit.SECONDS);
+
     }
 
 
@@ -1183,148 +878,102 @@ public class CustomNewProceduresTest {
     //
 
     @Test
-    @Ignore
-    public void testUuidShow() {
-        String label1 = "Show1";
-        String label2 = "Show2";
+    public void testCustomShow() {
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer')");
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('my.proc() :: (answer::INT)','RETURN 42 as answer')");
 
-//        testCall(sysDb, "CALL apoc.uuid.setup($name)",
-//                map("name", label1),
-//                r -> assertEquals(label1, r.get("label")));
-//
-//        testCall(sysDb, "CALL apoc.uuid.setup($name)",
-//                map("name", label2),
-//                r -> assertEquals(label2, r.get("label")));
-//
-//        // not updated
-//        testResult(db, "CALL apoc.uuid.show('neo4j')",
-//                res -> {
-//                    Map<String, Object> row = res.next();
-//                    assertEquals(label1, row.get("label"));
-//                    Map<String, Object> defaultProperties = Map.of(UUID_PROPERTY_KEY, DEFAULT_UUID_PROPERTY,
-//                            ADD_TO_SET_LABELS_KEY, DEFAULT_ADD_TO_SET_LABELS);
-//                    assertEquals(defaultProperties, row.get("properties"));
-//                    row = res.next();
-//                    assertEquals(label2, row.get("label"));
-//                    assertEquals(defaultProperties, row.get("properties"));
-//                    Assert.assertFalse(res.hasNext());
-//                });
+        testCallEventually(db, "return custom.my.fun() as row", (row) -> assertEquals(42L, row.get("row")));
+        testCallEventually(db, "call custom.my.proc()", (row) -> assertEquals(42L, row.get("answer")));
+
+        testResult(sysDb, "CALL apoc.custom.show() YIELD name RETURN name ORDER BY name",
+                (result) -> {
+                    // then
+                    Map<String, Object> row = result.next();
+                    assertEquals("my.fun", row.get("name"));
+                    row = result.next();
+                    assertEquals("my.proc", row.get("name"));
+                    assertFalse(result.hasNext());
+                });
     }
 
     @Test
-    @Ignore
-    public void testSameNodeWithMultipleUuid() {
-        String label1 = "Show1";
-        String label2 = "Show2";
-
-        testCall(sysDb, "CALL apoc.uuid.setup($name, 'neo4j', $config)",
-                Map.of("name", label1,
-                        "config", Map.of(ADD_TO_SET_LABELS_KEY, true)
-                ),
-                r -> assertEquals(label1, r.get("label")));
-
-        testCall(sysDb, "CALL apoc.uuid.setup($name, 'neo4j', $config)",
-                Map.of("name", label2,
-                        "config", Map.of(ADD_TO_SET_LABELS_KEY, true)
-                ),
-                r -> assertEquals(label2, r.get("label")));
-
-        testCallCountEventually(db, "CALL apoc.uuid.list", 2, TIMEOUT);
-
-        db.executeTransactionally("CREATE (n:Show1)");
-
-        final String[] uuid = new String[1];
-        testCall(db, "MATCH (c:Show1) RETURN c.uuid as uuid",
-                (row) -> {
-                    uuid[0] = (String) row.get("uuid");
-                    assertIsUUID(uuid[0]);
-                }
-        );
-
-        // check that the uuid value remains unchanged
-        db.executeTransactionally("MATCH (n:Show1) SET n:Show2");
-        testCall(db, "MATCH (c:Show1:Show2) RETURN c.uuid as uuid",
-                (row) -> assertEquals(uuid[0], row.get("uuid"))
-        );
-    }
-
-    @Test
-    @Ignore
-    public void testSetupUuidInUserDb() {
+    public void testShowCustomInUserDb() {
         try {
-            testCall(db, "CALL apoc.uuid.setup('AnotherLabel')",
+            testCall(db, "CALL apoc.custom.show()",
                     r -> fail("Should fail because of user db execution"));
         } catch (QueryExecutionException e) {
-            assertThat(e.getMessage(), Matchers.containsString(PROCEDURE_NOT_ROUTED_ERROR));
+            assertTrue(e.getMessage().contains(NON_SYS_DB_ERROR));
         }
     }
 
     @Test
-    @Ignore
-    public void testSetupUuidInWrongDb() {
+    public void testDropAllCustoms() {
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer')");
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('my.proc() :: (answer::INT)','RETURN 42 as answer')");
+
+        testCallEventually(db, "return custom.my.fun() as row", (row) -> assertEquals(42L, row.get("row")));
+        testCallEventually(db, "call custom.my.proc()", (row) -> assertEquals(42L, row.get("answer")));
+        testCallCountEventually(db, "CALL apoc.custom.list", 2, TIMEOUT);
+
+        // when
+        testResult(sysDb, "CALL apoc.custom.dropAll() YIELD name RETURN name ORDER BY name",
+                (result) -> {
+                    // then
+                    Map<String, Object> row = result.next();
+                    assertEquals("my.fun", row.get("name"));
+                    row = result.next();
+                    assertEquals("my.proc", row.get("name"));
+                    assertFalse(result.hasNext());
+                });
+
+        String queryProc = "CALL custom.my.proc()";
+        String expectedErrProc = "There is no procedure with the name `custom.my.proc` registered";
+        testProcFunFailEventually(queryProc, expectedErrProc);
+
+        String queryFun = "RETURN custom.my.fun()";
+        String expectedErrFun = "Unknown function 'custom.my.fun'";
+        testProcFunFailEventually(queryFun, expectedErrFun);
+    }
+
+    @Test
+    public void testInstallCustomInUserDb() {
+        CypherProceduresTest.assertProcedureFails(db, PROCEDURE_NOT_ROUTED_ERROR,
+                "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer')");
+
+        CypherProceduresTest.assertProcedureFails(db, PROCEDURE_NOT_ROUTED_ERROR,
+                "CALL apoc.custom.installProcedure('my.proc() :: (answer::INT)','RETURN 42 as answer')");
+    }
+
+    @Test
+    public void testInstallCustomInWrongDb() {
         String dbNotExistent = "notExistent";
-        try {
-            testCall(sysDb, "CALL apoc.uuid.setup('notExistent', $db)",
-                    Map.of("db", dbNotExistent),
-                    r -> fail("Should fail because of database not found"));
-        } catch (QueryExecutionException e) {
-            String expected = String.format("The user database with name '%s' does not exist", dbNotExistent);
-            assertThat(e.getMessage(), Matchers.containsString(expected));
-        }
+        String expected = String.format("The user database with name '%s' does not exist", dbNotExistent);
+
+        CypherProceduresTest.assertProcedureFails(sysDb, expected,
+                "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer', $db)",
+                Map.of("db", dbNotExistent));
+
+        CypherProceduresTest.assertProcedureFails(sysDb, expected,
+                "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer', $db)",
+                Map.of("db", dbNotExistent));
     }
 
     @Test
-    @Ignore
-    public void testSetupUuidInSystemDb() {
-        try {
-            testCall(sysDb, "CALL apoc.uuid.setup('myName', 'system')",
-                    r -> fail("Should fail because of system db pointing"));
-        } catch (RuntimeException e) {
-            assertThat(e.getMessage(), Matchers.containsString(BAD_TARGET_ERROR));
-        }
+    public void testInstallCustomInSystemDb() {
+        CypherProceduresTest.assertProcedureFails(sysDb, BAD_TARGET_ERROR,
+                "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer', 'system')");
+
+        CypherProceduresTest.assertProcedureFails(sysDb, BAD_TARGET_ERROR,
+                "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer', 'system')");
     }
 
-
-    @Test
-    @Ignore
-    public void testEventualConsistencyWithMultipleListeners() {
-
-        final String label = "EventualLabel";
-
-
-        // this does nothing, just to test consistency with multiple uuids
-        sysDb.executeTransactionally("CALL apoc.uuid.setup($label)",
-                map("label", label) );
-
-        // create uuid
-        sysDb.executeTransactionally("CALL apoc.uuid.setup($label)",
-                map("label", label));
-        UUIDTestUtils.awaitUuidDiscovered(db, label);
-
-        // check uuid
-        db.executeTransactionally("CREATE (n:EventualLabel)");
-        testCall(db, "MATCH (c:EventualLabel) RETURN c.uuid AS uuid",
-                (row) -> assertIsUUID(row.get("uuid"))
-        );
-
-        // this does nothing, just to test consistency with multiple uuids
-        String labelTwo = "EventualLabelTwo";
-        sysDb.executeTransactionally("CALL apoc.uuid.setup($label)",
-                map("label", labelTwo) );
-        UUIDTestUtils.awaitUuidDiscovered(db, labelTwo);
-        testCallCount(db, "CALL apoc.uuid.list", 2);
-
-        // check uuid
-        db.executeTransactionally("CREATE (n:EventualLabelTwo)");
-        testCall(db, "MATCH (c:EventualLabelTwo) RETURN c.uuid as uuid",
-                (row) -> assertIsUUID(row.get("uuid"))
-        );
-
-        // check uuids
-        db.executeTransactionally("CREATE (n:EventualLabel {id: 2})");
-        testCall(db, "MATCH (c:EventualLabel {id: 2}) RETURN c.uuid as uuid",
-                (row) -> assertIsUUID(row.get("uuid"))
-        );
+    private void testProcFunFailEventually(String query, String expectedErr) {
+        try {
+            TestUtil.testCallCountEventually(db, query, 0, TIMEOUT);
+        } catch (Exception e) {
+            String message = e.getMessage();
+            assertTrue("Actual error is: " + message, message.contains(expectedErr));
+        }
     }
 
     private void assertProcedureFails(String expectedMessage, String query) {

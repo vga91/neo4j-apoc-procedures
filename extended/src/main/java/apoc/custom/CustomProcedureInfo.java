@@ -1,5 +1,6 @@
 package apoc.custom;
 
+import org.neo4j.graphdb.Node;
 import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.kernel.api.procs.*;
 
@@ -8,6 +9,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static apoc.ExtendedSystemLabels.Function;
+import static apoc.ExtendedSystemLabels.Procedure;
+import static apoc.custom.CustomHandler.getFunctionInfo;
+import static apoc.custom.CustomHandler.getProcedureInfo;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
 import static apoc.custom.CypherProceduresHandler.PREFIX;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
@@ -35,32 +40,53 @@ public class CustomProcedureInfo {
         this.mode = mode;
     }
 
+    public static CustomProcedureInfo fromNode(Node node) {
+        if (node.hasLabel(Procedure)) {
+            return getProcedureInfo(node);
+        } else if (node.hasLabel(Function)) {
+            return getFunctionInfo(node);
+        } else {
+            throw new IllegalStateException("don't know what to do with systemdb node " + node);
+        }
+    }
+
     public static CustomProcedureInfo getInfoFromDescriptor(CypherProceduresHandler.ProcedureOrFunctionDescriptor descriptor) {
         if (descriptor instanceof CypherProceduresHandler.ProcedureDescriptor) {
             CypherProceduresHandler.ProcedureDescriptor procedureDescriptor = (CypherProceduresHandler.ProcedureDescriptor) descriptor;
             ProcedureSignature signature = procedureDescriptor.getSignature();
-            return new CustomProcedureInfo(
-                    PROCEDURE,
-                    signature.name().toString().substring(PREFIX.length() + 1),
-                    signature.description().orElse(null),
-                    signature.mode().toString().toLowerCase(),
-                    procedureDescriptor.getStatement(),
-                    convertInputSignature(signature.inputSignature()),
-                    Iterables.asList(Iterables.map(f -> Arrays.asList(f.name(), prettyPrintType(f.neo4jType())), signature.outputSignature())),
-                    null);
+            String statement1 = procedureDescriptor.getStatement();
+            return getCustomProcedureInfo(signature, statement1);
         } else {
             CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor = (CypherProceduresHandler.UserFunctionDescriptor) descriptor;
             UserFunctionSignature signature = userFunctionDescriptor.getSignature();
-            return new CustomProcedureInfo(
-                    FUNCTION,
-                    signature.name().toString().substring(PREFIX.length() + 1),
-                    signature.description().orElse(null),
-                    null,
-                    userFunctionDescriptor.getStatement(),
-                    convertInputSignature(signature.inputSignature()),
-                    prettyPrintType(signature.outputType()),
-                    userFunctionDescriptor.isForceSingle());
+            boolean forceSingle1 = userFunctionDescriptor.isForceSingle();
+            String statement1 = userFunctionDescriptor.getStatement();
+            return getCustomFunctionInfo(signature, forceSingle1, statement1);
         }
+    }
+
+    public static CustomProcedureInfo getCustomProcedureInfo(ProcedureSignature signature, String statement1) {
+        return new CustomProcedureInfo(
+                PROCEDURE,
+                signature.name().toString().substring(PREFIX.length() + 1),
+                signature.description().orElse(null),
+                signature.mode().toString().toLowerCase(),
+                statement1,
+                convertInputSignature(signature.inputSignature()),
+                Iterables.asList(Iterables.map(f -> Arrays.asList(f.name(), prettyPrintType(f.neo4jType())), signature.outputSignature())),
+                null);
+    }
+
+    public static CustomProcedureInfo getCustomFunctionInfo(UserFunctionSignature signature, boolean forceSingle1, String statement1) {
+        return new CustomProcedureInfo(
+                FUNCTION,
+                signature.name().toString().substring(PREFIX.length() + 1),
+                signature.description().orElse(null),
+                null,
+                statement1,
+                convertInputSignature(signature.inputSignature()),
+                prettyPrintType(signature.outputType()),
+                forceSingle1);
     }
 
     public static List<List<String>> convertInputSignature(List<FieldSignature> signatures) {
