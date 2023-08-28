@@ -50,11 +50,10 @@ public class CypherProceduresStorageTest {
             // start db with apoc.conf: `apoc.custom.procedures.refresh=2000`
             dbms = startDbWithApocConfigs(STORE_DIR,
                     Map.of(CUSTOM_PROCEDURES_REFRESH, 2000)
-            );//new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
+            );
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-//        dbms = new TestDatabaseManagementServiceBuilder( STORE_DIR.getRoot().toPath()).build();
         db = dbms.database( GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
     }
@@ -66,27 +65,11 @@ public class CypherProceduresStorageTest {
 
     private void restartDb() {
         dbms.shutdown();
-//        startDb();
-
         dbms = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
         db = dbms.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         assertTrue(db.isAvailable(1000));
         TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
     }
-
-//    private void startDb() {
-//        try {
-//            // start db with apoc.conf: `apoc.custom.procedures.refresh=2000`
-//            dbms = startDbWithApocConfigs(STORE_DIR,
-//                    Map.of(CUSTOM_PROCEDURES_REFRESH, 2000)
-//            );//new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath()).build();
-//        } catch (IOException e) {
-//            throw new RuntimeException(e);
-//        }
-//        db = dbms.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
-//        assertTrue(db.isAvailable(1000));
-//        TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
-//    }
 
     @Test
     public void overloadFunctionAfterRefresh() throws Exception {
@@ -96,23 +79,14 @@ public class CypherProceduresStorageTest {
             assertEquals(10L, r.get("result"));
         });
 
-        System.out.println("before override");
         db.executeTransactionally("CALL apoc.custom.declareFunction('overrideFun(input::LONG) :: LONG', 'RETURN $input')");
-        System.out.println("after override");
 
         // wait a time greater than `apoc.custom.procedures.refresh` value....
-        Thread.sleep(3000);
-//        testCallEventually(db, "CALL apoc.custom.list()", r -> {
-//            assertEquals("RETURN $input AS result", r.get("statement"));
-//        }, 5000);
+        Thread.sleep(5000);
 
-        System.out.println("after sleep");
         TestUtil.testCall(db, "RETURN custom.overrideFun(42) AS result", r -> {
             assertEquals(42L, r.get("result"));
         });
-
-//        boolean delete = new File(STORE_DIR.getRoot(), "apoc.conf").delete();
-//        System.out.println("delete = " + delete);
     }
 
     @Test
@@ -123,23 +97,14 @@ public class CypherProceduresStorageTest {
             assertEquals(10L, r.get("result"));
         });
 
-        System.out.println("before override");
         db.executeTransactionally("CALL apoc.custom.declareProcedure('overrideProc(input::LONG) :: (result::LONG)', 'RETURN $input AS result')");
-        System.out.println("after override");
 
         // wait a time greater than `apoc.custom.procedures.refresh` value....
         Thread.sleep(3000);
-//        testCallEventually(db, "CALL apoc.custom.list()", r -> {
-//            assertEquals("RETURN $input AS result", r.get("statement"));
-//        }, 5000);
 
-        System.out.println("after sleep");
         TestUtil.testCall(db, "CALL custom.overrideProc(42)", r -> {
             assertEquals(42L, r.get("result"));
         });
-
-//        boolean delete = new File(STORE_DIR.getRoot(), "apoc.conf").delete();
-//        System.out.println("delete = " + delete);
     }
 
     @Test
