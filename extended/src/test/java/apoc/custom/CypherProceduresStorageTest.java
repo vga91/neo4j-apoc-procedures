@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 public class CypherProceduresStorageTest {
     private final static String QUERY_CREATE = "RETURN $input1 + $input2 as answer";
     private final static String QUERY_OVERWRITE = "RETURN $input1 + $input2 + 123 as answer";
+    private int greaterThanRefreshTime;
 
     @Rule
     public TemporaryFolder STORE_DIR = new TemporaryFolder();
@@ -47,10 +48,12 @@ public class CypherProceduresStorageTest {
     @Before
     public void setUp() throws Exception {
         try {
-            // start db with apoc.conf: `apoc.custom.procedures.refresh=2000`
+            final int refreshTime = 3000;
+            // start db with apoc.conf: `apoc.custom.procedures.refresh=<time>`
             dbms = startDbWithApocConfigs(STORE_DIR,
-                    Map.of(CUSTOM_PROCEDURES_REFRESH, 2000)
+                    Map.of(CUSTOM_PROCEDURES_REFRESH, refreshTime)
             );
+            greaterThanRefreshTime = refreshTime + 500;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -79,14 +82,44 @@ public class CypherProceduresStorageTest {
             assertEquals(10L, r.get("result"));
         });
 
+        try {
+            TestUtil.testCall(db, "RETURN custom.overrideFun(42)",
+                    r -> fail("Should fail due to wrong argument numbers"));
+        } catch (Exception e) {
+            String message = e.getMessage();
+            assertTrue("Current message is: " + message,
+                    message.contains("Function call does not provide the required number of arguments: expected 0 got 1"));
+        }
+
         db.executeTransactionally("CALL apoc.custom.declareFunction('overrideFun(input::LONG) :: LONG', 'RETURN $input')");
 
-        // wait a time greater than `apoc.custom.procedures.refresh` value....
-        Thread.sleep(5000);
+        // check overload before refresh
+        checkFunctionOverloaded();
 
+        // wait a time greater then the `apoc.custom.procedures.refresh` value
+        // and check overload works correctly
+        Thread.sleep(greaterThanRefreshTime);
+        checkFunctionOverloaded();
+
+        // check overload still remains after restarting the db
+        restartDb();
+        checkFunctionOverloaded();
+    }
+
+    private void checkFunctionOverloaded() {
         TestUtil.testCall(db, "RETURN custom.overrideFun(42) AS result", r -> {
             assertEquals(42L, r.get("result"));
         });
+
+
+        try {
+            TestUtil.testCall(db, "RETURN custom.overrideFun()",
+                    r -> fail("Should fail due to wrong argument numbers"));
+        } catch (Exception e) {
+            String message = e.getMessage();
+            assertTrue("Current message is: " + message,
+                    message.contains("Function call does not provide the required number of arguments: expected 1 got 0"));
+        }
     }
 
     @Test
@@ -97,10 +130,40 @@ public class CypherProceduresStorageTest {
             assertEquals(10L, r.get("result"));
         });
 
+        try {
+            TestUtil.testCall(db, "CALL custom.overrideProc(42)",
+                    r -> fail("Should fail due to wrong argument numbers"));
+        } catch (Exception e) {
+            String message = e.getMessage();
+            assertTrue("Current message is: " + message,
+                    message.contains("Procedure call provides too many arguments: got 1 expected none"));
+        }
+
         db.executeTransactionally("CALL apoc.custom.declareProcedure('overrideProc(input::LONG) :: (result::LONG)', 'RETURN $input AS result')");
 
-        // wait a time greater than `apoc.custom.procedures.refresh` value....
-        Thread.sleep(3000);
+        // check overload before refresh
+        checkProcedureOverloaded();
+
+        // wait a time greater than `apoc.custom.procedures.refresh` value
+        // and check overload works correctly
+        Thread.sleep(greaterThanRefreshTime);
+        checkProcedureOverloaded();
+
+        // check overload still remains after restarting the db
+        restartDb();
+        checkProcedureOverloaded();
+
+    }
+
+    private void checkProcedureOverloaded() {
+        try {
+            TestUtil.testCall(db, "CALL custom.overrideProc()",
+                    r -> fail("Should fail due to wrong argument numbers"));
+        } catch (Exception e) {
+            String message = e.getMessage();
+            assertTrue("Current message is: " + message,
+                    message.contains("Procedure call does not provide the required number of arguments: got 0 expected at least 1"));
+        }
 
         TestUtil.testCall(db, "CALL custom.overrideProc(42)", r -> {
             assertEquals(42L, r.get("result"));
@@ -313,6 +376,16 @@ public class CypherProceduresStorageTest {
         TestUtil.testCallEventually(db, "CALL custom.override(2)", r -> {
             assertEquals(4L, r.get("result"));
         }, 10L);
+
+        // check fun/proc updated work even after the refresh
+        Thread.sleep(greaterThanRefreshTime);
+        TestUtil.testCall(db, "RETURN custom.override(3) as result", r -> {
+            assertEquals(3L, r.get("result"));
+        });
+        TestUtil.testCall(db, "CALL custom.override(2)", r -> {
+            assertEquals(4L, r.get("result"));
+        });
+
         restartDb();
 
         final String logFileContent = Files.readString(new File(FileUtils.getLogDirectory(), "debug.log").toPath());
