@@ -7,7 +7,6 @@ import apoc.SystemPropertyKeys;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 import org.neo4j.collection.RawIterator;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -136,12 +135,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         return s == null ? Mode.READ : Mode.valueOf(s.toUpperCase());
     }
 
-//    public Stream<ProcedureOrFunctionDescriptor> readSignatures() {
-//        List<ProcedureOrFunctionDescriptor> descriptors;
-//        descriptors = getProcedureOrFunctionDescriptors();
-//        return descriptors.stream();
-//    }
-
     public List<ProcedureOrFunctionDescriptor> readSignatures() {
         List<ProcedureOrFunctionDescriptor> descriptors;
         try (Transaction tx = systemDb.beginTx()) {
@@ -213,60 +206,30 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public void restoreProceduresAndFunctions() {
-        System.out.println("CypherProceduresHandler.restoreProceduresAndFunctions");
         lastUpdate = System.currentTimeMillis();
         Set<ProcedureSignature> currentProceduresToRemove = new HashSet<>(registeredProcedureSignatures);
         Set<UserFunctionSignature> currentUserFunctionsToRemove = new HashSet<>(registeredUserFunctionSignatures);
 
-        System.out.println("currentUserFunctionsToRemove = "
-                           + currentUserFunctionsToRemove.stream()
-                                   .map(i ->  i.name() + ":" + i.inputSignature() + " . " + i.outputType())
-                                   .toList()
-        );
-
-//        Stream<ProcedureOrFunctionDescriptor> procedureOrFunctionDescriptors = readSignatures();
-//        List<ProcedureOrFunctionDescriptor> procedureOrFunctionDescriptors = getProcedureOrFunctionDescriptors();
-        List<ProcedureOrFunctionDescriptor> procedureOrFunctionDescriptors = readSignatures();
-        procedureOrFunctionDescriptors.forEach(descriptor -> {
-            System.out.println("descriptor.getStatement() = " + descriptor.getStatement());
+        List<ProcedureOrFunctionDescriptor> signatures = readSignatures();
+        signatures.forEach(descriptor -> {
             descriptor.register();
-            // we need to use currentProceduresToRemove.removeIf(..) instead of currentProceduresToRemove.remove(signature)
-            // as a procedure overload will produce 2 ProcedureSignatures in currentProceduresToRemove Set,
-            // but currentProceduresToRemove.remove(signature) wouldn't remove the current procedure signature
-            // todo - ???
-            // For the same reason, we use currentUserFunctionsToRemove.removeIf(..)
             if (descriptor instanceof ProcedureDescriptor) {
                 ProcedureSignature signature = ((ProcedureDescriptor) descriptor).getSignature();
-                currentProceduresToRemove.removeIf(i -> i.name().equals(signature.name()));
-//                currentProceduresToRemove.remove(signature);
+                currentProceduresToRemove.remove(signature);
             } else {
-                UserFunctionDescriptor descriptor1 = (UserFunctionDescriptor) descriptor;
-                UserFunctionSignature signature = descriptor1.getSignature();
-                System.out.println("signature.name() = " + signature.name());
-                System.out.println("signature.inputSignature() = " + signature.inputSignature());
-                System.out.println("signature.outputType() = " + signature.outputType());
-
-
-
-//                currentUserFunctionsToRemove.removeIf(i -> i.name().equals(signature.name()));
+                UserFunctionSignature signature = ((UserFunctionDescriptor) descriptor).getSignature();
                 currentUserFunctionsToRemove.remove(signature);
             }
         });
-
-        System.out.println("currentUserFunctionsToRemove After = "
-                           + currentUserFunctionsToRemove.stream()
-                                   .map(i ->  i.name() + ":" + i.inputSignature() + " . " + i.outputType())
-                                   .toList()
-        );
 
         // de-register removed procs/functions
         currentProceduresToRemove.forEach(signature -> registerProcedure(signature, null));
         currentUserFunctionsToRemove.forEach(signature -> registerFunction(signature, null, false));
 
-        // register remaining procs/functions AFTER de-registration,
+        // we register remaining procs/functions AFTER de-registrations,
         // as, in the case of multiple signatures with the same name but with different inputs/outputs,
-        // the last globalProceduresRegistry.register(<Callable>) is the one that is detected by Neo4j during CALL custom.<name> / RETURN custom.<name>
-        procedureOrFunctionDescriptors.forEach(ProcedureOrFunctionDescriptor::register);
+        // the last `globalProceduresRegistry.register(<Callable>)` is the one that is detected by Neo4j during CALL custom.<name> / RETURN custom.<name>
+        signatures.forEach(ProcedureOrFunctionDescriptor::register);
 
         api.executeTransactionally("call db.clearQueryCaches()");
     }
