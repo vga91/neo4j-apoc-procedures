@@ -80,7 +80,7 @@ public class CypherProceduresTest  {
     @Before
     public void setup() throws IOException {
         DatabaseManagementService databaseManagementService = startDbWithApocConfigs(storeDir,
-                Map.of(CUSTOM_PROCEDURES_REFRESH, 2000)
+                Map.of(CUSTOM_PROCEDURES_REFRESH, 1000)
 //                Map.of()
         );
 
@@ -88,26 +88,40 @@ public class CypherProceduresTest  {
         TestUtil.registerProcedure(db, CypherProcedures.class);
     }
 
+    @Test
+    public void testOverride1() throws InterruptedException {
+        db.executeTransactionally("CALL apoc.custom.declareFunction('override1() :: LONG','RETURN 10 as answer')");
+        db.executeTransactionally("CALL apoc.custom.removeFunction('override1')");
+        db.executeTransactionally("CALL apoc.custom.declareFunction('override1(input::INT) :: INT', 'RETURN $input AS result')");
+        TestUtil.testCall(db, "RETURN custom.override1(42) AS result", r -> {
+            assertEquals(42L, r.get("result"));
+        });
+
+    }
 
     @Test
     public void testOverride() throws InterruptedException {
-
         db.executeTransactionally("CALL apoc.custom.declareFunction('override() :: LONG','RETURN 10 as answer')");
 
         TestUtil.testCall(db, "RETURN custom.override() AS result", r -> {
             assertEquals(10L, r.get("result"));
         });
 
-        System.out.println("before override");
+//        System.out.println("before override");
         db.executeTransactionally("CALL apoc.custom.declareFunction('override(input::INT) :: INT', 'RETURN $input AS result')");
-        System.out.println("after override");
+//        System.out.println("after override");
 
-        Thread.sleep(5000);
+        Thread.sleep(2000);
 //        testCallEventually(db, "CALL apoc.custom.list()", r -> {
 //            assertEquals("RETURN $input AS result", r.get("statement"));
 //        }, 5000);
 
-        System.out.println("after sleep");
+//        System.out.println("after sleep");
+        db.executeTransactionally("call db.clearQueryCaches()");
+
+        // todo !!!! - forse perché registro con null DOPO che faccio l'override!!!!
+
+//        db.executeTransactionally("CALL apoc.custom.declareFunction('override(input::INT) :: INT', 'RETURN $input AS result')");
         TestUtil.testCall(db, "RETURN custom.override(42) AS result", r -> {
             assertEquals(42L, r.get("result"));
         });

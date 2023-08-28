@@ -87,7 +87,7 @@ public class CypherProcedures {
     @Procedure(value = "apoc.custom.list", mode = Mode.READ)
     @Description("apoc.custom.list() - provide a list of custom procedures/function registered")
     public Stream<CustomProcedureInfo> list() {
-        return cypherProceduresHandler.readSignatures().map( descriptor -> {
+        return cypherProceduresHandler.readSignatures().stream().map( descriptor -> {
             if (descriptor instanceof CypherProceduresHandler.ProcedureDescriptor) {
                 CypherProceduresHandler.ProcedureDescriptor procedureDescriptor = (CypherProceduresHandler.ProcedureDescriptor) descriptor;
                 ProcedureSignature signature = procedureDescriptor.getSignature();
