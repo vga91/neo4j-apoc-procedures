@@ -5,36 +5,31 @@ import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Notification;
 import org.neo4j.graphdb.QueryExecutionType;
 import org.neo4j.graphdb.Result;
-import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.kernel.api.exceptions.ProcedureException;
-import org.neo4j.internal.kernel.api.procs.DefaultParameterValue;
+import org.neo4j.internal.kernel.api.procs.FieldSignature;
 import org.neo4j.internal.kernel.api.procs.ProcedureSignature;
 import org.neo4j.internal.kernel.api.procs.UserFunctionSignature;
-import org.neo4j.internal.kernel.api.procs.FieldSignature;
-import org.neo4j.internal.kernel.api.procs.Neo4jTypes;
-import org.neo4j.kernel.api.KernelTransaction;
 import org.neo4j.kernel.api.exceptions.Status;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
-import org.neo4j.procedure.Procedure;
 import org.neo4j.procedure.Description;
-import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Mode;
+import org.neo4j.procedure.Name;
+import org.neo4j.procedure.Procedure;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static apoc.custom.CypherProceduresHandler.*;
+import static apoc.custom.CypherProceduresHandler.DEFAULT_INPUTS;
+import static apoc.custom.CypherProceduresHandler.DEFAULT_MAP_OUTPUT;
+import static apoc.custom.CypherProceduresHandler.PREFIX;
 import static apoc.util.SystemDbUtil.checkWriteAllowed;
 
 /**
@@ -61,7 +56,8 @@ public class CypherProcedures {
     @Context
     public CypherProceduresHandler cypherProceduresHandler;
 
-    @Procedure(value = "apoc.custom.declareProcedure", mode = Mode.WRITE)
+    @Deprecated
+    @Procedure(value = "apoc.custom.declareProcedure", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installProcedure")
     @Description("apoc.custom.declareProcedure(signature, statement, mode, description) - register a custom cypher procedure")
     public void declareProcedure(@Name("signature") String signature, @Name("statement") String statement,
                                  @Name(value = "mode", defaultValue = "read") String mode,
@@ -76,7 +72,8 @@ public class CypherProcedures {
         cypherProceduresHandler.storeProcedure(procedureSignature, statement);
     }
 
-    @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE)
+    @Deprecated
+    @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installFunction")
     @Description("apoc.custom.declareFunction(signature, statement, forceSingle, description) - register a custom cypher function")
     public void declareFunction(@Name("signature") String signature, @Name("statement") String statement,
                            @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
@@ -102,7 +99,7 @@ public class CypherProcedures {
     
 
     @Deprecated
-    @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installProcedure")
+    @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE, deprecatedBy = "apoc.custom.dropProcedure")
     @Description("apoc.custom.removeProcedure(name) - remove the targeted custom procedure")
     public void removeProcedure(@Name("name") String name) {
         checkWriteAllowed(MSG_DEPRECATION);
@@ -113,7 +110,7 @@ public class CypherProcedures {
 
 
     @Deprecated
-    @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installFunction")
+    @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE, deprecatedBy = "apoc.custom.dropFunction")
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
     public void removeFunction(@Name("name") String name) {
         checkWriteAllowed(MSG_DEPRECATION);

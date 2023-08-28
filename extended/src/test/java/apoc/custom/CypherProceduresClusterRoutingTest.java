@@ -22,8 +22,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
 import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_REFRESH;
-//import static apoc.util.ClusterTestUtil.connectWithRoutingForEachMembers;
-//import static apoc.util.ClusterTestUtil.checkLeadershipBalanced;
 import static apoc.util.ExtendedTestContainerUtil.singleResultFirstColumn;
 import static apoc.util.SystemDbUtil.PROCEDURE_NOT_ROUTED_ERROR;
 import static apoc.util.SystemDbUtil.SYS_NON_LEADER_ERROR;
@@ -46,8 +44,6 @@ public class CypherProceduresClusterRoutingTest {
     private static TestcontainersCausalCluster cluster;
     private static Session clusterSession;
     private static List<Neo4jContainerExtension> members;
-
-    // todo - https://github.com/neo4j-contrib/neo4j-apoc-procedures/pull/3555/files
 
     @BeforeClass
     public static void setupCluster() {
@@ -100,10 +96,6 @@ public class CypherProceduresClusterRoutingTest {
                         String query = format("MATCH (n:`%s`) RETURN n.uuid AS uuid", member.getContainerName());
                         // 2 nodes with uuid: one created via `addToExistingNodes` and the other one via transaction listener
                         Result res = clusterSession.run(query);
-//                        Record node = res.next();
-//                        assertIsUUID(node.get("uuid").asString());
-//                        node = res.next();
-//                        assertIsUUID(node.get("uuid").asString());
                         return !res.hasNext();
                     },
                     (val) -> val, 20L, TimeUnit.SECONDS);

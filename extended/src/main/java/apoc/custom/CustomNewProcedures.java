@@ -15,7 +15,6 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 import static apoc.custom.CypherProceduresHandler.PREFIX;
-import static apoc.util.SystemDbUtil.NON_SYS_DB_ERROR;
 import static apoc.util.SystemDbUtil.checkInSystemDb;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
@@ -70,7 +69,6 @@ public class CustomNewProcedures {
         checkIsValidDatabase(databaseName);
 
         UserFunctionSignature userFunctionSignature = new Signatures(PREFIX).asFunctionSignature(signature, description);
-
         CustomHandler.installFunction(databaseName, userFunctionSignature, statement, forceSingle);
     }
 
@@ -118,7 +116,6 @@ public class CustomNewProcedures {
     @Description("Provides a list of custom procedures/function registered")
     public Stream<CustomProcedureInfo> show(@Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
         checkInSystemDb(db);
-
         return CustomHandler.show(databaseName, tx);
     }
 }

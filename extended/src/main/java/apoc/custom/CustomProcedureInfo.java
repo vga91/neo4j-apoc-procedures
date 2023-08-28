@@ -65,28 +65,28 @@ public class CustomProcedureInfo {
         }
     }
 
-    public static CustomProcedureInfo getCustomProcedureInfo(ProcedureSignature signature, String statement1) {
+    public static CustomProcedureInfo getCustomProcedureInfo(ProcedureSignature signature, String statement) {
         return new CustomProcedureInfo(
                 PROCEDURE,
                 signature.name().toString().substring(PREFIX.length() + 1),
                 signature.description().orElse(null),
                 signature.mode().toString().toLowerCase(),
-                statement1,
+                statement,
                 convertInputSignature(signature.inputSignature()),
                 Iterables.asList(Iterables.map(f -> Arrays.asList(f.name(), prettyPrintType(f.neo4jType())), signature.outputSignature())),
                 null);
     }
 
-    public static CustomProcedureInfo getCustomFunctionInfo(UserFunctionSignature signature, boolean forceSingle1, String statement1) {
+    public static CustomProcedureInfo getCustomFunctionInfo(UserFunctionSignature signature, boolean forceSingle, String statement) {
         return new CustomProcedureInfo(
                 FUNCTION,
                 signature.name().toString().substring(PREFIX.length() + 1),
                 signature.description().orElse(null),
                 null,
-                statement1,
+                statement,
                 convertInputSignature(signature.inputSignature()),
                 prettyPrintType(signature.outputType()),
-                forceSingle1);
+                forceSingle);
     }
 
     public static List<List<String>> convertInputSignature(List<FieldSignature> signatures) {

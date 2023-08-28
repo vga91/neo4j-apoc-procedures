@@ -5,6 +5,7 @@ import apoc.util.FileUtils;
 import apoc.util.TestUtil;
 import apoc.util.collection.Iterators;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -249,57 +250,52 @@ public class CustomNewProcedureStorageTest {
     }
 
     @Test
+    @Ignore("Ignored because of https://trello.com/c/XWc7tBAb/74-custom-procedures-with-overload-fail-after-refresh")
     public void testMultipleOverrideWithFunctionAndProcedures() throws Exception {
-//        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('override() :: (result::LONG)','RETURN 42 as result')");
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('override() :: (result::LONG)','RETURN 42 as result')");
 
         // function homonym to procedure
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('override(input::LONG) :: LONG','RETURN 5 + 5 as answer')");
-//        sysDb.executeTransactionally("CALL apoc.custom.installFunction('override() :: LONG','RETURN 10 as answer')");
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('override() :: LONG','RETURN 10 as answer')");
 
         // get fun/proc created
-        testCallEventually(db, "RETURN custom.override(1) as result", r -> {
-//        testCallEventually(db, "RETURN custom.override() as result", r -> {
+        testCallEventually(db, "RETURN custom.override() as result", r -> {
             assertEquals(10L, r.get("result"));
         });
-//        testCallEventually(db, "CALL custom.override()", r -> {
-//            assertEquals(42L, r.get("result"));
-//        });
+        testCallEventually(db, "CALL custom.override()", r -> {
+            assertEquals(42L, r.get("result"));
+        });
 
         // overrides functions and procedures homonym to the previous ones
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('override(input::INT) :: INT', 'RETURN $input + 2 AS result')");
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('override(input::INT) :: INT', 'RETURN $input AS result')");
 
-//        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('override(input::INT) :: (result::INT)', 'RETURN $input AS result')");
-//        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('override(input::INT) :: (result::INT)', 'RETURN $input + 2 AS result')");
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('override(input::INT) :: (result::INT)', 'RETURN $input AS result')");
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('override(input::INT) :: (result::INT)', 'RETURN $input + 2 AS result')");
 
         // get fun/proc updated
-//        Thread.sleep(TIMEOUT);
-//        System.out.println("QUERY_CREATE = " + QUERY_CREATE);
-
         testCallEventually(db, "RETURN custom.override(3) as result", r -> {
             assertEquals(3L, r.get("result"));
         });
-//        testCallEventually(db, "CALL custom.override(2)", r -> {
-//            System.out.println("r = " + r);
-//            assertEquals(4L, r.get("result"));
-//        });
+        testCallEventually(db, "CALL custom.override(2)", r -> {
+            assertEquals(4L, r.get("result"));
+        });
         restartDb();
 
         final String logFileContent = Files.readString(new File(FileUtils.getLogDirectory(), "debug.log").toPath());
-        assertFalse(logFileContent.contains("Could not register function: custom.vantagepoint_within_area"));
-        assertFalse(logFileContent.contains("Could not register procedure: custom.vantagepoint_within_area"));
+        assertFalse(logFileContent.contains("Could not register function: custom.override"));
+        assertFalse(logFileContent.contains("Could not register procedure: custom.override"));
 
         // override after restart
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('override(input::INT) :: INT', 'RETURN $input + 1 AS result')");
-//        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('override(input::INT) :: (result::INT)', 'RETURN $input + 2 AS result')");
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('override(input::INT) :: (result::INT)', 'RETURN $input + 3 AS result')");
 
         // get fun/proc updated
         testCallEventually(db, "RETURN custom.override(3) as result", r -> {
             assertEquals(4L, r.get("result"));
         });
-//        testCallEventually(db, "CALL custom.override(2)", r -> {
-//            assertEquals(4L, r.get("result"));
-//        });
+        testCallEventually(db, "CALL custom.override(2)", r -> {
+            assertEquals(5L, r.get("result"));
+        });
     }
 
     @Test

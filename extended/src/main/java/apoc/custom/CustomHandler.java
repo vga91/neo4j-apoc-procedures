@@ -8,7 +8,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.internal.kernel.api.procs.FieldSignature;
 import org.neo4j.internal.kernel.api.procs.ProcedureSignature;
 import org.neo4j.internal.kernel.api.procs.QualifiedName;
@@ -30,8 +29,6 @@ import static apoc.ExtendedSystemLabels.Function;
 import static apoc.ExtendedSystemLabels.Procedure;
 import static apoc.SystemPropertyKeys.*;
 import static apoc.ExtendedSystemPropertyKeys.*;
-import static apoc.custom.CustomProcedureInfo.convertInputSignature;
-import static apoc.custom.CustomProcedureInfo.prettyPrintType;
 import static apoc.custom.CypherProceduresHandler.*;
 import static apoc.util.SystemDbUtil.getSystemNodes;
 import static apoc.util.SystemDbUtil.withSystemDb;
@@ -64,7 +61,6 @@ public class CustomHandler {
                     Pair.of(name.name(), signature.name().name()),
                     Pair.of(prefix.name(), signature.name().namespace())
             );
-            System.out.println("node = " + node);
             node.setProperty(description.name(), signature.description().orElse(null));
             node.setProperty(SystemPropertyKeys.statement.name(), statement);
             node.setProperty(inputs.name(), serializeSignatures(signature.inputSignature()));
