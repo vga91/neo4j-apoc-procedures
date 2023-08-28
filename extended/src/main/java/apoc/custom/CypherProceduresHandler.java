@@ -206,20 +206,30 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public void restoreProceduresAndFunctions() {
+        System.out.println("CypherProceduresHandler.restoreProceduresAndFunctions");
         lastUpdate = System.currentTimeMillis();
         Set<ProcedureSignature> currentProceduresToRemove = new HashSet<>(registeredProcedureSignatures);
         Set<UserFunctionSignature> currentUserFunctionsToRemove = new HashSet<>(registeredUserFunctionSignatures);
 
+        System.out.println("currentUserFunctionsToRemove = "
+                           + currentUserFunctionsToRemove.stream().map(i -> i.inputSignature() + ". " + i.name()).toList());
+
         readSignatures().forEach(descriptor -> {
+            System.out.println("descriptor.getStatement() = " + descriptor.getStatement());
             descriptor.register();
             if (descriptor instanceof ProcedureDescriptor) {
                 ProcedureSignature signature = ((ProcedureDescriptor) descriptor).getSignature();
-                currentProceduresToRemove.remove(signature);
+                currentProceduresToRemove.removeIf(i -> i.name().equals(signature.name()));
+//                currentProceduresToRemove.remove(signature);
             } else {
                 UserFunctionSignature signature = ((UserFunctionDescriptor) descriptor).getSignature();
-                currentUserFunctionsToRemove.remove(signature);
+                currentUserFunctionsToRemove.removeIf(i -> i.name().equals(signature.name()));
+//                currentUserFunctionsToRemove.remove(signature);
             }
         });
+
+        System.out.println("currentUserFunctionsToRemove After = "
+                           + currentUserFunctionsToRemove.stream().map(i -> i.inputSignature() + ". " + i.name()).toList());
 
         // de-register removed procs/functions
         currentProceduresToRemove.forEach(signature -> registerProcedure(signature, null));

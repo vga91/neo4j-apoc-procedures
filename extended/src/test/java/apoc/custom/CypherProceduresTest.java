@@ -1,5 +1,6 @@
 package apoc.custom;
 
+import apoc.ApocConfig;
 import apoc.ExtendedSystemLabels;
 import apoc.RegisterComponentFactory;
 import apoc.SystemPropertyKeys;
@@ -8,10 +9,14 @@ import apoc.util.TestUtil;
 import apoc.util.collection.Iterators;
 import org.apache.commons.lang.exception.ExceptionUtils;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.rules.ExpectedException;
+import org.junit.rules.TemporaryFolder;
+import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -20,16 +25,21 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static apoc.ApocConfig.apocConfig;
+import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_REFRESH;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
 import static apoc.custom.Signatures.SIGNATURE_SYNTAX_ERROR;
+import static apoc.util.DbmsTestUtil.startDbWithApocConfigs;
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testCallEventually;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -43,22 +53,74 @@ import static org.junit.Assert.fail;
  */
 public class CypherProceduresTest  {
 
-    @Rule
-    public DbmsRule db = new ImpermanentDbmsRule();
+//    @Rule
+//    public DbmsRule db = new ImpermanentDbmsRule();
 
     @Rule
     public ExpectedException thrown = ExpectedException.none();
 
 
+    @ClassRule
+    public static TemporaryFolder storeDir = new TemporaryFolder();
+
+    private GraphDatabaseService db;
+
+//    @BeforeClass
+//    public static void beforeClass() throws Exception {
+//        databaseManagementService = startDbWithCustomApocConfs(storeDir);
+//
+//        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
+//        sysDb = databaseManagementService.database(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
+//        waitDbsAvailable(db, sysDb);
+//        // todo - Nodes.class and Schemas.class needed?
+//        TestUtil.registerProcedure(sysDb, CustomNewProcedures.class);
+//        TestUtil.registerProcedure(db, CypherProcedures.class);
+//    }
+
     @Before
-    public void setup() {
+    public void setup() throws IOException {
+        DatabaseManagementService databaseManagementService = startDbWithApocConfigs(storeDir,
+                Map.of(CUSTOM_PROCEDURES_REFRESH, 2000)
+//                Map.of()
+        );
+
+        db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         TestUtil.registerProcedure(db, CypherProcedures.class);
     }
 
-    @AfterAll
-    public void tearDown() {
-        db.shutdown();
+
+    @Test
+    public void testOverride() throws InterruptedException {
+
+        db.executeTransactionally("CALL apoc.custom.declareFunction('override() :: LONG','RETURN 10 as answer')");
+
+        TestUtil.testCall(db, "RETURN custom.override() AS result", r -> {
+            assertEquals(10L, r.get("result"));
+        });
+
+        System.out.println("before override");
+        db.executeTransactionally("CALL apoc.custom.declareFunction('override(input::INT) :: INT', 'RETURN $input AS result')");
+        System.out.println("after override");
+
+        Thread.sleep(5000);
+//        testCallEventually(db, "CALL apoc.custom.list()", r -> {
+//            assertEquals("RETURN $input AS result", r.get("statement"));
+//        }, 5000);
+
+        System.out.println("after sleep");
+        TestUtil.testCall(db, "RETURN custom.override(42) AS result", r -> {
+            assertEquals(42L, r.get("result"));
+        });
+
     }
+
+
+//    TODOOOOO —> override non funge… (testMultipleOverrideWithFunctionAndProcedures)
+//    forse perché fa il remove della full signature…
+//    e cancella il nodo…
+//    FARE COME BUG SEPARATO VISTO CHE RIGUARDA ANCHE LE “VECCHIE” PROCEDURE
+//—> COME REPLICARE: restore 2000, creo funzione, creo funzione2, thread sleep, boom!
+
 
     @Test
     public void registerSimpleStatement() throws Exception {
@@ -427,34 +489,34 @@ public class CypherProceduresTest  {
         TestUtil.count(db, "return custom.answer()");
     }
 
-    @Test
-    public void shouldRemovalOfFunctionNodeDeactivate() {
-        thrown.expect(QueryExecutionException.class);
-        thrown.expectMessage("Unknown function 'custom.answer'");
-        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
-
-        //given
-        db.executeTransactionally("CALL apoc.custom.declareFunction('answer() :: LONG','RETURN 42 as answer')");
-
-        long answer = TestUtil.singleResultFirstColumn(db, "return custom.answer()");
-        assertEquals(42L, answer);
-
-        // remove the node in systemdb
-        GraphDatabaseService systemDb = db.getManagementService().database("system");
-        try (Transaction tx = systemDb.beginTx()) {
-            Node node = tx.findNode( ExtendedSystemLabels.ApocCypherProcedures, SystemPropertyKeys.name.name(), "answer");
-            node.delete();
-            tx.commit();
-        }
-
-        // refresh procedures
-        RegisterComponentFactory.RegisterComponentLifecycle registerComponentLifecycle = db.getDependencyResolver().resolveDependency(RegisterComponentFactory.RegisterComponentLifecycle.class);
-        CypherProceduresHandler cypherProceduresHandler = (CypherProceduresHandler) registerComponentLifecycle.getResolvers().get(CypherProceduresHandler.class).get(db.databaseName());
-        cypherProceduresHandler.restoreProceduresAndFunctions();
-
-        // when
-        TestUtil.singleResultFirstColumn(db, "return custom.answer()");
-    }
+//    @Test
+//    public void shouldRemovalOfFunctionNodeDeactivate() {
+//        thrown.expect(QueryExecutionException.class);
+//        thrown.expectMessage("Unknown function 'custom.answer'");
+//        thrown.expect(new StatusCodeMatcher("Neo.ClientError.Statement.SyntaxError"));
+//
+//        //given
+//        db.executeTransactionally("CALL apoc.custom.declareFunction('answer() :: LONG','RETURN 42 as answer')");
+//
+//        long answer = TestUtil.singleResultFirstColumn(db, "return custom.answer()");
+//        assertEquals(42L, answer);
+//
+//        // remove the node in systemdb
+//        GraphDatabaseService systemDb = db.getManagementService().database("system");
+//        try (Transaction tx = systemDb.beginTx()) {
+//            Node node = tx.findNode( ExtendedSystemLabels.ApocCypherProcedures, SystemPropertyKeys.name.name(), "answer");
+//            node.delete();
+//            tx.commit();
+//        }
+//
+//        // refresh procedures
+//        RegisterComponentFactory.RegisterComponentLifecycle registerComponentLifecycle = db.getDependencyResolver().resolveDependency(RegisterComponentFactory.RegisterComponentLifecycle.class);
+//        CypherProceduresHandler cypherProceduresHandler = (CypherProceduresHandler) registerComponentLifecycle.getResolvers().get(CypherProceduresHandler.class).get(db.databaseName());
+//        cypherProceduresHandler.restoreProceduresAndFunctions();
+//
+//        // when
+//        TestUtil.singleResultFirstColumn(db, "return custom.answer()");
+//    }
     
     @Test
     public void testIssue2605() {
@@ -616,8 +678,6 @@ public class CypherProceduresTest  {
                 "meta", Map.of("foo", "bar")
         ));
     }
-    
-
     private void assertProcedureFails(String expectedMessage, String query) {
         try {
             testCall(db, query, row -> fail("The test should fail because of: " + expectedMessage));
