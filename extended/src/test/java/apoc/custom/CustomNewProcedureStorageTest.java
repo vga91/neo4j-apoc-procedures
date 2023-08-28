@@ -1,6 +1,7 @@
 package apoc.custom;
 
 import apoc.path.PathExplorer;
+import apoc.util.ExtendedTestUtil;
 import apoc.util.FileUtils;
 import apoc.util.TestUtil;
 import apoc.util.collection.Iterators;
@@ -20,11 +21,10 @@ import java.io.File;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static apoc.custom.CustomNewProceduresTest.testCallEventually;
 import static apoc.custom.CypherProcedureTestUtil.startDbWithCustomApocConfs;
+import static apoc.util.ExtendedTestUtil.testRetryCallEventually;
 import static apoc.util.MapUtil.map;
 import static apoc.util.SystemDbTestUtil.TIMEOUT;
 import static org.junit.Assert.assertEquals;
@@ -32,7 +32,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.neo4j.test.assertion.Assert.assertEventually;
 
 // Test cases taken and adapted from CypherProceduresStorageTest, with non-deprecated procedures
 public class CustomNewProcedureStorageTest {
@@ -150,7 +149,6 @@ public class CustomNewProcedureStorageTest {
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('answer() :: LONG','RETURN 42 as answer')");
         testCallEventually(db, "return custom.answer() as answer", (row) -> assertEquals(42L, row.get("answer")));
         testCallEventually(sysDb, "call apoc.custom.show()", row -> {
-            System.out.println("row = " + row);
             assertEquals("answer", row.get("name"));
         });
 
@@ -249,6 +247,17 @@ public class CustomNewProcedureStorageTest {
         testCallIssue1744();
     }
 
+    private void testCallIssue1744() {
+        testCallEventually(db, "CALL custom.vantagepoint_within_area('foo')", this::assertCallIssue1744);
+        testCallEventually(db, "RETURN custom.vantagepoint_within_area('foo') as resource", this::assertCallIssue1744);
+    }
+
+    private void assertCallIssue1744(Map<String, Object> row) {
+        final Node resource = (Node) row.get("resource");
+        assertEquals("VantagePoint", resource.getLabels().iterator().next().name());
+        assertEquals("beta", resource.getProperty("alpha"));
+    }
+
     @Test
     @Ignore("Ignored because of https://trello.com/c/XWc7tBAb/74-custom-procedures-with-overload-fail-after-refresh")
     public void testMultipleOverrideWithFunctionAndProcedures() throws Exception {
@@ -342,6 +351,14 @@ public class CustomNewProcedureStorageTest {
         procedureAssertions();
     }
 
+    @Test
+    public void testIssue1714WithRestartDb() throws Exception {
+        db.executeTransactionally("CREATE (i:Target {value: 2});");
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('nn(val::INTEGER) :: NODE', 'MATCH (t:Target {value : $val}) RETURN t')");
+        restartDb();
+        TestUtil.testCall(db, "RETURN custom.nn(2) as row", (row) -> assertEquals(2L, ((Node) row.get("row")).getProperty("value")));
+    }
+
     private void functionsCreation() {
         // 1 declareFunction with default null, 1 declareFunction without default
         sysDb.executeTransactionally("call apoc.custom.installFunction('sumFun1(input1 = null::INT, input2 = null::INT) :: INT',$query)",
@@ -406,35 +423,11 @@ public class CustomNewProcedureStorageTest {
         }
     }
 
-    private void testCallIssue1744() {
-        testCallEventually(db, "CALL custom.vantagepoint_within_area('foo')", this::assertCallIssue1744);
-        testCallEventually(db, "RETURN custom.vantagepoint_within_area('foo') as resource", this::assertCallIssue1744);
+    private void testResultEventually(GraphDatabaseService db, String call, Consumer<Result> consumer) {
+        ExtendedTestUtil.testResultEventually(db, call, consumer, TIMEOUT);
     }
 
-    private void assertCallIssue1744(Map<String, Object> row) {
-        final Node resource = (Node) row.get("resource");
-        assertEquals("VantagePoint", resource.getLabels().iterator().next().name());
-        assertEquals("beta", resource.getProperty("alpha"));
-    }
-
-    @Test
-    public void testIssue1714WithRestartDb() throws Exception {
-        db.executeTransactionally("CREATE (i:Target {value: 2});");
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('nn(val::INTEGER) :: NODE', 'MATCH (t:Target {value : $val}) RETURN t')");
-        restartDb();
-        TestUtil.testCall(db, "RETURN custom.nn(2) as row", (row) -> assertEquals(2L, ((Node) row.get("row")).getProperty("value")));
-    }
-
-    public static void testResultEventually(GraphDatabaseService db, String call, Consumer<Result> resultConsumer) {
-        assertEventually(() -> {
-            try {
-                return db.executeTransactionally(call, Map.of(), r -> {
-                    resultConsumer.accept(r);
-                    return true;
-                });
-            } catch (Exception e) {
-                return false;
-            }
-        }, (v) -> v, TIMEOUT, TimeUnit.SECONDS);
+    private void testCallEventually(GraphDatabaseService db, String call, Consumer<Map<String, Object>> consumer) {
+        testRetryCallEventually(db, call, consumer, TIMEOUT);
     }
 }

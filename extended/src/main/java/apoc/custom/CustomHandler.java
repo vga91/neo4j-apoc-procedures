@@ -37,7 +37,6 @@ import static org.neo4j.internal.helpers.collection.MapUtil.map;
 public class CustomHandler {
 
     public static void installProcedure(String databaseName, ProcedureSignature signature, String statement) {
-
         withSystemDb(tx -> {
             Node node = Util.mergeNode(tx, ApocCypherProcedures, Procedure,
                     Pair.of(database.name(), databaseName),
@@ -49,6 +48,8 @@ public class CustomHandler {
             node.setProperty(inputs.name(), serializeSignatures(signature.inputSignature()));
             node.setProperty(outputs.name(), serializeSignatures(signature.outputSignature()));
             node.setProperty(mode.name(), signature.mode().name());
+            // to annotate non deprecated procedures, to be used in `CypherProceduresHandler.restoreProceduresAndFunctions`
+            node.setProperty(newType.name(), true);
 
             setLastUpdate(tx, databaseName);
         });
@@ -66,6 +67,8 @@ public class CustomHandler {
             node.setProperty(inputs.name(), serializeSignatures(signature.inputSignature()));
             node.setProperty(output.name(), signature.outputType().toString());
             node.setProperty(ExtendedSystemPropertyKeys.forceSingle.name(), forceSingle);
+            // to annotate non deprecated functions, to be used in `CypherProceduresHandler.restoreProceduresAndFunctions`
+            node.setProperty(newType.name(), true);
 
             setLastUpdate(tx, databaseName);
         });

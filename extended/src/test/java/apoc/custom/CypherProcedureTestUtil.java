@@ -19,30 +19,4 @@ public class CypherProcedureTestUtil {
                 Map.of(CUSTOM_PROCEDURES_REFRESH, PROCEDURE_DEFAULT_REFRESH)
         );
     }
-
-//    public static void awaitCustomDiscovered(GraphDatabaseService db, String type, String name, String expectedSignature) {
-//        String call = "CALL apoc.custom.list() YIELD name, signature WHERE name = $name RETURN signature";
-////        String call = "SHOW " + type+ " YIELD name, signature WHERE name CONTAINS $name RETURN signature";
-//        testCallEventually(db, call,
-//                Map.of("name", PREFIX + "." + name),
-//                row -> {
-//                    if (expectedSignature != null) {
-//                        assertEquals(expectedSignature, row.get("signature"));
-//                    }
-//                }, TIMEOUT);
-//    }
-
-    public static void awaitCustomDiscovered(GraphDatabaseService db, String type, String name, String expectedSignature) {
-        String call = "CALL apoc.custom.list() YIELD name WHERE name = $name RETURN *";
-//        String call = "SHOW " + type+ " YIELD name, signature WHERE name CONTAINS $name RETURN signature";
-        testCallCountEventually(db, call,
-                Map.of("name", /*PREFIX + "." + */name),
-                1,
-                TIMEOUT);
-//                row -> {
-//                    if (expectedSignature != null) {
-//                        assertEquals(expectedSignature, row.get("signature"));
-//                    }
-//                }, TIMEOUT);
-    }
 }

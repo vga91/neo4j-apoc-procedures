@@ -119,11 +119,11 @@ public class CypherProcedures {
         cypherProceduresHandler.removeFunction(name);
     }
 
-    private void validateFunction(String statement, List<FieldSignature> input) {
+    public static void validateFunction(String statement, List<FieldSignature> input) {
         validateProcedure(statement, input, DEFAULT_MAP_OUTPUT, null);
     }
 
-    private void validateProcedure(String statement, List<FieldSignature> input, List<FieldSignature> output, Mode mode) {
+    public static void validateProcedure(String statement, List<FieldSignature> input, List<FieldSignature> output, Mode mode) {
 
         final Set<String> outputSet = output.stream().map(FieldSignature::name).collect(Collectors.toSet());
 
