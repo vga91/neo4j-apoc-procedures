@@ -2,14 +2,11 @@ package apoc.custom;
 
 import apoc.RegisterComponentFactory;
 import apoc.SystemPropertyKeys;
-import apoc.util.ExtendedTestUtil;
-import apoc.util.SystemDbUtil;
 import apoc.util.TestUtil;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.neo4j.configuration.GraphDatabaseSettings;
@@ -19,12 +16,10 @@ import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 
 import java.io.File;
 import java.time.LocalDateTime;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -32,9 +27,8 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static apoc.ExtendedSystemLabels.ApocCypherProcedures;
-import static apoc.custom.CypherProcedureTestUtil.startDbWithCustomApocConfs;
-import static apoc.custom.CypherProcedures.ERROR_MISMATCHED_INPUTS;
-import static apoc.custom.CypherProcedures.ERROR_MISMATCHED_OUTPUTS;
+import static apoc.custom.CypherProcedureTestUtil.assertProcedureFails;
+import static apoc.custom.CypherProcedureTestUtil.startDbWithCustomApocConfigs;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
 import static apoc.custom.Signatures.SIGNATURE_SYNTAX_ERROR;
@@ -44,10 +38,8 @@ import static apoc.util.SystemDbUtil.BAD_TARGET_ERROR;
 import static apoc.util.SystemDbUtil.NON_SYS_DB_ERROR;
 import static apoc.util.SystemDbUtil.PROCEDURE_NOT_ROUTED_ERROR;
 import static apoc.util.TestUtil.testCall;
-import static apoc.util.TestUtil.testCallAssertions;
 import static apoc.util.TestUtil.testCallCount;
 import static apoc.util.TestUtil.testCallCountEventually;
-import static apoc.util.TestUtil.testCallEmpty;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.TestUtil.waitDbsAvailable;
 import static org.junit.Assert.assertEquals;
@@ -57,7 +49,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.neo4j.test.assertion.Assert.assertEventually;
 
-public class CustomNewProceduresTest {
+public class CypherNewProceduresTest {
 
     private static final File directory = new File("target/conf");
     static { //noinspection ResultOfMethodCallIgnored
@@ -73,12 +65,12 @@ public class CustomNewProceduresTest {
 
     @BeforeClass
     public static void beforeClass() throws Exception {
-        databaseManagementService = startDbWithCustomApocConfs(storeDir);
+        databaseManagementService = startDbWithCustomApocConfigs(storeDir);
 
         db = databaseManagementService.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
         waitDbsAvailable(db, sysDb);
-        TestUtil.registerProcedure(sysDb, CustomNewProcedures.class);
+        TestUtil.registerProcedure(sysDb, CypherNewProcedures.class);
         TestUtil.registerProcedure(db, CypherProcedures.class);
     }
 
@@ -243,7 +235,7 @@ public class CustomNewProceduresTest {
     @Test
     public void registerSimpleStatementFunctionWithOneChar() throws Exception {
         final String procedureSignature = "b() :: STRING";
-        assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, procedureSignature),
+        assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, procedureSignature),
                 "CALL apoc.custom.installFunction('" + procedureSignature + "','RETURN 42 as answer')");
     }
 
@@ -535,26 +527,6 @@ public class CustomNewProceduresTest {
     }
 
     @Test
-//    @Ignore // todo - feasible??
-    public void shouldFailWithMismatchedParameters() throws InterruptedException {
-        sysDb.executeTransactionally("call apoc.custom.installProcedure('sum(first::INT, second::INT) :: (something::INT)', 'RETURN $first + $second AS answer')");
-        Thread.sleep(5000);
-        testCall(db, "call custom.sum(1,2)", (row) -> {
-            System.out.println("row = " + row);
-//            assertEquals(3L, row.get("answer"));
-        });
-
-//        // input mismatch
-//        assertProcedureFails(ERROR_MISMATCHED_INPUTS,
-//                "call apoc.custom.installFunction('double(wrong::INT) :: INT','RETURN $input*2 as answer')");
-//        assertProcedureFails(ERROR_MISMATCHED_INPUTS,
-//                "call apoc.custom.installProcedure('sum(input::INT, invalid::INT) :: (answer::INT)', 'RETURN $first + $second AS answer')");
-//        // output mismatch
-//        assertProcedureFails(ERROR_MISMATCHED_OUTPUTS,
-//                "call apoc.custom.installProcedure('sum(first::INT, second::INT) :: (something::INT)', 'RETURN $first + $second AS answer')");
-    }
-
-    @Test
     public void shouldDeclareProcedureWithDefaultBooleanOrNull() {
         sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithBool(minScore = true :: BOOLEAN) :: (res :: INT)',\n" +
                 "    'RETURN case when $minScore then 1 else 2 end as res')");
@@ -573,13 +545,13 @@ public class CustomNewProceduresTest {
     @Test
     public void shouldDeclareFunctionWithDefaultBooleanOrNull() {
         sysDb.executeTransactionally("call apoc.custom.installFunction('funWithBool(minScore = true :: BOOLEAN) :: INT',\n" +
-                "    'RETURN case when $minScore then 1 else 2 end as res')");
+                "'RETURN case when $minScore then 1 else 2 end as res')");
         testCallEventually("RETURN custom.funWithBool() AS res", (row) -> assertEquals(1L, row.get("res")));
         testCallEventually("RETURN custom.funWithBool(true) AS res", (row) -> assertEquals(1L, row.get("res")));
         testCallEventually("RETURN custom.funWithBool(false) AS res", (row) -> assertEquals(2L, row.get("res")));
 
         sysDb.executeTransactionally("call apoc.custom.installFunction('funWithNull(minScore = null :: INT) :: INT',\n" +
-                "    'RETURN $minScore as res')");
+                "'RETURN $minScore as res')");
         testCallEventually("RETURN custom.funWithNull() AS res", (row) -> assertNull(row.get("res")));
         testCallEventually("RETURN custom.funWithNull(1) AS res", (row) -> assertEquals(1L, row.get("res")));
     }
@@ -647,17 +619,17 @@ public class CustomNewProceduresTest {
     @Test
     public void shouldFailDeclareFunctionAndProcedureWithInvalidParameterTypes() {
         final String procedureStatementInvalidInput = "sum(input:: INVALID) :: (answer::INT)";
-        assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, procedureStatementInvalidInput),
+        assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, procedureStatementInvalidInput),
                 "call apoc.custom.installProcedure('" + procedureStatementInvalidInput + "','RETURN $input AS input')");
         final String functionStatementInvalidInput = "double(input :: INVALID) :: INT";
-        assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, functionStatementInvalidInput),
+        assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, functionStatementInvalidInput),
                 "call apoc.custom.installFunction('" + functionStatementInvalidInput + "','RETURN $input*2 as answer')");
 
         final String procedureStatementInvalidOutput = "myProc(input :: INTEGER) :: (sum :: DUNNO)";
-        assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, procedureStatementInvalidOutput),
+        assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, procedureStatementInvalidOutput),
                 "call apoc.custom.installProcedure('" + procedureStatementInvalidOutput + "','RETURN $input AS sum')");
         final String functionStatementInvalidOutput = "myFunc(val :: INTEGER) :: DUNNO";
-        assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, functionStatementInvalidOutput),
+        assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, functionStatementInvalidOutput),
                 "CALL apoc.custom.installFunction('" + functionStatementInvalidOutput + "', 'RETURN $val')");
     }
 
@@ -678,11 +650,11 @@ public class CustomNewProceduresTest {
     @Test
     public void testIssue2032() {
         String functionSignature = "foobar(xx::NODE, y::NODE) ::(NODE)";
-        assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, functionSignature),
+        assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, functionSignature),
                 "CALL apoc.custom.installFunction('" + functionSignature + "', 'MATCH (n) RETURN n limit 1');");
 
         String procedureSignature = "testFail(first::INT, s::INT) :: (answer::INT)";
-        assertProcedureFails(String.format(SIGNATURE_SYNTAX_ERROR, procedureSignature),
+        assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, procedureSignature),
                 "call apoc.custom.installProcedure('" + procedureSignature + "','RETURN $first + $s AS answer')");
     }
 
@@ -795,10 +767,10 @@ public class CustomNewProceduresTest {
 
     @Test
     public void testInstallCustomInUserDb() {
-        CypherProceduresTest.assertProcedureFails(db, PROCEDURE_NOT_ROUTED_ERROR,
+        assertProcedureFails(db, PROCEDURE_NOT_ROUTED_ERROR,
                 "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer')");
 
-        CypherProceduresTest.assertProcedureFails(db, PROCEDURE_NOT_ROUTED_ERROR,
+        assertProcedureFails(db, PROCEDURE_NOT_ROUTED_ERROR,
                 "CALL apoc.custom.installProcedure('my.proc() :: (answer::INT)','RETURN 42 as answer')");
     }
 
@@ -807,21 +779,21 @@ public class CustomNewProceduresTest {
         String dbNotExistent = "notExistent";
         String expected = String.format("The user database with name '%s' does not exist", dbNotExistent);
 
-        CypherProceduresTest.assertProcedureFails(sysDb, expected,
+        assertProcedureFails(sysDb, expected,
                 "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer', $db)",
                 Map.of("db", dbNotExistent));
 
-        CypherProceduresTest.assertProcedureFails(sysDb, expected,
+        assertProcedureFails(sysDb, expected,
                 "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer', $db)",
                 Map.of("db", dbNotExistent));
     }
 
     @Test
     public void testInstallCustomInSystemDb() {
-        CypherProceduresTest.assertProcedureFails(sysDb, BAD_TARGET_ERROR,
+        assertProcedureFails(sysDb, BAD_TARGET_ERROR,
                 "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer', 'system')");
 
-        CypherProceduresTest.assertProcedureFails(sysDb, BAD_TARGET_ERROR,
+        assertProcedureFails(sysDb, BAD_TARGET_ERROR,
                 "CALL apoc.custom.installFunction('my.fun() :: INTEGER','RETURN 42 as answer', 'system')");
     }
 
@@ -840,10 +812,6 @@ public class CustomNewProceduresTest {
             String message = e.getMessage();
             assertTrue("Actual error is: " + message, message.contains(expectedErr));
         }
-    }
-
-    private void assertProcedureFails(String expectedMessage, String query) {
-        CypherProceduresTest.assertProcedureFails(sysDb, expectedMessage, query);
     }
 
 }

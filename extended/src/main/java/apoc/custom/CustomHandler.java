@@ -48,8 +48,6 @@ public class CustomHandler {
             node.setProperty(inputs.name(), serializeSignatures(signature.inputSignature()));
             node.setProperty(outputs.name(), serializeSignatures(signature.outputSignature()));
             node.setProperty(mode.name(), signature.mode().name());
-            // to annotate non deprecated procedures, to be used in `CypherProceduresHandler.restoreProceduresAndFunctions`
-            node.setProperty(newType.name(), true);
 
             setLastUpdate(tx, databaseName);
         });
@@ -67,8 +65,6 @@ public class CustomHandler {
             node.setProperty(inputs.name(), serializeSignatures(signature.inputSignature()));
             node.setProperty(output.name(), signature.outputType().toString());
             node.setProperty(ExtendedSystemPropertyKeys.forceSingle.name(), forceSingle);
-            // to annotate non deprecated functions, to be used in `CypherProceduresHandler.restoreProceduresAndFunctions`
-            node.setProperty(newType.name(), true);
 
             setLastUpdate(tx, databaseName);
         });
@@ -78,7 +74,6 @@ public class CustomHandler {
         return s == null ? Mode.READ : Mode.valueOf(s.toUpperCase());
     }
 
-    // todo - join show and dropAll???
     public static List<CustomProcedureInfo> dropAll(String databaseName) {
         return withSystemDb(tx -> {
             List<CustomProcedureInfo> previous = getCustomNodes(databaseName, tx)
@@ -89,13 +84,10 @@ public class CustomHandler {
                         node.delete();
                         return info;
                     })
-                    .sorted(Comparator.comparing((CustomProcedureInfo i) -> i.name)
-                            .thenComparing(i -> i.type)
-                    )
+                    .sorted(sortNodes())
                     .collect(Collectors.toList());
 
             setLastUpdate(tx, databaseName);
-
             return previous;
         });
     }
@@ -103,9 +95,12 @@ public class CustomHandler {
     public static Stream<CustomProcedureInfo> show(String databaseName, Transaction tx) {
         return getCustomNodes(databaseName, tx).stream()
                 .map(CustomProcedureInfo::fromNode)
-                .sorted(Comparator.comparing((CustomProcedureInfo i) -> i.name)
-                        .thenComparing(i -> i.type)
-                );
+                .sorted(sortNodes());
+    }
+
+    private static Comparator<CustomProcedureInfo> sortNodes() {
+        return Comparator.comparing((CustomProcedureInfo i) -> i.name)
+                .thenComparing(i -> i.type);
     }
 
     public static ResourceIterator<Node> getCustomNodes(String databaseName, Transaction tx) {
@@ -192,7 +187,7 @@ public class CustomHandler {
         String property = (String) node.getProperty(ExtendedSystemPropertyKeys.inputs.name());
         List<FieldSignature> inputs = deserializeSignatures(property);
 
-        UserFunctionSignature signature = new UserFunctionSignature(
+        return new UserFunctionSignature(
                 new QualifiedName(prefix, name),
                 inputs,
                 typeof((String) node.getProperty(ExtendedSystemPropertyKeys.output.name())),
@@ -204,7 +199,6 @@ public class CustomHandler {
                 false,
                 false
         );
-        return signature;
     }
 
     public static ProcedureSignature getProcedureSignature(Node node) {
@@ -216,7 +210,7 @@ public class CustomHandler {
         List<FieldSignature> inputs = deserializeSignatures(property);
 
         List<FieldSignature> outputSignature = deserializeSignatures((String) node.getProperty(ExtendedSystemPropertyKeys.outputs.name()));
-        ProcedureSignature procedureSignature = Signatures.createProcedureSignature(
+        return Signatures.createProcedureSignature(
                 new QualifiedName(prefix, name),
                 inputs,
                 outputSignature,
@@ -231,7 +225,6 @@ public class CustomHandler {
                 false,
                 false,
                 false);
-        return procedureSignature;
     }
 
 }

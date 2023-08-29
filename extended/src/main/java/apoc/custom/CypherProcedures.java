@@ -1,36 +1,39 @@
 package apoc.custom;
 
 import apoc.Extended;
+import apoc.util.collection.Iterables;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Notification;
 import org.neo4j.graphdb.QueryExecutionType;
 import org.neo4j.graphdb.Result;
 import org.neo4j.internal.kernel.api.exceptions.ProcedureException;
-import org.neo4j.internal.kernel.api.procs.FieldSignature;
+import org.neo4j.internal.kernel.api.procs.DefaultParameterValue;
 import org.neo4j.internal.kernel.api.procs.ProcedureSignature;
 import org.neo4j.internal.kernel.api.procs.UserFunctionSignature;
+import org.neo4j.internal.kernel.api.procs.FieldSignature;
+import org.neo4j.internal.kernel.api.procs.Neo4jTypes;
 import org.neo4j.kernel.api.exceptions.Status;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
-import org.neo4j.procedure.Description;
-import org.neo4j.procedure.Mode;
-import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
+import org.neo4j.procedure.Description;
+import org.neo4j.procedure.Name;
+import org.neo4j.procedure.Mode;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static apoc.custom.CypherProceduresHandler.DEFAULT_INPUTS;
-import static apoc.custom.CypherProceduresHandler.DEFAULT_MAP_OUTPUT;
-import static apoc.custom.CypherProceduresHandler.PREFIX;
-import static apoc.util.SystemDbUtil.checkWriteAllowed;
+import static apoc.custom.CypherProceduresHandler.*;
 
 /**
  * @author mh
@@ -38,10 +41,6 @@ import static apoc.util.SystemDbUtil.checkWriteAllowed;
  */
 @Extended
 public class CypherProcedures {
-    private static final String MSG_DEPRECATION = """
-            Please note that the current procedure is deprecated,
-            it's recommended to use the `apoc.custom.installProcedure`, `apoc.custom.installFunction`, `apoc.uuid.dropProcedure` , `apoc.uuid.dropFunction` , `apoc.uuid.dropAll` procedures executed against the 'system' database
-            instead of, respectively, `apoc.uuid.declareProcedure`, `apoc.uuid.declareFunction`, `apoc.custom.removeProcedure`, `apoc.custom.removeFunction`, `apoc.custom.removeAll`.""";
 
     // visible for testing
     public static final String ERROR_MISMATCHED_INPUTS = "Required query parameters do not match provided input arguments.";
@@ -56,15 +55,12 @@ public class CypherProcedures {
     @Context
     public CypherProceduresHandler cypherProceduresHandler;
 
-    @Deprecated
-    @Procedure(value = "apoc.custom.declareProcedure", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installProcedure")
+    @Procedure(value = "apoc.custom.declareProcedure", mode = Mode.WRITE)
     @Description("apoc.custom.declareProcedure(signature, statement, mode, description) - register a custom cypher procedure")
     public void declareProcedure(@Name("signature") String signature, @Name("statement") String statement,
                                  @Name(value = "mode", defaultValue = "read") String mode,
                                  @Name(value = "description", defaultValue = "") String description
     ) {
-        checkWriteAllowed(MSG_DEPRECATION);
-
         Mode modeProcedure = cypherProceduresHandler.mode(mode);
         ProcedureSignature procedureSignature = new Signatures(PREFIX).asProcedureSignature(signature, description, modeProcedure);
         validateProcedure(statement, procedureSignature.inputSignature(), procedureSignature.outputSignature(), modeProcedure);
@@ -72,14 +68,11 @@ public class CypherProcedures {
         cypherProceduresHandler.storeProcedure(procedureSignature, statement);
     }
 
-    @Deprecated
-    @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE, deprecatedBy = "apoc.custom.installFunction")
+    @Procedure(value = "apoc.custom.declareFunction", mode = Mode.WRITE)
     @Description("apoc.custom.declareFunction(signature, statement, forceSingle, description) - register a custom cypher function")
     public void declareFunction(@Name("signature") String signature, @Name("statement") String statement,
                            @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
                            @Name(value = "description", defaultValue = "") String description) throws ProcedureException {
-        checkWriteAllowed(MSG_DEPRECATION);
-
         UserFunctionSignature userFunctionSignature = new Signatures(PREFIX).asFunctionSignature(signature, description);
         final Signatures signatures = new Signatures(PREFIX);
         final SignatureParser.FunctionContext functionContext = signatures.parseFunction(signature);
@@ -93,43 +86,64 @@ public class CypherProcedures {
     @Procedure(value = "apoc.custom.list", mode = Mode.READ)
     @Description("apoc.custom.list() - provide a list of custom procedures/function registered")
     public Stream<CustomProcedureInfo> list() {
-        return cypherProceduresHandler.readSignatures()
-                .map(CustomProcedureInfo::getInfoFromDescriptor);
+        return cypherProceduresHandler.readSignatures().map( descriptor -> {
+            if (descriptor instanceof CypherProceduresHandler.ProcedureDescriptor) {
+                CypherProceduresHandler.ProcedureDescriptor procedureDescriptor = (CypherProceduresHandler.ProcedureDescriptor) descriptor;
+                ProcedureSignature signature = procedureDescriptor.getSignature();
+                return new CustomProcedureInfo(
+                        PROCEDURE,
+                        signature.name().toString().substring(PREFIX.length() + 1),
+                        signature.description().orElse(null),
+                        signature.mode().toString().toLowerCase(),
+                        procedureDescriptor.getStatement(),
+                        convertInputSignature(signature.inputSignature()),
+                        Iterables.stream(signature.outputSignature())
+                                .map(f -> Arrays.asList(f.name(), prettyPrintType(f.neo4jType())))
+                                        .collect(Collectors.toList()),
+                        null);
+            } else {
+                CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor = (CypherProceduresHandler.UserFunctionDescriptor) descriptor;
+                UserFunctionSignature signature = userFunctionDescriptor.getSignature();
+                return new CustomProcedureInfo(
+                        FUNCTION,
+                        signature.name().toString().substring(PREFIX.length() + 1),
+                        signature.description().orElse(null),
+                        null,
+                        userFunctionDescriptor.getStatement(),
+                        convertInputSignature(signature.inputSignature()),
+                        prettyPrintType(signature.outputType()),
+                        userFunctionDescriptor.isForceSingle());
+            }
+        });
     }
     
 
-    @Deprecated
-    @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE, deprecatedBy = "apoc.custom.dropProcedure")
+    @Procedure(value = "apoc.custom.removeProcedure", mode = Mode.WRITE)
     @Description("apoc.custom.removeProcedure(name) - remove the targeted custom procedure")
     public void removeProcedure(@Name("name") String name) {
-        checkWriteAllowed(MSG_DEPRECATION);
-
         Objects.requireNonNull(name, "name");
         cypherProceduresHandler.removeProcedure(name);
     }
 
 
-    @Deprecated
-    @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE, deprecatedBy = "apoc.custom.dropFunction")
+    @Procedure(value = "apoc.custom.removeFunction", mode = Mode.WRITE)
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
     public void removeFunction(@Name("name") String name) {
-        checkWriteAllowed(MSG_DEPRECATION);
-
         Objects.requireNonNull(name, "name");
         cypherProceduresHandler.removeFunction(name);
     }
 
-    public static void validateFunction(String statement, List<FieldSignature> input) {
+    private void validateFunction(String statement, List<FieldSignature> input) {
         validateProcedure(statement, input, DEFAULT_MAP_OUTPUT, null);
     }
 
-    public static void validateProcedure(String statement, List<FieldSignature> input, List<FieldSignature> output, Mode mode) {
+    private void validateProcedure(String statement, List<FieldSignature> input, List<FieldSignature> output, Mode mode) {
 
         final Set<String> outputSet = output.stream().map(FieldSignature::name).collect(Collectors.toSet());
 
         api.executeTransactionally("EXPLAIN " + statement,
                 input.stream().collect(HashMap::new,
-                        (map, value) -> map.put(value.name(), null), HashMap::putAll),
+                                (map, value) -> map.put(value.name(), null), HashMap::putAll),
                 result -> {
                     if (!DEFAULT_MAP_OUTPUT.equals(output)) {
                         // when there are multiple variables with the same name, e.g within an "UNION ALL" Neo4j adds a suffix "@<number>" to distinguish them,
@@ -183,7 +197,48 @@ public class CypherProcedures {
         }
     }
 
+    private List<List<String>> convertInputSignature(List<FieldSignature> signatures) {
 
+        return Iterables.stream(signatures).map(f -> {
+            List<String> list = new ArrayList<>(3);
+            list.add(f.name());
+            list.add(prettyPrintType(f.neo4jType()));
+            final Optional<DefaultParameterValue> defaultParameterValue = f.defaultValue();
+            defaultParameterValue.map(DefaultParameterValue::value).ifPresent(v -> list.add(v.toString()));
+            return list;
+        }).collect(Collectors.toList());
+    }
 
+    private String prettyPrintType(Neo4jTypes.AnyType type) {
+        String s = type.toString().toLowerCase();
+        if (s.endsWith("?")) {
+            s = s.substring(0, s.length()-1);
+        }
+        return s;
+    }
+
+    public static class CustomProcedureInfo {
+        public String type;
+        public String name;
+        public String description;
+        public String mode;
+        public String statement;
+        public List<List<String>>inputs;
+        public Object outputs;
+        public Boolean forceSingle;
+
+        public CustomProcedureInfo(String type, String name, String description, String mode,
+                                   String statement, List<List<String>> inputs, Object outputs,
+                                   Boolean forceSingle){
+            this.type = type;
+            this.name = name;
+            this.description = description;
+            this.statement = statement;
+            this.outputs = outputs;
+            this.inputs = inputs;
+            this.forceSingle = forceSingle;
+            this.mode = mode;
+        }
+    }
 
 }

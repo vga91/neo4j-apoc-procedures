@@ -11,15 +11,16 @@ import java.util.function.Consumer;
 import org.apache.commons.io.filefilter.IOFileFilter;
 import org.apache.commons.io.filefilter.WildcardFileFilter;
 import org.awaitility.core.ConditionTimeoutException;
+import org.neo4j.driver.AuthToken;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
 
 import static apoc.util.TestContainerUtil.copyFilesToPlugin;
 import static apoc.util.TestContainerUtil.executeGradleTasks;
-import static org.junit.Assert.assertEquals;
-import static org.neo4j.test.assertion.Assert.assertEventually;
+import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
 public class ExtendedTestContainerUtil
 {
@@ -47,45 +48,41 @@ public class ExtendedTestContainerUtil
     }
 
     /**
-     * Check if the system LEADER and the neo4j LEADER are located in different cores
-     *
-     * @param session
+     * Open a `neo4j://` routing session for each cluster member against system db
      */
-    public static void checkLeadershipBalanced(Session session) throws ConditionTimeoutException {
-        assertEventually(() -> {
-                    String query = "CALL dbms.cluster.overview() YIELD databases\n" +
-                            "WITH databases.neo4j AS neo4j, databases.system AS system\n" +
-                            "WHERE neo4j = 'LEADER' OR system = 'LEADER'\n" +
-                            "RETURN count(*)";
-                    try {
-                        long count = singleResultFirstColumn(session, query);
-                        assertEquals(2L, count);
-                        return true;
-                    } catch (Exception e) {
-                        return false;
-                    }
-                },
-                (value) -> value, 30L, TimeUnit.SECONDS);
-    }
-
-    /**
-     * Open a routing session for each cluster core member
-     *
-     * @param members
-     * @param sessionConsumer
-     */
-    public static void queryForEachMembers(List<Neo4jContainerExtension> members,
+    public static void routingSessionForEachMembers(List<Neo4jContainerExtension> members,
                                            BiConsumer<Session, Neo4jContainerExtension> sessionConsumer) {
 
         for (Neo4jContainerExtension container: members) {
             // Bolt (routing) url
             String neo4jUrl = "neo4j://localhost:" + container.getMappedPort(7687);
 
-            try (Driver driver = GraphDatabase.driver(neo4jUrl, AuthTokens.basic("neo4j", container.getAdminPassword()));
-                 Session session = driver.session()) {
+            AuthToken authToken = AuthTokens.basic("neo4j", container.getAdminPassword());
+            try (Driver driver = GraphDatabase.driver(neo4jUrl, authToken);
+                 Session session = driver.session(SessionConfig.forDatabase(SYSTEM_DATABASE_NAME))) {
                 sessionConsumer.accept(session, container);
             }
         }
+    }
+
+    public static Driver getDriverIfNotReplica(Neo4jContainerExtension container) {
+        final String readReplica = TestcontainersCausalCluster.ClusterInstanceType.READ_REPLICA.toString();
+        final Driver driver = container.getDriver();
+        if (readReplica.equals(container.getEnvMap().get("NEO4J_dbms_mode")) || driver == null) {
+            return null;
+        }
+        return driver;
+    }
+
+    public static String getBoltAddress(Neo4jContainerExtension instance) {
+        return instance.getEnvMap().get("NEO4J_dbms_connector_bolt_advertised__address");
+    }
+
+    public static boolean dbIsWriter(String dbName, Session session, String boltAddress) {
+        return session.run( "SHOW DATABASE $dbName WHERE address = $boltAddress",
+                        Map.of("dbName", dbName, "boltAddress", boltAddress) )
+                .single().get("writer")
+                .asBoolean();
     }
 
 }

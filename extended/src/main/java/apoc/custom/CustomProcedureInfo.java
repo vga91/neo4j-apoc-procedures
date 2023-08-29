@@ -51,17 +51,16 @@ public class CustomProcedureInfo {
     }
 
     public static CustomProcedureInfo getInfoFromDescriptor(CypherProceduresHandler.ProcedureOrFunctionDescriptor descriptor) {
-        if (descriptor instanceof CypherProceduresHandler.ProcedureDescriptor) {
-            CypherProceduresHandler.ProcedureDescriptor procedureDescriptor = (CypherProceduresHandler.ProcedureDescriptor) descriptor;
+        if (descriptor instanceof CypherProceduresHandler.ProcedureDescriptor procedureDescriptor) {
             ProcedureSignature signature = procedureDescriptor.getSignature();
-            String statement1 = procedureDescriptor.getStatement();
-            return getCustomProcedureInfo(signature, statement1);
+            String statement = procedureDescriptor.getStatement();
+            return getCustomProcedureInfo(signature, statement);
         } else {
             CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor = (CypherProceduresHandler.UserFunctionDescriptor) descriptor;
             UserFunctionSignature signature = userFunctionDescriptor.getSignature();
-            boolean forceSingle1 = userFunctionDescriptor.isForceSingle();
-            String statement1 = userFunctionDescriptor.getStatement();
-            return getCustomFunctionInfo(signature, forceSingle1, statement1);
+            boolean forceSingle = userFunctionDescriptor.isForceSingle();
+            String statement = userFunctionDescriptor.getStatement();
+            return getCustomFunctionInfo(signature, forceSingle, statement);
         }
     }
 

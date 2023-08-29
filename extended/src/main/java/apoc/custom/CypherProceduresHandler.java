@@ -658,19 +658,13 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     public abstract class ProcedureOrFunctionDescriptor {
         private final String statement;
-        private final boolean newType;
 
-        protected ProcedureOrFunctionDescriptor(String statement, boolean newType) {
+        protected ProcedureOrFunctionDescriptor(String statement) {
             this.statement = statement;
-            this.newType = newType;
         }
 
         public String getStatement() {
             return statement;
-        }
-
-        public boolean isNewType() {
-            return newType;
         }
 
         abstract public void register();

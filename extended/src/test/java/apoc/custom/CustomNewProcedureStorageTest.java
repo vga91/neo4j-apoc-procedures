@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static apoc.custom.CypherProcedureTestUtil.startDbWithCustomApocConfs;
+import static apoc.custom.CypherProcedureTestUtil.startDbWithCustomApocConfigs;
 import static apoc.util.ExtendedTestUtil.testRetryCallEventually;
 import static apoc.util.MapUtil.map;
 import static apoc.util.SystemDbTestUtil.TIMEOUT;
@@ -47,7 +47,7 @@ public class CustomNewProcedureStorageTest {
 
     @Before
     public void setUp() throws Exception {
-        dbms = startDbWithCustomApocConfs(STORE_DIR);
+        dbms = startDbWithCustomApocConfigs(STORE_DIR);
         getDbServices();
     }
 
@@ -61,7 +61,7 @@ public class CustomNewProcedureStorageTest {
     private void getDbServices() {
         db = dbms.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         sysDb = dbms.database(GraphDatabaseSettings.SYSTEM_DATABASE_NAME);
-        TestUtil.registerProcedure(db, CustomNewProcedures.class, PathExplorer.class);
+        TestUtil.registerProcedure(db, CypherNewProcedures.class, PathExplorer.class);
     }
 
     @Test

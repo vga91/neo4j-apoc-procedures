@@ -901,22 +901,6 @@ public class CypherProceduresTest  {
     }
 
     private void assertProcedureFails(String expectedMessage, String query) {
-        assertProcedureFails(db, expectedMessage, query);
-    }
-
-    public static void assertProcedureFails(GraphDatabaseService db, String expectedMessage, String query, Map<String, Object> params) {
-        try {
-            testCall(db, query, params, row -> fail("The test should fail because of: " + expectedMessage));
-        } catch (QueryExecutionException e) {
-            Throwable except = ExceptionUtils.getRootCause(e);
-            assertTrue(except instanceof RuntimeException);
-            String message = except.getMessage();
-            assertTrue("Actual error is: " + message, message.contains(expectedMessage));
-        }
-    }
-
-    // todo - common?
-    public static void assertProcedureFails(GraphDatabaseService db, String expectedMessage, String query) {
-        assertProcedureFails(db, expectedMessage, query, Map.of());
+        CypherProcedureTestUtil.assertProcedureFails(db, expectedMessage, query, Map.of());
     }
 }

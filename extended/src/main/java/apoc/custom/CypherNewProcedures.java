@@ -16,11 +16,10 @@ import java.util.stream.Stream;
 
 import static apoc.custom.CypherProceduresHandler.PREFIX;
 import static apoc.util.SystemDbUtil.checkInSystemDb;
-import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
 
 @Extended
-public class CustomNewProcedures {
+public class CypherNewProcedures {
 
     @Context
     public GraphDatabaseAPI db;
@@ -43,7 +42,7 @@ public class CustomNewProcedures {
     @Admin
     @Procedure(value = "apoc.custom.installProcedure", mode = Mode.WRITE)
     @Description("Eventually registers a custom cypher procedure")
-    public void declareProcedure(@Name("signature") String signature,
+    public void installProcedure(@Name("signature") String signature,
                                  @Name("statement") String statement,
                                  @Name(value = "databaseName", defaultValue = "neo4j") String databaseName,
                                  @Name(value = "mode", defaultValue = "read") String mode,
@@ -61,7 +60,7 @@ public class CustomNewProcedures {
     @Admin
     @Procedure(value = "apoc.custom.installFunction", mode = Mode.WRITE)
     @Description("Eventually registers a custom cypher function")
-    public void declareFunction(@Name("signature") String signature, @Name("statement") String statement,
+    public void installFunction(@Name("signature") String signature, @Name("statement") String statement,
                                 @Name(value = "databaseName", defaultValue = "neo4j") String databaseName,
                                 @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
                                 @Name(value = "description", defaultValue = "") String description) throws ProcedureException {
@@ -77,7 +76,7 @@ public class CustomNewProcedures {
     @Admin
     @Procedure(value = "apoc.custom.dropProcedure", mode = Mode.WRITE)
     @Description("Eventually drops the targeted custom procedure")
-    public void removeProcedure(@Name("name") String name, @Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
+    public void dropProcedure(@Name("name") String name, @Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
         checkIsValidDatabase(databaseName);
 
         Objects.requireNonNull(name, "name");
@@ -89,7 +88,7 @@ public class CustomNewProcedures {
     @Admin
     @Procedure(value = "apoc.custom.dropFunction", mode = Mode.WRITE)
     @Description("Eventually drops the targeted custom function")
-    public void removeFunction(@Name("name") String name, @Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
+    public void dropFunction(@Name("name") String name, @Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
         checkIsValidDatabase(databaseName);
 
         Objects.requireNonNull(name, "name");
