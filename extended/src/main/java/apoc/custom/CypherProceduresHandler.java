@@ -65,6 +65,7 @@ import static apoc.custom.CustomHandler.getUserFunctionSignature;
 import static apoc.custom.CypherHandlerNewProcedure.getProcedureSignature;
 import static apoc.custom.CypherHandlerNewProcedure.getUserFunctionSignature;
 import static apoc.custom.CypherHandlerNewProcedure.qualifiedName;
+import static apoc.custom.CypherProceduresUtil.*;
 import static apoc.custom.CypherHandlerNewProcedure.serializeSignatures;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
@@ -135,10 +136,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         if (restoreProceduresHandle != null) {
             restoreProceduresHandle.cancel();
         }
-    }
-
-    public Mode mode(String s) {
-        return CypherHandlerNewProcedure.mode(s);
     }
 
     public Stream<ProcedureOrFunctionDescriptor> readSignatures() {

@@ -160,7 +160,6 @@ public class CypherNewProceduresTest {
 
         testCallEventually("CALL custom.testValFour(2, 3) YIELD answer RETURN collect(answer) AS res",
                 (r) -> assertEquals(List.of(1D, 2D, 4D, 8D), r.get("res")));
-//                (r) -> assertEquals(List.of(1D, 2D, 4D, 8D), Iterators.asList(r.columnAs("res"))));
 
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure($signature, $query)",
                 Map.of("signature", "multiProc(input::LOCALDATETIME, minus::INT) :: (first::INT, second:: STRING, third::DATETIME)",

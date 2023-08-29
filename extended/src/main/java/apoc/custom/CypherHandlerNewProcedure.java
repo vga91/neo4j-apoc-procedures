@@ -8,17 +8,11 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.internal.kernel.api.procs.DefaultParameterValue;
 import org.neo4j.internal.kernel.api.procs.FieldSignature;
-import org.neo4j.internal.kernel.api.procs.Neo4jTypes;
 import org.neo4j.internal.kernel.api.procs.ProcedureSignature;
 import org.neo4j.internal.kernel.api.procs.QualifiedName;
 import org.neo4j.internal.kernel.api.procs.UserFunctionSignature;
-import org.neo4j.procedure.Mode;
-import org.neo4j.procedure.Name;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -29,17 +23,18 @@ import static apoc.ExtendedSystemLabels.ApocCypherProcedures;
 import static apoc.ExtendedSystemLabels.ApocCypherProceduresMeta;
 import static apoc.ExtendedSystemLabels.Function;
 import static apoc.ExtendedSystemLabels.Procedure;
-import static apoc.SystemPropertyKeys.*;
-import static apoc.ExtendedSystemPropertyKeys.*;
-import static apoc.custom.CypherProceduresHandler.*;
+import static apoc.ExtendedSystemPropertyKeys.description;
+import static apoc.ExtendedSystemPropertyKeys.inputs;
+import static apoc.ExtendedSystemPropertyKeys.mode;
+import static apoc.ExtendedSystemPropertyKeys.output;
+import static apoc.ExtendedSystemPropertyKeys.outputs;
+import static apoc.ExtendedSystemPropertyKeys.prefix;
+import static apoc.SystemPropertyKeys.database;
+import static apoc.SystemPropertyKeys.name;
+import static apoc.custom.CypherProceduresUtil.qualifiedName;
 import static apoc.util.SystemDbUtil.getSystemNodes;
 import static apoc.util.SystemDbUtil.withSystemDb;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTDuration;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTGeometry;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTPoint;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTString;
 
 public class CypherHandlerNewProcedure {
 
@@ -77,10 +72,6 @@ public class CypherHandlerNewProcedure {
         });
     }
 
-    public static Mode mode(String s) {
-        return s == null ? Mode.READ : Mode.valueOf(s.toUpperCase());
-    }
-
     public static List<CustomProcedureInfo> dropAll(String databaseName) {
         return withSystemDb(tx -> {
             List<CustomProcedureInfo> previous = getCustomNodes(databaseName, tx)
@@ -110,35 +101,12 @@ public class CypherHandlerNewProcedure {
                 .thenComparing(i -> i.type);
     }
 
-    public static ResourceIterator<Node> getCustomNodes(String databaseName, Transaction tx) {
-        return getCustomNodes(databaseName, tx, null);
-    }
-
-    public static ResourceIterator<Node> getCustomNodes(String databaseName, Transaction tx, Map<String, Object> props) {
-        return getSystemNodes(tx, databaseName, ApocCypherProcedures, props);
-    }
-
-    public static CustomProcedureInfo getFunctionInfo(Node node) {
-        String statement = (String) node.getProperty(SystemPropertyKeys.statement.name());
-        boolean forceSingle = (boolean) node.getProperty(ExtendedSystemPropertyKeys.forceSingle.name(), false);
-        UserFunctionSignature signature = getUserFunctionSignature(node);
-
-        return CustomProcedureInfo.getCustomFunctionInfo(signature, forceSingle, statement);
-    }
-
-    public static CustomProcedureInfo getProcedureInfo(Node node) {
-        String statement = (String) node.getProperty(SystemPropertyKeys.statement.name());
-        ProcedureSignature signature = getProcedureSignature(node);
-
-        return CustomProcedureInfo.getCustomProcedureInfo(signature, statement);
-    }
-
     public static void dropFunction(String databaseName, String name) {
         withSystemDb(tx -> {
-            QualifiedName qualifiedName = qualifiedName(name);
+            QualifiedName qName = qualifiedName(name);
             getCustomNodes(databaseName, tx,
-                    Map.of(SystemPropertyKeys.name.name(), qualifiedName.name(),
-                            prefix.name(), qualifiedName.namespace())
+                    Map.of(SystemPropertyKeys.name.name(), qName.name(),
+                            prefix.name(), qName.namespace())
             )
                     .stream()
                     .filter(n -> n.hasLabel(Function)).forEach(node -> {
@@ -150,11 +118,11 @@ public class CypherHandlerNewProcedure {
 
     public static void dropProcedure(String databaseName, String name) {
         withSystemDb(tx -> {
-            QualifiedName qualifiedName = qualifiedName(name);
+            QualifiedName qName = qualifiedName(name);
             getCustomNodes(databaseName, tx,
                     Map.of(SystemPropertyKeys.database.name(), databaseName,
-                            SystemPropertyKeys.name.name(), qualifiedName.name(),
-                            prefix.name(), qualifiedName.namespace())
+                            SystemPropertyKeys.name.name(), qName.name(),
+                            prefix.name(), qName.namespace())
             ).stream().filter(n -> n.hasLabel(Procedure)).forEach(node -> {
                 node.delete();
                 setLastUpdate(tx, databaseName);
@@ -162,12 +130,12 @@ public class CypherHandlerNewProcedure {
         });
     }
 
-    public static QualifiedName qualifiedName(@Name("name") String name) {
-        String[] names = name.split("\\.");
-        List<String> namespace = new ArrayList<>(names.length);
-        namespace.add(PREFIX);
-        namespace.addAll(Arrays.asList(names));
-        return new QualifiedName(namespace.subList(0, namespace.size() - 1), names[names.length - 1]);
+    public static ResourceIterator<Node> getCustomNodes(String databaseName, Transaction tx) {
+        return getCustomNodes(databaseName, tx, null);
+    }
+
+    public static ResourceIterator<Node> getCustomNodes(String databaseName, Transaction tx, Map<String, Object> props) {
+        return getSystemNodes(tx, databaseName, ApocCypherProcedures, props);
     }
 
     public static String serializeSignatures(List<FieldSignature> signatures) {
@@ -184,135 +152,6 @@ public class CypherHandlerNewProcedure {
 
     private static void setLastUpdate(Transaction tx, String databaseName) {
         SystemDbUtil.setLastUpdate(tx, databaseName, ApocCypherProceduresMeta);
-    }
-
-    public static UserFunctionSignature getUserFunctionSignature(Node node) {
-        String name = (String) node.getProperty(SystemPropertyKeys.name.name());
-        String description = (String) node.getProperty(ExtendedSystemPropertyKeys.description.name(), null);
-        String[] prefix = (String[]) node.getProperty(ExtendedSystemPropertyKeys.prefix.name(), new String[]{PREFIX});
-
-        String property = (String) node.getProperty(ExtendedSystemPropertyKeys.inputs.name());
-        List<FieldSignature> inputs = deserializeSignatures(property);
-
-        return new UserFunctionSignature(
-                new QualifiedName(prefix, name),
-                inputs,
-                typeof((String) node.getProperty(ExtendedSystemPropertyKeys.output.name())),
-                null,
-                description,
-                "apoc.custom",
-                false,
-                false,
-                false,
-                false
-        );
-    }
-
-    public static ProcedureSignature getProcedureSignature(Node node) {
-        String name = (String) node.getProperty(SystemPropertyKeys.name.name());
-        String description = (String) node.getProperty( ExtendedSystemPropertyKeys.description.name(), null);
-        String[] prefix = (String[]) node.getProperty(ExtendedSystemPropertyKeys.prefix.name(), new String[]{PREFIX});
-
-        String property = (String) node.getProperty(ExtendedSystemPropertyKeys.inputs.name());
-        List<FieldSignature> inputs = deserializeSignatures(property);
-
-        List<FieldSignature> outputSignature = deserializeSignatures((String) node.getProperty(ExtendedSystemPropertyKeys.outputs.name()));
-        return Signatures.createProcedureSignature(
-                new QualifiedName(prefix, name),
-                inputs,
-                outputSignature,
-                Mode.valueOf((String) node.getProperty(ExtendedSystemPropertyKeys.mode.name())),
-                false,
-                null,
-                description,
-                null,
-                false,
-                false,
-                false,
-                false,
-                false,
-                false);
-    }
-
-    public static List<FieldSignature> deserializeSignatures(String s) {
-        List<Map<String, Object>> mapped = Util.fromJson(s, List.class);
-        if (mapped.isEmpty()) return ProcedureSignature.VOID;
-        return mapped.stream().map(map -> {
-            String typeString = (String) map.get("type");
-            if (typeString.endsWith("?")) {
-                typeString = typeString.substring(0, typeString.length() - 1);
-            }
-            Neo4jTypes.AnyType type = typeof(typeString);
-            // we insert the default value only if is present
-            if (map.containsKey("default")) {
-                return FieldSignature.inputField((String) map.get("name"), type, new DefaultParameterValue(map.get("default"), type));
-            } else {
-                return FieldSignature.inputField((String) map.get("name"), type);
-            }
-        }).collect(Collectors.toList());
-    }
-
-    public static Neo4jTypes.AnyType typeof(String typeName) {
-        typeName = typeName.replaceAll("\\?", "");
-        typeName = typeName.toUpperCase();
-        if (typeName.startsWith("LIST OF ")) return NTList(typeof(typeName.substring(8)));
-        if (typeName.startsWith("LIST ")) return NTList(typeof(typeName.substring(5)));
-        switch (typeName) {
-            case "ANY":
-                return NTAny;
-            case "MAP":
-                return NTMap;
-            case "NODE":
-                return NTNode;
-            case "REL":
-                return NTRelationship;
-            case "RELATIONSHIP":
-                return NTRelationship;
-            case "EDGE":
-                return NTRelationship;
-            case "PATH":
-                return NTPath;
-            case "NUMBER":
-                return NTNumber;
-            case "LONG":
-                return NTInteger;
-            case "INT":
-                return NTInteger;
-            case "INTEGER":
-                return NTInteger;
-            case "FLOAT":
-                return NTFloat;
-            case "DOUBLE":
-                return NTFloat;
-            case "BOOL":
-                return NTBoolean;
-            case "BOOLEAN":
-                return NTBoolean;
-            case "DATE":
-                return NTDate;
-            case "TIME":
-                return NTTime;
-            case "LOCALTIME":
-                return NTLocalTime;
-            case "DATETIME":
-                return NTDateTime;
-            case "LOCALDATETIME":
-                return NTLocalDateTime;
-            case "DURATION":
-                return NTDuration;
-            case "POINT":
-                return NTPoint;
-            case "GEO":
-                return NTGeometry;
-            case "GEOMETRY":
-                return NTGeometry;
-            case "STRING":
-                return NTString;
-            case "TEXT":
-                return NTString;
-            default:
-                return NTString;
-        }
     }
 
 }

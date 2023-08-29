@@ -3,7 +3,6 @@ package apoc.custom;
 import apoc.Extended;
 import apoc.util.SystemDbUtil;
 import org.neo4j.graphdb.Transaction;
-import org.neo4j.internal.kernel.api.exceptions.ProcedureException;
 import org.neo4j.internal.kernel.api.procs.ProcedureSignature;
 import org.neo4j.internal.kernel.api.procs.UserFunctionSignature;
 import org.neo4j.kernel.api.procedure.SystemProcedure;
@@ -11,7 +10,6 @@ import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.*;
 
-import java.util.Objects;
 import java.util.stream.Stream;
 
 import static apoc.custom.CypherProceduresHandler.PREFIX;
@@ -36,7 +34,6 @@ public class CypherNewProcedures {
         SystemDbUtil.checkTargetDatabase(tx, databaseName, "Custom procedures/functions");
     }
 
-
     // TODO - change with @SystemOnlyProcedure
     @SystemProcedure
     @Admin
@@ -49,7 +46,7 @@ public class CypherNewProcedures {
                                  @Name(value = "description", defaultValue = "") String description) {
         checkIsValidDatabase(databaseName);
 
-        Mode modeProcedure = CypherHandlerNewProcedure.mode(mode);
+        Mode modeProcedure = CypherProceduresUtil.mode(mode);
         ProcedureSignature procedureSignature = new Signatures(PREFIX).asProcedureSignature(signature, description, modeProcedure);
 
         CypherHandlerNewProcedure.installProcedure(databaseName, procedureSignature, statement);
@@ -63,8 +60,7 @@ public class CypherNewProcedures {
     public void installFunction(@Name("signature") String signature, @Name("statement") String statement,
                                 @Name(value = "databaseName", defaultValue = "neo4j") String databaseName,
                                 @Name(value = "forceSingle", defaultValue = "false") boolean forceSingle,
-                                @Name(value = "description", defaultValue = "") String description) throws ProcedureException {
-
+                                @Name(value = "description", defaultValue = "") String description) {
         checkIsValidDatabase(databaseName);
 
         UserFunctionSignature userFunctionSignature = new Signatures(PREFIX).asFunctionSignature(signature, description);
@@ -79,7 +75,6 @@ public class CypherNewProcedures {
     public void dropProcedure(@Name("name") String name, @Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
         checkIsValidDatabase(databaseName);
 
-        Objects.requireNonNull(name, "name");
         CypherHandlerNewProcedure.dropProcedure(databaseName, name);
     }
 
@@ -91,7 +86,6 @@ public class CypherNewProcedures {
     public void dropFunction(@Name("name") String name, @Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
         checkIsValidDatabase(databaseName);
 
-        Objects.requireNonNull(name, "name");
         CypherHandlerNewProcedure.dropFunction(databaseName, name);
     }
 

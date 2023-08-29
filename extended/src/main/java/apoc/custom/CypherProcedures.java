@@ -68,7 +68,7 @@ public class CypherProcedures {
                                  @Name(value = "description", defaultValue = "") String description
     ) {
         checkWriteAllowed(MSG_DEPRECATION);
-        Mode modeProcedure = cypherProceduresHandler.mode(mode);
+        Mode modeProcedure = CypherProceduresUtil.mode(mode);
         ProcedureSignature procedureSignature = new Signatures(PREFIX).asProcedureSignature(signature, description, modeProcedure);
         validateProcedure(statement, procedureSignature.inputSignature(), procedureSignature.outputSignature(), modeProcedure);
 
@@ -115,7 +115,6 @@ public class CypherProcedures {
     @Description("apoc.custom.removeProcedure(name) - remove the targeted custom procedure")
     public void removeProcedure(@Name("name") String name) {
         checkWriteAllowed(MSG_DEPRECATION);
-        Objects.requireNonNull(name, "name");
         cypherProceduresHandler.removeProcedure(name);
     }
 
@@ -125,7 +124,6 @@ public class CypherProcedures {
     @Description("apoc.custom.removeFunction(name, type) - remove the targeted custom function")
     public void removeFunction(@Name("name") String name) {
         checkWriteAllowed(MSG_DEPRECATION);
-        Objects.requireNonNull(name, "name");
         cypherProceduresHandler.removeFunction(name);
     }
 
