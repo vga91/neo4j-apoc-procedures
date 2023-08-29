@@ -2,6 +2,7 @@ package apoc.systemdb.metadata;
 
 import apoc.ExtendedSystemPropertyKeys;
 import apoc.SystemPropertyKeys;
+import apoc.custom.CypherHandlerNewProcedure;
 import apoc.custom.CypherProceduresHandler;
 import apoc.export.util.ProgressReporter;
 import org.apache.commons.lang3.tuple.Pair;
@@ -34,7 +35,7 @@ public class ExportFunction implements ExportMetadata {
 
 
     static String getSignature(Node node, String name) {
-        return CypherProceduresHandler.deserializeSignatures((String) node.getProperty(name))
+        return CypherHandlerNewProcedure.deserializeSignatures((String) node.getProperty(name))
                 .stream().map(FieldSignature::toString)
                 .collect(Collectors.joining(", "));
     }

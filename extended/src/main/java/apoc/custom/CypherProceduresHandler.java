@@ -62,6 +62,10 @@ import static apoc.custom.Signatures.NUMBER_TYPE;
 import static apoc.util.MapUtil.map;
 import static apoc.custom.CustomHandler.getProcedureSignature;
 import static apoc.custom.CustomHandler.getUserFunctionSignature;
+import static apoc.custom.CypherHandlerNewProcedure.getProcedureSignature;
+import static apoc.custom.CypherHandlerNewProcedure.getUserFunctionSignature;
+import static apoc.custom.CypherHandlerNewProcedure.qualifiedName;
+import static apoc.custom.CypherHandlerNewProcedure.serializeSignatures;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTAny;
@@ -134,7 +138,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     }
 
     public Mode mode(String s) {
-        return CustomHandler.mode(s);
+        return CypherHandlerNewProcedure.mode(s);
     }
 
     public Stream<ProcedureOrFunctionDescriptor> readSignatures() {
@@ -167,19 +171,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
         UserFunctionSignature signature = getUserFunctionSignature(node);
         return new UserFunctionDescriptor(signature, statement, forceSingle);
-        boolean mapResult = (boolean) node.getProperty(ExtendedSystemPropertyKeys.mapResult.name(), false);
-        return new UserFunctionDescriptor(new UserFunctionSignature(
-                new QualifiedName(prefix, name),
-                inputs,
-                typeof((String) node.getProperty(ExtendedSystemPropertyKeys.output.name())),
-                null,
-                description,
-                "apoc.custom",
-                false,
-                false,
-                false,
-                false
-        ), statement, forceSingle, mapResult);
     }
 
     public synchronized void restoreProceduresAndFunctions() {
@@ -253,28 +244,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             }
             return null;
         });
-    }
-
-    private String serializeSignatures(List<FieldSignature> signatures) {
-        return CustomHandler.serializeSignatures(signatures);
-    }
-
-    public static List<FieldSignature> deserializeSignatures(String s) {
-        List<Map<String, Object>> mapped = Util.fromJson(s, List.class);
-        if (mapped.isEmpty()) return ProcedureSignature.VOID;
-        return mapped.stream().map(map -> {
-            String typeString = (String) map.get("type");
-            if (typeString.endsWith("?")) {
-                typeString = typeString.substring(0, typeString.length() - 1);
-            }
-            AnyType type = typeof(typeString);
-            // we insert the default value only if is present
-            if (map.containsKey("default")) {
-                return FieldSignature.inputField((String) map.get("name"), type, new DefaultParameterValue(map.get("default"), type));
-            } else {
-                return FieldSignature.inputField((String) map.get("name"), type);
-            }
-        }).collect(Collectors.toList());
     }
 
     private void setLastUpdate(Transaction tx) {

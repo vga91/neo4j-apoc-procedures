@@ -8,7 +8,9 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.internal.kernel.api.procs.DefaultParameterValue;
 import org.neo4j.internal.kernel.api.procs.FieldSignature;
+import org.neo4j.internal.kernel.api.procs.Neo4jTypes;
 import org.neo4j.internal.kernel.api.procs.ProcedureSignature;
 import org.neo4j.internal.kernel.api.procs.QualifiedName;
 import org.neo4j.internal.kernel.api.procs.UserFunctionSignature;
@@ -33,8 +35,13 @@ import static apoc.custom.CypherProceduresHandler.*;
 import static apoc.util.SystemDbUtil.getSystemNodes;
 import static apoc.util.SystemDbUtil.withSystemDb;
 import static org.neo4j.internal.helpers.collection.MapUtil.map;
+import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
+import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTDuration;
+import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTGeometry;
+import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTPoint;
+import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTString;
 
-public class CustomHandler {
+public class CypherHandlerNewProcedure {
 
     public static void installProcedure(String databaseName, ProcedureSignature signature, String statement) {
         withSystemDb(tx -> {
@@ -128,10 +135,10 @@ public class CustomHandler {
 
     public static void dropFunction(String databaseName, String name) {
         withSystemDb(tx -> {
-            QualifiedName qName = qualifiedName(name);
+            QualifiedName qualifiedName = qualifiedName(name);
             getCustomNodes(databaseName, tx,
-                    Map.of(SystemPropertyKeys.name.name(), qName.name(),
-                            prefix.name(), qName.namespace())
+                    Map.of(SystemPropertyKeys.name.name(), qualifiedName.name(),
+                            prefix.name(), qualifiedName.namespace())
             )
                     .stream()
                     .filter(n -> n.hasLabel(Function)).forEach(node -> {
@@ -143,11 +150,11 @@ public class CustomHandler {
 
     public static void dropProcedure(String databaseName, String name) {
         withSystemDb(tx -> {
-            QualifiedName qName = qualifiedName(name);
-            tx.findNodes(ApocCypherProcedures,
-                    SystemPropertyKeys.database.name(), databaseName,
-                    SystemPropertyKeys.name.name(), qName.name(),
-                    prefix.name(), qName.namespace()
+            QualifiedName qualifiedName = qualifiedName(name);
+            getCustomNodes(databaseName, tx,
+                    Map.of(SystemPropertyKeys.database.name(), databaseName,
+                            SystemPropertyKeys.name.name(), qualifiedName.name(),
+                            prefix.name(), qualifiedName.namespace())
             ).stream().filter(n -> n.hasLabel(Procedure)).forEach(node -> {
                 node.delete();
                 setLastUpdate(tx, databaseName);
@@ -225,6 +232,87 @@ public class CustomHandler {
                 false,
                 false,
                 false);
+    }
+
+    public static List<FieldSignature> deserializeSignatures(String s) {
+        List<Map<String, Object>> mapped = Util.fromJson(s, List.class);
+        if (mapped.isEmpty()) return ProcedureSignature.VOID;
+        return mapped.stream().map(map -> {
+            String typeString = (String) map.get("type");
+            if (typeString.endsWith("?")) {
+                typeString = typeString.substring(0, typeString.length() - 1);
+            }
+            Neo4jTypes.AnyType type = typeof(typeString);
+            // we insert the default value only if is present
+            if (map.containsKey("default")) {
+                return FieldSignature.inputField((String) map.get("name"), type, new DefaultParameterValue(map.get("default"), type));
+            } else {
+                return FieldSignature.inputField((String) map.get("name"), type);
+            }
+        }).collect(Collectors.toList());
+    }
+
+    public static Neo4jTypes.AnyType typeof(String typeName) {
+        typeName = typeName.replaceAll("\\?", "");
+        typeName = typeName.toUpperCase();
+        if (typeName.startsWith("LIST OF ")) return NTList(typeof(typeName.substring(8)));
+        if (typeName.startsWith("LIST ")) return NTList(typeof(typeName.substring(5)));
+        switch (typeName) {
+            case "ANY":
+                return NTAny;
+            case "MAP":
+                return NTMap;
+            case "NODE":
+                return NTNode;
+            case "REL":
+                return NTRelationship;
+            case "RELATIONSHIP":
+                return NTRelationship;
+            case "EDGE":
+                return NTRelationship;
+            case "PATH":
+                return NTPath;
+            case "NUMBER":
+                return NTNumber;
+            case "LONG":
+                return NTInteger;
+            case "INT":
+                return NTInteger;
+            case "INTEGER":
+                return NTInteger;
+            case "FLOAT":
+                return NTFloat;
+            case "DOUBLE":
+                return NTFloat;
+            case "BOOL":
+                return NTBoolean;
+            case "BOOLEAN":
+                return NTBoolean;
+            case "DATE":
+                return NTDate;
+            case "TIME":
+                return NTTime;
+            case "LOCALTIME":
+                return NTLocalTime;
+            case "DATETIME":
+                return NTDateTime;
+            case "LOCALDATETIME":
+                return NTLocalDateTime;
+            case "DURATION":
+                return NTDuration;
+            case "POINT":
+                return NTPoint;
+            case "GEO":
+                return NTGeometry;
+            case "GEOMETRY":
+                return NTGeometry;
+            case "STRING":
+                return NTString;
+            case "TEXT":
+                return NTString;
+            default:
+                return NTString;
+        }
     }
 
 }

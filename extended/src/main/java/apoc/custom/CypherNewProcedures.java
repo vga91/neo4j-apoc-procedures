@@ -49,10 +49,10 @@ public class CypherNewProcedures {
                                  @Name(value = "description", defaultValue = "") String description) {
         checkIsValidDatabase(databaseName);
 
-        Mode modeProcedure = CustomHandler.mode(mode);
+        Mode modeProcedure = CypherHandlerNewProcedure.mode(mode);
         ProcedureSignature procedureSignature = new Signatures(PREFIX).asProcedureSignature(signature, description, modeProcedure);
 
-        CustomHandler.installProcedure(databaseName, procedureSignature, statement);
+        CypherHandlerNewProcedure.installProcedure(databaseName, procedureSignature, statement);
     }
 
     // TODO - change with @SystemOnlyProcedure
@@ -68,7 +68,7 @@ public class CypherNewProcedures {
         checkIsValidDatabase(databaseName);
 
         UserFunctionSignature userFunctionSignature = new Signatures(PREFIX).asFunctionSignature(signature, description);
-        CustomHandler.installFunction(databaseName, userFunctionSignature, statement, forceSingle);
+        CypherHandlerNewProcedure.installFunction(databaseName, userFunctionSignature, statement, forceSingle);
     }
 
     // TODO - change with @SystemOnlyProcedure
@@ -80,7 +80,7 @@ public class CypherNewProcedures {
         checkIsValidDatabase(databaseName);
 
         Objects.requireNonNull(name, "name");
-        CustomHandler.dropProcedure(databaseName, name);
+        CypherHandlerNewProcedure.dropProcedure(databaseName, name);
     }
 
     // TODO - change with @SystemOnlyProcedure
@@ -92,7 +92,7 @@ public class CypherNewProcedures {
         checkIsValidDatabase(databaseName);
 
         Objects.requireNonNull(name, "name");
-        CustomHandler.dropFunction(databaseName, name);
+        CypherHandlerNewProcedure.dropFunction(databaseName, name);
     }
 
     // TODO - change with @SystemOnlyProcedure
@@ -103,7 +103,7 @@ public class CypherNewProcedures {
     public Stream<CustomProcedureInfo> dropAll(@Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
         checkIsValidDatabase(databaseName);
 
-        return CustomHandler.dropAll(databaseName)
+        return CypherHandlerNewProcedure.dropAll(databaseName)
                 .stream();
     }
 
@@ -115,7 +115,7 @@ public class CypherNewProcedures {
     @Description("Provides a list of custom procedures/function registered")
     public Stream<CustomProcedureInfo> show(@Name(value = "databaseName", defaultValue = "neo4j") String databaseName) {
         checkInSystemDb(db);
-        return CustomHandler.show(databaseName, tx);
+        return CypherHandlerNewProcedure.show(databaseName, tx);
     }
 }
 

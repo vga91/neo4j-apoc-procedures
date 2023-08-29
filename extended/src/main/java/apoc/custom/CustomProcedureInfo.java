@@ -11,8 +11,8 @@ import java.util.Optional;
 
 import static apoc.ExtendedSystemLabels.Function;
 import static apoc.ExtendedSystemLabels.Procedure;
-import static apoc.custom.CustomHandler.getFunctionInfo;
-import static apoc.custom.CustomHandler.getProcedureInfo;
+import static apoc.custom.CypherHandlerNewProcedure.getFunctionInfo;
+import static apoc.custom.CypherHandlerNewProcedure.getProcedureInfo;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
 import static apoc.custom.CypherProceduresHandler.PREFIX;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
@@ -47,20 +47,6 @@ public class CustomProcedureInfo {
             return getFunctionInfo(node);
         } else {
             throw new IllegalStateException("don't know what to do with systemdb node " + node);
-        }
-    }
-
-    public static CustomProcedureInfo getInfoFromDescriptor(CypherProceduresHandler.ProcedureOrFunctionDescriptor descriptor) {
-        if (descriptor instanceof CypherProceduresHandler.ProcedureDescriptor procedureDescriptor) {
-            ProcedureSignature signature = procedureDescriptor.getSignature();
-            String statement = procedureDescriptor.getStatement();
-            return getCustomProcedureInfo(signature, statement);
-        } else {
-            CypherProceduresHandler.UserFunctionDescriptor userFunctionDescriptor = (CypherProceduresHandler.UserFunctionDescriptor) descriptor;
-            UserFunctionSignature signature = userFunctionDescriptor.getSignature();
-            boolean forceSingle = userFunctionDescriptor.isForceSingle();
-            String statement = userFunctionDescriptor.getStatement();
-            return getCustomFunctionInfo(signature, forceSingle, statement);
         }
     }
 
