@@ -98,6 +98,8 @@ public class CypherProceduresStorageTest {
 
         // wait a time greater then the `apoc.custom.procedures.refresh` value
         // and check overload works correctly
+
+        System.out.println("before refresh");
         Thread.sleep(greaterThanRefreshTime);
         checkFunctionOverloaded();
 
