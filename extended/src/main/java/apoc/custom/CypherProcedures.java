@@ -4,7 +4,7 @@ import apoc.Extended;
 import apoc.util.collection.Iterables;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.Notification;
-import org.neo4j.graphdb.QueryExecutionType;
+
 import org.neo4j.graphdb.Result;
 import org.neo4j.internal.kernel.api.exceptions.ProcedureException;
 import org.neo4j.internal.kernel.api.procs.DefaultParameterValue;
@@ -34,6 +34,10 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static apoc.custom.CypherProceduresHandler.*;
+import static apoc.util.ExtendedUtil.isQueryValid;
+import static apoc.util.ExtendedUtil.procsAreValid;
+
+import org.neo4j.graphdb.QueryExecutionType.QueryType;
 
 /**
  * @author mh
@@ -157,25 +161,57 @@ public class CypherProcedures {
                         checkInputParams(result);
                     }
                     if (mode != null) {
-                        checkMode(result.getQueryExecutionType().queryType(), mode);
+                        checkMode(result/*.getQueryExecutionType().queryType()*/, mode);
                     }
                     return null;
                 });
     }
 
-    private void checkMode(QueryExecutionType.QueryType queryType, Mode mode) {
-        Map<QueryExecutionType.QueryType, Mode> map = Map.of(QueryExecutionType.QueryType.WRITE, Mode.WRITE,
-                QueryExecutionType.QueryType.READ_ONLY, Mode.READ,
-                QueryExecutionType.QueryType.READ_WRITE, Mode.WRITE,
-                QueryExecutionType.QueryType.DBMS, Mode.DBMS,
-                QueryExecutionType.QueryType.SCHEMA_WRITE, Mode.SCHEMA);
-        
-        if (!map.get(queryType).equals(mode)) {
-            throw new RuntimeException(String.format("The query execution type is %s, but you provided mode %s.\n" +
-                            "Supported modes are %s",
-                    queryType.name(), 
-                    mode.name(), 
-                    map.values().stream().sorted().collect(Collectors.toList())));
+    private void checkMode(Result result, Mode mode) {
+
+        // check that all inner procedure have a correct Mode
+        if (!procsAreValid(api, Set.of(mode), result )){
+            throw new RuntimeException("One or more inner procedure modes have operation different from the mode parameter: " + mode);
+        }
+
+        List<QueryType> readQueryTypes = List.of(QueryType.READ_ONLY);
+        List<QueryType> writeQueryTypes = List.of(QueryType.READ_ONLY, QueryType.WRITE, QueryType.READ_WRITE);
+        List<QueryType> schemaQueryTypes = List.of(QueryType.READ_ONLY, QueryType.WRITE, QueryType.READ_WRITE, QueryType.SCHEMA_WRITE);
+        List<QueryType> dbmsQueryTypes = List.of(QueryType.DBMS);
+
+        // create a map of Mode to allowed `QueryType`s
+        Map<Mode, List<QueryType>> modeQueryTypeMap = Map.of(Mode.READ, readQueryTypes,
+                Mode.WRITE, writeQueryTypes,
+                Mode.SCHEMA, schemaQueryTypes,
+                Mode.DBMS, dbmsQueryTypes);
+
+        List<QueryType> queryTypes = modeQueryTypeMap.get(mode);
+
+        // check that the statement have a valid queryType
+        QueryType queryType = isQueryValid(result, queryTypes.toArray(QueryType[]::new));
+        // if query type not matched
+        if (queryType != null) {
+            /*
+            The `correspondenceList` print a list like:
+                - Mode: SCHEMA can have as a query execution type: [READ_ONLY, WRITE, READ_WRITE, SCHEMA_WRITE]
+                - Mode: DBMS can have as a query execution type: [DBMS]
+                ...
+             */
+            String correspondenceList = modeQueryTypeMap.entrySet()
+                    .stream()
+                    .map(i -> "- Mode: " + i.getKey() + " can have as a query execution type: " + i.getValue())
+                    .collect(Collectors.joining("\n"));
+
+            throw new RuntimeException(String.format("""
+                            The query execution type of the statement is: `%s`, but you provided as a parameter mode: `%s`.
+                            You have to declare a `mode` which corresponds to one of the following query execution type.
+                            That is:
+                            %s""",
+                    queryType.name(),
+                    mode.name(),
+                    correspondenceList
+                    )
+            );
         }
     }
 
