@@ -7,11 +7,9 @@ import static apoc.util.Util.getAllQueryProcs;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.time.temporal.TemporalAccessor;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
@@ -58,29 +56,18 @@ public class ExtendedUtil
         return "{" + formatToString(builder) + "}";
     }
 
-    public static void validateResult(GraphDatabaseService db, Set<Mode> supportedModes, Result result, QueryExecutionType.QueryType... supportedQueryTypes) {
-        final boolean isQueryTypeValid = supportedQueryTypes == null || supportedQueryTypes.length == 0 || Stream.of(supportedQueryTypes)
-                .anyMatch(sqt -> sqt.equals(result.getQueryExecutionType().queryType()));
-
-        if (!isQueryTypeValid) {
-            throw new RuntimeException("Supported query types for the operation are " + Arrays.toString(supportedQueryTypes));
-        }
-
-        if (!procsAreValid(db, supportedModes, result)) {
-            throw new RuntimeException("Supported inner procedure modes for the operation are " + new TreeSet<>(supportedModes));
-        }
-    }
-
     // Similar to `boolean isQueryTypeValid` located in Util.java (APOC Core)
     public static QueryExecutionType.QueryType isQueryValid(Result result, QueryExecutionType.QueryType... supportedQueryTypes) {
         QueryExecutionType.QueryType type = result.getQueryExecutionType().queryType();
+        // if everything is ok return null, otherwise the current getQueryExecutionType().queryType()
         if (supportedQueryTypes != null && supportedQueryTypes.length != 0 && Stream.of(supportedQueryTypes).noneMatch(sqt -> sqt.equals(type))) {
             return type;
         }
         return null;
     }
 
-    // TODO - transform analogous Util.procsAreValid, located in Core, to a public method
+    // TODO - before submitting the pr,
+    //  transform analogous Util.procsAreValid, located in Core, to a public method and remove this one
     public static boolean procsAreValid(GraphDatabaseService db, Set<Mode> supportedModes, Result result) {
         if (supportedModes != null && !supportedModes.isEmpty()) {
             final ExecutionPlanDescription executionPlanDescription = result.getExecutionPlanDescription();

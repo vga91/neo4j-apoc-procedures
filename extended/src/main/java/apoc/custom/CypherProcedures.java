@@ -161,7 +161,7 @@ public class CypherProcedures {
                         checkInputParams(result);
                     }
                     if (mode != null) {
-                        checkMode(result/*.getQueryExecutionType().queryType()*/, mode);
+                        checkMode(result, mode);
                     }
                     return null;
                 });
@@ -192,7 +192,7 @@ public class CypherProcedures {
         // if query type not matched
         if (queryType != null) {
             /*
-            The `correspondenceList` print a list like:
+            The `correspondenceList` prints a list like:
                 - Mode: SCHEMA can have as a query execution type: [READ_ONLY, WRITE, READ_WRITE, SCHEMA_WRITE]
                 - Mode: DBMS can have as a query execution type: [DBMS]
                 ...
