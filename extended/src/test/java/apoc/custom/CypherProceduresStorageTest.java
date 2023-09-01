@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_REFRESH;
 import static apoc.util.DbmsTestUtil.startDbWithApocConfigs;
@@ -597,5 +598,79 @@ public class CypherProceduresStorageTest {
         db.executeTransactionally("CALL apoc.custom.declareFunction('nn(val::INTEGER) :: NODE', 'MATCH (t:Target {value : $val}) RETURN t')");
         restartDb();
         TestUtil.testCall(db, "RETURN custom.nn(2) as row", (row) -> assertEquals(2L, ((Node) row.get("row")).getProperty("value")));
+    }
+
+    @Test
+    public void functionSignatureShouldNotChangeBeforeAndAfterRestartAndOverwriteMap() {
+        db.executeTransactionally("CALL apoc.custom.declareFunction('map(val :: INTEGER) :: MAP ', 'RETURN {value : $val} as value')");
+        db.executeTransactionally("CALL apoc.custom.declareFunction('map_list(val :: INTEGER) :: LIST OF MAP ', 'RETURN [{value : $val}] as value')");
+        db.executeTransactionally("CALL apoc.custom.declareFunction('map_result(val :: INTEGER) :: MAPRESULT ', 'RETURN {value : $val} as value')");
+        db.executeTransactionally("CALL apoc.custom.declareFunction('map_result_list(val :: INTEGER) :: LIST OF MAPRESULT ', 'RETURN [{value : $val}] as value')");
+
+        functionMapAssertions();
+
+        restartDb();
+        functionMapAssertions();
+    }
+
+    // TODO
+    // TODO
+    // TODO
+    // TODO
+    // TODO
+    // TODO -- DOCUMENTAZIONE
+    // TODO
+    // TODO
+    // TODO
+    // TODO
+
+
+    private void functionMapAssertions() {
+        // check that both `MAP` and `MAPRESULT` have signature `MAP?` when it runs `SHOW FUNCTIONS` command
+        TestUtil.testResult(db, "SHOW FUNCTIONS YIELD signature, name WHERE name STARTS WITH 'custom.map' RETURN DISTINCT name, signature ORDER BY name",
+                r -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals("custom.map(val :: INTEGER?) :: (MAP?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.map_list(val :: INTEGER?) :: (LIST? OF MAP?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.map_result(val :: INTEGER?) :: (MAP?)", row.get("signature"));
+                    row = r.next();
+                    assertEquals("custom.map_result_list(val :: INTEGER?) :: (LIST? OF MAP?)", row.get("signature"));
+                    assertFalse(r.hasNext());
+                });
+
+        TestUtil.testResult(db, "call apoc.custom.list",
+                row -> {
+                    final Set<String> sumFun1 = Set.of("map", "map_list", "map_result", "map_result_list");
+                    assertEquals(sumFun1, Iterators.asSet(row.columnAs("name")));
+                });
+
+        // then
+        TestUtil.testResult(db, "RETURN custom.map_result(3) AS val", (result) -> {
+            Map<String, Object> map = result.<Map<String, Object>>columnAs("val").next();
+            assertEquals(1, map.size());
+            assertEquals(3L, map.get("value"));
+        });
+        TestUtil.testResult(db, "RETURN custom.map_result_list(4) AS val", (result) -> {
+            List<List<Map<String, Object>>> list = result.<List<List<Map<String, Object>>>>columnAs("val").next();
+            assertEquals(1, list.size());
+            List<Map<String, Object>> map = list.get(0);
+            assertEquals(1, map.size());
+            assertEquals(4L, map.get(0).get("value"));
+        });
+
+        TestUtil.testResult(db, "RETURN custom.map(3) AS val", (result) -> {
+            Map<String, Map<String, Object>> map = result.<Map<String, Map<String, Object>>>columnAs("val").next();
+            assertEquals(1, map.size());
+            assertEquals(3L, map.get("value").get("value"));
+        });
+        TestUtil.testResult(db, "RETURN custom.map_list(4) AS val", (result) -> {
+            List<Map<String, List<Map<String, Object>>>> list = result.<List<Map<String, List<Map<String, Object>>>>>columnAs("val").next();
+            assertEquals(1, list.size());
+            assertEquals(1, list.get(0).size());
+            assertEquals(4L, list.get(0).get("value").get(0).get("value"));
+        });
+
     }
 }
