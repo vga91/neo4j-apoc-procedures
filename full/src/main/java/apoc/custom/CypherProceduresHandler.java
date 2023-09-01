@@ -268,7 +268,9 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             node.setProperty(SystemPropertyKeys.forceSingle.name(), forceSingle);
 
             setLastUpdate(tx);
-            registerFunction(signature, statement, forceSingle);
+            if (!registerFunction(signature, statement, forceSingle)) {
+                throw new IllegalStateException("Error registering function " + signature + ", see log.");
+            }
             return null;
         });
     }
@@ -286,7 +288,9 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             node.setProperty(SystemPropertyKeys.outputs.name(), serializeSignatures(signature.outputSignature()));
             node.setProperty(SystemPropertyKeys.mode.name(), signature.mode().name());
             setLastUpdate(tx);
-            registerProcedure(signature, statement);
+            if (!registerProcedure(signature, statement)) {
+                throw new IllegalStateException("Error registering procedure " + signature.name() + ", see log.");
+            }
             return null;
         });
     }
@@ -357,6 +361,13 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
      */
     public boolean registerProcedure(ProcedureSignature signature, String statement) {
         try {
+            boolean exists = globalProceduresRegistry.getCurrentView().getAllProcedures().stream()
+                    .anyMatch(s -> s.name().equals(name));
+            if (exists) {
+                // we deregister and remove possible homonyms signatures overridden/overloaded
+                registeredProcedureSignatures.removeIf(i -> i.name().equals(signature.name()));
+            }
+
             final boolean isStatementNull = statement == null;
             globalProceduresRegistry.register(new CallableProcedure.BasicProcedure(signature) {
                 @Override
@@ -394,12 +405,21 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     public boolean registerFunction(UserFunctionSignature signature, String statement, boolean forceSingle) {
         try {
+            QualifiedName name = signature.name();
+            boolean exists = globalProceduresRegistry.getCurrentView().getAllNonAggregatingFunctions()
+                    .anyMatch(s -> s.name().equals(name));
+            if (exists) {
+                // we deregister and remove possible homonyms signatures overridden/overloaded
+                ProcedureHolderUtils.unregisterFunction(name, globalProceduresRegistry);
+                registeredUserFunctionSignatures.removeIf(i -> i.name().equals(signature.name()));
+            }
+
             final boolean isStatementNull = statement == null;
             globalProceduresRegistry.register(new CallableUserFunction.BasicUserFunction(signature) {
                 @Override
                 public AnyValue apply(org.neo4j.kernel.api.procedure.Context ctx, AnyValue[] input) throws ProcedureException {
                     if (isStatementNull) {
-                        final String error = String.format("Unknown function '%s'", signature.name());
+                        final String error = String.format("Unknown function '%s'", name);
                         throw new QueryExecutionException(error, null, "Neo.ClientError.Statement.SyntaxError");
                     } else {
                         Map<String, Object> params = params(input, signature.inputSignature(), ctx.valueMapper());
