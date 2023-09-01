@@ -23,8 +23,10 @@ import apoc.util.FileUtils;
 import apoc.util.TestUtil;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.contrib.java.lang.system.ProvideSystemProperty;
 import org.junit.rules.TemporaryFolder;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
@@ -34,19 +36,19 @@ import org.neo4j.internal.helpers.collection.Iterators;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.ApocConfig.apocConfig;
 import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_REFRESH;
-import static apoc.util.DbmsTestUtil.startDbWithApocConfigs;
 import static apoc.util.MapUtil.map;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.neo4j.configuration.GraphDatabaseSettings.procedure_unrestricted;
 
 /**
  * @author mh
@@ -55,6 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 public class CypherProceduresStorageTest {
     private final static String QUERY_CREATE = "RETURN $input1 + $input2 as answer";
     private final static String QUERY_OVERWRITE = "RETURN $input1 + $input2 + 123 as answer";
+    private final int refreshTime = 3000;
     private int greaterThanRefreshTime;
 
     @Rule
@@ -63,18 +66,18 @@ public class CypherProceduresStorageTest {
     private GraphDatabaseService db;
     private DatabaseManagementService databaseManagementService;
 
+    @Rule
+    public final ProvideSystemProperty systemPropertyRule =
+            new ProvideSystemProperty(CUSTOM_PROCEDURES_REFRESH, String.valueOf(refreshTime));
+
     @Before
     public void setUp() throws Exception {
-        try {
-            final int refreshTime = 3000;
-            // start db with apoc.conf: `apoc.custom.procedures.refresh=<time>`
-            databaseManagementService = startDbWithApocConfigs(STORE_DIR,
-                    Map.of(CUSTOM_PROCEDURES_REFRESH, refreshTime)
-            );
-            greaterThanRefreshTime = refreshTime + 500;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        // start db with apoc.conf: `apoc.custom.procedures.refresh=<time>`
+        databaseManagementService = new TestDatabaseManagementServiceBuilder(STORE_DIR.getRoot().toPath())
+                .setConfig(procedure_unrestricted, List.of("apoc*"))
+                .build();
+        greaterThanRefreshTime = refreshTime + 500;
+
         db = databaseManagementService.database( GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         TestUtil.registerProcedure(db, CypherProcedures.class, PathExplorer.class);
     }
@@ -94,6 +97,10 @@ public class CypherProceduresStorageTest {
 
     @Test
     public void overloadFunctionAfterRefresh() throws Exception {
+        int anInt = apocConfig().getInt(CUSTOM_PROCEDURES_REFRESH, 0);
+        System.out.println("anInt = " + anInt);
+
+
         db.executeTransactionally("CALL apoc.custom.declareFunction('overloadFun() :: LONG','RETURN 10')");
 
         TestUtil.testCall(db, "RETURN custom.overloadFun() AS result", r -> {
@@ -117,7 +124,6 @@ public class CypherProceduresStorageTest {
         // wait a time greater then the `apoc.custom.procedures.refresh` value
         // and check overload works correctly
 
-        System.out.println("before refresh");
         Thread.sleep(greaterThanRefreshTime);
         checkFunctionOverloaded();
 

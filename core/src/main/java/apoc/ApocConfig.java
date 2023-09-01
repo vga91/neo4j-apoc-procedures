@@ -61,7 +61,7 @@ import static apoc.util.FileUtils.isFile;
 import static java.lang.String.format;
 import static org.neo4j.configuration.BootloaderSettings.lib_directory;
 import static org.neo4j.configuration.BootloaderSettings.run_directory;
-import static org.neo4j.configuration.Config.executeCommand;
+//import static org.neo4j.configuration.Config.executeCommand;
 import static org.neo4j.configuration.GraphDatabaseInternalSettings.logical_logs_location;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 import static org.neo4j.configuration.GraphDatabaseSettings.data_directory;
@@ -153,7 +153,7 @@ public class ApocConfig extends LifecycleAdapter {
         if (this.commandEvaluationTimeout == null) {
             this.commandEvaluationTimeout = GraphDatabaseInternalSettings.config_command_evaluation_timeout.defaultValue();
         }
-        this.expandCommands = neo4jConfig.expandCommands();
+//        this.expandCommands = neo4jConfig.expandCommands();
         this.log = log.getInternalLog(ApocConfig.class);
         this.databaseManagementService = databaseManagementService;
         theInstance = this;
@@ -176,17 +176,17 @@ public class ApocConfig extends LifecycleAdapter {
     }
 
     private String evaluateIfCommand(String settingName, String entry) {
-        if (Config.isCommand(entry)) {
-            Preconditions.checkArgument(
-                    expandCommands,
-                    format(
-                            "%s is a command, but config is not explicitly told to expand it. (Missing --expand-commands argument?)",
-                            entry));
-            String str = entry.trim();
-            String command = str.substring(2, str.length() - 1);
-            log.info("Executing external script to retrieve value of setting " + settingName);
-            return executeCommand(command, commandEvaluationTimeout);
-        }
+//        if (Config.isCommand(entry)) {
+//            Preconditions.checkArgument(
+//                    expandCommands,
+//                    format(
+//                            "%s is a command, but config is not explicitly told to expand it. (Missing --expand-commands argument?)",
+//                            entry));
+//            String str = entry.trim();
+//            String command = str.substring(2, str.length() - 1);
+//            log.info("Executing external script to retrieve value of setting " + settingName);
+//            return executeCommand(command, commandEvaluationTimeout);
+//        }
         return entry;
     }
 
@@ -203,9 +203,9 @@ public class ApocConfig extends LifecycleAdapter {
         log.info("system property NEO4J_CONF set to %s", neo4jConfFolder);
         File apocConfFile = new File(neo4jConfFolder + "/apoc.conf");
         // Command Expansion required check from Neo4j
-        if (apocConfFile.exists() && this.expandCommands) {
-            Config.Builder.validateFilePermissionForCommandExpansion(List.of(apocConfFile.toPath()));
-        }
+//        if (apocConfFile.exists() && this.expandCommands) {
+//            Config.Builder.validateFilePermissionForCommandExpansion(List.of(apocConfFile.toPath()));
+//        }
 
         loadConfiguration();
         initialized = true;
