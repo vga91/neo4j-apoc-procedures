@@ -113,8 +113,10 @@ public class CypherProceduresClusterTest {
         writeSession.writeTransaction(tx -> tx.run("call apoc.custom.removeProcedure('answerToRemove')")); // we remove procedure
 
         // then
+        Thread.sleep(1000);
+        System.out.println("waited 5000ms");
         try {
-            ExtendedTestContainerUtil.testCallEventuallyInReadTransaction(readSession, "call custom.answerToRemove()", (row) -> fail("Procedure not removed"), 60L);
+            ExtendedTestContainerUtil.testCallInReadTransaction(readSession, "call custom.answerToRemove()", (row) -> fail("Procedure not removed"));
         } catch (DatabaseException e) {
             String expectedMessage = "There is no procedure with the name `custom.answerToRemove` registered for this database instance. Please ensure you've spelled the procedure name correctly and that the procedure is properly deployed.";
             assertEquals(expectedMessage, e.getMessage());
@@ -132,8 +134,9 @@ public class CypherProceduresClusterTest {
         writeSession.writeTransaction(tx -> tx.run("call apoc.custom.removeFunction('answerFunctionToRemove')")); // we remove procedure
 
         // then
+        Thread.sleep(1000);
         try {
-            ExtendedTestContainerUtil.testCallEventuallyInReadTransaction(readSession, "return custom.answerFunctionToRemove() as row", (row) -> fail("Function not removed"), 60L);
+            ExtendedTestContainerUtil.testCallInReadTransaction(readSession, "return custom.answerFunctionToRemove() as row", (row) -> fail("Function not removed"));
         } catch (DatabaseException e) {
             String expectedMessage = "Unknown function 'custom.answerFunctionToRemove'";
             assertEquals(expectedMessage, e.getMessage());

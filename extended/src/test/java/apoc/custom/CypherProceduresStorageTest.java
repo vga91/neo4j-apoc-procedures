@@ -15,13 +15,13 @@ import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Node;
 import org.neo4j.test.TestDatabaseManagementServiceBuilder;
 import org.neo4j.graphdb.Result;
-import org.neo4j.internal.helpers.collection.Iterators;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import static apoc.custom.CypherProceduresHandler.CUSTOM_PROCEDURES_REFRESH;
 import static apoc.util.DbmsTestUtil.startDbWithApocConfigs;
@@ -600,7 +600,7 @@ public class CypherProceduresStorageTest {
         // create a list of ["proc1", "proc2", "proc3" ....] strings
         List<String> listProcNames = IntStream.range(0, 200)
                 .mapToObj(i -> "proc" + i)
-                .collect(Collectors.toList());
+                .toList();
 
         // for each element, declare a procedure with that name,
         // then call the custom procedure and finally overwrite it
@@ -645,7 +645,7 @@ public class CypherProceduresStorageTest {
         // create a list of ["fun1", "fun2", "fun3" ....] strings
         List<String> listFunNames = IntStream.range(0, 200)
                 .mapToObj(i -> "fun" + i)
-                .collect(Collectors.toList());
+                .toList();
         final String funQuery = "return custom.%s() as row";
 
         // for each element, declare a function with that name,

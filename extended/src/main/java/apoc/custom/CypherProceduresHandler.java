@@ -83,7 +83,7 @@ import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTTime;
 
 public class CypherProceduresHandler extends LifecycleAdapter implements AvailabilityListener {
 
-    public static final String PREFIX = "custo
+    public static final String PREFIX = "custom";
     public static final String FUNCTION = "function";
     public static final String PROCEDURE = "procedure";
     public static final String CUSTOM_PROCEDURES_REFRESH = "apoc.custom.procedures.refresh";
@@ -236,7 +236,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         }
     }
 
-    public void storeFunction(UserFunctionSignature signature, String statement, boolean forceSingle) {
+    public synchronized void storeFunction(UserFunctionSignature signature, String statement, boolean forceSingle) {
         withSystemDb(tx -> {
             Node node = Util.mergeNode(tx, ExtendedSystemLabels.ApocCypherProcedures, ExtendedSystemLabels.Function,
                     Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),
@@ -257,7 +257,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         });
     }
 
-    public void storeProcedure(ProcedureSignature signature, String statement) {
+    public synchronized void storeProcedure(ProcedureSignature signature, String statement) {
         withSystemDb(tx -> {
             Node node = Util.mergeNode(tx, ExtendedSystemLabels.ApocCypherProcedures, ExtendedSystemLabels.Procedure,
                     Pair.of(SystemPropertyKeys.database.name(), api.databaseName()),

@@ -77,7 +77,6 @@ public class ExtendedTestContainerUtil
             assertFalse("result should not have next", res.hasNext());
             return true;
         } catch (Exception e) {
-            System.out.println("eventually error = " + e);
             tx.close();
             return false;
         }
