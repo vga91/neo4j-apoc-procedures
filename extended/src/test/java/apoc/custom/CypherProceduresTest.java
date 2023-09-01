@@ -3,6 +3,7 @@ package apoc.custom;
 import apoc.ExtendedSystemLabels;
 import apoc.RegisterComponentFactory;
 import apoc.SystemPropertyKeys;
+import apoc.cypher.Cypher;
 import apoc.schema.Schemas;
 import apoc.util.StatusCodeMatcher;
 import apoc.util.TestUtil;
@@ -56,7 +57,7 @@ public class CypherProceduresTest  {
 
     @Before
     public void setup() {
-        TestUtil.registerProcedure(db, CypherProcedures.class, Schemas.class);
+        TestUtil.registerProcedure(db, CypherProcedures.class, Schemas.class, Cypher.class);
     }
 
     @AfterAll
@@ -755,15 +756,40 @@ public class CypherProceduresTest  {
                         "mode", Mode.WRITE.name())
         );
 
-        // failing modes
-
-        String expectedMessageDbms = """
-                The query execution type of the statement is: `READ_ONLY`, but you provided as a parameter mode: `DBMS`.
-                """;
-        assertProcedureFails(expectedMessageDbms, procedure,
+        db.executeTransactionally(procedure,
                 Map.of("signature", "testFour() :: (response::INT)",
                 "statement", statement,
                 "mode", Mode.DBMS.name()));
+    }
+
+    @Test
+    public void testValidateReadProcedure() {
+        String procedure = "CALL apoc.custom.declareProcedure($signature, $statement, $mode)";
+        String statement = "CALL apoc.when(true, 'return 1', 'return 2') yield value return value";
+
+        db.executeTransactionally(procedure,
+                Map.of("signature", "testOne() :: (value::ANY)",
+                "statement", statement,
+                "mode", Mode.SCHEMA.name())
+        );
+
+        db.executeTransactionally(procedure,
+                Map.of("signature", "testTwo() :: (value::ANY)",
+                        "statement", statement,
+                        "mode", Mode.READ.name())
+        );
+
+        db.executeTransactionally(procedure,
+                Map.of("signature", "testThree() :: (value::ANY)",
+                        "statement", statement,
+                        "mode", Mode.WRITE.name())
+        );
+
+        db.executeTransactionally(procedure,
+                Map.of("signature", "testFour() :: (value::ANY)",
+                        "statement", statement,
+                        "mode", Mode.DBMS.name())
+        );
     }
 
     @Test
@@ -836,6 +862,7 @@ public class CypherProceduresTest  {
                 "statement", statement,
                 "mode", Mode.DBMS.name()));
     }
+
 
     private void assertProcedureFails(String expectedMessage, String query) {
         assertProcedureFails(expectedMessage, query, Map.of());

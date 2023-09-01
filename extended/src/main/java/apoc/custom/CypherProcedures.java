@@ -24,6 +24,7 @@ import org.neo4j.procedure.Mode;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -168,19 +169,34 @@ public class CypherProcedures {
     }
 
     private void checkMode(Result result, Mode mode) {
+        // all modes can have DEFAULT and READ procedures as well
+        Set<Mode> modes = new HashSet<>() {{
+            add(mode);
+            add(Mode.DEFAULT);
+            add(Mode.READ);
+        }};
+
+        // schema can have WRITE procedures as well
+        if (mode.equals(Mode.SCHEMA)) {
+            modes.add(Mode.WRITE);
+        }
 
         // check that all inner procedure have a correct Mode
-        if (!procsAreValid(api, Set.of(mode), result )){
+        if (!procsAreValid(api, modes, result)) {
             throw new RuntimeException("One or more inner procedure modes have operation different from the mode parameter: " + mode);
         }
 
         List<QueryType> readQueryTypes = List.of(QueryType.READ_ONLY);
         List<QueryType> writeQueryTypes = List.of(QueryType.READ_ONLY, QueryType.WRITE, QueryType.READ_WRITE);
         List<QueryType> schemaQueryTypes = List.of(QueryType.READ_ONLY, QueryType.WRITE, QueryType.READ_WRITE, QueryType.SCHEMA_WRITE);
-        List<QueryType> dbmsQueryTypes = List.of(QueryType.DBMS);
+        List<QueryType> dbmsQueryTypes = List.of(QueryType.READ_ONLY, QueryType.DBMS);
 
         // create a map of Mode to allowed `QueryType`s
-        Map<Mode, List<QueryType>> modeQueryTypeMap = Map.of(Mode.READ, readQueryTypes,
+        // WRITE mode can have READ and WRITE query types
+        // SCHEMA mode can have SCHEMA, READ and WRITE query types
+        // DBMS mode can have READ and DBMS query types
+        Map<Mode, List<QueryType>> modeQueryTypeMap = Map.of(
+                Mode.READ, readQueryTypes,
                 Mode.WRITE, writeQueryTypes,
                 Mode.SCHEMA, schemaQueryTypes,
                 Mode.DBMS, dbmsQueryTypes);
