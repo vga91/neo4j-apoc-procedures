@@ -245,8 +245,12 @@ public class CypherExtended {
             int row = 0;
             while (result.hasNext()) {
                 terminationGuard.check();
-                Map<String, Object> res = EntityUtil.anyRebind(tx, result.next());
-                queue.put(new RowResult(row++, res));
+                try {
+                    Map<String, Object> res = EntityUtil.anyRebind(tx, result.next());
+                    queue.put(new RowResult(row++, res));
+                } catch (Exception e) {
+                    System.out.println("e = " + e);
+                }
             }
             if (addStatistics) {
                 queue.put(new RowResult(-1, toMap(result.getQueryStatistics(), System.currentTimeMillis() - time, row)));
@@ -369,19 +373,20 @@ public class CypherExtended {
         final String statement = withParamsAndIterator(fragment, params.keySet(), "_");
         tx.execute("EXPLAIN " + statement).close();
         BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(100000);
-        Stream<List<Object>> parallelPartitions = Util.partitionSubList(data, (int)(partitions <= 0 ? PARTITIONS : partitions), null);
+        List<List<Object>> parallelPartitions = Util.partitionSubList(data, (int)(partitions <= 0 ? PARTITIONS : partitions), null)
+                .toList();
         Util.inFuture(pools, () -> {
-            long total = parallelPartitions
-                .map((List<Object> partition) -> {
-                    try (Transaction transaction = db.beginTx();
-                         Result result = transaction.execute(statement, parallelParams(params, "_", partition))) {
-                        return consumeResult(result, queue, false, timeout);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }}
-                ).count();
+            parallelPartitions
+                    .forEach((List<Object> partition) -> {
+                        try (Transaction transaction = db.beginTx();
+                             Result result = transaction.execute(statement, parallelParams(params, "_", partition))) {
+                            consumeResult(result, queue, false, timeout);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }}
+                    );
             queue.put(RowResult.TOMBSTONE);
-            return total;
+            return null;
         });
         return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, (int)timeout),true).map((rowResult) -> new MapResult(rowResult.result));
     }

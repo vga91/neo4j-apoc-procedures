@@ -226,7 +226,23 @@ public class CypherExtendedTest {
                     "RETURN value.title limit 5",
                 r -> assertEquals(5, Iterators.count(r)));
     }
-    
+
+    @Test
+    public void testIssue3751MapParallel2() {
+        int expected = 500;
+        db.executeTransactionally("UNWIND range(1, $int) as id CREATE (:Polling {id: id})",
+                Map.of("int", expected));
+
+        // the error is flaky, so we need to run the query several times to replicate it
+        for (int i = 0; i < 15; i++) {
+            testCallCount(db, """
+                            MATCH  (n:Polling)  WITH collect({childD: n}) as params \s
+                            CALL apoc.cypher.mapParallel2(" WITH _.childD as childD RETURN childD", {}, params, 6, 10)\s
+                            YIELD value RETURN value""",
+                    Map.of(),
+                    expected);
+        }
+    }
     
     @Test
     public void testRunFileWithParameters() throws Exception {
