@@ -8,6 +8,7 @@ import apoc.util.collection.Iterators;
 import org.junit.*;
 import org.junit.rules.ExpectedException;
 import org.neo4j.configuration.GraphDatabaseSettings;
+import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.schema.ConstraintDefinition;
 import org.neo4j.graphdb.schema.IndexDefinition;
@@ -119,6 +120,61 @@ public class CypherExtendedTest {
         testResult(db, "CALL apoc.cypher.mapParallel2('UNWIND range(0,9) as b RETURN b',{},range(1,$size),10)", map("size", size),
                 r -> assertEquals( size * 10,Iterators.count(r) ));
     }
+    
+    @Test
+    public void testMapParallel2ErrorPolling() throws Exception {
+        int expected = 500;
+        db.executeTransactionally("unwind range(1, $int) as id create (:Prova {id: id, _lock: randomUUID()})",
+                Map.of("int", expected));
+//        db.executeTransactionally("create (:Prova {_lock: randomUUID()})");
+//        db.executeTransactionally("unwind range(0, 110) as id create (:Prova {id: id, _lock: randomUUID()})");
+        
+        for (int i = 0; i < 30; i++) {
+//            System.out.println("i = " + i);
+            testCallCount(db, """
+                            MATCH  ( childD:Prova )  WITH collect({`childD`: childD}) as childDDgRdgd \s
+                            CALL apoc.cypher.mapParallel2(" WITH _.childD as childD RETURN childD", {}, childDDgRdgd, 6, 10)\s
+                            YIELD value RETURN value""", Map.of(),
+                    expected);
+        }
+    }
+
+//    @Test
+//    public void testMapParallel2Test() throws Exception {
+//        db.executeTransactionally("unwind range(0, 20) as id create (:Prova {id: id, _lock: randomUUID()})");
+//        
+////        testCallCount(db, "CALL apoc.cypher.test", );
+//        db.executeTransactionally("call apoc.cypher.test", Map.of());
+//    }
+
+    @Test
+    public void testMapParallel2Test2() throws Exception {
+        db.executeTransactionally("unwind range(0, 200) as id create (:Prova {id: id})");
+
+//        testCallCount(db, "CALL apoc.cypher.test", );
+        for (int i = 0; i < 10; i++) {
+//            System.out.println("i = " + i);
+            String s = db.executeTransactionally("match (n:Prova) with collect(n) as list " +
+                                                 " call apoc.cypher.test3(list) YIELD value RETURN count(value)",
+                    Map.of(), Result::resultAsString);
+//            System.out.println("s = " + s);
+        }
+    }
+    
+    @Test
+    public void testMapParallel2Test() throws Exception {
+        db.executeTransactionally("unwind range(0, 200) as id create (:Prova {id: id})");
+        
+//        testCallCount(db, "CALL apoc.cypher.test", );
+        for (int i = 0; i < 100; i++) {
+//            System.out.println("i = " + i);
+            String s = db.executeTransactionally("match (n:Prova) with collect(n) as list " +
+                                                 " call apoc.cypher.test3(list) YIELD value RETURN count(value)", 
+                    Map.of(), Result::resultAsString);
+//            System.out.println("s = " + s);
+        }
+    }
+    
     @Test
     public void testParallel2() throws Exception {
         int size = 10_0000;

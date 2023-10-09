@@ -10,7 +10,10 @@ import apoc.util.QueueBasedSpliterator;
 import apoc.util.Util;
 import apoc.util.collection.Iterators;
 import org.apache.commons.lang3.StringUtils;
+import org.neo4j.exceptions.Neo4jException;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.NotFoundException;
 import org.neo4j.graphdb.QueryExecutionType;
 import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Result;
@@ -37,8 +40,11 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -191,20 +197,75 @@ public class CypherExtended {
                         return consumeResult(result, queue, addStatistics, timeout);
                     }
                 });
+//                
+//                try (Transaction tx1 = db.beginTx();
+//                     Result result = tx1.execute(stmt, params)) {
+//                        consumeResult(result, queue, addStatistics, timeout);
+//                    }
+//                });
             }
         }
     }
 
     private final static Pattern shellControl = Pattern.compile("^:?\\b(begin|commit|rollback)\\b", Pattern.CASE_INSENSITIVE);
 
+
+    private <T> T retry(long times, Supplier<T> function) {
+        try {
+            return function.get();
+        } catch (Exception e) {
+            System.out.println("e = " + e);
+            if (times > 0) {
+                return retry(times - 1, function);
+            } else {
+                throw e;
+            }
+        }
+    }
+    
+    
+    // todo - try other queries too...
     private Object consumeResult(Result result, BlockingQueue<RowResult> queue, boolean addStatistics, long timeout) {
         try {
             long time = System.currentTimeMillis();
             int row = 0;
             while (result.hasNext()) {
                 terminationGuard.check();
-                Map<String, Object> res = EntityUtil.anyRebind(tx, result.next());
-                queue.put(new RowResult(row++, res));
+//                Map<String, Object> res = EntityUtil.anyRebind(tx, result.next());
+//                queue.put(new RowResult(row++, res));
+                
+                
+                Map<String, Object> next = result.next();
+                System.out.println("next = " + next);
+//                System.out.println("next = " + next);
+                Map<String, Object> retry = retry(5, () -> EntityUtil.anyRebind(tx, next));
+                queue.put(new RowResult(row++, retry));
+                
+                
+//                try {
+//                    Map<String, Object> res = EntityUtil.anyRebind(tx, next);
+//                    
+//////                System.out.println("res = " + res);
+//                    queue.put(new RowResult(row++, res));
+//                } catch (Exception e) {
+//                    System.out.println("e = " + e);
+//                }
+                
+//                queue.put(new RowResult(row++, result.next()));
+//                try (Transaction tx1 = db.beginTx();) {
+//                Map<String, Object> next = result.next();
+//                System.out.println("next = " + next);
+//                Map<String, Object> res;
+//                try(Transaction tx1 = db.beginTx()) {
+//                    res = EntityUtil.anyRebind(tx1, next);
+//                    tx1.commit();
+//                }
+//                Map<String, Object> res = next;
+//                queue.put(new RowResult(row++, res));
+//                    tx1.commit();
+//                }
+
+                 
             }
             if (addStatistics) {
                 queue.put(new RowResult(-1, toMap(result.getQueryStatistics(), System.currentTimeMillis() - time, row)));
@@ -321,18 +382,214 @@ public class CypherExtended {
                 .flatMap((partition) -> Iterators.asList(tx.execute(statement, parallelParams(params, "_", partition))).stream())
                 .map(MapResult::new);
     }
+
+    @Procedure
+    public Stream<MapResult> test3(@Name("list") List<Object> data) {
+//        List<List<Object>> parallelPartitions = Util.partitionSubList(data, 6, null)
+//                .toList();
+        Stream<List<Object>> parallelPartitions = Util.partitionSubList(data, 6, null);
+
+        parallelPartitions.forEach((List<Object> partition) -> {
+            try (Transaction transaction = db.beginTx();
+                 Result result = transaction.execute("UNWIND $part AS part WITH part RETURN part",
+                         Map.of("part", data))) {
+
+                result.forEachRemaining(i2 -> {
+                    Node part = (Node) i2.get("part");
+                    tx.getNodeByElementId(part.getElementId());
+                    
+//                    EntityUtil.anyRebind(tx, i2);
+                });
+            }
+        });
+
+        return Stream.of();
+    }
+    
+//    @Procedure
+//    public Stream<MapResult> test3(@Name("list") List<Object> data) {
+//        List<List<Object>> parallelPartitions = Util.partitionSubList(data, 6, null)
+//                .toList();
+//
+//        parallelPartitions.forEach((List<Object> partition) -> {
+//            //            System.out.println("partition = " + partition.size());
+//            try (Transaction transaction = db.beginTx();
+//                 Result result = transaction.execute("UNWIND $part AS part WITH part RETURN part",
+//                         Map.of("part", data))) {
+//
+//                result.forEachRemaining(i2 -> {
+//                    Map<String, Object> rebind = EntityUtil.anyRebind(tx, i2);
+//
+//                    //                    results.add(new MapResult(rebind));
+//                });
+//            } catch (Exception e) {
+//                throw new RuntimeException(e);
+//            }
+//        });
+////        }
+//
+//        return Stream.of();// results.stream();
+//    }
+
+//    @Procedure
+//    public Stream<MapResult> test3(@Name("list") List<Object> data) {
+//
+////        List<MapResult> results = new ArrayList<>();
+//        Stream<List<Object>> parallelPartitions = Util.partitionSubList(data, 6, null);
+//
+//
+////        for (int i = 0; i < 9999; i++) {
+//            parallelPartitions.forEach((List<Object> partition) -> {
+//    //            System.out.println("partition = " + partition.size());
+//                try (Transaction transaction = db.beginTx();
+//                     Result result = transaction.execute("UNWIND $part AS part WITH part RETURN part",
+//                             Map.of("part", data))) {
+//    
+//                    result.forEachRemaining(i2 -> {
+//                        Map<String, Object> rebind = EntityUtil.anyRebind(tx, i2);
+//    
+//    //                    results.add(new MapResult(rebind));
+//                    });
+//                } catch (Exception e) {
+//                    throw new RuntimeException(e);
+//                }
+//            });
+////        }
+//
+//        return Stream.of();// results.stream();
+//    }
+
+//    @Procedure
+//    public Stream<MapResult> test2(@Name("list") List<Object> data) throws InterruptedException {
+////    public Stream<MapResult> test2() {
+////        String s = "match (n:Prova) return n";
+////        Stream<List<Object>> parallelPartitions = Util.partitionSubList(data,  6, null);
+//        BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(100000);
+//        long timeout = 10;
+//        
+////        List< Map<String, Object> > res = new ArrayList<>();
+////        try(Transaction transaction = db.beginTx();
+////            Result result = transaction.execute("MATCH (n:Prova) RETURN n")) {
+////            
+////            result.forEachRemaining(i -> {
+////                Map<String, Object> rebind = EntityUtil.anyRebind(tx, i);
+////                
+////                res.add(rebind);
+////            });
+////            
+//////            res.add(result.next());
+////            transaction.commit();
+////        }
+////        
+////        return res.stream()
+////                .map(MapResult::new);
+//
+//
+//        List<RowResult> results = new ArrayList<>();
+//        Stream<List<Object>> parallelPartitions = Util.partitionSubList(data, 6, null);
+//        
+////        Util.inFuture(pools, () -> {
+//            parallelPartitions.forEach((List<Object> partition) -> {
+////                System.out.println("partition = " + partition);
+//                        try (Transaction transaction = db.beginTx();
+//                             Result result = transaction.execute("UNWIND $part AS part WITH part RETURN part",
+//                                     Map.of("part", partition))) {
+////                             Result result = transaction.execute("UNWIND $part AS part WITH part RETURN part MATCH (n:Prova) RETURN n")) {
+//
+//                            result.forEachRemaining(i -> {
+//                                Map<String, Object> rebind = EntityUtil.anyRebind(tx, i);
+//
+////                                try {
+////                                    queue.put(new RowResult(0, rebind));
+//                                    results.add(new RowResult(0, rebind));
+////                                } catch (InterruptedException e) {
+////                                    System.out.println("e = " + e);
+////                                    throw new RuntimeException(e);
+////                                }
+//                            });
+//                        } catch (Exception e) {
+//                            System.out.println("i dunno..." + e);
+//                            throw new RuntimeException(e);
+//                        }
+////                        return 0;
+//                    });//.count();
+//
+////            long total = IntStream.range(0, 6)// parallelPartitions
+////                    .mapToObj(i -> {
+////                                // todo - here
+////                                try (Transaction transaction = db.beginTx();
+////                             Result result = transaction.execute("UNWIND (n:Prova) AS n WITH n RETURN n")
+//////                             Result result = transaction.execute("UNWIND $_ AS _  WITH _.childD as childD RETURN childD", 
+//////                                     parallelParams(Map.of(), "_", partition))
+////                                ) {
+////                                    return consumeResult(result, queue, false, timeout);
+////                                } catch (Exception e) {
+////                                    throw new RuntimeException(e);
+////                                }}
+////                    ).count();
+//                        queue.put(RowResult.TOMBSTONE);
+////                        return 0;
+////        });
+////        });
+//        
+//        
+//        return results.stream().map(r -> new MapResult(r.result));
+//
+////        return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, (int)timeout),true)
+////                .map((rowResult) -> new MapResult(rowResult.result));
+//    }
+
+//    @Procedure
+////    public Stream<MapResult> test(@Name("list") List<Object> data) {
+//    public Stream<MapResult> test() {
+////        String s = "match (n:Prova) return n";
+////        Stream<List<Object>> parallelPartitions = Util.partitionSubList(data,  6, null);
+//        BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(100000);
+//        long timeout = 10;
+//        Util.inFuture(pools, () -> {
+//            long total = IntStream.range(0, 6)// parallelPartitions
+//                    .mapToObj(i -> {
+//                        // todo - here
+//                        try (Transaction transaction = db.beginTx();
+//                             Result result = transaction.execute("UNWIND $batch AS n WITH n RETURN n")
+////                             Result result = transaction.execute("UNWIND (n:Prova) AS n WITH n RETURN n")
+////                             Result result = transaction.execute("UNWIND $_ AS _  WITH _.childD as childD RETURN childD", 
+////                                     parallelParams(Map.of(), "_", partition))
+//                        ) {
+//                            return consumeResult(result, queue, false, timeout);
+//                        } catch (Exception e) {
+//                            throw new RuntimeException(e);
+//                        }}
+//                    ).count();
+//            queue.put(RowResult.TOMBSTONE);
+//            return total;
+//        });
+//
+//        return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, (int)timeout),true)
+//                .map((rowResult) -> new MapResult(rowResult.result));
+//    }
+ 
+    
     @Procedure
     @Description("apoc.cypher.mapParallel2(fragment, params, list-to-parallelize) yield value - executes fragment in parallel batches with the list segments being assigned to _")
     public Stream<MapResult> mapParallel2(@Name("fragment") String fragment, @Name("params") Map<String, Object> params, @Name("list") List<Object> data, @Name("partitions") long partitions,@Name(value = "timeout",defaultValue = "10") long timeout) {
         final String statement = withParamsAndIterator(fragment, params.keySet(), "_");
+//        System.out.println("statement = " + statement);
         tx.execute("EXPLAIN " + statement).close();
         BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(100000);
-        Stream<List<Object>> parallelPartitions = Util.partitionSubList(data, (int)(partitions <= 0 ? PARTITIONS : partitions), null);
+        List<List<Object>> parallelPartitions = Util.partitionSubList(data, (int)(partitions <= 0 ? PARTITIONS : partitions), null)
+                .toList();
         Util.inFuture(pools, () -> {
             long total = parallelPartitions
+                .stream()
                 .map((List<Object> partition) -> {
-                    try (Transaction transaction = db.beginTx();
-                         Result result = transaction.execute(statement, parallelParams(params, "_", partition))) {
+                    // todo - here
+//                    Map<String, Object> parameters = parallelParams(params, "_", partition);
+//                    System.out.println("parameters = " + parameters);
+                            Map<String, Object> parameters = parallelParams(params, "_", partition);
+                            try (Transaction transaction = db.beginTx();
+                                 Result result = transaction.execute(statement, parameters)) {
+//                         Result result = transaction.execute(statement, parameters)) {
                         return consumeResult(result, queue, false, timeout);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
@@ -341,7 +598,14 @@ public class CypherExtended {
             queue.put(RowResult.TOMBSTONE);
             return total;
         });
-        return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, (int)timeout),true).map((rowResult) -> new MapResult(rowResult.result));
+        return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, (int)timeout),true)
+                .map((rowResult) -> new MapResult(rowResult.result));
+//                .map(rowResult -> rowResult.result)
+//                .map((rowResult) -> {
+//                    Map<String, Object> result = rowResult.result;
+//                    Map<String, Object> value = EntityUtil.anyRebind(tx, result);
+//                    return new MapResult(value);
+//                });
     }
 
     public Map<String, Object> parallelParams(@Name("params") Map<String, Object> params, String key, List<Object> partition) {
@@ -387,6 +651,7 @@ public class CypherExtended {
         }
         return futures.stream().flatMap(f -> {
             try {
+//                return f.get().stream().map(MapResult::new);
                 return EntityUtil.anyRebind(tx, f.get()).stream().map(MapResult::new);
             } catch (InterruptedException | ExecutionException e) {
                 throw new RuntimeException("Error executing in parallel " + statement, e);
