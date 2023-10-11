@@ -245,12 +245,8 @@ public class CypherExtended {
             int row = 0;
             while (result.hasNext()) {
                 terminationGuard.check();
-                try {
-                    Map<String, Object> res = EntityUtil.anyRebind(tx, result.next());
-                    queue.put(new RowResult(row++, res));
-                } catch (Exception e) {
-                    System.out.println("e = " + e);
-                }
+                Map<String, Object> res = EntityUtil.anyRebind(tx, result.next());
+                queue.put(new RowResult(row++, res));
             }
             if (addStatistics) {
                 queue.put(new RowResult(-1, toMap(result.getQueryStatistics(), System.currentTimeMillis() - time, row)));
