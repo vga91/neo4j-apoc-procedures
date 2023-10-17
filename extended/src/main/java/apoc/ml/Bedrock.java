@@ -40,68 +40,66 @@ https://sdk.amazonaws.com/java/api/latest/software/amazon/awssdk/services/bedroc
 public class Bedrock {
     
     // todo - implement
-//    enum ModelId {
-//        JURASSIC_2_MID("idName", "accept", ""),
-//        JURASSIC_2_ULTRA(),
-//        TITAN_TEXT_G1_LITE(),
-//        TITAN_EMBEDDING_G1(),
-//        TITAN_TEXT_G1_EXPRESS(),
-//        TITAN_TEXT_G1_AGILE(),
-//        CLAUDE_V1(),
-//        CLAUDE_V2(),
-//        CLAUDE_INSTANT(),
-//        COMMAND(),
-//        STABLE_DIFFUSION_XL(),
-//        CUSTOM();
-//    }
+    enum ModelId {
+        JURASSIC_2_MID("idName", "accept", ""),
+        JURASSIC_2_ULTRA("idName", "accept", ""),
+        TITAN_TEXT_G1_LITE("idName", "accept", ""),
+        TITAN_EMBEDDING_G1("amazon.titan-embed-text-v1", "*/*", null),
+        TITAN_TEXT_G1_EXPRESS("idName", "accept", ""),
+        TITAN_TEXT_G1_AGILE("idName", "accept", ""),
+        CLAUDE_V1("idName", "accept", ""),
+        CLAUDE_V2("idName", "accept", ""),
+        CLAUDE_INSTANT("idName", "accept", ""),
+        COMMAND("idName", "accept", ""),
+        STABLE_DIFFUSION_XL("idName", "accept", ""),
+        CUSTOM("idName", "accept", "");
+        
+        private final String id;
+        private final String acceptValue;
+        private final String jsonPath;
 
-    // --> final String accessKey, final String secretKey
-    public static final String KEY_ID = "AKIASSO3M7CCVJ26AETR";
-    public static final String SECRET = "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";
+        ModelId(String id, String acceptValue, String jsonPath) {
+            this.id = id;
+            this.acceptValue = acceptValue;
+            this.jsonPath = jsonPath;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public String getAcceptValue() {
+            return acceptValue;
+        }
+
+        public String getJsonPath() {
+            return jsonPath;
+        }
+        
+        public static ModelId from(String id) {
+            for (ModelId modelId: ModelId.values()) {
+                if (modelId.getId().equals(id)) {
+                    return modelId;
+                }
+            }
+            return ModelId.CUSTOM;
+        }
+    }
+
 
     @Procedure
-    public void bedrock(@Name(value = "payload", defaultValue = "{}") Map<String, Object> payload,
-                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+    public void bedrock(@Name(value = "modelId") String modelId, 
+                        @Name(value = "payload") Object payload,
+                        @Name(value = "conf", defaultValue = "{}") Map<String, Object> conf) throws Exception {
         // todo - validation: modelId dev'essere non nullo??
         
+        // todo - validation: conf deve avere o session/key oppure nell'header
         
-//        InvokeBedrock.invoke();
-        
-        /*
-        POST https://bedrock.us-east-1.amazonaws.com/model/stability.stable-diffusion-xl-v0/invoke
-
-        -H accept: image/png
-        -H content-type: application/json
-        
-        Payload : `{"inputText": "Picture of a bird"}`
-         */
-
-        String s = Util.encodeUserColonPassToBase64(KEY_ID + ":" + SECRET);
-        System.out.println("s = " + s);
-
-
-        String access_key = new String("AKIAIOSFODNN7EXAMPLE".getBytes(), StandardCharsets.UTF_8);//.encode("UTF-8")
-        String secret_key = new String("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY".getBytes(), StandardCharsets.UTF_8);//.encode("UTF-8")
-
-//        String string_to_sign = new String("GET\n\n\nTue, 27 Mar 2007 19:36:42 +0000\n/awsexamplebucket1/photos/puppy.jpg".getBytes(), StandardCharsets.UTF_8)// ;.encode("UTF-8")
-//        signature = base64.encodestring(
-//                hmac.new(
-//                secret_key, string_to_sign, sha1
-//                                         ).digest()
-//                                ).strip()
-//
-//
-//        print(f"AWS {access_key.decode()}:{signature.decode()}");
-        
-
-        
-//        String url = "https://bedrock-runtime.us-east-1.amazonaws.com";
-
-
-        Date date = new Date();
+        ModelId modelId1 = ModelId.from(modelId);
 
         // todo - endpoint customizable, document it
-        String urlString = "https://bedrock-runtime.us-east-1.amazonaws.com/model/amazon.titan-embed-text-v1/invoke";
+        String urlString = String.format("https://bedrock-runtime.us-east-1.amazonaws.com/model/%s/invoke", 
+                modelId1.getId());
 //        String url = "https://bedrock-runtime.us-east-1.amazonaws.com/model/stability.stable-diffusion-xl-v0/invoke";
         Map<String, Object> headers = Map.of(
                 "Content-Type", "application/json",
@@ -120,12 +118,15 @@ public class Bedrock {
         connection.setRequestMethod("POST");
         System.out.println(connection.getRequestMethod() + " " + url);
         
-        String payloadString = "{\"inputText\": \"Provona\"}";// JsonUtil.writeValueAsString("{\"inputText\": \"Provona\"}");
+        String payloadString = payload instanceof String
+                ? (String) payload
+                : JsonUtil.writeValueAsString(payload);// "{\"inputText\": \"Provona\"}";// JsonUtil.writeValueAsString("{\"inputText\": \"Provona\"}");
+        System.out.println("payloadString = " + payloadString);
 
-        String format = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'").format(new Date());
+//        String format = new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'").format(new Date());
 //        String basicDateTimeNoMillis = DateFormatUtil.getOrCreate("basic_date_time_no_millis").toFormat().format(date);
         headers = calculateAuthorizationHeaders("POST", url.getHost(), url.getPath(), url.getQuery(), new HashMap<>(headers), payloadString.getBytes(),
-                format,
+//                format,
                 KEY_ID, SECRET, "us-east-1", "bedrock");
         
 //        AWSSignatureV4Generator aWSV4Auth = new AWSSignatureV4Generator.Builder(KEY_ID, SECRET)
@@ -160,75 +161,5 @@ public class Bedrock {
     // basic_date
     // basic_date_time_no_millis
 
-    public static class InvokeBedrock {
-        // Todo - StaticCredentialsProvider?? diverso dall'analogo  AWSStaticCredentialsProvider di S3Aws??? wtf...
-        // todo - maybe because of --> https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/migration-whats-different.html
-        //  ma allora sdk 1.x non contiene bedrock.. giusto?
-        
-        public static void invoke() {
-            AwsBasicCredentials basicAWSCredentials = AwsBasicCredentials.create(KEY_ID, SECRET);
-            StaticCredentialsProvider credentialsProvider = StaticCredentialsProvider.create(basicAWSCredentials);
-            AwsCredentials awsCredentials = credentialsProvider.resolveCredentials();
-            try (BedrockRuntimeClient client = BedrockRuntimeClient.builder()
-                    
-//            try (BedrockClient client = BedrockClient.builder()
-                    .region(Region.US_EAST_1)
-                    // todo - mocked credentials... try with S3Aws
-                    .credentialsProvider(credentialsProvider)
-                    .build()) {
 
-                String prompt = "Hello Claude, how are you?";
-
-                JSONObject jsonBody = new JSONObject()
-                        .put("prompt", "Human: " + prompt + " Assistant:")
-                        .put("temperature", 0.8)
-                        .put("max_tokens_to_sample", 1024);
-
-                SdkBytes body = SdkBytes.fromUtf8String(
-                        jsonBody.toString()
-                );
-
-                SdkBytes test = SdkBytes.fromString("test", StandardCharsets.UTF_8);
-                InvokeModelRequest request = InvokeModelRequest.builder()
-                        .modelId("amazon.titan-embed-text-v1")
-//                        .modelId("anthropic.claude-v2")
-                        .body(test)
-                        .build();
-
-//                InvokeModelRequest build = InvokeModelRequest.builder()
-//                        .contentType("application/json")
-//                        .accept("*/*")
-//                        .modelId("amazon.titan-embed-text-v1")
-//                        .build();
-
-                InvokeModelRequest build = InvokeModelRequest.builder()
-                        .contentType("application/json")
-                        .accept("*/*")
-                        .modelId("amazon.titan-embed-text-v1")
-                        .body(SdkBytes.fromUtf8String("{\"inputText\": \"ajeje\"}"))
-                        .build();
-
-//                GetCustomModelRequest.Builder consBuilder = GetCustomModelRequest.builder();
-//                BedrockServiceClientConfiguration bedrockServiceClientConfiguration = runtime.serviceClientConfiguration();
-
-//                System.out.println("bedrockServiceClientConfiguration = " + bedrockServiceClientConfiguration);
-                InvokeModelResponse response = client.invokeModel(build);
-                
-                
-
-                JSONObject jsonObject = new JSONObject(
-                        response.body().asString(StandardCharsets.UTF_8)
-                );
-
-//                String completion = jsonObject.getString("completion");
-
-                System.out.println();
-                System.out.println(jsonObject);
-                System.out.println();
-            }
-            
-        }
-//        public static void main(String[] args) {
-//        }
-    }
 }

@@ -5,15 +5,12 @@ import java.security.MessageDigest;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.*;
-import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
-/**
- * Copyright 2020 Alex Vasiliev, licensed under the Apache 2.0 license: https://opensource.org/licenses/Apache-2.0
- */
+
 public class AmazonRequestSignatureV4Utils {
 
     /**
@@ -36,7 +33,6 @@ public class AmazonRequestSignatureV4Utils {
      * @param headers - HTTP request header map. This map is going to have entries added to it by this method. Initially populated with
      *     headers to be included in the signature. Like often compulsory 'Host' header. e.g., {@link java.net.HttpURLConnection#getRequestProperties()}.
      * @param body - The binary request body, for requests like POST.
-     * @param isoDateTime - The time and date of the request in ISO8601 basic format, see comment above.
      * @param awsIdentity - AWS Identity, e.g., "AKIAJTOUYS27JPVRDUYQ"
      * @param awsSecret - AWS Secret Key, e.g., "I8Q2hY819e+7KzBnkXj66n1GI9piV+0p3dHglAzQ"
      * @param awsRegion - AWS Region, e.g., "us-east-1"
@@ -45,11 +41,11 @@ public class AmazonRequestSignatureV4Utils {
     public static Map<String, Object> calculateAuthorizationHeaders(
             String method, String host, String path, String query, Map<String, Object> headers,
             byte[] body,
-            String isoDateTime,
             String awsIdentity, String awsSecret, String awsRegion, String awsService
     ) {
-        isoDateTime = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").format(ZonedDateTime.now(ZoneOffset.UTC));
-        try {
+        String isoDateTime = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").format(ZonedDateTime.now(ZoneOffset.UTC));
+        
+//        try {
             String bodySha256 = hex(sha256(body));
             String isoJustDate = isoDateTime.substring(0, 8); // Cut the date portion of a string like '20150830T123600Z';
             System.out.println("isoJustDate = " + isoJustDate);
@@ -69,7 +65,7 @@ public class AmazonRequestSignatureV4Utils {
                 canonicalRequestLines.add(key.toLowerCase(Locale.US) + ":" + normalizeSpaces((String) headers.get(key)));
             }
             canonicalRequestLines.add(null); // new line required after headers
-            String signedHeaders = hashedHeaders.stream().collect(Collectors.joining(";"));
+            String signedHeaders = String.join(";", hashedHeaders);
             canonicalRequestLines.add(signedHeaders);
             canonicalRequestLines.add(bodySha256);
             String canonicalRequestBody = canonicalRequestLines.stream().map(line -> line == null ? "" : line).collect(Collectors.joining("\n"));
@@ -82,7 +78,7 @@ public class AmazonRequestSignatureV4Utils {
             String credentialScope = isoJustDate + "/" + awsRegion + "/" + awsService + "/aws4_request";
             stringToSignLines.add(credentialScope);
             stringToSignLines.add(canonicalRequestHash);
-            String stringToSign = stringToSignLines.stream().collect(Collectors.joining("\n"));
+            String stringToSign = String.join("\n", stringToSignLines);
 
             // (3) https://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
             byte[] kDate = hmac(("AWS4" + awsSecret).getBytes(StandardCharsets.UTF_8), isoJustDate);
@@ -95,13 +91,14 @@ public class AmazonRequestSignatureV4Utils {
             headers.put("Authorization", authParameter);
 
             return headers;
-        } catch (Exception e) {
-            if (e instanceof RuntimeException) {
-                throw (RuntimeException) e;
-            } else {
-                throw new IllegalStateException(e);
-            }
-        }
+//        } catch (Exception e) {
+            
+//            if (e instanceof RuntimeException) {
+//                throw (RuntimeException) e;
+//            } else {
+//                throw new IllegalStateException(e);
+//            }
+//        }
     }
 
     private static String normalizeSpaces(String value) {
@@ -116,16 +113,24 @@ public class AmazonRequestSignatureV4Utils {
         return sb.toString();
     }
 
-    private static byte[] sha256(byte[] bytes) throws Exception {
-        MessageDigest digest = MessageDigest.getInstance("SHA-256");
-        digest.update(bytes);
-        return digest.digest();
+    private static byte[] sha256(byte[] bytes) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(bytes);
+            return digest.digest();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    public static byte[] hmac(byte[] key, String msg) throws Exception {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(key, "HmacSHA256"));
-        return mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
+    public static byte[] hmac(byte[] key, String msg) {
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            return mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

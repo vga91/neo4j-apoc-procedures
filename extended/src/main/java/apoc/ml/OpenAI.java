@@ -43,6 +43,7 @@ public class OpenAI {
     }
 
     static Stream<Object> executeRequest(String apiKey, Map<String, Object> configuration, String path, String model, String key, Object inputs, String jsonPath, ApocConfig apocConfig) throws JsonProcessingException, MalformedURLException {
+        // todo - something like that?
         apiKey = apocConfig.getString(APOC_OPENAI_KEY, apiKey);
         if (apiKey == null || apiKey.isBlank())
             throw new IllegalArgumentException("API Key must not be empty");
