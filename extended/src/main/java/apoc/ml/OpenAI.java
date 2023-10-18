@@ -60,7 +60,7 @@ public class OpenAI {
         String payload = new ObjectMapper().writeValueAsString(config);
 
         var url = new URL(new URL(endpoint), path).toString();
-        return JsonUtil.loadJson(url, headers, payload, jsonPath, true, List.of());
+        return JsonUtil.loadJson(url, headers, payload, jsonPath);
     }
 
     @Procedure("apoc.ml.openai.embedding")

@@ -48,7 +48,7 @@ public class OpenAITest {
 
     @Test
     public void completion() {
-        testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer: ', 'fake-api-key')", (row) -> {
+        testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer: ', 'fake-api-key1')", (row) -> {
             var result = (Map<String,Object>)row.get("value");
             assertEquals(true, result.get("created") instanceof Number);
             assertEquals(true, result.containsKey("choices"));

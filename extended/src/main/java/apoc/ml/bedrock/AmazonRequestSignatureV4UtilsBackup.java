@@ -1,17 +1,20 @@
-package apoc.ml;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.*;
-import java.util.stream.Collectors;
+package apoc.ml.bedrock;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 
-
-public class AmazonRequestSignatureV4Utils {
+/**
+ * https://stackoverflow.com/questions/62144379/how-to-make-amazon-aws-api-call-from-java
+ */
+public class AmazonRequestSignatureV4UtilsBackup {
 
     /**
      * Generates signing headers for HTTP request in accordance with Amazon AWS API Signature version 4 process.
@@ -33,24 +36,25 @@ public class AmazonRequestSignatureV4Utils {
      * @param headers - HTTP request header map. This map is going to have entries added to it by this method. Initially populated with
      *     headers to be included in the signature. Like often compulsory 'Host' header. e.g., {@link java.net.HttpURLConnection#getRequestProperties()}.
      * @param body - The binary request body, for requests like POST.
+     * @param isoDateTime - The time and date of the request in ISO8601 basic format, see comment above.
      * @param awsIdentity - AWS Identity, e.g., "AKIAJTOUYS27JPVRDUYQ"
      * @param awsSecret - AWS Secret Key, e.g., "I8Q2hY819e+7KzBnkXj66n1GI9piV+0p3dHglAzQ"
      * @param awsRegion - AWS Region, e.g., "us-east-1"
      * @param awsService - AWS Service, e.g., "route53"
      */
-    public static Map<String, Object> calculateAuthorizationHeaders(
-            String method, String host, String path, String query, Map<String, Object> headers,
+    public static Map<String, String>  calculateAuthorizationHeaders(
+            String method, String host, String path, String query, Map<String, String> headers,
             byte[] body,
+            String isoDateTime,
             String awsIdentity, String awsSecret, String awsRegion, String awsService
     ) {
-        String isoDateTime = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").format(ZonedDateTime.now(ZoneOffset.UTC));
-        
-//        try {
+        try {
             String bodySha256 = hex(sha256(body));
             String isoJustDate = isoDateTime.substring(0, 8); // Cut the date portion of a string like '20150830T123600Z';
-            System.out.println("isoJustDate = " + isoJustDate);
+            
+
             headers.put("Host", host);
-//            headers.put("X-Amz-Content-Sha256", bodySha256);
+            headers.put("X-Amz-Content-Sha256", bodySha256);
             headers.put("X-Amz-Date", isoDateTime);
 
             // (1) https://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
@@ -62,10 +66,10 @@ public class AmazonRequestSignatureV4Utils {
             List<String> headerKeysSorted = headers.keySet().stream().sorted(Comparator.comparing(e -> e.toLowerCase(Locale.US))).collect(Collectors.toList());
             for (String key : headerKeysSorted) {
                 hashedHeaders.add(key.toLowerCase(Locale.US));
-                canonicalRequestLines.add(key.toLowerCase(Locale.US) + ":" + normalizeSpaces((String) headers.get(key)));
+                canonicalRequestLines.add(key.toLowerCase(Locale.US) + ":" + normalizeSpaces(headers.get(key)));
             }
             canonicalRequestLines.add(null); // new line required after headers
-            String signedHeaders = String.join(";", hashedHeaders);
+            String signedHeaders = hashedHeaders.stream().collect(Collectors.joining(";"));
             canonicalRequestLines.add(signedHeaders);
             canonicalRequestLines.add(bodySha256);
             String canonicalRequestBody = canonicalRequestLines.stream().map(line -> line == null ? "" : line).collect(Collectors.joining("\n"));
@@ -78,7 +82,7 @@ public class AmazonRequestSignatureV4Utils {
             String credentialScope = isoJustDate + "/" + awsRegion + "/" + awsService + "/aws4_request";
             stringToSignLines.add(credentialScope);
             stringToSignLines.add(canonicalRequestHash);
-            String stringToSign = String.join("\n", stringToSignLines);
+            String stringToSign = stringToSignLines.stream().collect(Collectors.joining("\n"));
 
             // (3) https://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
             byte[] kDate = hmac(("AWS4" + awsSecret).getBytes(StandardCharsets.UTF_8), isoJustDate);
@@ -89,16 +93,17 @@ public class AmazonRequestSignatureV4Utils {
 
             String authParameter = "AWS4-HMAC-SHA256 Credential=" + awsIdentity + "/" + credentialScope + ", SignedHeaders=" + signedHeaders + ", Signature=" + signature;
             headers.put("Authorization", authParameter);
-
-            return headers;
-//        } catch (Exception e) {
             
-//            if (e instanceof RuntimeException) {
-//                throw (RuntimeException) e;
-//            } else {
-//                throw new IllegalStateException(e);
-//            }
-//        }
+            
+            return headers;
+
+        } catch (Exception e) {
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            } else {
+                throw new IllegalStateException(e);
+            }
+        }
     }
 
     private static String normalizeSpaces(String value) {
@@ -113,24 +118,16 @@ public class AmazonRequestSignatureV4Utils {
         return sb.toString();
     }
 
-    private static byte[] sha256(byte[] bytes) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update(bytes);
-            return digest.digest();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private static byte[] sha256(byte[] bytes) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        digest.update(bytes);
+        return digest.digest();
     }
 
-    public static byte[] hmac(byte[] key, String msg) {
-        try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(key, "HmacSHA256"));
-            return mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public static byte[] hmac(byte[] key, String msg) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(key, "HmacSHA256"));
+        return mac.doFinal(msg.getBytes(StandardCharsets.UTF_8));
     }
 
 }

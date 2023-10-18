@@ -1,4 +1,4 @@
-package apoc.ml;
+package apoc.ml.bedrock;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
