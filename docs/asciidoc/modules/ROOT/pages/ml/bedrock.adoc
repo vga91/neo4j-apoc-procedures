@@ -2,7 +2,6 @@
 = AWS Bedrock procedures
 
 
-
 These procedures leverage the https://aws.amazon.com/bedrock/[Amazon Bedrock API].
 
 
@@ -12,33 +11,46 @@ Here is a list of all available Aws Bedrock procedures:
 [opts=header, cols="1, 4", separator="|"]
 |===
 |name|description
-|name|description
-|name|description
-|name|description
-|name|description
-|name|description
-|name|description
-|name|description
-|name|description
+|apoc.ml.bedrock.list($config)|To get the list of foundation or custom models
+|apoc.ml.bedrock.jurassic(body, $config)|To create an API call to `Jurassic-2` model
+|apoc.ml.bedrock.anthropic.claude(body, $config)|To create an API call to ``Titan Embedding``s model
+|apoc.ml.bedrock.titan.embedding(body, $config)|To create an API call to `Claude` model
+|apoc.ml.bedrock.stability(body, $config)|To create an API call to `Stable Diffusion` model
+|apoc.ml.bedrock.custom(body, $config)|To create a customizable Bedrock API call
 |===
 
 All the procedures, leverage the `apoc.ml.bedrock.custom` procedures,
 and support the same config parameter, but unlike the `custom` one,
-they have some different default parameters and return a data type consistent with the called API, 
+they have some different default parameters and model id. 
+Moreover the return data is consistent with the called API, 
 instead of returning a generic `Object` as a result
 
 
 == Config 
-// TODO
+
+.Config parameters
+[opts=header, cols="1,1,1,5"]
+|===
+| name | type | default | description
+| secretKey | String | null | The AWS key ID. We can also evaluate it via `apoc.conf`, with the key `apoc.aws.key.id`. As an alternative to the pair keyId-secretKey, we can directly pass the https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html[aws V4 signature] via the `headers` config
+| keyId | String | null | The AWS secret access key. We can also evaluate it via `apoc.conf`, with the key `apoc.aws.secret.id`. As an alternative to the pair keyId-secretKey, we can directly pass the https://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-header-based-auth.html[aws V4 signature] via the `headers` config
+| region | String | the one calculated from `endpoint` config | The AWS region
+| endpoint | String | see below | The AWS endpoint.
+| method | String | `"POST"` (or `"GET"` with the `apoc.ml.bedrock.list` procedure) | TODO
+| headers | Map<String, Object> | `{}` | The additional headers
+| modelId | String | see below | The modelId. If created,
+|===
+
+modelId and endpoint - TODO 
 
 == Usage examples
 
+TODO
 
 === Custom AWS API Call
 
 
 
-: You need to acquire an https://platform.openai.com/account/api-keys[OpenAI API key^] to use these procedures. Using them will incur costs on your OpenAI account. You can set the api key globally by defining the `apoc.openai.key` configuration in `apoc.conf`
 
 - endpoint customizable
 - keyId e secretKey, oppure passare direttamente nell'header

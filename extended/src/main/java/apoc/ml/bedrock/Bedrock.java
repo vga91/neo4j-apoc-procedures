@@ -28,7 +28,7 @@ import static apoc.ml.bedrock.BedrockUtil.JSON;
 
 public class Bedrock {
     
-    @Procedure("apoc.ml.bedrock.list")
+    @Procedure
     public Stream<ModelItemResult> list(@Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
 
         BedrockConfig conf = new BedrockGetModelsConfig(config);
@@ -47,7 +47,7 @@ public class Bedrock {
                 .map(ObjectResult::new);
     }
     
-    @Procedure("apoc.ml.bedrock.jurassic")
+    @Procedure
     public Stream<Jurassic> jurassic(@Name(value = "body") Object body,
                                      @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         
@@ -83,6 +83,7 @@ public class Bedrock {
         return executeRequestReturningMap(body, config, "$.artifacts[0]")
                 .map(StabilityAi::from);
     }
+    
 
     private Stream<Map<String, Object>> executeRequestReturningMap(Object body, Map<String, Object> config, String path) {
         return executeCustomRequest(body, config, path)
