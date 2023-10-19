@@ -1,0 +1,11 @@
+TODO:
+
+- endpoint customizable
+- keyId e secretKey, oppure passare direttamente nell'header
+
+
+// todo - documentare che con modelId va su endpoint --> https://bedrock-runtime.us-east-1.amazonaws.com/model/<MODEL_ID>/invoke
+//  e che endpoint ha la priorità
+
+
+// todo - dire che tutte le procedure accettano gli stessi config.

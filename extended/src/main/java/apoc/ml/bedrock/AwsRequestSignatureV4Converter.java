@@ -1,8 +1,8 @@
 package apoc.ml.bedrock;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.jetbrains.annotations.NotNull;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -16,48 +16,38 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 
-public class AmazonRequestSignatureV4Utils {
+public class AwsRequestSignatureV4Converter {
+
+    public static final String AWS_SERVICE_NAME = "bedrock";
 
     /**
      * Generates signing headers for HTTP request in accordance with Amazon AWS API Signature version 4 process.
      * <p>
      * Following steps outlined here: <a href="https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html">docs.aws.amazon.com</a>
-     * 
-     * This method takes many arguments as read-only, but adds necessary headers to @{code headers} argument, which is a map.
-     * The caller should make sure those parameters are copied to the actual request object.
-     * <p>
-     * The ISO8601 date parameter can be created by making a call to:<br>
-     * - {@code java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").format(ZonedDateTime.now(ZoneOffset.UTC))}<br>
-     * or, if you prefer joda:<br>
-     * - {@code org.joda.time.format.ISODateTimeFormat.basicDateTimeNoMillis().print(DateTime.now().withZone(DateTimeZone.UTC))}
      *
-     * @param method - HTTP request method, (GET|POST|DELETE|PUT|...), e.g., {@link java.net.HttpURLConnection#getRequestMethod()}
-     * @param headers - HTTP request header map. This map is going to have entries added to it by this method. Initially populated with
-     *     headers to be included in the signature. Like often compulsory 'Host' header. e.g., {@link java.net.HttpURLConnection#getRequestProperties()}.
-     * @param body - The binary request body, for requests like POST.
-     * @param awsIdentity - AWS Identity, e.g., "AKIAJTOUYS27JPVRDUYQ"
-     * @param awsSecret - AWS Secret Key, e.g., "I8Q2hY819e+7KzBnkXj66n1GI9piV+0p3dHglAzQ"
-     * @param awsRegion - AWS Region, e.g., "us-east-1"
-     * @param awsService - AWS Service, e.g., "route53"
+     * @param method - HTTP request method, (GET|POST|DELETE|PUT|...)
+     * @param conf - The {@link BedrockConfig}
+     * @param headers - The HTTP headers
+     * @param body - The HTTP payload in bytes
      */
     public static Map<String, Object> calculateAuthorizationHeaders(
-            String method,
-            URL url, // String path, String query,
+            String method, 
+            BedrockConfig conf,
             Map<String, Object> headers,
-            byte[] body,
-            String awsIdentity, String awsSecret, String awsRegion, String awsService
-    ) {
+            byte[] body
+    ) throws MalformedURLException {
         headers = new HashMap<>(headers);
         String isoDateTime = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").format(ZonedDateTime.now(ZoneOffset.UTC));
-        
+
+        URL url = new URL(conf.getEndpoint());
+
         String host = url.getHost();
         String path = url.getPath();
         String query = url.getQuery();
         
-        
-//        try {
         String bodySha256 = hex(sha256(body));
-        String isoJustDate = isoDateTime.substring(0, 8); // Cut the date portion of a string like '20150830T123600Z';
+        // create a string like '20150830T123600Z';
+        String isoDateOnly = isoDateTime.substring(0, 8); 
 
         headers.put("Host", host);
 //            headers.put("X-Amz-Content-Sha256", bodySha256);
@@ -65,11 +55,11 @@ public class AmazonRequestSignatureV4Utils {
 
         Pair<String, String> pairSignedHeaderAndCanonicalHash = createCanonicalRequest(method, headers, path, query, bodySha256);
 
-        Pair<String, String> pairCredentialAndStringSign = createStringToSign(awsRegion, awsService, isoDateTime, isoJustDate, pairSignedHeaderAndCanonicalHash);
+        Pair<String, String> pairCredentialAndStringSign = createStringToSign(conf.getRegion(), isoDateTime, isoDateOnly, pairSignedHeaderAndCanonicalHash);
 
-        String signature = calculateSignature(awsSecret, awsRegion, awsService, isoJustDate, pairCredentialAndStringSign.getRight());
+        String signature = calculateSignature(conf.getSecretKey(), conf.getRegion(), isoDateOnly, pairCredentialAndStringSign.getRight());
 
-        String authParameter = "AWS4-HMAC-SHA256 Credential=" + awsIdentity + "/" + pairCredentialAndStringSign.getLeft() + ", SignedHeaders=" + pairSignedHeaderAndCanonicalHash.getLeft() + ", Signature=" + signature;
+        String authParameter = "AWS4-HMAC-SHA256 Credential=" + conf.getKeyId() + "/" + pairCredentialAndStringSign.getLeft() + ", SignedHeaders=" + pairSignedHeaderAndCanonicalHash.getLeft() + ", Signature=" + signature;
         headers.put("Authorization", authParameter);
 
         return headers;
@@ -78,11 +68,11 @@ public class AmazonRequestSignatureV4Utils {
     /**
      * Based on <a href="https://docs.aws.amazon.com/general/latest/gr/sigv4-create-string-to-sign.html">sigv4-create-string-to-sign</a>
      */
-    private static Pair<String, String> createStringToSign(String awsRegion, String awsService, String isoDateTime, String isoJustDate, Pair<String, String> pairSignedHeaderCanonicalHash) {
+    private static Pair<String, String> createStringToSign(String awsRegion, String isoDateTime, String isoJustDate, Pair<String, String> pairSignedHeaderCanonicalHash) {
         List<String> stringToSignLines = new ArrayList<>();
         stringToSignLines.add("AWS4-HMAC-SHA256");
         stringToSignLines.add(isoDateTime);
-        String credentialScope = isoJustDate + "/" + awsRegion + "/" + awsService + "/aws4_request";
+        String credentialScope = isoJustDate + "/" + awsRegion + "/" + AWS_SERVICE_NAME + "/aws4_request";
         stringToSignLines.add(credentialScope);
         stringToSignLines.add(pairSignedHeaderCanonicalHash.getRight());
         String stringToSign = String.join("\n", stringToSignLines);
@@ -115,10 +105,10 @@ public class AmazonRequestSignatureV4Utils {
     /**
      * Based on <a href="https://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html">sigv4-calculate-signature</a>
      */
-    private static String calculateSignature(String awsSecret, String awsRegion, String awsService, String isoJustDate, String stringToSign) {
+    private static String calculateSignature(String awsSecret, String awsRegion, String isoJustDate, String stringToSign) {
         byte[] kDate = hmac(("AWS4" + awsSecret).getBytes(StandardCharsets.UTF_8), isoJustDate);
         byte[] kRegion = hmac(kDate, awsRegion);
-        byte[] kService = hmac(kRegion, awsService);
+        byte[] kService = hmac(kRegion, AWS_SERVICE_NAME);
         byte[] kSigning = hmac(kService, "aws4_request");
         return hex(hmac(kSigning, stringToSign));
     }
