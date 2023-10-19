@@ -1,11 +1,33 @@
-TODO:
+[[aws-bedrock]]
+= AWS Bedrock procedures
+
+
+
+These procedures leverage the https://aws.amazon.com/bedrock/[Amazon Bedrock API].
+
+
+Here is a list of all available Aws Bedrock procedures:
+
+
+
+
+== Config 
+// TODO
+
+== Usage examples
+
+
+
+: You need to acquire an https://platform.openai.com/account/api-keys[OpenAI API key^] to use these procedures. Using them will incur costs on your OpenAI account. You can set the api key globally by defining the `apoc.openai.key` configuration in `apoc.conf`
 
 - endpoint customizable
 - keyId e secretKey, oppure passare direttamente nell'header
 
 
-// todo - documentare che con modelId va su endpoint --> https://bedrock-runtime.us-east-1.amazonaws.com/model/<MODEL_ID>/invoke
+// todo - document that modelId goto endpoint --> https://bedrock-runtime.us-east-1.amazonaws.com/model/<MODEL_ID>/invoke
 //  e che endpoint ha la priorità
 
 
-// todo - dire che tutte le procedure accettano gli stessi config.
+// todo - all procs accept same configs.
+
+// todo - apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);

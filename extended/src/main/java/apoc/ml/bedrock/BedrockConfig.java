@@ -6,7 +6,6 @@ import static apoc.ApocConfig.apocConfig;
 import static apoc.ExtendedApocConfig.APOC_AWS_KEY_ID;
 import static apoc.ExtendedApocConfig.APOC_AWS_SECRET_KEY;
 
-// todo: as a record?
 public abstract class BedrockConfig {
     
     abstract String getDefaultEndpoint(Map<String, Object> config);

@@ -2,7 +2,7 @@ package apoc.ml.bedrock;
 
 import java.util.Map;
 
-public class BedrockModelsConfig extends BedrockConfig {
+public class BedrockGetModelsConfig extends BedrockConfig {
     enum TypeGet {
         CUSTOM("custom-models"),
         FOUNDATION("foundation-models");
@@ -25,7 +25,7 @@ public class BedrockModelsConfig extends BedrockConfig {
 
     public static final String TYPE_GET = "typeGet";
 
-    public BedrockModelsConfig(Map<String, Object> config) {
+    public BedrockGetModelsConfig(Map<String, Object> config) {
         super(config);
     }
 

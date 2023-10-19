@@ -4,8 +4,6 @@ import java.util.List;
 import java.util.Map;
 
 public class BedrockInvokeResult {
-    // todo
-    // todo 2 : https://stackoverflow.com/questions/8571501/how-to-check-whether-a-string-is-base64-encoded-or-not
     public record StabilityAi(String base64Image) {
         public static StabilityAi from(Object object) {
             Map<String, Object> map = (Map<String, Object>) object;
@@ -16,7 +14,6 @@ public class BedrockInvokeResult {
         }
     }
 
-    // todo
     public record AnthropicClaude(String completion, String stopReason) {
         public static AnthropicClaude from(Object object) {
             Map<String, Object> map = (Map<String, Object>) object;
@@ -28,7 +25,6 @@ public class BedrockInvokeResult {
         }
     }
 
-    // todo
     public record TitanEmbedding(Long inputTextTokenCount, List<Number> embedding) {
         public static TitanEmbedding from(Object object) {
             Map<String, Object> map = (Map<String, Object>) object;
@@ -40,7 +36,6 @@ public class BedrockInvokeResult {
         }
     }
     
-    // todo
     public record Jurassic(Long id, List<Object> promptTokens, List<Object> completions) {
         public static Jurassic from(Object object) {
             Map<String, Object> map = (Map<String, Object>) object;

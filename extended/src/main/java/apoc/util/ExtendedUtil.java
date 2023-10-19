@@ -57,8 +57,8 @@ public class ExtendedUtil
      * Similar to JsonUtil.loadJson(..) but works e.g. with GET method as well,
      * for which it would return a FileNotFoundException
      */
-    public static <T> Stream<T> getModelItemResultStream(String method, HttpClient httpClient, String payloadString, Map<String, Object> headers, String endpoint, String path, List<String> of,
-                                                  Function<Stream<Object>, Stream<T>> function) {
+    public static Stream<Object> getModelItemResultStream(String method, HttpClient httpClient, String payloadString, Map<String, Object> headers, String endpoint, String path, List<String> of
+                                                  /*Function<Stream<Object>, Stream<Object>> function*/) {
 
         try {
             HttpRequestBase request = fromMethodName(method, endpoint);
@@ -80,9 +80,10 @@ public class ExtendedUtil
 
             InputStream stream = response.getEntity().getContent();
 
-            Stream<Object> objStream = streamObjetsFromIStream(stream, path, of);
-
-            return function.apply(objStream);
+            return streamObjetsFromIStream(stream, path, of);
+//            Stream<Object> objStream = streamObjetsFromIStream(stream, path, of);
+//
+//            return function.apply(objStream);
 //                    .onClose(() -> {
 //                try {
 //                    httpClient.close();

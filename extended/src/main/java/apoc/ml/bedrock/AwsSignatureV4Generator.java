@@ -16,7 +16,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 
-public class AwsRequestSignatureV4Converter {
+public class AwsSignatureV4Generator {
 
     public static final String AWS_SERVICE_NAME = "bedrock";
 
@@ -24,19 +24,18 @@ public class AwsRequestSignatureV4Converter {
      * Generates signing headers for HTTP request in accordance with Amazon AWS API Signature version 4 process.
      * <p>
      * Following steps outlined here: <a href="https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html">docs.aws.amazon.com</a>
-     *
-     * @param method - HTTP request method, (GET|POST|DELETE|PUT|...)
-     * @param conf - The {@link BedrockConfig}
+     * <p>
+     * @param conf - The {@link BedrockConfig config}
      * @param headers - The HTTP headers
-     * @param body - The HTTP payload in bytes
+     * @param body - The HTTP body in bytes
      */
     public static Map<String, Object> calculateAuthorizationHeaders(
-            String method, 
             BedrockConfig conf,
             Map<String, Object> headers,
             byte[] body
     ) throws MalformedURLException {
         headers = new HashMap<>(headers);
+        
         String isoDateTime = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").format(ZonedDateTime.now(ZoneOffset.UTC));
 
         URL url = new URL(conf.getEndpoint());
@@ -45,24 +44,29 @@ public class AwsRequestSignatureV4Converter {
         String path = url.getPath();
         String query = url.getQuery();
         
-        String bodySha256 = hex(sha256(body));
-        // create a string like '20150830T123600Z';
+        String bodySha256 = hex(toSha256(body));
         String isoDateOnly = isoDateTime.substring(0, 8); 
 
         headers.put("Host", host);
-//            headers.put("X-Amz-Content-Sha256", bodySha256);
         headers.put("X-Amz-Date", isoDateTime);
 
-        Pair<String, String> pairSignedHeaderAndCanonicalHash = createCanonicalRequest(method, headers, path, query, bodySha256);
+        Pair<String, String> pairSignedHeaderAndCanonicalHash = createCanonicalRequest(conf.getMethod(), headers, path, query, bodySha256);
 
         Pair<String, String> pairCredentialAndStringSign = createStringToSign(conf.getRegion(), isoDateTime, isoDateOnly, pairSignedHeaderAndCanonicalHash);
 
         String signature = calculateSignature(conf.getSecretKey(), conf.getRegion(), isoDateOnly, pairCredentialAndStringSign.getRight());
 
-        String authParameter = "AWS4-HMAC-SHA256 Credential=" + conf.getKeyId() + "/" + pairCredentialAndStringSign.getLeft() + ", SignedHeaders=" + pairSignedHeaderAndCanonicalHash.getLeft() + ", Signature=" + signature;
-        headers.put("Authorization", authParameter);
+        createAuthorizationHeader(conf, headers, pairSignedHeaderAndCanonicalHash, pairCredentialAndStringSign, signature);
 
         return headers;
+    }
+
+    private static void createAuthorizationHeader(BedrockConfig conf, Map<String, Object> headers, Pair<String, String> pairSignedHeaderAndCanonicalHash, Pair<String, String> pairCredentialAndStringSign, String signature) {
+        String authStringParameter = "AWS4-HMAC-SHA256 Credential=" + conf.getKeyId() + "/" + pairCredentialAndStringSign.getLeft() 
+                                     + ", SignedHeaders=" + pairSignedHeaderAndCanonicalHash.getLeft() 
+                                     + ", Signature=" + signature;
+        
+        headers.put("Authorization", authStringParameter);
     }
 
     /**
@@ -98,7 +102,7 @@ public class AwsRequestSignatureV4Converter {
         canonicalRequestLines.add(signedHeaders);
         canonicalRequestLines.add(bodySha256);
         String canonicalRequestBody = canonicalRequestLines.stream().map(line -> line == null ? "" : line).collect(Collectors.joining("\n"));
-        String canonicalRequestHash = hex(sha256(canonicalRequestBody.getBytes(StandardCharsets.UTF_8)));
+        String canonicalRequestHash = hex(toSha256(canonicalRequestBody.getBytes(StandardCharsets.UTF_8)));
         return Pair.of(signedHeaders, canonicalRequestHash);
     }
 
@@ -106,11 +110,11 @@ public class AwsRequestSignatureV4Converter {
      * Based on <a href="https://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html">sigv4-calculate-signature</a>
      */
     private static String calculateSignature(String awsSecret, String awsRegion, String isoJustDate, String stringToSign) {
-        byte[] kDate = hmac(("AWS4" + awsSecret).getBytes(StandardCharsets.UTF_8), isoJustDate);
-        byte[] kRegion = hmac(kDate, awsRegion);
-        byte[] kService = hmac(kRegion, AWS_SERVICE_NAME);
-        byte[] kSigning = hmac(kService, "aws4_request");
-        return hex(hmac(kSigning, stringToSign));
+        byte[] kDate = toHmac(("AWS4" + awsSecret).getBytes(StandardCharsets.UTF_8), isoJustDate);
+        byte[] kRegion = toHmac(kDate, awsRegion);
+        byte[] kService = toHmac(kRegion, AWS_SERVICE_NAME);
+        byte[] kSigning = toHmac(kService, "aws4_request");
+        return hex(toHmac(kSigning, stringToSign));
     }
 
     private static String normalizeSpaces(String value) {
@@ -125,7 +129,7 @@ public class AwsRequestSignatureV4Converter {
         return sb.toString();
     }
 
-    private static byte[] sha256(byte[] bytes) {
+    private static byte[] toSha256(byte[] bytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             digest.update(bytes);
@@ -135,7 +139,7 @@ public class AwsRequestSignatureV4Converter {
         }
     }
 
-    public static byte[] hmac(byte[] key, String msg) {
+    public static byte[] toHmac(byte[] key, String msg) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(key, "HmacSHA256"));
