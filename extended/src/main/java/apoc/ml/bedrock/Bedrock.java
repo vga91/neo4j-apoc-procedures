@@ -29,23 +29,19 @@ import static apoc.ml.bedrock.BedrockUtil.JSON;
 public class Bedrock {
     
     @Procedure("apoc.ml.bedrock.list")
-    public Stream<ModelItemResult> list(@Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws IOException {
+    public Stream<ModelItemResult> list(@Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
 
-        return executeGetModelRequest(config)
+        BedrockConfig conf = new BedrockGetModelsConfig(config);
+        
+        return executeRequestCommon(null, "modelSummaries[*]", conf)
                 .flatMap(i -> ((List<Map<String, Object>>) i).stream())
                 .map(ModelItemResult::new);
     }
-
-    private Stream<Object> executeGetModelRequest(Map<String, Object> config) throws IOException {
-        BedrockConfig conf = new BedrockGetModelsConfig(config);
-        
-        return executeRequestCommon(null, "modelSummaries[*]", conf);
-    }
-
+    
     @Procedure
     @Description("To create a customizable bedrock call")
     public Stream<ObjectResult> custom(@Name(value = "body") Object body,
-                                       @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
+                                       @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         
         return executeCustomRequest(body, config, null)
                 .map(ObjectResult::new);
@@ -53,59 +49,68 @@ public class Bedrock {
     
     @Procedure("apoc.ml.bedrock.jurassic")
     public Stream<Jurassic> jurassic(@Name(value = "body") Object body,
-                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
+                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         
         config.putIfAbsent(MODEL_ID, JURASSIC_2_ULTRA.id());
 
-        return executeCustomRequest(body, config, null)
+        return executeRequestReturningMap(body, config, null)
                 .map(Jurassic::from);
     }
     
     @Procedure("apoc.ml.bedrock.anthropic.claude")
     public Stream<AnthropicClaude> anthropicClaude(@Name(value = "body") Object body,
-                                                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
+                                                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         config.putIfAbsent(MODEL_ID, CLAUDE_V2.id());
 
-        return executeCustomRequest(body, config, null)
+        return executeRequestReturningMap(body, config, null)
                 .map(AnthropicClaude::from);
     }
     
     @Procedure("apoc.ml.bedrock.titan.embedding")
     public Stream<TitanEmbedding> titanEmbedding(@Name(value = "body") Object body,
-                                                                            @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
+                                                                            @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         config.putIfAbsent(MODEL_ID, TITAN_EMBEDDING_G1.id());
 
-        return executeCustomRequest(body, config, null)
+        return executeRequestReturningMap(body, config, null)
                 .map(TitanEmbedding::from);
     }
 
     @Procedure("apoc.ml.bedrock.stability")
     public Stream<StabilityAi> stability(@Name(value = "body") Object body,
-                                               @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws IOException {
+                                               @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         config.putIfAbsent(MODEL_ID, STABLE_DIFFUSION_XL.id());
         
-        return executeCustomRequest(body, config, "$.artifacts[0]")
+        return executeRequestReturningMap(body, config, "$.artifacts[0]")
                 .map(StabilityAi::from);
     }
 
-    private Stream<Object> executeCustomRequest(Object body, Map<String, Object> config, String path) throws IOException {
+    private Stream<Map<String, Object>> executeRequestReturningMap(Object body, Map<String, Object> config, String path) {
+        return executeCustomRequest(body, config, path)
+                .map(i -> (Map<String, Object>) i);
+    }
+
+    private Stream<Object> executeCustomRequest(Object body, Map<String, Object> config, String path) {
         BedrockConfig conf = new BedrockInvokeConfig(config);
 
         return executeRequestCommon(body, path, conf);
     }
 
-    private Stream<Object> executeRequestCommon(Object body, String path, BedrockConfig conf) throws IOException {
-        String bodyString = getBodyAsString(body);
-        Map<String, Object> headers = new HashMap<>(conf.getHeaders());
-        headers.putIfAbsent("Content-Type", JSON);
-        headers.putIfAbsent("accept", ALL);
+    private Stream<Object> executeRequestCommon(Object body, String path, BedrockConfig conf) {
+        try {
+            String bodyString = getBodyAsString(body);
+            Map<String, Object> headers = new HashMap<>(conf.getHeaders());
+            headers.putIfAbsent("Content-Type", JSON);
+            headers.putIfAbsent("accept", ALL);
 
-        headers = calculateAuthorizationHeaders(conf, headers, bodyString.getBytes());
-        
-        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+            headers = calculateAuthorizationHeaders(conf, headers, bodyString.getBytes());
 
-        return ExtendedUtil.getModelItemResultStream(conf.getMethod(), httpClient, bodyString, headers, conf.getEndpoint(), path, List.of()/*, function*/)
-                .onClose(() -> Util.close(httpClient));
+            CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+
+            return ExtendedUtil.getModelItemResultStream(conf.getMethod(), httpClient, bodyString, headers, conf.getEndpoint(), path, List.of())
+                    .onClose(() -> Util.close(httpClient));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private String getBodyAsString(Object body) throws JsonProcessingException {

@@ -5,9 +5,7 @@ import java.util.Map;
 
 public class BedrockInvokeResult {
     public record StabilityAi(String base64Image) {
-        public static StabilityAi from(Object object) {
-            Map<String, Object> map = (Map<String, Object>) object;
-            
+        public static StabilityAi from(Map<String, Object> map) {
             String base64 = (String) map.get("base64");
             
             return new StabilityAi(base64);
@@ -15,9 +13,7 @@ public class BedrockInvokeResult {
     }
 
     public record AnthropicClaude(String completion, String stopReason) {
-        public static AnthropicClaude from(Object object) {
-            Map<String, Object> map = (Map<String, Object>) object;
-            
+        public static AnthropicClaude from(Map<String, Object> map) {
             String completion = (String) map.get("completion");
             String stopReason = (String) map.get("stopReason");
             
@@ -26,9 +22,7 @@ public class BedrockInvokeResult {
     }
 
     public record TitanEmbedding(Long inputTextTokenCount, List<Number> embedding) {
-        public static TitanEmbedding from(Object object) {
-            Map<String, Object> map = (Map<String, Object>) object;
-            
+        public static TitanEmbedding from(Map<String, Object> map) {
             Long inputTextTokenCount = (Long) map.get("inputTextTokenCount");
             List<Number> embedding = (List<Number>) map.get("embedding");
             
@@ -37,9 +31,7 @@ public class BedrockInvokeResult {
     }
     
     public record Jurassic(Long id, List<Object> promptTokens, List<Object> completions) {
-        public static Jurassic from(Object object) {
-            Map<String, Object> map = (Map<String, Object>) object;
-            
+        public static Jurassic from(Map<String, Object> map) {
             Long id = (Long) map.get("id");
 
             Map prompt = (Map) map.get("prompt");

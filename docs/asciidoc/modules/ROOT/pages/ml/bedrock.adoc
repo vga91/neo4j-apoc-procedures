@@ -9,12 +9,32 @@ These procedures leverage the https://aws.amazon.com/bedrock/[Amazon Bedrock API
 Here is a list of all available Aws Bedrock procedures:
 
 
+[opts=header, cols="1, 4", separator="|"]
+|===
+|name|description
+|name|description
+|name|description
+|name|description
+|name|description
+|name|description
+|name|description
+|name|description
+|name|description
+|===
+
+All the procedures, leverage the `apoc.ml.bedrock.custom` procedures,
+and support the same config parameter, but unlike the `custom` one,
+they have some different default parameters and return a data type consistent with the called API, 
+instead of returning a generic `Object` as a result
 
 
 == Config 
 // TODO
 
 == Usage examples
+
+
+=== Custom AWS API Call
 
 
 

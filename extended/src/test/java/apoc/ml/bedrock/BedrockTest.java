@@ -16,7 +16,7 @@ import static apoc.ApocConfig.apocConfig;
 /**
  * NB: WORK IN PROGRESS.
  * TODO:
- * // TODO - test with fake api like OpenAITest??
+ * //  test with fake api like OpenAITest??
  * //      via fake url
  * //      try with apocConfig() and wrong confMap --> should work
  * //      try with wrong apocConfig() and right confMap --> should NOT work

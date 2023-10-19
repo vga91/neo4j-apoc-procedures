@@ -8,7 +8,6 @@ import org.apache.commons.codec.binary.Base64;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.neo4j.graphdb.Result;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -23,6 +22,7 @@ import static apoc.ml.bedrock.BedrockUtil.ModelId.*;
 import static apoc.ml.bedrock.BedrockInvokeConfig.MODEL_ID;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNotNull;
@@ -52,7 +52,7 @@ public class BedrockIT {
             "stop_sequences", List.of("\\n\\nHuman:"),
             "anthropic_version", "bedrock-2023-05-31"
     );
-    public static final Map<String, String> TITAN_body = Map.of("inputText", "Test");
+    public static final Map<String, String> TITAN_BODY = Map.of("inputText", "Test");
 
     
     private static final String BEDROCK_CUSTOM_PROC = "call apoc.ml.bedrock.custom($body, $conf)";
@@ -79,57 +79,65 @@ public class BedrockIT {
     
     @Test
     public void testCustomWithTitanEmbedding() {
-        String s = db.executeTransactionally(BEDROCK_CUSTOM_PROC,
-                Map.of("body", TITAN_body,
+        testCall(db, BEDROCK_CUSTOM_PROC,
+                Map.of("body", TITAN_BODY,
                         "conf", Map.of(MODEL_ID, TITAN_EMBEDDING_G1.id())
                 ),
-                Result::resultAsString);
-        System.out.println("s = " + s);
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertNotNull(value.get("inputTextTokenCount"));
+                    assertNotNull(value.get("embedding"));
+                });
     }
 
-
     @Test
-    public void testStringbody() {
-        String s = db.executeTransactionally(BEDROCK_CUSTOM_PROC,
-                Map.of("body", "{\"inputText\": \"Prova\" }",
+    public void testCustomWithStringBody() {
+        testCall(db, BEDROCK_CUSTOM_PROC,
+                Map.of("body", "{\"inputText\": \"Test\" }",
                         "conf", Map.of(MODEL_ID, TITAN_EMBEDDING_G1.id())
                 ),
-                Result::resultAsString);
-        System.out.println("s = " + s);
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertNotNull(value.get("inputTextTokenCount"));
+                    assertNotNull(value.get("embedding"));
+                });
     }
     
     @Test
-    public void testCustomWithJurassic() {
-        // TODO - prompt and completions for jurassic
-        String s = db.executeTransactionally(BEDROCK_CUSTOM_PROC,
+    public void testCustomWithJurassicUltra() {
+        testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", JURASSIC_BODY,
-                        "conf", Map.of(MODEL_ID, JURASSIC_2_MID.id())
+                        "conf", Map.of(MODEL_ID, JURASSIC_2_ULTRA.id())
                 ),
-                Result::resultAsString);
-        System.out.println("s = " + s);
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertNotNull(value.get("completions"));
+                });
     }
 
     @Test
-    public void testAlls23() {
-        String s = db.executeTransactionally(BEDROCK_CUSTOM_PROC,
+    public void testCustomWithAnthropicClaude() {
+        testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", ANTHROPIC_CLAUDE,
                         "conf", Map.of(MODEL_ID, CLAUDE_V1.id())
                 ),
-                Result::resultAsString);
-        System.out.println("s = " + s);
+        r -> {
+            Map value = (Map) r.get("value");
+            assertNotNull(value.get("completion"));
+            assertNotNull(value.get("stop_reason"));
+        });
     }
     
-    
     @Test
-    public void testAlls2() {
-        Map<String, Object> body = JURASSIC_BODY;
-
-        String s = db.executeTransactionally(BEDROCK_CUSTOM_PROC,
+    public void testCustomWithJurassicMid() {
+        testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", JURASSIC_BODY,
                         "conf", Map.of(MODEL_ID, JURASSIC_2_MID.id())
                 ),
-                Result::resultAsString);
-        System.out.println("s = " + s);
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertNotNull(value.get("completions"));
+                });
     }
     
     @Test
@@ -139,7 +147,9 @@ public class BedrockIT {
                         "conf", Map.of(MODEL_ID, STABLE_DIFFUSION_XL.id())
                 ),
                 r -> {
-                    String base64Image = (String) r.get("base64Image");
+                    Map value = (Map) r.get("value");
+                    List<Map> artifacts = (List<Map>) value.get("artifacts");
+                    String base64Image = (String) artifacts.get(0).get("base64");
                     assertTrue(Base64.isBase64(base64Image));
                 });
     }
@@ -187,26 +197,63 @@ public class BedrockIT {
 
     @Test
     public void testJurassic() {
-        String s = db.executeTransactionally("call apoc.ml.bedrock.jurassic($body)",
+        testCall(db, "call apoc.ml.bedrock.jurassic($body)",
                 Map.of("body", JURASSIC_BODY),
-                Result::resultAsString);
-        System.out.println("s = " + s);
+                r -> {
+                    assertNotNull(r.get("promptTokens"));
+                });
+    }
+
+    @Test
+    public void testJurassicWithModelMid() {
+        testCall(db, "call apoc.ml.bedrock.jurassic($body)",
+                Map.of("body", JURASSIC_BODY,
+                        "conf", Map.of(MODEL_ID, JURASSIC_2_MID.id())),
+                r -> {
+                    assertNotNull(r.get("promptTokens"));
+                });
     }
 
     @Test
     public void testAnthropicClaude() {
-        String s = db.executeTransactionally("call apoc.ml.bedrock.anthropic.claude($body)",
+        testCall(db, "call apoc.ml.bedrock.anthropic.claude($body)",
                 Map.of("body", ANTHROPIC_CLAUDE),
-                Result::resultAsString);
-        System.out.println("s = " + s);
+                r -> {
+            assertNotNull(r.get("completion"));
+            assertTrue(r.containsKey("stopReason"));
+                });
+    }
+
+    @Test
+    public void testAnthropicClaudeV1() {
+        testCall(db, "call apoc.ml.bedrock.anthropic.claude($body, $conf)",
+                Map.of("body", ANTHROPIC_CLAUDE,
+                        "conf", Map.of(MODEL_ID, CLAUDE_V1.id())),
+                r -> {
+            assertNotNull(r.get("completion"));
+            assertTrue(r.containsKey("stopReason"));
+                });
+    }
+
+    @Test
+    public void testAnthropicClaudeInstant() {
+        testCall(db, "call apoc.ml.bedrock.anthropic.claude($body, $conf)",
+                Map.of("body", ANTHROPIC_CLAUDE,
+                        "conf", Map.of(MODEL_ID, CLAUDE_INSTANT.id())),
+                r -> {
+            assertNotNull(r.get("completion"));
+            assertTrue(r.containsKey("stopReason"));
+                });
     }
 
     @Test
     public void testTitanEmbedding() {
-        String s = db.executeTransactionally("call apoc.ml.bedrock.titan.embedding($body)",
-                Map.of("body", TITAN_body),
-                Result::resultAsString);
-        System.out.println("s = " + s);
+        testCall(db, "call apoc.ml.bedrock.titan.embedding($body)",
+                Map.of("body", TITAN_BODY),
+                r -> {
+                    assertNotNull(r.get("inputTextTokenCount"));
+                    assertNotNull(r.get("embedding"));
+                });
     }
     
     @Test
@@ -216,7 +263,6 @@ public class BedrockIT {
                 Map.of("type", model.name()),
                 r -> {
                     r.forEachRemaining(row -> {
-                        System.out.println("row = " + row);
                         String modelArn = (String) row.get("modelArn");
                         assertTrue(modelArn.contains("arn:aws:bedrock"));
                     });
