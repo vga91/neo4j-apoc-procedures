@@ -43,7 +43,6 @@ public class OpenAI {
     }
 
     static Stream<Object> executeRequest(String apiKey, Map<String, Object> configuration, String path, String model, String key, Object inputs, String jsonPath, ApocConfig apocConfig) throws JsonProcessingException, MalformedURLException {
-        // todo - something like that?
         apiKey = apocConfig.getString(APOC_OPENAI_KEY, apiKey);
         if (apiKey == null || apiKey.isBlank())
             throw new IllegalArgumentException("API Key must not be empty");
@@ -60,7 +59,7 @@ public class OpenAI {
         String payload = new ObjectMapper().writeValueAsString(config);
 
         var url = new URL(new URL(endpoint), path).toString();
-        return JsonUtil.loadJson(url, headers, payload, jsonPath);
+        return JsonUtil.loadJson(url, headers, payload, jsonPath, true, List.of());
     }
 
     @Procedure("apoc.ml.openai.embedding")

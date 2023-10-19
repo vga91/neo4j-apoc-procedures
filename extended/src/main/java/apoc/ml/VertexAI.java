@@ -58,7 +58,7 @@ public class VertexAI {
         Map<String, Object> data = Map.of("instances", inputs, "parameters", getParameters(configuration, retainConfigKeys));
         String payload = new ObjectMapper().writeValueAsString(data);
 
-        return JsonUtil.loadJson(endpoint, headers, payload, jsonPath);
+        return JsonUtil.loadJson(endpoint, headers, payload, jsonPath, true, List.of());
     }
 
     @Procedure("apoc.ml.vertexai.embedding")

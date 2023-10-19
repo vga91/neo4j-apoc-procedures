@@ -36,7 +36,6 @@ public class VertexAIIT {
         parameters = Map.of("apiKey", vertexAiKey, "project", vertexAiProject);
     }
 
-    
     @Test
     public void getEmbedding() {
         testCall(db, "CALL apoc.ml.vertexai.embedding(['Some Text'], $apiKey, $project)", parameters,(row) -> {

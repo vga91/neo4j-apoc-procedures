@@ -2,20 +2,25 @@ package apoc.util;
 
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatProperties;
 import static apoc.export.cypher.formatter.CypherFormatterUtils.formatToString;
-import static apoc.util.JsonUtil.streamObjetsFromIStream;
+import static apoc.util.JsonUtil.OBJECT_MAPPER;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.time.Duration;
 import java.time.temporal.TemporalAccessor;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.Spliterators;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.MappingIterator;
+import com.jayway.jsonpath.Configuration;
+import com.jayway.jsonpath.JsonPath;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
@@ -28,9 +33,6 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.neo4j.graphdb.Entity;
 
 public class ExtendedUtil
@@ -57,46 +59,37 @@ public class ExtendedUtil
      * Similar to JsonUtil.loadJson(..) but works e.g. with GET method as well,
      * for which it would return a FileNotFoundException
      */
-    public static Stream<Object> getModelItemResultStream(String method, HttpClient httpClient, String payloadString, Map<String, Object> headers, String endpoint, String path, List<String> of
-                                                  /*Function<Stream<Object>, Stream<Object>> function*/) {
+    public static Stream<Object> getModelItemResultStream(String method, HttpClient httpClient, String payloadString, Map<String, Object> headers, String endpoint, String path, List<String> pathOptions) {
 
         try {
+            // -- request with headers and payload
             HttpRequestBase request = fromMethodName(method, endpoint);
 
             headers.forEach((k, v) -> request.setHeader(k, v.toString()));
 
             if (request instanceof HttpEntityEnclosingRequestBase entityRequest) {
-                try {
-                    entityRequest.setEntity(new StringEntity(payloadString));
-                } catch (UnsupportedEncodingException e) {
-                    throw new RuntimeException(e);
-                }
+                entityRequest.setEntity(new StringEntity(payloadString));
             }
-//        try (
-//                HttpClient httpClient = HttpClientBuilder.create().build();//) {
 
-//            DefaultHttpClient httpClient = new DefaultHttpClient();
+            // -- response
             HttpResponse response = httpClient.execute(request);
-
             InputStream stream = response.getEntity().getContent();
 
-            return streamObjetsFromIStream(stream, path, of);
-//            Stream<Object> objStream = streamObjetsFromIStream(stream, path, of);
-//
-//            return function.apply(objStream);
-//                    .onClose(() -> {
-//                try {
-//                    httpClient.close();
-//                } catch (IOException e) {
-//                    throw new RuntimeException(e);
-//                }
-//            });
-//            return objectStream
-//                    .flatMap(i -> ((List<Map<String, Object>>) i).stream())
-//                    .map(ModelItemResult::new);
+            return streamObjetsFromIStream(stream, path, pathOptions);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Along the lines of {@link JsonUtil#loadJson(Object, Map, String, String, boolean, List)} 
+     *  after the `FileUtils.inputStreamFor` method
+     */
+    public static Stream<Object> streamObjetsFromIStream(InputStream input, String path, List<String> options) throws IOException {
+        JsonParser parser = OBJECT_MAPPER.getFactory().createParser(input);
+        MappingIterator<Object> it = OBJECT_MAPPER.readValues(parser, Object.class);
+        Stream<Object> stream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false);
+        return StringUtils.isBlank(path) ? stream : stream.map((value) -> JsonPath.parse(value, Configuration.builder().build()).read(path));
     }
 
     
