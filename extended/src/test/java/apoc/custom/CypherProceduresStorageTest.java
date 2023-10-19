@@ -602,27 +602,24 @@ public class CypherProceduresStorageTest {
 
     @Test
     public void functionSignatureShouldNotChangeBeforeAndAfterRestartAndOverwriteMap() {
-        db.executeTransactionally("CALL apoc.custom.declareFunction('map(val :: INTEGER) :: MAP ', 'RETURN {value : $val} as value')");
-        db.executeTransactionally("CALL apoc.custom.declareFunction('map_list(val :: INTEGER) :: LIST OF MAP ', 'RETURN [{value : $val}] as value')");
-        db.executeTransactionally("CALL apoc.custom.declareFunction('map_result(val :: INTEGER) :: MAPRESULT ', 'RETURN {value : $val} as value')");
-        db.executeTransactionally("CALL apoc.custom.declareFunction('map_result_list(val :: INTEGER) :: LIST OF MAPRESULT ', 'RETURN [{value : $val}] as value')");
+        // given
+        String mapReturn = "RETURN {value : $val} as row";
+        String listMapReturn = "RETURN [{value : $val}] as row";
+        db.executeTransactionally("CALL apoc.custom.declareFunction('map(val :: INTEGER) :: MAP ', $statement)",
+                Map.of("statement", mapReturn));
+        db.executeTransactionally("CALL apoc.custom.declareFunction('map_list(val :: INTEGER) :: LIST OF MAP ', $statement)",
+                Map.of("statement", listMapReturn));
+        
+        db.executeTransactionally("CALL apoc.custom.declareFunction('map_result(val :: INTEGER) :: MAPRESULT ', $statement)",
+                Map.of("statement", mapReturn));
+        db.executeTransactionally("CALL apoc.custom.declareFunction('map_result_list(val :: INTEGER) :: LIST OF MAPRESULT ', $statement)",
+                Map.of("statement", listMapReturn));
 
         functionMapAssertions();
 
         restartDb();
         functionMapAssertions();
     }
-
-    // TODO
-    // TODO
-    // TODO
-    // TODO
-    // TODO
-    // TODO -- DOCUMENTAZIONE
-    // TODO
-    // TODO
-    // TODO
-    // TODO
 
 
     private void functionMapAssertions() {
@@ -648,28 +645,33 @@ public class CypherProceduresStorageTest {
 
         // then
         TestUtil.testResult(db, "RETURN custom.map_result(3) AS val", (result) -> {
-            Map<String, Object> map = result.<Map<String, Object>>columnAs("val").next();
+            Map map = result.<Map>columnAs("val").next();
             assertEquals(1, map.size());
+            
             assertEquals(3L, map.get("value"));
         });
         TestUtil.testResult(db, "RETURN custom.map_result_list(4) AS val", (result) -> {
-            List<List<Map<String, Object>>> list = result.<List<List<Map<String, Object>>>>columnAs("val").next();
+            List<List<Map>> list = result.<List<List<Map>>>columnAs("val").next();
             assertEquals(1, list.size());
-            List<Map<String, Object>> map = list.get(0);
+            
+            List<Map> map = list.get(0);
             assertEquals(1, map.size());
             assertEquals(4L, map.get(0).get("value"));
         });
 
         TestUtil.testResult(db, "RETURN custom.map(3) AS val", (result) -> {
-            Map<String, Map<String, Object>> map = result.<Map<String, Map<String, Object>>>columnAs("val").next();
+            Map<String, Map> map = result.<Map<String, Map>>columnAs("val").next();
             assertEquals(1, map.size());
-            assertEquals(3L, map.get("value").get("value"));
+            
+            assertEquals(3L, map.get("row").get("value"));
         });
         TestUtil.testResult(db, "RETURN custom.map_list(4) AS val", (result) -> {
-            List<Map<String, List<Map<String, Object>>>> list = result.<List<Map<String, List<Map<String, Object>>>>>columnAs("val").next();
+            List<Map<String, List<Map>>> list = result.<List<Map<String, List<Map>>>>columnAs("val").next();
             assertEquals(1, list.size());
             assertEquals(1, list.get(0).size());
-            assertEquals(4L, list.get(0).get("value").get(0).get("value"));
+            
+            List<Map> rowResult = list.get(0).get("row");
+            assertEquals(4L, rowResult.get(0).get("value"));
         });
 
     }

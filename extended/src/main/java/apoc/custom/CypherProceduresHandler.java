@@ -249,6 +249,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
             node.setProperty(ExtendedSystemPropertyKeys.inputs.name(), serializeSignatures(signature.inputSignature()));
             node.setProperty(ExtendedSystemPropertyKeys.output.name(), signature.outputType().toString());
             node.setProperty(ExtendedSystemPropertyKeys.forceSingle.name(), forceSingle);
+            node.setProperty(ExtendedSystemPropertyKeys.mapResult.name(), mapResult);
 
             setLastUpdate(tx);
             if (!registerFunction(signature, statement, forceSingle, mapResult)) {
@@ -438,10 +439,12 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         }
     }
 
+    /**
+     * We wrap the result only if we have a "true" map,
+     * so neither NodeType or RelationshipType that extends MapType,
+     * and the output signature is not a `MAPRESULT` / `LIST OF MAPRESULT` output
+     */
     private boolean isWrapped(AnyType outType, boolean mapResult) {
-        // We wrap the result only if we have a "true" map,
-        // so neither NodeType or RelationshipType that extends MapType,
-        // and the output signature is not a `MAPRESULT` / `LIST OF MAPRESULT` output
         return !mapResult && outType.getClass().equals(Neo4jTypes.MapType.class);
     }
 
