@@ -16,6 +16,7 @@ import java.util.stream.LongStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import apoc.ml.bedrock.BedrockConfig;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.jayway.jsonpath.Configuration;
@@ -59,7 +60,7 @@ public class ExtendedUtil
      * Similar to JsonUtil.loadJson(..) but works e.g. with GET method as well,
      * for which it would return a FileNotFoundException
      */
-    public static Stream<Object> getHttpResponse(String method, HttpClient httpClient, String payloadString, Map<String, Object> headers, String endpoint, String path, List<String> pathOptions) {
+    public static Stream<Object> getHttpResponse(BedrockConfig conf, String method, HttpClient httpClient, String payloadString, Map<String, Object> headers, String endpoint, String path, List<String> pathOptions) {
 
         try {
             // -- request with headers and payload
@@ -74,15 +75,18 @@ public class ExtendedUtil
             // -- response
             HttpResponse response = httpClient.execute(request);
             InputStream stream = response.getEntity().getContent();
+            checkResponseSuccess(response, stream);
 
-            if (response.getStatusLine().getStatusCode() / 100 != 2) {
-                String responseContent = new String(stream.readAllBytes());
-                throw new IOException("The request is failed with the response: " + responseContent);
-            }
-            
             return streamObjetsFromIStream(stream, path, pathOptions);
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static void checkResponseSuccess(HttpResponse response, InputStream stream) throws IOException {
+        if (response.getStatusLine().getStatusCode() / 100 != 2) {
+            String responseContent = new String(stream.readAllBytes());
+            throw new IOException("The request is failed with the response: " + responseContent);
         }
     }
 

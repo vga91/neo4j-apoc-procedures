@@ -17,13 +17,10 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
-import static apoc.ml.bedrock.AwsSignatureV4Generator.calculateAuthorizationHeaders;
 import static apoc.ml.bedrock.BedrockInvokeConfig.MODEL_ID;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
 import static apoc.ml.bedrock.BedrockInvokeResult.*;
-import static apoc.ml.bedrock.BedrockUtil.ModelId.*;
-import static apoc.ml.bedrock.BedrockUtil.ALL;
-import static apoc.ml.bedrock.BedrockUtil.JSON;
+import static apoc.ml.bedrock.BedrockUtil.*;
 
 
 public class Bedrock {
@@ -51,7 +48,7 @@ public class Bedrock {
     public Stream<Jurassic> jurassic(@Name(value = "body") Object body,
                                      @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         
-        config.putIfAbsent(MODEL_ID, JURASSIC_2_ULTRA.id());
+        config.putIfAbsent(MODEL_ID, JURASSIC_2_ULTRA);
 
         return executeRequestReturningMap(body, config, null)
                 .map(Jurassic::from);
@@ -59,8 +56,8 @@ public class Bedrock {
     
     @Procedure("apoc.ml.bedrock.anthropic.claude")
     public Stream<AnthropicClaude> anthropicClaude(@Name(value = "body") Object body,
-                                                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        config.putIfAbsent(MODEL_ID, CLAUDE_V2.id());
+                                                   @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+        config.putIfAbsent(MODEL_ID, ANTHROPIC_CLAUDE_V2);
 
         return executeRequestReturningMap(body, config, null)
                 .map(AnthropicClaude::from);
@@ -68,8 +65,8 @@ public class Bedrock {
     
     @Procedure("apoc.ml.bedrock.titan.embed")
     public Stream<TitanEmbedding> titanEmbedding(@Name(value = "body") Object body,
-                                                                            @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        config.putIfAbsent(MODEL_ID, TITAN_EMBEDDING_G1.id());
+                                                 @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+        config.putIfAbsent(MODEL_ID, TITAN_EMBED_TEXT);
 
         return executeRequestReturningMap(body, config, null)
                 .map(TitanEmbedding::from);
@@ -77,8 +74,8 @@ public class Bedrock {
 
     @Procedure("apoc.ml.bedrock.stability")
     public Stream<StabilityAi> stability(@Name(value = "body") Object body,
-                                               @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        config.putIfAbsent(MODEL_ID, STABLE_DIFFUSION_XL.id());
+                                         @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+        config.putIfAbsent(MODEL_ID, STABILITY_STABLE_DIFFUSION_XL);
         
         return executeRequestReturningMap(body, config, "$.artifacts[0]")
                 .map(StabilityAi::from);
@@ -99,17 +96,15 @@ public class Bedrock {
     private Stream<Object> executeRequestCommon(Object body, String path, BedrockConfig conf) {
         try {
             String bodyString = getBodyAsString(body);
-            Map<String, Object> headers = new HashMap<>(conf.getHeaders());
-            headers.putIfAbsent("Content-Type", JSON);
-            headers.putIfAbsent("accept", ALL);
+            Map<String, Object> headers = conf.getHeaders();
+            headers.putIfAbsent("Content-Type", "application/json");
+            headers.putIfAbsent("accept", "*/*");
 
-            if (!headers.containsKey("Authorization")) {
-                headers = calculateAuthorizationHeaders(conf, headers, bodyString.getBytes());
-            }
+            BedrockUtil.calculateAuthorizationHeaders(conf, bodyString);
 
             CloseableHttpClient httpClient = HttpClientBuilder.create().build();
 
-            return ExtendedUtil.getHttpResponse(conf.getMethod(), httpClient, bodyString, headers, conf.getEndpoint(), path, List.of())
+            return ExtendedUtil.getHttpResponse(conf, conf.getMethod(), httpClient, bodyString, headers, conf.getEndpoint(), path, List.of())
                     .onClose(() -> Util.close(httpClient));
         } catch (IOException e) {
             throw new RuntimeException(e);

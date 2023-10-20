@@ -1,5 +1,6 @@
 package apoc.ml.bedrock;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static apoc.ApocConfig.apocConfig;
@@ -37,7 +38,7 @@ public abstract class BedrockConfig {
         this.region = (String) config.getOrDefault(REGION_KEY, extractRegionFromEndpoint());
         this.method = (String) config.getOrDefault(METHOD_KEY, getDefaultMethod()); 
         
-        this.headers = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, Map.of());
+        this.headers = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, new HashMap<>());
     }
 
     private String extractRegionFromEndpoint() {

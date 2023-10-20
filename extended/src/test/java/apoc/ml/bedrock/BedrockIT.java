@@ -21,8 +21,9 @@ import static apoc.ExtendedApocConfig.APOC_AWS_SECRET_KEY;
 import static apoc.ml.bedrock.BedrockConfig.KEY_ID;
 import static apoc.ml.bedrock.BedrockConfig.METHOD_KEY;
 import static apoc.ml.bedrock.BedrockConfig.SECRET_KEY;
-import static apoc.ml.bedrock.BedrockUtil.ModelId.*;
+import static apoc.ml.bedrock.BedrockGetModelsConfig.*;
 import static apoc.ml.bedrock.BedrockInvokeConfig.MODEL_ID;
+import static apoc.ml.bedrock.BedrockUtil.*;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertNotNull;
@@ -58,7 +59,7 @@ public class BedrockIT {
     public static final Map<String, Object> TITAN_BODY = Map.of("inputText", "Test");
 
     
-    public static final String BEDROCK_CUSTOM_PROC = "call apoc.ml.bedrock.custom($body, $conf)";
+    public static final String BEDROCK_CUSTOM_PROC = "CALL apoc.ml.bedrock.custom($body, $conf)";
 
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
@@ -89,7 +90,7 @@ public class BedrockIT {
     public void testCustomWithTitanEmbedding() {
         testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", TITAN_BODY,
-                        "conf", Map.of(MODEL_ID, TITAN_EMBEDDING_G1.id())
+                        "conf", Map.of(MODEL_ID, TITAN_EMBED_TEXT)
                 ),
                 r -> {
                     Map value = (Map) r.get("value");
@@ -106,7 +107,7 @@ public class BedrockIT {
         try {
             testCall(db, BEDROCK_CUSTOM_PROC,
                     Map.of("body", TITAN_BODY,
-                            "conf", Map.of(MODEL_ID, TITAN_EMBEDDING_G1.id())
+                            "conf", Map.of(MODEL_ID, TITAN_EMBED_TEXT)
                     ),
                     r -> {
                         Map value = (Map) r.get("value");
@@ -121,7 +122,7 @@ public class BedrockIT {
         // check that with auth as a conf map it should work
         testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", TITAN_BODY,
-                        "conf", Map.of(MODEL_ID, TITAN_EMBEDDING_G1.id(),
+                        "conf", Map.of(MODEL_ID, TITAN_EMBED_TEXT,
                                 KEY_ID, keyId,
                                 SECRET_KEY, secretKey)
                 ),
@@ -136,7 +137,7 @@ public class BedrockIT {
     public void testCustomWithStringBody() {
         testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", "{\"inputText\": \"Test\" }",
-                        "conf", Map.of(MODEL_ID, TITAN_EMBEDDING_G1.id())
+                        "conf", Map.of(MODEL_ID, TITAN_EMBED_TEXT)
                 ),
                 r -> {
                     Map value = (Map) r.get("value");
@@ -148,7 +149,7 @@ public class BedrockIT {
     public void testCustomWithJurassicUltra() {
         testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", JURASSIC_BODY,
-                        "conf", Map.of(MODEL_ID, JURASSIC_2_ULTRA.id())
+                        "conf", Map.of(MODEL_ID, JURASSIC_2_ULTRA)
                 ),
                 r -> {
                     Map value = (Map) r.get("value");
@@ -160,7 +161,7 @@ public class BedrockIT {
     public void testCustomWithAnthropicClaude() {
         testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", ANTHROPIC_CLAUDE_BODY,
-                        "conf", Map.of(MODEL_ID, CLAUDE_V1.id())
+                        "conf", Map.of(MODEL_ID, "anthropic.claude-v1")
                 ),
         r -> {
             Map value = (Map) r.get("value");
@@ -173,7 +174,7 @@ public class BedrockIT {
     public void testCustomWithJurassicMid() {
         testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", JURASSIC_BODY,
-                        "conf", Map.of(MODEL_ID, JURASSIC_2_MID.id())
+                        "conf", Map.of(MODEL_ID, "ai21.j2-mid-v1")
                 ),
                 r -> {
                     Map value = (Map) r.get("value");
@@ -185,7 +186,7 @@ public class BedrockIT {
     public void testCustomWithStability() {
         testCall(db, BEDROCK_CUSTOM_PROC,
                 Map.of("body", STABILITY_AI_BODY,
-                        "conf", Map.of(MODEL_ID, STABLE_DIFFUSION_XL.id())
+                        "conf", Map.of(MODEL_ID, STABILITY_STABLE_DIFFUSION_XL)
                 ),
                 r -> {
                     Map value = (Map) r.get("value");
@@ -202,7 +203,7 @@ public class BedrockIT {
                 "endpoint", "https://bedrock.us-east-1.amazonaws.com/logging/modelinvocations",
                 METHOD_KEY, "GET");
 
-        testCall(db, "call apoc.ml.bedrock.custom(null, $conf)",
+        testCall(db, "CALL apoc.ml.bedrock.custom(null, $conf)",
                 Map.of("conf", conf),
                 r -> {
                     Map value = (Map) r.get("value");
@@ -217,18 +218,18 @@ public class BedrockIT {
                     "endpoint", "https://bedrock.us-east-1.amazonaws.com/logging/modelinvocations",
                     METHOD_KEY, "POST");
 
-            testCall(db, "call apoc.ml.bedrock.custom(null, $conf)",
+            testCall(db, "CALL apoc.ml.bedrock.custom(null, $conf)",
                     Map.of( "conf", conf),
                     r -> fail());
         } catch (Exception e) {
             String message = e.getMessage();
-            assertTrue("Actual message is: "+ message, message.contains("Unexpected character "));
+            assertTrue("Actual message is: "+ message, message.contains("<UnknownOperationException/>"));
         }
     }
 
     @Test
     public void testStability() {
-        testCall(db, "call apoc.ml.bedrock.stability($body)",
+        testCall(db, "CALL apoc.ml.bedrock.stability($body)",
                 Map.of("body", STABILITY_AI_BODY),
                 r -> {
                     String base64Image = (String) r.get("base64Image");
@@ -238,7 +239,7 @@ public class BedrockIT {
 
     @Test
     public void testJurassic() {
-        testCall(db, "call apoc.ml.bedrock.jurassic($body)",
+        testCall(db, "CALL apoc.ml.bedrock.jurassic($body)",
                 Map.of("body", JURASSIC_BODY),
                 r -> {
                     assertNotNull(r.get("promptTokens"));
@@ -247,9 +248,9 @@ public class BedrockIT {
 
     @Test
     public void testJurassicWithModelMid() {
-        testCall(db, "call apoc.ml.bedrock.jurassic($body)",
+        testCall(db, "CALL apoc.ml.bedrock.jurassic($body)",
                 Map.of("body", JURASSIC_BODY,
-                        "conf", Map.of(MODEL_ID, JURASSIC_2_MID.id())),
+                        "conf", Map.of(MODEL_ID, "ai21.j2-mid-v1")),
                 r -> {
                     assertNotNull(r.get("promptTokens"));
                 });
@@ -257,7 +258,7 @@ public class BedrockIT {
 
     @Test
     public void testAnthropicClaude() {
-        testCall(db, "call apoc.ml.bedrock.anthropic.claude($body)",
+        testCall(db, "CALL apoc.ml.bedrock.anthropic.claude($body)",
                 Map.of("body", ANTHROPIC_CLAUDE_BODY),
                 r -> {
             assertNotNull(r.get("completion"));
@@ -267,9 +268,9 @@ public class BedrockIT {
 
     @Test
     public void testAnthropicClaudeV1() {
-        testCall(db, "call apoc.ml.bedrock.anthropic.claude($body, $conf)",
+        testCall(db, "CALL apoc.ml.bedrock.anthropic.claude($body, $conf)",
                 Map.of("body", ANTHROPIC_CLAUDE_BODY,
-                        "conf", Map.of(MODEL_ID, CLAUDE_V1.id())),
+                        "conf", Map.of(MODEL_ID, "anthropic.claude-v1")),
                 r -> {
             assertNotNull(r.get("completion"));
             assertNotNull(r.get("stopReason"));
@@ -278,9 +279,9 @@ public class BedrockIT {
 
     @Test
     public void testAnthropicClaudeInstant() {
-        testCall(db, "call apoc.ml.bedrock.anthropic.claude($body, $conf)",
+        testCall(db, "CALL apoc.ml.bedrock.anthropic.claude($body, $conf)",
                 Map.of("body", ANTHROPIC_CLAUDE_BODY,
-                        "conf", Map.of(MODEL_ID, CLAUDE_INSTANT.id())),
+                        "conf", Map.of(MODEL_ID, "anthropic.claude-instant-v1")),
                 r -> {
             assertNotNull(r.get("completion"));
             assertNotNull(r.get("stopReason"));
@@ -289,25 +290,29 @@ public class BedrockIT {
 
     @Test
     public void testTitanEmbedding() {
-        testCall(db, "call apoc.ml.bedrock.titan.embed($body)",
+        testCall(db, "CALL apoc.ml.bedrock.titan.embed($body)",
                 Map.of("body", TITAN_BODY),
-                r -> {
-                    assertionsTitanEmbed(r);
-                });
+                BedrockIT::assertionsTitanEmbed);
     }
     
     @Test
     public void testGetModel() {
-        for (BedrockGetModelsConfig.TypeGet model: BedrockGetModelsConfig.TypeGet.values()) {
-            testResult(db, "call apoc.ml.bedrock.list({typeGet: $type})",
-                Map.of("type", model.name()),
+        testResult(db, "CALL apoc.ml.bedrock.list",
                 r -> {
                     r.forEachRemaining(row -> {
                         String modelArn = (String) row.get("modelArn");
                         assertTrue(modelArn.contains("arn:aws:bedrock"));
                     });
                 });
-        }
+
+        testResult(db, "CALL apoc.ml.bedrock.list($conf)",
+                Map.of("conf", Map.of(PATH_GET, "custom-models")),
+                r -> {
+                    r.forEachRemaining(row -> {
+                        String modelArn = (String) row.get("modelArn");
+                        assertTrue(modelArn.contains("arn:aws:bedrock"));
+                    });
+                });
     }
 
     private static void assertionsTitanEmbed(Map value) {
