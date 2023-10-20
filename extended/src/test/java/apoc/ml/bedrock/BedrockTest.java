@@ -24,7 +24,7 @@ import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.ml.bedrock.BedrockConfig.ENDPOINT_KEY;
 import static apoc.ml.bedrock.BedrockConfig.HEADERS_KEY;
-import static apoc.ml.bedrock.BedrockIT.*;
+import static apoc.ml.bedrock.BedrockTestUtil.*;
 import static apoc.ml.bedrock.BedrockInvokeConfig.MODEL_ID;
 import static apoc.ml.bedrock.BedrockUtil.STABILITY_STABLE_DIFFUSION_XL;
 import static apoc.util.TestUtil.getUrlFileName;

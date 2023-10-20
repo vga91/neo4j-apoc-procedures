@@ -83,7 +83,7 @@ public class ExtendedUtil
         }
     }
 
-    private static void checkResponseSuccess(HttpResponse response, InputStream stream) throws IOException {
+    public static void checkResponseSuccess(HttpResponse response, InputStream stream) throws IOException {
         if (response.getStatusLine().getStatusCode() / 100 != 2) {
             String responseContent = new String(stream.readAllBytes());
             throw new IOException("The request is failed with the response: " + responseContent);
