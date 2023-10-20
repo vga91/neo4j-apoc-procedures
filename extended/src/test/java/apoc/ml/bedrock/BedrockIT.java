@@ -5,6 +5,7 @@ package apoc.ml.bedrock;
 
 import apoc.util.TestUtil;
 import org.apache.commons.codec.binary.Base64;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -17,7 +18,9 @@ import java.util.Map;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.ExtendedApocConfig.APOC_AWS_KEY_ID;
 import static apoc.ExtendedApocConfig.APOC_AWS_SECRET_KEY;
+import static apoc.ml.bedrock.BedrockConfig.KEY_ID;
 import static apoc.ml.bedrock.BedrockConfig.METHOD_KEY;
+import static apoc.ml.bedrock.BedrockConfig.SECRET_KEY;
 import static apoc.ml.bedrock.BedrockUtil.ModelId.*;
 import static apoc.ml.bedrock.BedrockInvokeConfig.MODEL_ID;
 import static apoc.util.TestUtil.testCall;
@@ -43,7 +46,7 @@ public class BedrockIT {
             "temperature", 0,
             "topP", 1.0
     );
-    public static final Map<String, Object> ANTHROPIC_CLAUDE = Map.of(
+    public static final Map<String, Object> ANTHROPIC_CLAUDE_BODY = Map.of(
             "prompt", "\n\nHuman: Hello world\n\nAssistant:",
             "max_tokens_to_sample", 300,
             "temperature", 0.5,
@@ -52,29 +55,34 @@ public class BedrockIT {
             "stop_sequences", List.of("\\n\\nHuman:"),
             "anthropic_version", "bedrock-2023-05-31"
     );
-    public static final Map<String, String> TITAN_BODY = Map.of("inputText", "Test");
+    public static final Map<String, Object> TITAN_BODY = Map.of("inputText", "Test");
 
     
-    private static final String BEDROCK_CUSTOM_PROC = "call apoc.ml.bedrock.custom($body, $conf)";
+    public static final String BEDROCK_CUSTOM_PROC = "call apoc.ml.bedrock.custom($body, $conf)";
 
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
 
-
+    private static String keyId;
+    private static String secretKey;
+    
     @BeforeClass
     public static void setUp() throws Exception {
         String keyIdEnv = "AWS_KEY_ID";
         String secretKeyEnv = "AWS_SECRET_KEY";
         
-        String keyId = System.getenv(keyIdEnv);
-        String secretKey = System.getenv(secretKeyEnv);
+        keyId = System.getenv(keyIdEnv);
+        secretKey = System.getenv(secretKeyEnv);
         assumeNotNull(keyIdEnv + "environment not configured", keyId);
         assumeNotNull(secretKeyEnv + " environment configured", secretKey);
         
+        TestUtil.registerProcedure(db, Bedrock.class);
+    }
+    
+    @Before
+    public void before() throws Exception {
         apocConfig().setProperty(APOC_AWS_KEY_ID, keyId);
         apocConfig().setProperty(APOC_AWS_SECRET_KEY, secretKey);
-        
-        TestUtil.registerProcedure(db, Bedrock.class);
     }
     
     @Test
@@ -85,9 +93,43 @@ public class BedrockIT {
                 ),
                 r -> {
                     Map value = (Map) r.get("value");
-                    assertNotNull(value.get("inputTextTokenCount"));
-                    assertNotNull(value.get("embedding"));
+                    assertionsTitanEmbed(value);
                 });
+    }
+
+    @Test
+    public void testAuthViaConfigMap() {
+        apocConfig().getConfig().clearProperty(APOC_AWS_KEY_ID);
+        apocConfig().getConfig().clearProperty(APOC_AWS_SECRET_KEY);
+        
+        // check apocConfig correctly cleared, i.e. auth error
+        try {
+            testCall(db, BEDROCK_CUSTOM_PROC,
+                    Map.of("body", TITAN_BODY,
+                            "conf", Map.of(MODEL_ID, TITAN_EMBEDDING_G1.id())
+                    ),
+                    r -> {
+                        Map value = (Map) r.get("value");
+                        assertionsTitanEmbed(value);
+                    });
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            assertTrue("Actual error message is: " + msg, 
+                    msg.contains("The security token included in the request is invalid"));
+        }
+        
+        // check that with auth as a conf map it should work
+        testCall(db, BEDROCK_CUSTOM_PROC,
+                Map.of("body", TITAN_BODY,
+                        "conf", Map.of(MODEL_ID, TITAN_EMBEDDING_G1.id(),
+                                KEY_ID, keyId,
+                                SECRET_KEY, secretKey)
+                ),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertionsTitanEmbed(value);
+                });
+        
     }
 
     @Test
@@ -98,8 +140,7 @@ public class BedrockIT {
                 ),
                 r -> {
                     Map value = (Map) r.get("value");
-                    assertNotNull(value.get("inputTextTokenCount"));
-                    assertNotNull(value.get("embedding"));
+                    assertionsTitanEmbed(value);
                 });
     }
     
@@ -118,7 +159,7 @@ public class BedrockIT {
     @Test
     public void testCustomWithAnthropicClaude() {
         testCall(db, BEDROCK_CUSTOM_PROC,
-                Map.of("body", ANTHROPIC_CLAUDE,
+                Map.of("body", ANTHROPIC_CLAUDE_BODY,
                         "conf", Map.of(MODEL_ID, CLAUDE_V1.id())
                 ),
         r -> {
@@ -217,42 +258,41 @@ public class BedrockIT {
     @Test
     public void testAnthropicClaude() {
         testCall(db, "call apoc.ml.bedrock.anthropic.claude($body)",
-                Map.of("body", ANTHROPIC_CLAUDE),
+                Map.of("body", ANTHROPIC_CLAUDE_BODY),
                 r -> {
             assertNotNull(r.get("completion"));
-            assertTrue(r.containsKey("stopReason"));
+            assertNotNull(r.get("stopReason"));
                 });
     }
 
     @Test
     public void testAnthropicClaudeV1() {
         testCall(db, "call apoc.ml.bedrock.anthropic.claude($body, $conf)",
-                Map.of("body", ANTHROPIC_CLAUDE,
+                Map.of("body", ANTHROPIC_CLAUDE_BODY,
                         "conf", Map.of(MODEL_ID, CLAUDE_V1.id())),
                 r -> {
             assertNotNull(r.get("completion"));
-            assertTrue(r.containsKey("stopReason"));
+            assertNotNull(r.get("stopReason"));
                 });
     }
 
     @Test
     public void testAnthropicClaudeInstant() {
         testCall(db, "call apoc.ml.bedrock.anthropic.claude($body, $conf)",
-                Map.of("body", ANTHROPIC_CLAUDE,
+                Map.of("body", ANTHROPIC_CLAUDE_BODY,
                         "conf", Map.of(MODEL_ID, CLAUDE_INSTANT.id())),
                 r -> {
             assertNotNull(r.get("completion"));
-            assertTrue(r.containsKey("stopReason"));
+            assertNotNull(r.get("stopReason"));
                 });
     }
 
     @Test
     public void testTitanEmbedding() {
-        testCall(db, "call apoc.ml.bedrock.titan.embedding($body)",
+        testCall(db, "call apoc.ml.bedrock.titan.embed($body)",
                 Map.of("body", TITAN_BODY),
                 r -> {
-                    assertNotNull(r.get("inputTextTokenCount"));
-                    assertNotNull(r.get("embedding"));
+                    assertionsTitanEmbed(r);
                 });
     }
     
@@ -268,5 +308,10 @@ public class BedrockIT {
                     });
                 });
         }
+    }
+
+    private static void assertionsTitanEmbed(Map value) {
+        assertNotNull(value.get("inputTextTokenCount"));
+        assertNotNull(value.get("embedding"));
     }
 }

@@ -7,10 +7,11 @@ import static apoc.ExtendedApocConfig.APOC_AWS_KEY_ID;
 import static apoc.ExtendedApocConfig.APOC_AWS_SECRET_KEY;
 
 public abstract class BedrockConfig {
-    
+
     abstract String getDefaultEndpoint(Map<String, Object> config);
     abstract String getDefaultMethod();
     
+    public static final String HEADERS_KEY = "headers";
     public static final String SECRET_KEY = "secretKey";
     public static final String KEY_ID = "keyId";
     public static final String REGION_KEY = "region";
@@ -36,7 +37,7 @@ public abstract class BedrockConfig {
         this.region = (String) config.getOrDefault(REGION_KEY, extractRegionFromEndpoint());
         this.method = (String) config.getOrDefault(METHOD_KEY, getDefaultMethod()); 
         
-        this.headers = (Map<String, Object>) config.getOrDefault("headers", Map.of());
+        this.headers = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, Map.of());
     }
 
     private String extractRegionFromEndpoint() {

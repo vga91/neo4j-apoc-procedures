@@ -13,8 +13,8 @@ Here is a list of all available Aws Bedrock procedures:
 |name|description
 |apoc.ml.bedrock.list($config)|To get the list of foundation or custom models
 |apoc.ml.bedrock.jurassic(body, $config)|To create an API call to `Jurassic-2` model
-|apoc.ml.bedrock.anthropic.claude(body, $config)|To create an API call to ``Titan Embedding``s model
-|apoc.ml.bedrock.titan.embedding(body, $config)|To create an API call to `Claude` model
+|apoc.ml.bedrock.anthropic.claude(body, $config)|To create an API call to `Claude`s model
+|apoc.ml.bedrock.titan.embed(body, $config)|To create an API call to `Titan Embedding` model
 |apoc.ml.bedrock.stability(body, $config)|To create an API call to `Stable Diffusion` model
 |apoc.ml.bedrock.custom(body, $config)|To create a customizable Bedrock API call
 |===

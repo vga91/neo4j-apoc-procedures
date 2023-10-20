@@ -15,7 +15,7 @@ public class BedrockInvokeResult {
     public record AnthropicClaude(String completion, String stopReason) {
         public static AnthropicClaude from(Map<String, Object> map) {
             String completion = (String) map.get("completion");
-            String stopReason = (String) map.get("stopReason");
+            String stopReason = (String) map.get("stop_reason");
             
             return new AnthropicClaude(completion, stopReason);
         }

@@ -59,7 +59,7 @@ public class ExtendedUtil
      * Similar to JsonUtil.loadJson(..) but works e.g. with GET method as well,
      * for which it would return a FileNotFoundException
      */
-    public static Stream<Object> getModelItemResultStream(String method, HttpClient httpClient, String payloadString, Map<String, Object> headers, String endpoint, String path, List<String> pathOptions) {
+    public static Stream<Object> getHttpResponse(String method, HttpClient httpClient, String payloadString, Map<String, Object> headers, String endpoint, String path, List<String> pathOptions) {
 
         try {
             // -- request with headers and payload
@@ -75,6 +75,11 @@ public class ExtendedUtil
             HttpResponse response = httpClient.execute(request);
             InputStream stream = response.getEntity().getContent();
 
+            if (response.getStatusLine().getStatusCode() / 100 != 2) {
+                String responseContent = new String(stream.readAllBytes());
+                throw new IOException("The request is failed with the response: " + responseContent);
+            }
+            
             return streamObjetsFromIStream(stream, path, pathOptions);
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -85,11 +90,15 @@ public class ExtendedUtil
      * Along the lines of {@link JsonUtil#loadJson(Object, Map, String, String, boolean, List)} 
      *  after the `FileUtils.inputStreamFor` method
      */
-    public static Stream<Object> streamObjetsFromIStream(InputStream input, String path, List<String> options) throws IOException {
-        JsonParser parser = OBJECT_MAPPER.getFactory().createParser(input);
-        MappingIterator<Object> it = OBJECT_MAPPER.readValues(parser, Object.class);
-        Stream<Object> stream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false);
-        return StringUtils.isBlank(path) ? stream : stream.map((value) -> JsonPath.parse(value, Configuration.builder().build()).read(path));
+    public static Stream<Object> streamObjetsFromIStream(InputStream input, String path, List<String> options) {
+        try {
+            JsonParser parser = OBJECT_MAPPER.getFactory().createParser(input);
+            MappingIterator<Object> it = OBJECT_MAPPER.readValues(parser, Object.class);
+            Stream<Object> stream = StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false);
+            return StringUtils.isBlank(path) ? stream : stream.map((value) -> JsonPath.parse(value, Configuration.builder().build()).read(path));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     

@@ -66,7 +66,7 @@ public class Bedrock {
                 .map(AnthropicClaude::from);
     }
     
-    @Procedure("apoc.ml.bedrock.titan.embedding")
+    @Procedure("apoc.ml.bedrock.titan.embed")
     public Stream<TitanEmbedding> titanEmbedding(@Name(value = "body") Object body,
                                                                             @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         config.putIfAbsent(MODEL_ID, TITAN_EMBEDDING_G1.id());
@@ -103,11 +103,13 @@ public class Bedrock {
             headers.putIfAbsent("Content-Type", JSON);
             headers.putIfAbsent("accept", ALL);
 
-            headers = calculateAuthorizationHeaders(conf, headers, bodyString.getBytes());
+            if (!headers.containsKey("Authorization")) {
+                headers = calculateAuthorizationHeaders(conf, headers, bodyString.getBytes());
+            }
 
             CloseableHttpClient httpClient = HttpClientBuilder.create().build();
 
-            return ExtendedUtil.getModelItemResultStream(conf.getMethod(), httpClient, bodyString, headers, conf.getEndpoint(), path, List.of())
+            return ExtendedUtil.getHttpResponse(conf.getMethod(), httpClient, bodyString, headers, conf.getEndpoint(), path, List.of())
                     .onClose(() -> Util.close(httpClient));
         } catch (IOException e) {
             throw new RuntimeException(e);
