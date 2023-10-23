@@ -224,7 +224,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
         // de-register removed procs/functions
         currentProceduresToRemove.forEach(signature -> registerProcedure(signature, null));
-        currentUserFunctionsToRemove.forEach(signature -> registerFunction(signature, null, false, false));
+        currentUserFunctionsToRemove.forEach(this::registerFunction);
 
         api.executeTransactionally("call db.clearQueryCaches()");
     }
@@ -377,6 +377,10 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         }
     }
 
+    public boolean registerFunction(UserFunctionSignature signature) {
+        return registerFunction(signature, null, false, false);
+    }
+
     public boolean registerFunction(UserFunctionSignature signature, String statement, boolean forceSingle, boolean mapResult) {
         try {
             QualifiedName name = signature.name();
@@ -441,8 +445,9 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
 
     /**
      * We wrap the result only if we have a "true" map,
-     * so neither NodeType or RelationshipType that extends MapType,
-     * and the output signature is not a `MAPRESULT` / `LIST OF MAPRESULT` output
+     * that is: the output signature is not a `MAP` / `LIST OF MAP` 
+     *  and the outputType is exactly equals to MapType 
+     *  (neither with NodeType nor with RelationshipType wrap the result, even though they extend MapType)
      */
     private boolean isWrapped(AnyType outType, boolean mapResult) {
         return !mapResult && outType.getClass().equals(Neo4jTypes.MapType.class);
@@ -668,7 +673,7 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
                     ExtendedSystemPropertyKeys.prefix.name(), qName.namespace()
             ).stream().filter(n -> n.hasLabel(ExtendedSystemLabels.Function)).forEach(node -> {
                 UserFunctionDescriptor descriptor = userFunctionDescriptor(node);
-                registerFunction(descriptor.getSignature(), null, false, false);
+                registerFunction(descriptor.getSignature());
                 node.delete();
                 setLastUpdate(tx);
             });

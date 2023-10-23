@@ -646,33 +646,44 @@ public class CypherProceduresStorageTest {
         // then
         TestUtil.testResult(db, "RETURN custom.map_result(3) AS val", (result) -> {
             Map map = result.<Map>columnAs("val").next();
-            assertEquals(1, map.size());
-            
-            assertEquals(3L, map.get("value"));
+            assertIsMap(map);
         });
-        TestUtil.testResult(db, "RETURN custom.map_result_list(4) AS val", (result) -> {
-            List<List<Map>> list = result.<List<List<Map>>>columnAs("val").next();
-            assertEquals(1, list.size());
-            
-            List<Map> map = list.get(0);
-            assertEquals(1, map.size());
-            assertEquals(4L, map.get(0).get("value"));
-        });
-
+        
         TestUtil.testResult(db, "RETURN custom.map(3) AS val", (result) -> {
             Map<String, Map> map = result.<Map<String, Map>>columnAs("val").next();
             assertEquals(1, map.size());
-            
-            assertEquals(3L, map.get("row").get("value"));
+            Map innerMap = map.get("row");
+
+            assertIsMap(innerMap);
         });
-        TestUtil.testResult(db, "RETURN custom.map_list(4) AS val", (result) -> {
+        
+        TestUtil.testResult(db, "RETURN custom.map_result_list(3) AS val", (result) -> {
+            List<List<Map>> list = result.<List<List<Map>>>columnAs("val").next();
+            assertEquals(1, list.size());
+
+            List<Map> map = list.get(0);
+            assertIsListOfMap(map);
+        });
+
+        TestUtil.testResult(db, "RETURN custom.map_list(3) AS val", (result) -> {
             List<Map<String, List<Map>>> list = result.<List<Map<String, List<Map>>>>columnAs("val").next();
             assertEquals(1, list.size());
             assertEquals(1, list.get(0).size());
             
-            List<Map> rowResult = list.get(0).get("row");
-            assertEquals(4L, rowResult.get(0).get("value"));
+            List<Map> mapList = list.get(0).get("row");
+            assertIsListOfMap(mapList);
         });
 
+    }
+
+    private static void assertIsListOfMap(List<Map> mapList) {
+        assertEquals(1, mapList.size());
+        Map map = mapList.get(0);
+        assertIsMap(map);
+    }
+
+    private static void assertIsMap(Map map) {
+        Map<String, Object> expected = Map.of("value", 3L);
+        assertEquals(expected, map);
     }
 }
