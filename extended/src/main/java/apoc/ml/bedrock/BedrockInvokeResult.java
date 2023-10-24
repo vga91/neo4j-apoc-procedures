@@ -12,12 +12,12 @@ public class BedrockInvokeResult {
         }
     }
 
-    public record TitanEmbedding(Long inputTextTokenCount, String text, List<Double> embedding) {
-        public static TitanEmbedding from(Map<String, Object> map, String text) {
+    public record Embedding(Long inputTextTokenCount, String text, List<Double> embedding) {
+        public static Embedding from(Map<String, Object> map, String text) {
             Long inputTextTokenCount = (Long) map.get("inputTextTokenCount");
             List<Double> embedding = (List<Double>) map.get("embedding");
             
-            return new TitanEmbedding(inputTextTokenCount, text, embedding);
+            return new Embedding(inputTextTokenCount, text, embedding);
         }
     }
 }

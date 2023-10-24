@@ -14,7 +14,7 @@ public class BedrockInvokeConfig extends BedrockConfig {
         String modelId = (String) config.get(MODEL);
         return modelId == null
                 ? null
-                : String.format("https://bedrock-runtime.us-east-1.amazonaws.com/model/%s/invoke", modelId);
+                : String.format("https://bedrock-runtime.%s.amazonaws.com/model/%s/invoke", getRegion(), modelId);
     }
 
     @Override

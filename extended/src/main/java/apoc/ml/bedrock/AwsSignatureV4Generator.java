@@ -19,6 +19,7 @@ import javax.crypto.spec.SecretKeySpec;
 public class AwsSignatureV4Generator {
 
     public static final String AWS_SERVICE_NAME = "bedrock";
+    public static final String AUTHORIZATION_KEY = "Authorization";
 
     /**
      * Generates signing headers for HTTP request in accordance with Amazon AWS API Signature version 4 process.
@@ -28,11 +29,16 @@ public class AwsSignatureV4Generator {
      * @param conf - The {@link BedrockConfig config}
      * @param bodyString - The HTTP body
      */
-    public static Map<String, Object> calculateAuthorizationHeaders(
+    public static void calculateAuthorizationHeaders(
             BedrockConfig conf,
             String bodyString
     ) throws MalformedURLException {
         Map<String, Object> headers = conf.getHeaders();
+        
+        // skip if "Authorization" has already been valued
+        if (headers.containsKey(AUTHORIZATION_KEY)) {
+            return;
+        }
 
         byte[] body = getBytes(bodyString);
         String isoDateTime = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss'Z'").format(ZonedDateTime.now(ZoneOffset.UTC));
@@ -56,8 +62,6 @@ public class AwsSignatureV4Generator {
         String signature = calculateSignature(conf.getSecretKey(), conf.getRegion(), isoDateOnly, pairCredentialAndStringSign.getRight());
 
         createAuthorizationHeader(conf, headers, pairSignedHeaderAndCanonicalHash, pairCredentialAndStringSign, signature);
-
-        return headers;
     }
 
     private static byte[] getBytes(String bodyString) {
@@ -72,7 +76,7 @@ public class AwsSignatureV4Generator {
                                      + ", SignedHeaders=" + pairSignedHeaderAndCanonicalHash.getLeft()
                                      + ", Signature=" + signature;
 
-        headers.put("Authorization", authStringParameter);
+        headers.put(AUTHORIZATION_KEY, authStringParameter);
     }
 
     /**

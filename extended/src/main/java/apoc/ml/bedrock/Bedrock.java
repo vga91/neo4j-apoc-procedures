@@ -8,7 +8,6 @@ import java.util.stream.Stream;
 
 import apoc.Description;
 import apoc.result.MapResult;
-import apoc.result.ObjectResult;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import org.neo4j.procedure.Name;
@@ -41,12 +40,12 @@ public class Bedrock {
     
     @Procedure("apoc.ml.bedrock.custom")
     @Description("To create a customizable bedrock call")
-    public Stream<ObjectResult> custom(@Name(value = "body") Map<String, Object> body,
+    public Stream<MapResult> custom(@Name(value = "body") Map<String, Object> body,
                                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
         BedrockConfig conf = new BedrockInvokeConfig(configuration);
         
         return executeRequestReturningMap(body, conf)
-                .map(ObjectResult::new);
+                .map(MapResult::new);
     }
 
     @Procedure("apoc.ml.bedrock.chat")
@@ -68,8 +67,8 @@ public class Bedrock {
     }
 
     @Procedure("apoc.ml.bedrock.completion")
-    @Description("apoc.ml.bedrock.completion(messages, $conf) - prompts the completion API")
-    public Stream<MapResult> completion(@Name("messages") String prompt,
+    @Description("apoc.ml.bedrock.completion(prompt, $conf) - prompts the completion API")
+    public Stream<MapResult> completion(@Name("prompt") String prompt,
                                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
 
         var config = new HashMap<>(configuration);
@@ -84,8 +83,8 @@ public class Bedrock {
     
     @Procedure("apoc.ml.bedrock.embedding")
     @Description("apoc.ml.bedrock.embedding([texts], $configuration) - returns the embeddings for a given text")
-    public Stream<TitanEmbedding> embedding(@Name(value = "texts") List<String> texts,
-                                                 @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
+    public Stream<Embedding> embedding(@Name(value = "texts") List<String> texts,
+                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, TITAN_EMBED_TEXT);
 
@@ -96,7 +95,7 @@ public class Bedrock {
                     Map body = Util.map("inputText", text);
 
                     return executeRequestReturningMap(body, conf)
-                            .map(i -> TitanEmbedding.from(i, text));
+                            .map(i -> Embedding.from(i, text));
                 });
         
     }

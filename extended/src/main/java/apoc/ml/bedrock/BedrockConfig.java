@@ -37,20 +37,14 @@ public abstract class BedrockConfig {
         this.keyId = apocConfig().getString(APOC_AWS_KEY_ID, (String) config.get(KEY_ID));
         this.secretKey = apocConfig().getString(APOC_AWS_SECRET_KEY, (String) config.get(SECRET_KEY));
         
+        this.region = (String) config.getOrDefault(REGION_KEY, "us-east-1");
         this.endpoint = getEndpoint(config, getDefaultEndpoint(config));
         
-        this.region = (String) config.getOrDefault(REGION_KEY, extractRegionFromEndpoint());
         this.method = (String) config.getOrDefault(METHOD_KEY, getDefaultMethod()); 
         this.jsonPath = (String) config.get(JSON_PATH); 
         
         this.headers = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, new HashMap<>());
         this.body = (Map<String, Object>) config.getOrDefault(BODY_KEY, new HashMap<>());
-    }
-
-    private String extractRegionFromEndpoint() {
-        String beforeDomainName = endpoint.split("\\.amazonaws\\.com/")[0];
-
-        return beforeDomainName.substring(beforeDomainName.lastIndexOf(".") + 1);
     }
 
     private String getEndpoint(Map<String, Object> config, String defaultEndpoint) {

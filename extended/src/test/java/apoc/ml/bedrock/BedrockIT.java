@@ -232,6 +232,18 @@ public class BedrockIT {
                 Map.of("body", List.of(TITAN_CONTENT)),
                 BedrockIT::assertionsTitanEmbed);
     }
+
+    @Test
+    public void testWrongRegion() {
+        try {
+            testCall(db, "CALL apoc.ml.bedrock.embedding($body, {region: 'notExistent'})",
+                    Map.of("body", List.of(TITAN_CONTENT)),
+                    r -> fail());
+        } catch (Exception e) {
+            String message = e.getMessage();
+            assertTrue("curr message is: " + message, message.contains("java.net.UnknownHostException"));
+        }
+    }
     
     @Test
     public void testGetModel() {
