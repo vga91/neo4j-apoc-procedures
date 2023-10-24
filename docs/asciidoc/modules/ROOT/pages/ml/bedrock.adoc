@@ -13,10 +13,10 @@ Here is a list of all available Aws Bedrock procedures:
 |name| description
 |apoc.ml.bedrock.custom(body, $config)| To create a customizable Bedrock API call
 |apoc.ml.bedrock.list($config)| To get the list of foundation or custom models
-|apoc.ml.bedrock.jurassic(body, $config)| To create an API call to `Jurassic-2` model
-|apoc.ml.bedrock.anthropic.claude(body, $config)| To create an API call to `Claude`s model
-|apoc.ml.bedrock.titan.embed(body, $config)| To create an API call to `Titan Embedding` model
-|apoc.ml.bedrock.stability(body, $config)| To create an API call to `Stable Diffusion` model
+|apoc.ml.bedrock.embedding(body, $config)| To create an API call to generate embedding
+|apoc.ml.bedrock.chat(body, $config)| To create a Chat Completion API call
+|apoc.ml.bedrock.completion(body, $config)| To create a Text Completion API call
+|apoc.ml.bedrock.image(body, $config)| To create an API call to get an image
 |===
 
 All the procedures, leverage the `apoc.ml.bedrock.custom` procedures,
@@ -46,9 +46,10 @@ instead of returning a generic `Object` as a result
 
 The `endpoint` config takes precedence over the `modelId` one.
 In case of all procedures, except the `bedrock.list`, the default `endpoint` is `"https://bedrock-runtime.us-east-1.amazonaws.com/model/<modelID>/invoke"`.
+
 The `<modelID>` part must be configured if we use the `ml.bedrock.custom` procedure,
-while with the `bedrock.jurassic`, `bedrock.anthropic.claude`, `bedrock.titan.embed`, `bedrock.stability` ones,
-has a default value of "ai21.j2-ultra-v1", "amazon.titan-embed-text-v1", "anthropic.claude-v2" and "stability.stable-diffusion-xl-v0" respectively.
+while with the `bedrock.chat`, `bedrock.completion`, `bedrock.embedding`, `bedrock.image` ones,
+has a default value of "anthropic.claude-v2", "ai21.j2-ultra-v1", "anthropic.claude-v2" and "stability.stable-diffusion-xl-v0" respectively.
 
 
 
@@ -77,92 +78,20 @@ we assume that we set Key id and Secret Access Key via `apoc.conf`.
 
 == Usage Examples
 
-=== Ad-hoc model procedure
+=== Chat Completion API
 
-.apoc.ml.bedrock.jurassic
-[source,cypher]
-----
-CALL apoc.ml.bedrock.jurassic({prompt: "Review: Extremely old cabinets",
-            maxTokens: 50,
-            temperature: 0,
-            topP: 1.0})
-----
-
-.Results
-[opts="header",cols="3"]
-|===
-| id	| promptTokens |	completions
-| 1234 | [
-{
-"textRange": {
-"start": 0,
-"end": 6
-},
-"topTokens": null,
-"generatedToken": {
-"token": "▁Review",
-"raw_logprob": -7.870129585266113,
-"logprob": -7.870129585266113
-}
-}
-,
-{ ....
-| [
-{
-"data": {
-"text": "
-These cabinets are very old and outdated. They are made of wood and have a simple, classic design. The cabinets are in good condition, but they could use some updating.",
-"tokens": [
-{ ...
-|===
+This procedure `apoc.ml.bedrock.chat` takes a list of maps of chat exchanges between assistant and user (with optional system context), and will return the next message in the flow.
 
 
-We can also change the modelId, for example by using the `"ai21.j2-mid-v1"` one, which return the same response values.
-[source,cypher]
-----
-CALL apoc.ml.bedrock.jurassic(<BODY>, {modelId: "ai21.j2-mid-v1"})
-----
+=== Text Completion API
+
+This procedure `apoc.ml.bedrock.completion` can continue/complete a given text.
 
 
 
-.apoc.ml.bedrock.anthropic.claude
-[source,cypher]
-----
-CALL apoc.ml.bedrock.anthropic.claude({
-                prompt: "\n\nHuman: Hello world\n\nAssistant:",
-            max_tokens_to_sample:  300,
-            temperature: 0.5,
-            top_k: 250,
-            top_p: 1,
-            stop_sequences: ["\\n\\nHuman:"],
-            anthropic_version: "bedrock-2023-05-31"
-})
-----
+=== Image API
 
-
-.Results
-[opts="header",cols="2"]
-|===
-|  completion| 	stopReason
-| " Hello!"	| "stop_sequence"
-|===
-
-
-.apoc.ml.bedrock.titan.embed
-[source,cypher]
-----
-CALL apoc.ml.bedrock.titan.embed({inputText: "Hello World"})
-----
-
-.Results
-[opts="header",cols="2"]
-|===
-|  inputTextTokenCount| 	embedding
-| 2	| 	[0.32421875, 0.35546875, 0.625, 0.20019531, 1.328125, 0.6171875, 0.11425781, -0.00074005127, .... 
-|===
-
-
-.apoc.ml.bedrock.stability
+.apoc.ml.bedrock.image
 [source,cypher]
 ----
 CALL apoc.ml.bedrock.stability({

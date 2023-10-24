@@ -13,6 +13,8 @@ public abstract class BedrockConfig {
     abstract String getDefaultMethod();
     
     public static final String HEADERS_KEY = "headers";
+    public static final String BODY_KEY = "body";
+    public static final String JSON_PATH = "jsonPath";
     public static final String SECRET_KEY = "secretKey";
     public static final String KEY_ID = "keyId";
     public static final String REGION_KEY = "region";
@@ -24,8 +26,10 @@ public abstract class BedrockConfig {
     private final String region;
     private final String endpoint;
     private final String method;
+    private final String jsonPath;
     
     private final Map<String, Object> headers;
+    private final Map<String, Object> body;
     
     protected BedrockConfig(Map<String, Object> config) {
         config = config == null ? Map.of() : config;
@@ -37,8 +41,10 @@ public abstract class BedrockConfig {
         
         this.region = (String) config.getOrDefault(REGION_KEY, extractRegionFromEndpoint());
         this.method = (String) config.getOrDefault(METHOD_KEY, getDefaultMethod()); 
+        this.jsonPath = (String) config.get(JSON_PATH); 
         
         this.headers = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, new HashMap<>());
+        this.body = (Map<String, Object>) config.getOrDefault(BODY_KEY, new HashMap<>());
     }
 
     private String extractRegionFromEndpoint() {
@@ -84,5 +90,13 @@ public abstract class BedrockConfig {
 
     public String getMethod() {
         return method;
+    }
+
+    public Map<String, Object> getBody() {
+        return body;
+    }
+
+    public String getJsonPath() {
+        return jsonPath;
     }
 }
