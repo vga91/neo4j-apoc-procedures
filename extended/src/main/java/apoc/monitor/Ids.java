@@ -9,6 +9,8 @@ import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Procedure;
 
+import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.stream.Stream;
 
 @Extended
@@ -28,11 +30,8 @@ public class Ids {
     public Stream<IdsResult> ids() {
 
         StoreEntityCounters storeEntityCounters = ((GraphDatabaseAPI) db).getDependencyResolver().resolveDependency(StoreEntityCounters.class);
-        return Stream.of(new IdsResult(
-                storeEntityCounters.nodes(),
-                storeEntityCounters.relationships(),
-                storeEntityCounters.properties(),
-                storeEntityCounters.relationshipTypes()
-        ));
+        Method[] methods = storeEntityCounters.getClass().getMethods();
+        System.out.println("methods = " + Arrays.toString(methods));
+        return Stream.of(new IdsResult(0,0,0,0));
     }
 }
