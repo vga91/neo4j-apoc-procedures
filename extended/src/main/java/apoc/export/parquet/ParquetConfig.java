@@ -1,5 +1,6 @@
 package apoc.export.parquet;
 
+import apoc.util.MissingDependencyException;
 import apoc.util.Util;
 
 import java.util.Collections;
@@ -13,6 +14,14 @@ public class ParquetConfig {
     private final Map<String, Object> mapping;
 
     public ParquetConfig(Map<String, Object> config) {
+        if (!Util.classExists("org.apache.parquet.schema.MessageType")) {
+            String errorMsg = """
+                    Cannot find the Hadoop jar (required by Parquet procedures).
+                    Please put the apoc-hadoop-dependencies-5.x.x-all.jar into plugin folder.
+                    See the documentation: https://neo4j.com/labs/apoc/5/export/parquet/#_library_requirements""";
+            throw new MissingDependencyException(errorMsg);
+        }
+        
         this.config = config == null ? Collections.emptyMap() : config;
         this.batchSize = Util.toInteger(this.config.getOrDefault("batchSize", 20000));
         this.mapping = (Map<String, Object>) this.config.getOrDefault("mapping", Map.of());
