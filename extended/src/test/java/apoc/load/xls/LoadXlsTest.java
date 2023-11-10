@@ -1,6 +1,5 @@
-package apoc.load;
+package apoc.load.xls;
 
-import apoc.load.xls.LoadXls;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import apoc.util.collection.Iterators;

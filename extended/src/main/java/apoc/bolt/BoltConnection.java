@@ -3,7 +3,6 @@ package apoc.bolt;
 import apoc.result.RowResult;
 import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
-import apoc.util.MissingDependencyException;
 import apoc.util.UriResolver;
 import apoc.util.Util;
 import apoc.util.collection.Iterators;
