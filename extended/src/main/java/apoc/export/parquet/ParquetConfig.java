@@ -7,6 +7,10 @@ import java.util.Collections;
 import java.util.Map;
 
 public class ParquetConfig {
+    public static final String PARQUET_MISSING_DEPS_ERROR = """
+        Cannot find the Hadoop jar (required by Parquet procedures).
+        Please put the apoc-hadoop-dependencies-5.x.x-all.jar into plugin folder.
+        See the documentation: https://neo4j.com/labs/apoc/5/export/parquet/#_library_requirements""";
 
     private final int batchSize;
 
@@ -15,11 +19,7 @@ public class ParquetConfig {
 
     public ParquetConfig(Map<String, Object> config) {
         if (!Util.classExists("org.apache.parquet.schema.MessageType")) {
-            String errorMsg = """
-                    Cannot find the Hadoop jar (required by Parquet procedures).
-                    Please put the apoc-hadoop-dependencies-5.x.x-all.jar into plugin folder.
-                    See the documentation: https://neo4j.com/labs/apoc/5/export/parquet/#_library_requirements""";
-            throw new MissingDependencyException(errorMsg);
+            throw new MissingDependencyException(PARQUET_MISSING_DEPS_ERROR);
         }
         
         this.config = config == null ? Collections.emptyMap() : config;
