@@ -36,10 +36,10 @@ public class Ids {
 
         StoreEntityCounters storeEntityCounters = ((GraphDatabaseAPI) db).getDependencyResolver().resolveDependency(StoreEntityCounters.class);
         return Stream.of(new IdsResult(
-                storeEntityCounters.nodes(cursorContext),
-                storeEntityCounters.relationships(cursorContext),
-                storeEntityCounters.properties(cursorContext),
-                storeEntityCounters.relationshipTypes(cursorContext)
+                storeEntityCounters.nodes(),
+                storeEntityCounters.relationships(),
+                storeEntityCounters.properties(),
+                storeEntityCounters.relationshipTypes()
         ));
     }
 }
