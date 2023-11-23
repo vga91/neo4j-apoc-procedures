@@ -461,13 +461,13 @@ RETURN m.col_1,m.col_2,m.col_3
                     assertEquals(1L, row.get("lineNo"));
                     assertEquals(List.of("Belem Tower","Lisbon","","30"), row.get("list"));
                     row = r.next();
-                    assertEquals(2L, row.get("lineNo"));
+                    assertEquals(3L, row.get("lineNo"));
                     assertEquals(List.of("","London","United Kingdom","96"), row.get("list"));
                     row = r.next();
-                    assertEquals(3L, row.get("lineNo"));
+                    assertEquals(4L, row.get("lineNo"));
                     assertEquals(List.of("Leaning tower","Pisa","Italia","56"), row.get("list"));
                     row = r.next();
-                    assertEquals(4L, row.get("lineNo"));
+                    assertEquals(5L, row.get("lineNo"));
                     assertEquals(List.of("Eiffel Tower","Paris","France","300"), row.get("list"));
                     assertFalse(r.hasNext());
                 });

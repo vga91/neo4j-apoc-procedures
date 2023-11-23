@@ -140,17 +140,21 @@ public class LoadCsv {
                 }
                 return false;
             } catch (IOException | CsvValidationException e) {
-                if (failOnError) {
-                    throw new RuntimeException(message, e);
-                }
-                return true;
+                RuntimeException exception = new RuntimeException(message, e);
+                return skipOrFail(exception);
             } catch (ArrayIndexOutOfBoundsException e) {
-                if (failOnError) {
-                    String messageIdxOfBound = message + ERROR_WRONG_COL_SEPARATOR;
-                    throw new RuntimeException(messageIdxOfBound);
-                }
-                return true;
+                String messageIdxOfBound = message + ERROR_WRONG_COL_SEPARATOR;
+                RuntimeException exception = new RuntimeException(messageIdxOfBound);
+                return skipOrFail(exception);
             }
+        }
+
+        private boolean skipOrFail(RuntimeException exception) {
+            if (failOnError) {
+                throw exception;
+            }
+            lineNo++;
+            return true;
         }
     }
 }
