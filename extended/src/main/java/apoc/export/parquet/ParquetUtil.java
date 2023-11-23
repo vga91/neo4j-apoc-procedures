@@ -3,6 +3,10 @@ package apoc.export.parquet;
 
 import apoc.convert.ConvertUtils;
 import apoc.util.JsonUtil;
+import apoc.util.s3.S3Params;
+import apoc.util.s3.S3ParamsExtractor;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.s3a.Constants;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.GroupFactory;
 import org.apache.parquet.example.data.simple.NanoTime;
@@ -16,6 +20,8 @@ import org.apache.parquet.schema.Types;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -222,5 +228,26 @@ public class ParquetUtil {
                 .as(type)
                 .named(fieldName);
         return builder.addField(primitiveType);
+    }
+
+    public static String getParquetConfig(String fileName, Configuration conf) throws MalformedURLException {
+        if (fileName == null) {
+            return null;
+        }
+        if (fileName.startsWith("s3://") || fileName.startsWith("s3a://")) {
+
+            S3Params s3Params = S3ParamsExtractor.extract(new URL(fileName));
+
+            conf.set(Constants.ENDPOINT, "https://s3.%s.amazonaws.com/".formatted(s3Params.getRegion()));
+            conf.set("fs.s3a.access.key", s3Params.getAccessKey());
+            conf.set("fs.s3a.secret.key", s3Params.getSecretKey());
+            conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
+            conf.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
+            
+            // the hadoop-aws implementation accept an `s3a://bucket/key` URL
+            return "s3a://%s/%s".formatted(s3Params.getBucket(), s3Params.getKey());
+        }
+        
+        return fileName;
     }
 }

@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static apoc.export.parquet.ParquetUtil.getParquetConfig;
 import static apoc.util.FileUtils.changeFileUrlIfImportDirectoryConstrained;
 
 public class ParquetReadUtil {
@@ -168,13 +169,16 @@ public class ParquetReadUtil {
         };
     }
 
-
     public static InputFile getInputFile(Object source) throws IOException {
         if (source instanceof String) {
             ApocConfig.apocConfig().isImportFileEnabled();
             String fileName = changeFileUrlIfImportDirectoryConstrained((String) source);
+
+            Configuration conf = new Configuration();
+            fileName = getParquetConfig(fileName, conf);
+            
             Path file = new Path(fileName);
-            return HadoopInputFile.fromPath(file, new Configuration());
+            return HadoopInputFile.fromPath(file, conf);
         }
         return new ParquetStream((byte[]) source);
     }
