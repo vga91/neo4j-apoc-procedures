@@ -58,10 +58,6 @@ public interface ParquetExportType<TYPE, ROW> {
 
         @Override
         public MessageType schemaFor(GraphDatabaseService db, List<Map<String,Object>> type) {
-
-            if (this.schema != null) {
-                return this.schema;
-            }
             org.apache.parquet.schema.Types.GroupBuilder<MessageType> messageTypeBuilder = org.apache.parquet.schema.Types.buildMessage();
 
             final Predicate<Map<String, Object>> filterStream = m -> m.get("propertyName") != null;
@@ -123,9 +119,6 @@ public interface ParquetExportType<TYPE, ROW> {
 
         @Override
         public List<Map<String, Object>> createConfig(List<Entity> entity, SubGraph data, ParquetConfig config) {
-            if (this.config != null) {
-                return this.config;
-            }
             final List<String> allLabelsInUse = Iterables.stream(data.getAllLabelsInUse())
                     .map(Label::name)
                     .collect(Collectors.toList());
