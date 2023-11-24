@@ -2,7 +2,6 @@ package apoc.export.parquet;
 
 import apoc.util.ExtendedTestContainerUtil;
 import apoc.util.Neo4jContainerExtension;
-import apoc.util.TestContainerUtil;
 import apoc.util.collection.Iterators;
 import apoc.util.s3.S3BaseTest;
 import org.apache.commons.io.FileUtils;
@@ -23,6 +22,7 @@ import static apoc.export.parquet.ParquetTest.MAPPING_ALL;
 import static apoc.export.parquet.ParquetUtil.FIELD_LABELS;
 import static apoc.export.parquet.ParquetUtil.FIELD_TYPE;
 import static apoc.util.TestContainerUtil.*;
+import static apoc.util.TestContainerUtil.ApocPackage.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -40,7 +40,7 @@ public class ParquetS3Test extends S3BaseTest {
     public static void beforeClass() {
         S3BaseTest.baseBeforeClass();
 
-        neo4jContainer = createEnterpriseDB(List.of(TestContainerUtil.ApocPackage.EXTENDED), true)
+        neo4jContainer = createEnterpriseDB(List.of(CORE, EXTENDED), true)
                 .withEnv(APOC_IMPORT_FILE_ENABLED, "true")
                 .withEnv(APOC_EXPORT_FILE_ENABLED, "true");
 
@@ -66,12 +66,11 @@ public class ParquetS3Test extends S3BaseTest {
     @Test
     public void testFileRoundtripParquetAll() {
         String url = s3Container.getUrl("test.parquet");
-
-        try {
-            // export
-            String file = session.run("CALL apoc.export.parquet.all($url) YIELD file",
-                            Map.of("url", url))
-                    .single().get("file").asString();
+        
+        // export
+        String file = session.run("CALL apoc.export.parquet.all($url) YIELD file",
+                        Map.of("url", url))
+                .single().get("file").asString();
 
         System.out.println("file = " + file);
         
@@ -101,10 +100,6 @@ public class ParquetS3Test extends S3BaseTest {
         testResult(session, "MATCH (:Start {name:'Franco')-[:REL {id: 1}]->(:End {name: 'Ciccio'})", 
                 r -> assertEquals(2, Iterators.count(r)));
 
-        } catch (Exception e ) {
-            String logs = neo4jContainer.getLogs();
-            System.out.println("logs = " + logs);
-        }
 
     }
 
