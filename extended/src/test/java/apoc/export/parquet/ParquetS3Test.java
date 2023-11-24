@@ -5,11 +5,15 @@ import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.collection.Iterators;
 import apoc.util.s3.S3BaseTest;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.FileFileFilter;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.neo4j.driver.Session;
 
+import java.io.File;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +43,9 @@ public class ParquetS3Test extends S3BaseTest {
         neo4jContainer = createEnterpriseDB(List.of(TestContainerUtil.ApocPackage.EXTENDED), true)
                 .withEnv(APOC_IMPORT_FILE_ENABLED, "true")
                 .withEnv(APOC_EXPORT_FILE_ENABLED, "true");
+
+        Collection<File> files = FileUtils.listFiles(pluginsFolder, FileFileFilter.INSTANCE, FileFileFilter.INSTANCE);
+        System.out.println("files = " + files);
         
         ExtendedTestContainerUtil.addExtraDependencies();
         neo4jContainer.start();
