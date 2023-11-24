@@ -70,7 +70,7 @@ public class ParquetS3Test extends S3BaseTest {
         // export
         String file = session.run("CALL apoc.export.parquet.all($url) YIELD file",
                 Map.of("url", url))
-                .next().get("file").asString();
+                .single().get("file").asString();
 
         System.out.println("file = " + file);
         

@@ -232,7 +232,7 @@ public class ParquetUtil {
     }
 
     public static String getParquetFile(String fileName) {
-        if (fileName.startsWith("s3://")) {
+        if (isS3File(fileName)) {
             try {
                 S3Params s3Params = S3ParamsExtractor.extract(new URL(fileName));
                 
@@ -247,8 +247,10 @@ public class ParquetUtil {
 
     public static Configuration getParquetConfig(String fileName) {
         Configuration conf = new Configuration();
-        // is an S3 bucket file
-        if (fileName.startsWith("s3://") || fileName.startsWith("s3a://")) {
+        if (fileName == null) {
+            return conf;
+        }
+        if (isS3File(fileName)) {
             
             try {
                 S3Params s3Params = S3ParamsExtractor.extract(new URL(fileName));
@@ -264,5 +266,9 @@ public class ParquetUtil {
         }
         
         return conf;
+    }
+
+    private static boolean isS3File(String fileName) {
+        return fileName.startsWith("s3://");
     }
 }
