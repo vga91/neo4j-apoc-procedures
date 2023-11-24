@@ -417,15 +417,16 @@ public class LoadXls {
                     Object[] list;
                     if (row != null) {
                         list = extract(row, selection);
-                    } else if (skipNulls && lineNo <= sheet.getLastRowNum()) {
-                        // list with null values (i.e.: empty xls row)
-                        list = new Object[selection.right - selection.left];
-                    } else {
-                        return false;
+                        action.accept(new XLSResult(header, list, lineNo-skip, ignore,mapping, nullValues));
+                        lineNo++;
+                        return true;
                     }
-                    action.accept(new XLSResult(header, list, lineNo-skip, ignore,mapping, nullValues));
-                    lineNo++;
-                    return true;
+                    if (skipNulls && lineNo <= sheet.getLastRowNum()) {
+                        // list with null values (i.e.: empty xls row)
+                        lineNo++;
+                        return tryAdvance(action);
+                    }
+                    return false;
                 }
                 return false;
             } catch (Exception e) {

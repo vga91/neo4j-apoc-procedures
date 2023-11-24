@@ -473,14 +473,7 @@ RETURN m.col_1,m.col_2,m.col_3
         testResult(db, "CALL apoc.load.xls($url,'test5', $config)",
                 params,
                 (r) -> {
-                    Map<String, Object> nullMap = map("a", null, "Empty__1", null, "c", null, "d", null, "e", null);
-                    List<Object> nullList = asList(null, null, null, null, null);
-                    
                     Map<String, Object> row = r.next();
-                    assertEquals(nullMap, row.get("map"));
-                    assertEquals(nullList, row.get("list"));
-                    
-                    row = r.next();
                     assertEquals(Map.of("a", 1L, "Empty__1", 2L,
                             "c", 3L,
                             "d", 4L,
@@ -488,6 +481,8 @@ RETURN m.col_1,m.col_2,m.col_3
                     assertEquals(firstRow, row.get("list"));
 
                     row = r.next();
+                    Map<String, Object> nullMap = map("a", null, "Empty__1", null, "c", null, "d", null, "e", null);
+                    List<Object> nullList = asList(null, null, null, null, null);
                     assertEquals(nullMap, row.get("map"));
                     assertEquals(nullList, row.get("list"));
 
