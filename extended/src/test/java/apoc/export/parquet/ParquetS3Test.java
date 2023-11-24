@@ -35,11 +35,12 @@ public class ParquetS3Test extends S3BaseTest {
     @BeforeClass
     public static void beforeClass() {
         S3BaseTest.baseBeforeClass();
-        ExtendedTestContainerUtil.addExtraDependencies();
 
         neo4jContainer = createEnterpriseDB(List.of(TestContainerUtil.ApocPackage.EXTENDED), true)
                 .withEnv(APOC_IMPORT_FILE_ENABLED, "true")
                 .withEnv(APOC_EXPORT_FILE_ENABLED, "true");
+        
+        ExtendedTestContainerUtil.addExtraDependencies();
         neo4jContainer.start();
         
         session = neo4jContainer.getSession();
