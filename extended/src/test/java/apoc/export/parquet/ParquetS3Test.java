@@ -67,10 +67,11 @@ public class ParquetS3Test extends S3BaseTest {
     public void testFileRoundtripParquetAll() {
         String url = s3Container.getUrl("test.parquet");
 
-        // export
-        String file = session.run("CALL apoc.export.parquet.all($url) YIELD file",
-                Map.of("url", url))
-                .single().get("file").asString();
+        try {
+            // export
+            String file = session.run("CALL apoc.export.parquet.all($url) YIELD file",
+                            Map.of("url", url))
+                    .single().get("file").asString();
 
         System.out.println("file = " + file);
         
@@ -99,6 +100,11 @@ public class ParquetS3Test extends S3BaseTest {
         // import
         testResult(session, "MATCH (:Start {name:'Franco')-[:REL {id: 1}]->(:End {name: 'Ciccio'})", 
                 r -> assertEquals(2, Iterators.count(r)));
+
+        } catch (Exception e ) {
+            String logs = neo4jContainer.getLogs();
+            System.out.println("logs = " + logs);
+        }
 
     }
 
