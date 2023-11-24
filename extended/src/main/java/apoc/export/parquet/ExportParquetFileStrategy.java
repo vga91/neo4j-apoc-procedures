@@ -23,10 +23,12 @@ import java.util.concurrent.BlockingQueue;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static apoc.export.parquet.ParquetUtil.getParquetFile;
+
 
 public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParquetStrategy<IN, Stream<ProgressInfo>> {
 
-    private final String fileName;
+    private String fileName;
     private final GraphDatabaseService db;
     private final Pools pools;
     private final TerminationGuard terminationGuard;
@@ -49,7 +51,8 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         progressInfo.batchSize = config.getBatchSize();
         ProgressReporter reporter = new ProgressReporter(null, null, progressInfo);
 
-        Path fileToWrite = new Path(fileName);
+        String parquetFile = getParquetFile(fileName);
+        Path fileToWrite = new Path(parquetFile);
         final BlockingQueue<ProgressInfo> queue = new ArrayBlockingQueue<>(10);
         Util.inTxFuture(pools.getDefaultExecutorService(), db, tx -> {
             int batchCount = 0;

@@ -31,9 +31,7 @@ public interface ExportParquetStrategy<IN, OUT> {
 
     default ParquetWriter<Group> getBuild(MessageType schema, ExampleParquetWriter.Builder builder, String fileName)  {
         try {
-            
-            Configuration conf = new Configuration();
-            getParquetConfig(fileName, conf);
+            Configuration conf = getParquetConfig(fileName);
 
             return builder
                     .withType(schema)

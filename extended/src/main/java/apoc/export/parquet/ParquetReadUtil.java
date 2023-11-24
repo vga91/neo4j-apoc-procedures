@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static apoc.export.parquet.ParquetUtil.getParquetConfig;
+import static apoc.export.parquet.ParquetUtil.getParquetFile;
 import static apoc.util.FileUtils.changeFileUrlIfImportDirectoryConstrained;
 
 public class ParquetReadUtil {
@@ -174,8 +175,8 @@ public class ParquetReadUtil {
             ApocConfig.apocConfig().isImportFileEnabled();
             String fileName = changeFileUrlIfImportDirectoryConstrained((String) source);
 
-            Configuration conf = new Configuration();
-            fileName = getParquetConfig(fileName, conf);
+            Configuration conf = getParquetConfig(fileName);
+            fileName = getParquetFile(fileName);
             
             Path file = new Path(fileName);
             return HadoopInputFile.fromPath(file, conf);

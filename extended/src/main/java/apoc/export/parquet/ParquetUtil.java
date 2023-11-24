@@ -6,7 +6,7 @@ import apoc.util.JsonUtil;
 import apoc.util.s3.S3Params;
 import apoc.util.s3.S3ParamsExtractor;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.s3a.Constants;
+
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.GroupFactory;
 import org.apache.parquet.example.data.simple.NanoTime;
@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static apoc.util.Util.labelStrings;
+import static org.apache.hadoop.fs.s3a.Constants.*;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.ListLogicalTypeAnnotation;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
@@ -230,24 +231,38 @@ public class ParquetUtil {
         return builder.addField(primitiveType);
     }
 
-    public static String getParquetConfig(String fileName, Configuration conf) throws MalformedURLException {
-        if (fileName == null) {
-            return null;
+    public static String getParquetFile(String fileName) {
+        if (fileName.startsWith("s3://")) {
+            try {
+                S3Params s3Params = S3ParamsExtractor.extract(new URL(fileName));
+                
+                // the hadoop-aws implementation accept an `s3a://bucket/key` URL
+                return "s3a://%s/%s".formatted(s3Params.getBucket(), s3Params.getKey());
+            } catch (MalformedURLException e) {
+                throw new RuntimeException(e);
+            }
         }
+        return fileName;
+    }
+
+    public static Configuration getParquetConfig(String fileName) {
+        Configuration conf = new Configuration();
+        // is an S3 bucket file
         if (fileName.startsWith("s3://") || fileName.startsWith("s3a://")) {
-
-            S3Params s3Params = S3ParamsExtractor.extract(new URL(fileName));
-
-            conf.set(Constants.ENDPOINT, "https://s3.%s.amazonaws.com/".formatted(s3Params.getRegion()));
-            conf.set("fs.s3a.access.key", s3Params.getAccessKey());
-            conf.set("fs.s3a.secret.key", s3Params.getSecretKey());
-            conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem");
-            conf.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
             
-            // the hadoop-aws implementation accept an `s3a://bucket/key` URL
-            return "s3a://%s/%s".formatted(s3Params.getBucket(), s3Params.getKey());
+            try {
+                S3Params s3Params = S3ParamsExtractor.extract(new URL(fileName));
+                
+                conf.set(ENDPOINT, "https://s3.%s.amazonaws.com/".formatted(s3Params.getRegion()));
+                conf.set(ACCESS_KEY, s3Params.getAccessKey());
+                conf.set(SECRET_KEY, s3Params.getSecretKey());
+                conf.set(AWS_CREDENTIALS_PROVIDER, "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
+                
+            } catch (MalformedURLException e) {
+                throw new RuntimeException(e);
+            }
         }
         
-        return fileName;
+        return conf;
     }
 }
