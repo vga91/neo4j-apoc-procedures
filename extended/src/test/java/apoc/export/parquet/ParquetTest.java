@@ -48,7 +48,7 @@ public class ParquetTest {
     public static final Map<String, Map<String, String>> MAPPING_QUERY = Map.of("mapping",
             Map.of("n", "Node", "r", "Relationship", "o", "Node")
     );
-    private static File directory = new File("target/parquet import");
+    private static File directory = new File("target/parquetImport");
     static { //noinspection ResultOfMethodCallIgnored
         directory.mkdirs();
     }
