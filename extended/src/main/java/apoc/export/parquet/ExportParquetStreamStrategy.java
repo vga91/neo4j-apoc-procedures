@@ -80,7 +80,7 @@ public abstract class ExportParquetStreamStrategy<TYPE, IN> implements ExportPar
         try (ByteArrayOutputStream bytesOut = new ByteArrayOutputStream()) {
             ParquetBufferedWriter out = new ParquetBufferedWriter(bytesOut);
 
-            try (ParquetWriter<Group> writer = getBuild(schema, ExampleParquetWriter.builder(out), null)) {
+            try (ParquetWriter<Group> writer = getBuild(schema, ExampleParquetWriter.builder(out))) {
                 writeRows(rows, writer, exportType, schema);
             }
 

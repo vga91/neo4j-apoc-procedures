@@ -3,10 +3,6 @@ package apoc.export.parquet;
 
 import apoc.convert.ConvertUtils;
 import apoc.util.JsonUtil;
-import apoc.util.s3.S3Params;
-import apoc.util.s3.S3ParamsExtractor;
-import org.apache.hadoop.conf.Configuration;
-
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.GroupFactory;
 import org.apache.parquet.example.data.simple.NanoTime;
@@ -20,8 +16,6 @@ import org.apache.parquet.schema.Types;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -31,7 +25,6 @@ import java.util.Map;
 import java.util.Set;
 
 import static apoc.util.Util.labelStrings;
-import static org.apache.hadoop.fs.s3a.Constants.*;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.DateLogicalTypeAnnotation;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.ListLogicalTypeAnnotation;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
@@ -229,46 +222,5 @@ public class ParquetUtil {
                 .as(type)
                 .named(fieldName);
         return builder.addField(primitiveType);
-    }
-
-    public static String getParquetFile(String fileName) {
-        if (isS3File(fileName)) {
-            try {
-                S3Params s3Params = S3ParamsExtractor.extract(new URL(fileName));
-                
-                // the hadoop-aws implementation accept an `s3a://bucket/key` URL
-                return "s3a://%s/%s".formatted(s3Params.getBucket(), s3Params.getKey());
-            } catch (MalformedURLException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        return fileName;
-    }
-
-    public static Configuration getParquetConfig(String fileName) {
-        Configuration conf = new Configuration();
-        if (fileName == null) {
-            return conf;
-        }
-        if (isS3File(fileName)) {
-            
-            try {
-                S3Params s3Params = S3ParamsExtractor.extract(new URL(fileName));
-                
-                conf.set(ENDPOINT, "https://s3.%s.amazonaws.com/".formatted(s3Params.getRegion()));
-                conf.set(ACCESS_KEY, s3Params.getAccessKey());
-                conf.set(SECRET_KEY, s3Params.getSecretKey());
-                conf.set(AWS_CREDENTIALS_PROVIDER, "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
-                
-            } catch (MalformedURLException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        
-        return conf;
-    }
-
-    private static boolean isS3File(String fileName) {
-        return fileName.startsWith("s3://");
     }
 }

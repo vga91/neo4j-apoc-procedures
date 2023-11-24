@@ -1,6 +1,5 @@
 package apoc.export.parquet;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
@@ -9,8 +8,6 @@ import org.apache.parquet.schema.MessageType;
 
 import java.io.IOException;
 import java.util.List;
-
-import static apoc.export.parquet.ParquetUtil.getParquetConfig;
 
 public interface ExportParquetStrategy<IN, OUT> {
 
@@ -29,13 +26,10 @@ public interface ExportParquetStrategy<IN, OUT> {
         rows.clear();
     }
 
-    default ParquetWriter<Group> getBuild(MessageType schema, ExampleParquetWriter.Builder builder, String fileName)  {
+    default ParquetWriter<Group> getBuild(MessageType schema, ExampleParquetWriter.Builder builder)  {
         try {
-            Configuration conf = getParquetConfig(fileName);
-
             return builder
                     .withType(schema)
-                    .withConf(conf)
                     // TODO - configurable. This generate a .crc file
                     .withValidation(false)
                     // TODO - check other configs, e.g. .enableDictionaryEncoding(), .withDictionaryPageSize(2*1024) etc..

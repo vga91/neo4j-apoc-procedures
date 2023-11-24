@@ -98,7 +98,7 @@ public abstract class ExportParquetFileStrategy<TYPE, IN> implements ExportParqu
         MessageType schema = exportType.schemaFor(db, conf);
 
         if (writer == null) {
-            this.writer = getBuild(schema, builder, fileName);
+            this.writer = getBuild(schema, builder);
         }
         writeRows(rows, writer, exportType, schema);
     }
