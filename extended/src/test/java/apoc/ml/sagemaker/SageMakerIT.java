@@ -8,9 +8,11 @@ import org.junit.ClassRule;
 import org.junit.Test;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
+import org.neo4j.test.assertion.Assert;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import static apoc.ApocConfig.apocConfig;
@@ -22,32 +24,23 @@ import static apoc.ml.bedrock.SageMakerConfig.ENDPOINT_NAME_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeNotNull;
-import static org.neo4j.test.assertion.Assert.assertEventually;
+
 
 public class SageMakerIT {
     public static final String BODY = "As far as I am concerned, I will";
     
-    // TODO - change with env var..
     public static final String ENDPOINT_GPT_2 = "Endpoint-GPT-2-1-0";
-//    public static final Map<String, Object> TITAN_BODY = Map.of("inputText", "Test");
 
     public static final String SAGEMAKER_CUSTOM_PROC = "CALL apoc.ml.sagemaker.custom($body, $conf)";
     
-    private static final Map<String, Object> params;
-
-    private static final Map<String, Object> config;
-
-    static {
-        config = Map.of(ENDPOINT_NAME_KEY, ENDPOINT_GPT_2,
-                HEADERS_KEY, Map.of("Content-Type", "application/x-text"),
-                REGION_KEY, "eu-central-1"
-        );
-        params = Map.of("body", BODY,
-                // todo - region with env var
-                "conf", config
-        );
-    }
-
+    private static final Map<String, Object> CONFIG = Map.of(ENDPOINT_NAME_KEY, ENDPOINT_GPT_2,
+            HEADERS_KEY, Map.of("Content-Type", "application/x-text"),
+            REGION_KEY, "eu-central-1"
+    );
+    
+    private static final Map<String, Object> PARAMS =  Map.of("body", BODY,
+            "conf", CONFIG);
+    
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
 
@@ -71,25 +64,24 @@ public class SageMakerIT {
     public void before() throws Exception {
         apocConfig().setProperty(APOC_AWS_KEY_ID, keyId);
         apocConfig().setProperty(APOC_AWS_SECRET_KEY, secretKey);
-        apocConfig().setProperty("apoc.http.timeout.connect", 5_000);
-        apocConfig().setProperty("apoc.http.timeout.read", 5_000);
+        apocConfig().setProperty("apoc.http.timeout.connect", 3_000);
+        apocConfig().setProperty("apoc.http.timeout.read", 3_000);
     }
     
     @Test
     public void testCustom() {
         assertEventually(() -> {
             try {
-                return db.executeTransactionally(SAGEMAKER_CUSTOM_PROC, params, r -> {
+                return db.executeTransactionally(SAGEMAKER_CUSTOM_PROC, PARAMS, r -> {
                     Map value = Iterators.single(r.columnAs("value"));
                     String generatedText = (String) value.get("generated_text");
                     assertThat(generatedText).contains(BODY);
                     return true;
                 });
             } catch (Exception e) {
-                System.out.println("e = " + e);
                 return false;
             }
-        }, val -> val, 30, TimeUnit.SECONDS);
+        });
     }
     
     // todo - find another provider?..
@@ -97,37 +89,39 @@ public class SageMakerIT {
     public void testChat() {
         assertEventually(() -> {
             try {
-                return db.executeTransactionally("CALL apoc.ml.sagemaker.chat($messages, $conf)", 
-                        Map.of("messages", List.of(), "conf", config), r -> {
-                    Map value = Iterators.single(r.columnAs("value"));
-                    String generatedText = (String) value.get("generated_text");
-                    System.out.println("generatedText = " + generatedText);
-                    assertThat(generatedText).contains(BODY);
-                    return true;
-                });
+                String text = "Only answer with a single word";
+                return db.executeTransactionally("CALL apoc.ml.sagemaker.chat($messages, $conf)",
+                        Map.of("messages", List.of(Map.of("text", text)), "conf",
+                                Map.of(ENDPOINT_NAME_KEY, "Endpoint-VARCO-LLM-KO-1-3B-IST-1",
+                                        REGION_KEY, "us-east-1"
+                                )), r -> {
+                            Map value = Iterators.single(r.<Map>columnAs("value"));
+                            List result = (List) value.get("result");
+                            assertEquals(1, result.size());
+                            assertThat((String) result.get(0)).contains(text);
+                            return true;
+                        });
             } catch (Exception e) {
-                System.out.println("e = " + e);
                 return false;
             }
-        }, val -> val, 30, TimeUnit.SECONDS);
+        });
     }
-    
     @Test
     public void testChatCompletion() {
         assertEventually(() -> {
             try {
-                return db.executeTransactionally("CALL apoc.ml.sagemaker.completion($prompt, $conf)",
-                        Map.of("prompt", BODY, "conf", config), r -> {
+                return db.executeTransactionally("CALL apoc.ml.sagemaker.completion($prompt, $conf)", 
+                        Map.of("prompt", BODY, "conf", CONFIG), 
+                        r -> {
                     Map value = Iterators.single(r.columnAs("value"));
                     String generatedText = (String) value.get("generated_text");
                     assertThat(generatedText).contains(BODY);
                     return true;
                 });
             } catch (Exception e) {
-                System.out.println("e = " + e);
                 return false;
             }
-        }, val -> val, 30, TimeUnit.SECONDS);
+        });
     }
     
     @Test
@@ -158,9 +152,13 @@ public class SageMakerIT {
                     return true;
                 });
             } catch (Exception e) {
-                System.out.println("e = " + e);
                 return false;
             }
-        }, val -> val, 30, TimeUnit.SECONDS);
+        });
     }
+
+    private void assertEventually(Callable<Boolean> booleanCallable) {
+        Assert.assertEventually(booleanCallable, val -> val, 30, TimeUnit.SECONDS);
+    }
+
 }

@@ -60,7 +60,11 @@ public class SageMaker {
             @Name("messages") List<Map<String, String>> messages,
             @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
 
-        AWSConfig conf = new SageMakerConfig(configuration);
+        var config = new HashMap<>(configuration);
+        // docs page: 
+        config.putIfAbsent(ENDPOINT_NAME_KEY, "Endpoint-VARCO-LLM-KO-1-3B-IST-1");
+        
+        AWSConfig conf = new SageMakerConfig(config);
 
         return messages
                 .stream()
@@ -74,8 +78,10 @@ public class SageMaker {
     @Description("apoc.ml.sagemaker.completion(prompt, $conf) - Prompts the completion API")
     public Stream<MapResult> completion(@Name("prompt") String prompt,
                                         @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-
-        AWSConfig conf = new SageMakerConfig(configuration);
+        var config = new HashMap<>(configuration);
+        // docs page: 
+        config.putIfAbsent(ENDPOINT_NAME_KEY,  "Endpoint-GPT-2-1");
+        AWSConfig conf = new SageMakerConfig(config);
 
         return executeRequestReturningMap(prompt, conf)
                 .map(MapResult::new);
