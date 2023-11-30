@@ -8,6 +8,7 @@ import apoc.ml.bedrock.BedrockInvokeConfig;
 import apoc.ml.bedrock.SageMakerConfig;
 import apoc.result.MapResult;
 import apoc.util.JsonUtil;
+import apoc.util.Util;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
@@ -19,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static apoc.ml.bedrock.AWSConfig.ENDPOINT_KEY;
+import static apoc.ml.bedrock.AWSConfig.HEADERS_KEY;
 import static apoc.ml.bedrock.AWSConfig.JSON_PATH;
 import static apoc.ml.bedrock.SageMakerConfig.ENDPOINT_NAME_KEY;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
@@ -26,33 +28,19 @@ import static apoc.util.JsonUtil.OBJECT_MAPPER;
 public class SageMaker {
 
     public record EmbeddingResult(long index, String text, List<Double> embedding) {}
-
-
-    // todo - NO DEFAULT ENDPOINT!!
-    
-    // TODO --> https://aws.amazon.com/marketplace/ai/configuration?productId=3deb2647-5287-405a-88a9-5947a08436b9
-    //   https://us-east-1.console.aws.amazon.com/sagemaker/home?region=us-east-1#/marketplace-search-model-packages!mpSearch/search?text=text+generation&filter%3AFULFILLMENT_OPTION_TYPE=SAGEMAKER_MODEL
     
     @Procedure("apoc.ml.sagemaker.custom")
     @Description("apoc.ml.sagemaker.chat(body, $conf) - To create a customizable SageMaker call")
     public Stream<MapResult> custom(@Name(value = "body") Object body,
                                     @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
+        if (!configuration.containsKey(ENDPOINT_NAME_KEY)) {
+            throw new RuntimeException("The endpointName config must be explicit");
+        }
         AWSConfig conf = new SageMakerConfig(configuration);
 
         return executeRequestReturningMap(body, conf)
                 .map(MapResult::new);
     }
-
-    // todo - default:
-    
-    
-    // todo: https://studio-d-l9bumpjij1kt.studio.us-east-1.sagemaker.aws/inference-experience/models/deploy?jumpstart_model_id=meta-textgeneration-llama-2-70b-f&jumpstart_model_version=3.0.0&jumpstart_hub=SageMakerJumpStart&base_model_relative_path=/jumpstart/meta/meta-textgeneration-llama-2-70b-f&deployment_event_id=20231130-095657
-    
-    
-    
-    // todo todo todo --> https://aws.amazon.com/marketplace/ai/configuration?productId=5b256918-be81-4533-810c-7d7f76f4f863&ref_=aws-mp-console-subscription-card-action
-    
-    // --> https://us-east-1.console.aws.amazon.com/cloudformation/home?region=us-east-1#/stacks/events?stackId=arn%3Aaws%3Acloudformation%3Aus-east-1%3A177090656389%3Astack%2FStack-VARCO-LLM-KO-1-3B-IST-1%2F8db0e980-8f19-11ee-99c0-0e3554150dfb&filteringText=&filteringStatus=active&viewNested=true
     
     @Procedure("apoc.ml.sagemaker.chat")
     @Description("apoc.ml.sagemaker.chat(messages, $conf) - Prompts the chat completion API")
@@ -61,33 +49,37 @@ public class SageMaker {
             @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
 
         var config = new HashMap<>(configuration);
-        // docs page: 
-        config.putIfAbsent(ENDPOINT_NAME_KEY, "Endpoint-VARCO-LLM-KO-1-3B-IST-1");
+        config.putIfAbsent(ENDPOINT_NAME_KEY,  "Endpoint-Distilbart-xsum-1-1-1");
+        config.putIfAbsent(HEADERS_KEY, Util.map("Content-Type", "application/x-text"));
         
         AWSConfig conf = new SageMakerConfig(config);
 
         return messages
                 .stream()
-                .flatMap(message -> executeRequestReturningMap(message, conf)
-                        .map(MapResult::new)
-                );
+                .flatMap(message -> {
+                    // to emulate OpenAI behaviour, e.g `{content: 'text..'},
+                    // otherwise we put all json message as a body (with other models)
+                    Object body = message.containsKey("content") 
+                            ? message.get("content")
+                            : message;
+                    return executeRequestReturningMap(body, conf)
+                            .map(MapResult::new);
+                });
     }
 
-    // todo - default ?
     @Procedure("apoc.ml.sagemaker.completion")
     @Description("apoc.ml.sagemaker.completion(prompt, $conf) - Prompts the completion API")
     public Stream<MapResult> completion(@Name("prompt") String prompt,
                                         @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
         var config = new HashMap<>(configuration);
-        // docs page: 
         config.putIfAbsent(ENDPOINT_NAME_KEY,  "Endpoint-GPT-2-1");
+        config.putIfAbsent(HEADERS_KEY,  Map.of("Content-Type", "application/x-text"));
         AWSConfig conf = new SageMakerConfig(config);
 
         return executeRequestReturningMap(prompt, conf)
                 .map(MapResult::new);
     }
 
-    // todo - default: https://runtime.sagemaker.eu-central-1.amazonaws.com/endpoints/Endpoint-Jina-Embeddings-v2-Base-en-1/invocations
     @Procedure("apoc.ml.sagemaker.embedding")
     @Description("apoc.ml.sagemaker.embedding([texts], $configuration) - Returns the embeddings for a given text")
     public Stream<EmbeddingResult> embedding(@Name(value = "texts") List<String> texts,
@@ -134,8 +126,5 @@ public class SageMaker {
             throw new RuntimeException(e);
         }
     }
-
-    public static final String X_AMZ_DATE = "X-Amz-Date";
-    
     
 }

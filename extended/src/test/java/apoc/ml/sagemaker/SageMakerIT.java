@@ -23,6 +23,7 @@ import static apoc.ml.bedrock.AWSConfig.REGION_KEY;
 import static apoc.ml.bedrock.SageMakerConfig.ENDPOINT_NAME_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeNotNull;
 
 
@@ -84,21 +85,18 @@ public class SageMakerIT {
         });
     }
     
-    // todo - find another provider?..
     @Test
     public void testChat() {
         assertEventually(() -> {
             try {
-                String text = "Only answer with a single word";
+                String text = "Test endpoint";
                 return db.executeTransactionally("CALL apoc.ml.sagemaker.chat($messages, $conf)",
-                        Map.of("messages", List.of(Map.of("text", text)), "conf",
-                                Map.of(ENDPOINT_NAME_KEY, "Endpoint-VARCO-LLM-KO-1-3B-IST-1",
+                        Map.of("messages", List.of(Map.of("content", text)), "conf",
+                                Map.of(ENDPOINT_NAME_KEY, "Endpoint-Distilbart-xsum-1-1-1",
                                         REGION_KEY, "us-east-1"
                                 )), r -> {
-                            Map value = Iterators.single(r.<Map>columnAs("value"));
-                            List result = (List) value.get("result");
-                            assertEquals(1, result.size());
-                            assertThat((String) result.get(0)).contains(text);
+                            Map value = Iterators.single(r.columnAs("value"));
+                            assertTrue(value.get("summary_text") instanceof String);
                             return true;
                         });
             } catch (Exception e) {

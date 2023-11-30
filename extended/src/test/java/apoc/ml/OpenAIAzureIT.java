@@ -18,6 +18,10 @@ import static apoc.util.TestUtil.testCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+
+/**
+ * TODO: WORK IN PROGRESS
+ */
 public class OpenAIAzureIT {
 
     private static String OPENAI_KEY;

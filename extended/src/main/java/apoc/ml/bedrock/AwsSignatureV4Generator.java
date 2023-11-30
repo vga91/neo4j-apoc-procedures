@@ -63,8 +63,6 @@ public class AwsSignatureV4Generator {
         String signature = calculateSignature(conf.getSecretKey(), conf.getRegion(), isoDateOnly, pairCredentialAndStringSign.getRight(), awsServiceName);
 
         createAuthorizationHeader(conf, headers, pairSignedHeaderAndCanonicalHash, pairCredentialAndStringSign, signature);
-
-        System.out.println("AwsSignatureV4Generator.calculateAuthorizationHeaders");
     }
 
     private static byte[] getBytes(String bodyString) {
