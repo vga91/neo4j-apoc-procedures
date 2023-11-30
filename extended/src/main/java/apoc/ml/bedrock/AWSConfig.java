@@ -7,7 +7,8 @@ import static apoc.ApocConfig.apocConfig;
 import static apoc.ExtendedApocConfig.APOC_AWS_KEY_ID;
 import static apoc.ExtendedApocConfig.APOC_AWS_SECRET_KEY;
 
-public abstract class BedrockConfig {
+// TODO - RENAME?
+public abstract class AWSConfig {
 
     abstract String getDefaultEndpoint(Map<String, Object> config);
     abstract String getDefaultMethod();
@@ -31,7 +32,7 @@ public abstract class BedrockConfig {
     private final Map<String, Object> headers;
     private final Map<String, Object> body;
     
-    protected BedrockConfig(Map<String, Object> config) {
+    protected AWSConfig(Map<String, Object> config) {
         config = config == null ? Map.of() : config;
         
         this.keyId = apocConfig().getString(APOC_AWS_KEY_ID, (String) config.get(KEY_ID));

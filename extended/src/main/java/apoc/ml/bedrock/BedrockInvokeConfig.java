@@ -2,7 +2,7 @@ package apoc.ml.bedrock;
 
 import java.util.Map;
 
-public class BedrockInvokeConfig extends BedrockConfig {
+public class BedrockInvokeConfig extends AWSConfig {
     public static final String MODEL = "model";
 
     public BedrockInvokeConfig(Map<String, Object> config) {

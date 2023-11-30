@@ -13,7 +13,7 @@ import apoc.util.Util;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
-import static apoc.ml.bedrock.BedrockConfig.JSON_PATH;
+import static apoc.ml.bedrock.AWSConfig.JSON_PATH;
 import static apoc.ml.bedrock.BedrockInvokeConfig.MODEL;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
 import static apoc.ml.bedrock.BedrockInvokeResult.*;
@@ -31,7 +31,7 @@ public class Bedrock {
 
         var config = new HashMap<>(configuration);
         config.putIfAbsent(JSON_PATH, "modelSummaries[*]");
-        BedrockConfig conf = new BedrockGetModelsConfig(config);
+        AWSConfig conf = new BedrockGetModelsConfig(config);
         
         return executeRequestCommon(null, conf)
                 .flatMap(i -> ((List<Map<String, Object>>) i).stream())
@@ -42,7 +42,7 @@ public class Bedrock {
     @Description("To create a customizable bedrock call")
     public Stream<MapResult> custom(@Name(value = "body") Map<String, Object> body,
                                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-        BedrockConfig conf = new BedrockInvokeConfig(configuration);
+        AWSConfig conf = new BedrockInvokeConfig(configuration);
         
         return executeRequestReturningMap(body, conf)
                 .map(MapResult::new);
@@ -57,7 +57,7 @@ public class Bedrock {
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, ANTHROPIC_CLAUDE_V2);
 
-        BedrockConfig conf = new BedrockInvokeConfig(config);
+        AWSConfig conf = new BedrockInvokeConfig(config);
         
         return messages
                 .stream()
@@ -74,7 +74,7 @@ public class Bedrock {
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, JURASSIC_2_ULTRA);
         
-        BedrockConfig conf = new BedrockInvokeConfig(config);
+        AWSConfig conf = new BedrockInvokeConfig(config);
         
         Map body = Util.map("prompt", prompt);
         return executeRequestReturningMap(body, conf)
@@ -88,7 +88,7 @@ public class Bedrock {
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, TITAN_EMBED_TEXT);
 
-        BedrockConfig conf = new BedrockInvokeConfig(config);
+        AWSConfig conf = new BedrockInvokeConfig(config);
         
         return texts.stream()
                 .flatMap(text -> {
@@ -106,19 +106,19 @@ public class Bedrock {
         configuration.putIfAbsent(MODEL, STABILITY_STABLE_DIFFUSION_XL);
         configuration.putIfAbsent(JSON_PATH, "$.artifacts[0]");
         
-        BedrockConfig conf = new BedrockInvokeConfig(configuration);
+        AWSConfig conf = new BedrockInvokeConfig(configuration);
         
         return executeRequestReturningMap(body, conf)
                 .map(Image::from);
     }
     
 
-    private Stream<Map<String, Object>> executeRequestReturningMap(Map body, BedrockConfig config) {
+    private Stream<Map<String, Object>> executeRequestReturningMap(Map body, AWSConfig config) {
         return executeRequestCommon(body, config)
                 .map(i -> (Map<String, Object>) i);
     }
 
-    private Stream<Object> executeRequestCommon(Map body, BedrockConfig conf) {
+    private Stream<Object> executeRequestCommon(Map body, AWSConfig conf) {
         try {
             String bodyString = null;
             if (body != null) {
@@ -132,7 +132,7 @@ public class Bedrock {
             headers.putIfAbsent("accept", "*/*");
 
             if (!headers.containsKey("Authorization")) {
-                AwsSignatureV4Generator.calculateAuthorizationHeaders(conf, bodyString);
+                AwsSignatureV4Generator.calculateAuthorizationHeaders(conf, bodyString, "bedrock");
             }
 
             return JsonUtil.loadJson(conf.getEndpoint(), conf.getHeaders(), bodyString, conf.getJsonPath(), true, List.of());
