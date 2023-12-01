@@ -48,6 +48,9 @@ while with the `sagemaker.chat`, `sagemaker.completion`, `sagemaker.embedding` o
 has a default value of "Endpoint-Distilbart-xsum-1-1-1", "Endpoint-GPT-2-1", "Endpoint-Jina-Embeddings-v2-Base-en-1" respectively.
 
 
+NOTE: Since SageMaker allows you to choose the endpoint to use, this parameter will most likely always need to be set
+
+
 == Authentication settings
 
 To authenticate to SageMaker services, we can set in the `apoc.conf` file the following entries.
@@ -81,15 +84,18 @@ Additional configuration can be passed to the API, the default endpoint name is 
 .apoc.ml.sagemaker.chat
 [source,cypher]
 ----
-CALL apoc.ml.sagemaker.chat([{content: "Only answer with a single word"}
-])
+CALL apoc.ml.sagemaker.chat([{content: "Test answer"}],
+    {endpointName: 'Endpoint-Distilbart-xsum-1-1-1', region: 'us-east-1'}
+)
 ----
 
 .Results
 [opts="header"]
 |===
 |  value
-| todo
+| {
+"summary_text": " The ABritainThe,A"
+}
 |===
 
 === Text Completion API
@@ -100,34 +106,24 @@ Additional configuration can be passed to the API, the default endpoint name is 
 .apoc.ml.sagemaker.completion
 [source,cypher]
 ----
-CALL apoc.ml.sagemaker.completion('What color is the sky? Answer in one word: ')
+CALL apoc.ml.sagemaker.completion('Test answer API',
+    {endpointName: 'Endpoint-GPT-2-1-0', headers: {`Content-Type`: "application/x-text"}, region: "eu-central-1"}
+)
 ----
 
 .Results
 [opts="header"]
 |===
 |  value
-a|
-[source,json]
-----
+|
 {
-  "id": 1234,
-  "completions": [
-    {
-      "data": {
-        "text": "\nBlue",
-        "tokens": ["....."]
-      },
-      "finishReason": {
-        "reason": "endoftext"
-      }
-    }
-  ],
-  "prompt": {}
-}
-----
-|===
+  "generated_text": "Test answer API
 
+The previous answer in this question was:
+
+<summary> - this is in fact an answer to this question, and has a description of the "language" it was written in. Please test in your language first,"
+}
+|===
 
 
 
@@ -139,7 +135,7 @@ Additional configuration can be passed to the API, the default endpoint name is 
 .Generate Embeddings Call
 [source,cypher]
 ----
-CALL apoc.ml.sagemaker.embedding(['Some Text'], {})
+CALL apoc.ml.sagemaker.embedding(['Some Text'], {region: 'eu-central-1'})
 ----
 
 .Generate Embeddings Response
@@ -165,9 +161,3 @@ CALL apoc.ml.sagemaker.custom(null,{
     method: "GET"
 })
 ----
-
-.Results
-[opts="header"]
-|===
-| todo
-|===

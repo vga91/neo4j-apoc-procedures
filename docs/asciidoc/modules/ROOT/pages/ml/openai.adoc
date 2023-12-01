@@ -4,6 +4,13 @@
 
 NOTE: You need to acquire an https://platform.openai.com/account/api-keys[OpenAI API key^] to use these procedures. Using them will incur costs on your OpenAI account. You can set the api key globally by defining the `apoc.openai.key` configuration in `apoc.conf`
 
+[NOTE]
+====
+The following procedures can also be used for Open AI provided by Azure, 
+pointing to the correct endpoints https://learn.microsoft.com/it-it/azure/ai-services/openai/reference[as explained in the documentation].
+====
+
+
 == Generate Embeddings API
 
 This procedure `apoc.ml.openai.embedding` can take a list of text strings, and will return one row per string, with the embedding data as a 1536 element vector.
