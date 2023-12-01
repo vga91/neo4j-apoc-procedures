@@ -1,8 +1,6 @@
 package apoc.ml;
 
-import apoc.ApocConfig;
 import apoc.util.TestUtil;
-import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
@@ -12,14 +10,18 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.ExtendedApocConfig.APOC_ML_OPENAI_URL;
 import static apoc.util.TestUtil.testCall;
+import static org.junit.Assume.assumeNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public class OpenAIAzureIT {
-
+    // In Azure, the endpoint can be different 
+    private static String OPENAI_EMBEDDING_URL;
+    private static String OPENAI_CHAT_URL;
+    private static String OPENAI_COMPLETION_URL;
+    
     private static String OPENAI_KEY;
 
     @ClassRule
@@ -28,21 +30,24 @@ public class OpenAIAzureIT {
     @BeforeClass
     public static void setUp() throws Exception {
         OPENAI_KEY = System.getenv("OPENAI_KEY");
-        String openAIUrl = System.getenv("OPENAI_URL");
+        OPENAI_EMBEDDING_URL = System.getenv("OPENAI_EMBEDDING_URL");
+        OPENAI_CHAT_URL = System.getenv("OPENAI_CHAT_URL");
+        OPENAI_COMPLETION_URL = System.getenv("OPENAI_COMPLETION_URL");
         
-        // TODO - REAL INSTANCE - insert Azure OpenAI key
-        Assume.assumeNotNull("No OPENAI_KEY environment configured", OPENAI_KEY);
-        Assume.assumeNotNull("No OPENAI_URL environment configured", OPENAI_KEY);
+        assumeNotNull("No OPENAI_KEY environment configured", OPENAI_KEY);
+        assumeNotNull("No OPENAI_EMBEDDING_URL environment configured", OPENAI_EMBEDDING_URL);
+        assumeNotNull("No OPENAI_CHAT_URL environment configured", OPENAI_CHAT_URL);
+        assumeNotNull("No OPENAI_COMPLETION_URL environment configured", OPENAI_COMPLETION_URL);
         
         System.setProperty("OPENAI_KEY", OPENAI_KEY);
-        ApocConfig.apocConfig().setProperty(APOC_ML_OPENAI_URL, openAIUrl); 
         TestUtil.registerProcedure(db, OpenAI.class);
     }
 
     @Test
     public void getEmbedding() {
-        testCall(db, "CALL apoc.ml.openai.embedding(['Some Text'], $apiKey)", Map.of("apiKey", OPENAI_KEY),(row) -> {
-            System.out.println("row = " + row);
+        testCall(db, "CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, $conf)",
+                getParams(OPENAI_EMBEDDING_URL),
+                (row) -> {
             assertEquals(0L, row.get("index"));
             assertEquals("Some Text", row.get("text"));
             var embedding = (List<Double>) row.get("embedding");
@@ -52,9 +57,8 @@ public class OpenAIAzureIT {
 
     @Test
     public void completion() {
-        testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey)",
-                Map.of("apiKey", OPENAI_KEY),(row) -> {
-                    System.out.println("row = " + row);
+        testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey, $conf)",
+                getParams(OPENAI_COMPLETION_URL), (row) -> {
             var result = (Map<String,Object>)row.get("value");
             assertTrue(result.get("created") instanceof Number);
             assertTrue(result.containsKey("choices"));
@@ -76,23 +80,28 @@ public class OpenAIAzureIT {
             CALL apoc.ml.openai.chat([
             {role:"system", content:"Only answer with a single word"},
             {role:"user", content:"What planet do humans live on?"}
-            ],  $apiKey)
-            """, Map.of("apiKey", OPENAI_KEY), (row) -> {
-            System.out.println("row = " + row);
+            ],  $apiKey, $conf)
+            """, getParams(OPENAI_CHAT_URL), (row) -> {
             var result = (Map<String,Object>)row.get("value");
             assertTrue(result.get("created") instanceof Number);
             assertTrue(result.containsKey("choices"));
 
             Map message = ((List<Map<String,Map>>) result.get("choices")).get(0).get("message");
             assertEquals("assistant", message.get("role"));
-            // assertEquals("stop", message.get("finish_reason"));
             String text = (String) message.get("content");
             assertTrue(text != null && !text.isBlank());
 
             assertTrue(result.containsKey("usage"));
             assertTrue(((Map) result.get("usage")).get("prompt_tokens") instanceof Number);
-            assertTrue(result.get("model").toString().startsWith("gpt-3.5-turbo"));
+            assertTrue(result.get("model").toString().startsWith("gpt-35-turbo"));
             assertEquals("chat.completion", result.get("object"));
         });
+    }
+
+    private static Map<String, Object> getParams(String endpoint) {
+        return Map.of("apiKey", OPENAI_KEY,
+                "conf", Map.of("endpoint", endpoint,
+                        "authType", OpenAI.AuthType.API_KEY.name())
+        );
     }
 }

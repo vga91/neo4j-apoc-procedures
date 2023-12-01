@@ -26,10 +26,10 @@ import static apoc.ExtendedApocConfig.APOC_OPENAI_KEY;
 
 @Extended
 public class OpenAI {
+    enum AuthType { BEARER, API_KEY }
+    
     @Context
     public ApocConfig apocConfig;
-
-    
 
     public static class EmbeddingResult {
         public final long index;
@@ -47,13 +47,21 @@ public class OpenAI {
         apiKey = apocConfig.getString(APOC_OPENAI_KEY, apiKey);
         if (apiKey == null || apiKey.isBlank())
             throw new IllegalArgumentException("API Key must not be empty");
-        String endpoint = apocConfig.getString(APOC_ML_OPENAI_URL,"https://api.openai.com/v1/");
 
-        System.out.println("endpoint = " + endpoint);
-        Map<String, Object> headers = Map.of(
-                "Content-Type", "application/json",
-                "Authorization", "Bearer " + apiKey
-        );
+        // we remove `authType` and `endpoint` from config,
+        // since the payload json is calculated later starting from the config map
+        String authTypeConf = (String) configuration.remove("authType");
+        AuthType authType = AuthType.valueOf(authTypeConf == null ? AuthType.BEARER.name() : authTypeConf);
+
+        String endpointApocConf = apocConfig.getString(APOC_ML_OPENAI_URL, "https://api.openai.com/v1/%s");
+        String endpointConfFromMap = (String) configuration.remove("endpoint");
+        String endpoint = endpointConfFromMap == null ? endpointApocConf : endpointConfFromMap;
+        Map<String, Object> headers = new HashMap<>();
+        headers.put("Content-Type", "application/json");
+        switch (authType) {
+            case BEARER -> headers.put("Authorization", "Bearer " + apiKey);
+            case API_KEY -> headers.put("api-key", apiKey);
+        }
 
         var config = new HashMap<>(configuration);
         config.putIfAbsent("model", model);
@@ -61,8 +69,19 @@ public class OpenAI {
 
         String payload = new ObjectMapper().writeValueAsString(config);
 
-        var url = new URL(new URL(endpoint), path).toString();
+        String url = getOpenAIUrl(path, endpoint);
         return JsonUtil.loadJson(url, headers, payload, jsonPath, true, List.of());
+    }
+
+    private static String getOpenAIUrl(String path, String endpoint) {
+        // in case of "complete" endpoint, 
+        // e.g.: https://my-resource.openai.azure.com/openai/deployments/my-deployment-id/chat/completions?api-version=my-api-version
+        if (endpoint.contains(path)) {
+            return endpoint;
+        }
+        // in case of endpoint with %s to be replaced,
+        // e.g.: https://my-resource.openai.azure.com/openai/deployments/my-deployment-id/%s?api-version=my-api-version
+        return String.format(endpoint, path);
     }
 
     @Procedure("apoc.ml.openai.embedding")

@@ -8,7 +8,8 @@ NOTE: You need to acquire an https://platform.openai.com/account/api-keys[OpenAI
 ====
 The following procedures can also be used for Open AI provided by Azure, 
 pointing to the correct endpoints https://learn.microsoft.com/it-it/azure/ai-services/openai/reference[as explained in the documentation],
-by using the configuration `apoc.ml.openai.url=AZURE_URL` in `apoc.conf` or via docker env variable, which has default `"https://api.openai.com/v1/"`.
+by using the configuration `apoc.ml.openai.url=AZURE_URL` (in `apoc.conf` or via docker env variable), which has default `"https://api.openai.com/v1/"`,
+or via the endpoint configuration key (see below).
 ====
 
 
@@ -38,7 +39,15 @@ CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, {}) yield index, text, emb
 |name | description
 | texts | List of text strings
 | apiKey | OpenAI API key
-| configuration | optional map for entries like model and other request parameters
+| configuration | optional map for entries like model and other request parameters.
+
+    We can also pass a custom `endpoint: <MyAndPointKey>` entry (it takes precedence over the `apoc.ml.openai.url` config).
+    The `<MyAndPointKey>` can be the complete andpoint (e.g. using Azure: `https://my-resource.openai.azure.com/openai/deployments/my-deployment-id/chat/completions?api-version=my-api-version`),
+    or with a `%s` (e.g. using Azure: `https://my-resource.openai.azure.com/openai/deployments/my-deployment-id/%s?api-version=my-api-version`) which will eventually be replaced with `embeddings`, `chat/completion` and `completion` 
+    by using respectively the `apoc.ml.openai.embedding`, `apoc.ml.openai.chat` and `apoc.ml.openai.completion`.
+
+    Or an `authType: `AUTH_TYPE`, which can be `authType: "BEARER"` (default config.), to pass the apiKey via the header as an `Authorization: Bearer $apiKey`,
+        or `authType: "API_KEY"` to pass the apiKey as an `api-key: $apiKey` header entry.
 |===
 
 
