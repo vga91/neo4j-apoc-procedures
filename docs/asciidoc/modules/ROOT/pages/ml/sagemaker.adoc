@@ -152,7 +152,7 @@ Via the `apoc.ml.sagemaker.custom` we can create a customizable SageMaker API Re
 Useful both for https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_runtime_InvokeEndpoint.html[invoke an endpoint], 
 in the case the response is incompatible with the previous procedures, and to use any other SageMaker API.
 
-For example, we can execute the following query (note that the `body` parameter is null, since the API does not have a request body.):
+For example, we can execute a `GET` request without body, usign the following query (note that the `body` parameter is null):
 
 [source,cypher]
 ----

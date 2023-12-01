@@ -18,7 +18,6 @@ import javax.crypto.spec.SecretKeySpec;
 
 public class AwsSignatureV4Generator {
 
-//    public static final String AWS_SERVICE_NAME = "bedrock";
     public static final String AUTHORIZATION_KEY = "Authorization";
 
     /**
