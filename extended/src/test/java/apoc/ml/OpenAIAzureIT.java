@@ -7,20 +7,24 @@ import org.junit.Test;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
-import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
+import static apoc.ApocConfig.apocConfig;
+import static apoc.ml.OpenAI.API_TYPE_CONF_KEY;
+import static apoc.ml.OpenAI.API_VERSION_CONF_KEY;
+import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
+import static apoc.ml.OpenAITestUtils.getStringObjectMap;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.Assume.assumeNotNull;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 
 public class OpenAIAzureIT {
-    // In Azure, the endpoint can be different 
+    // In Azure, the endpoints can be different 
     private static String OPENAI_EMBEDDING_URL;
     private static String OPENAI_CHAT_URL;
     private static String OPENAI_COMPLETION_URL;
+    
+    private static String OPENAI_AZURE_API_VERSION;
     
     private static String OPENAI_KEY;
 
@@ -30,48 +34,38 @@ public class OpenAIAzureIT {
     @BeforeClass
     public static void setUp() throws Exception {
         OPENAI_KEY = System.getenv("OPENAI_KEY");
+        // Azure OpenAI base URLs
         OPENAI_EMBEDDING_URL = System.getenv("OPENAI_EMBEDDING_URL");
         OPENAI_CHAT_URL = System.getenv("OPENAI_CHAT_URL");
         OPENAI_COMPLETION_URL = System.getenv("OPENAI_COMPLETION_URL");
+
+        // Azure OpenAI query url (`<baseURL>/<type>/?api-version=<OPENAI_AZURE_API_VERSION>)
+        OPENAI_AZURE_API_VERSION = System.getenv("OPENAI_AZURE_API_VERSION");
+
+        apocConfig().setProperty("ajeje", "brazorf");
         
-        assumeNotNull("No OPENAI_KEY environment configured", OPENAI_KEY);
-        assumeNotNull("No OPENAI_EMBEDDING_URL environment configured", OPENAI_EMBEDDING_URL);
-        assumeNotNull("No OPENAI_CHAT_URL environment configured", OPENAI_CHAT_URL);
-        assumeNotNull("No OPENAI_COMPLETION_URL environment configured", OPENAI_COMPLETION_URL);
+        Stream.of(OPENAI_EMBEDDING_URL, 
+                    OPENAI_CHAT_URL,
+                    OPENAI_COMPLETION_URL, 
+                    OPENAI_AZURE_API_VERSION,
+                    OPENAI_KEY)
+                .forEach(key -> assumeNotNull("No " + key + " environment configured", key));
         
-        System.setProperty("OPENAI_KEY", OPENAI_KEY);
         TestUtil.registerProcedure(db, OpenAI.class);
     }
 
     @Test
-    public void getEmbedding() {
+    public void embedding() {
         testCall(db, "CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, $conf)",
                 getParams(OPENAI_EMBEDDING_URL),
-                (row) -> {
-            assertEquals(0L, row.get("index"));
-            assertEquals("Some Text", row.get("text"));
-            var embedding = (List<Double>) row.get("embedding");
-            assertEquals(1536, embedding.size());
-        });
+                OpenAITestUtils::extracted);
     }
+
 
     @Test
     public void completion() {
         testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey, $conf)",
-                getParams(OPENAI_COMPLETION_URL), (row) -> {
-            var result = (Map<String,Object>)row.get("value");
-            assertTrue(result.get("created") instanceof Number);
-            assertTrue(result.containsKey("choices"));
-            var finishReason = (String)((List<Map>) result.get("choices")).get(0).get("finish_reason");
-            assertTrue(finishReason.matches("stop|length"));
-            String text = (String) ((List<Map>) result.get("choices")).get(0).get("text");
-            assertTrue(text != null && !text.isBlank());
-            assertTrue(text.toLowerCase().contains("blue"));
-            assertTrue(result.containsKey("usage"));
-            assertTrue(((Map) result.get("usage")).get("prompt_tokens") instanceof Number);
-            assertEquals("text-davinci-003", result.get("model"));
-            assertEquals("text_completion", result.get("object"));
-        });
+                getParams(OPENAI_COMPLETION_URL), OpenAITestUtils::extracted1);
     }
 
     @Test
@@ -81,27 +75,16 @@ public class OpenAIAzureIT {
             {role:"system", content:"Only answer with a single word"},
             {role:"user", content:"What planet do humans live on?"}
             ],  $apiKey, $conf)
-            """, getParams(OPENAI_CHAT_URL), (row) -> {
-            var result = (Map<String,Object>)row.get("value");
-            assertTrue(result.get("created") instanceof Number);
-            assertTrue(result.containsKey("choices"));
-
-            Map message = ((List<Map<String,Map>>) result.get("choices")).get(0).get("message");
-            assertEquals("assistant", message.get("role"));
-            String text = (String) message.get("content");
-            assertTrue(text != null && !text.isBlank());
-
-            assertTrue(result.containsKey("usage"));
-            assertTrue(((Map) result.get("usage")).get("prompt_tokens") instanceof Number);
-            assertTrue(result.get("model").toString().startsWith("gpt-35-turbo"));
-            assertEquals("chat.completion", result.get("object"));
-        });
+            """, getParams(OPENAI_CHAT_URL),
+                (row) -> getStringObjectMap(row, "gpt-35-turbo"));
     }
 
     private static Map<String, Object> getParams(String endpoint) {
         return Map.of("apiKey", OPENAI_KEY,
-                "conf", Map.of("endpoint", endpoint,
-                        "authType", OpenAI.AuthType.API_KEY.name())
+                "conf", Map.of(ENDPOINT_CONF_KEY, endpoint,
+                        API_TYPE_CONF_KEY, OpenAI.ApiType.AZURE.name(),
+                        API_VERSION_CONF_KEY, OPENAI_AZURE_API_VERSION
+                )
         );
     }
 }
