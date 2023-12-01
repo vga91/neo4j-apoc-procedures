@@ -1,11 +1,6 @@
-package apoc.ml.sagemaker;
+package apoc.ml.aws;
 
 import apoc.Description;
-import apoc.ml.VertexAI;
-import apoc.ml.bedrock.AwsSignatureV4Generator;
-import apoc.ml.bedrock.AWSConfig;
-import apoc.ml.bedrock.BedrockInvokeConfig;
-import apoc.ml.bedrock.SageMakerConfig;
 import apoc.result.MapResult;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
@@ -19,10 +14,9 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import static apoc.ml.bedrock.AWSConfig.ENDPOINT_KEY;
-import static apoc.ml.bedrock.AWSConfig.HEADERS_KEY;
-import static apoc.ml.bedrock.AWSConfig.JSON_PATH;
-import static apoc.ml.bedrock.SageMakerConfig.ENDPOINT_NAME_KEY;
+import static apoc.ml.aws.AWSConfig.HEADERS_KEY;
+import static apoc.ml.aws.AWSConfig.JSON_PATH;
+import static apoc.ml.aws.SageMakerConfig.ENDPOINT_NAME_KEY;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
 
 public class SageMaker {

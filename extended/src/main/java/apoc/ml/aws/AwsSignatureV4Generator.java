@@ -1,4 +1,4 @@
-package apoc.ml.bedrock;
+package apoc.ml.aws;
 
 import org.apache.commons.lang3.tuple.Pair;
 

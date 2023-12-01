@@ -25,9 +25,6 @@ import static apoc.ExtendedApocConfig.APOC_OPENAI_KEY;
 
 @Extended
 public class OpenAI {
-    
-    // todo - azure: 
-    
     @Context
     public ApocConfig apocConfig;
 
@@ -89,7 +86,7 @@ public class OpenAI {
                     return new EmbeddingResult(index, texts.get(index.intValue()), (List<Double>) m.get("embedding"));
                 });
     }
-    
+
 
     @Procedure("apoc.ml.openai.completion")
     @Description("apoc.ml.openai.completion(prompt, api_key, configuration) - prompts the completion API")

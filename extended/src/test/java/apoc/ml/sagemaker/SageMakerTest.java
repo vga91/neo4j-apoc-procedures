@@ -1,5 +1,6 @@
 package apoc.ml.sagemaker;
 
+import apoc.ml.aws.SageMaker;
 import apoc.util.TestUtil;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -20,8 +21,8 @@ import java.util.stream.Stream;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
-import static apoc.ml.bedrock.AWSConfig.ENDPOINT_KEY;
-import static apoc.ml.bedrock.AWSConfig.HEADERS_KEY;
+import static apoc.ml.aws.AWSConfig.ENDPOINT_KEY;
+import static apoc.ml.aws.AWSConfig.HEADERS_KEY;
 import static apoc.util.TestUtil.getUrlFileName;
 import static apoc.util.TestUtil.testCall;
 import static java.nio.charset.StandardCharsets.UTF_8;

@@ -1,4 +1,4 @@
-package apoc.ml.bedrock;
+package apoc.ml.aws;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -13,10 +13,10 @@ import apoc.util.Util;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
-import static apoc.ml.bedrock.AWSConfig.JSON_PATH;
-import static apoc.ml.bedrock.BedrockInvokeConfig.MODEL;
+import static apoc.ml.aws.AWSConfig.JSON_PATH;
+import static apoc.ml.aws.BedrockInvokeConfig.MODEL;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
-import static apoc.ml.bedrock.BedrockInvokeResult.*;
+import static apoc.ml.aws.BedrockInvokeResult.*;
 
 
 public class Bedrock {

@@ -1,4 +1,4 @@
-package apoc.ml.bedrock;
+package apoc.ml.aws;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -7,7 +7,6 @@ import static apoc.ApocConfig.apocConfig;
 import static apoc.ExtendedApocConfig.APOC_AWS_KEY_ID;
 import static apoc.ExtendedApocConfig.APOC_AWS_SECRET_KEY;
 
-// TODO - RENAME?
 public abstract class AWSConfig {
 
     abstract String getDefaultEndpoint(Map<String, Object> config);

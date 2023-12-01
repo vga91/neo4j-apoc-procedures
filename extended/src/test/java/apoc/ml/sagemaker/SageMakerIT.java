@@ -1,5 +1,6 @@
 package apoc.ml.sagemaker;
 
+import apoc.ml.aws.SageMaker;
 import apoc.util.TestUtil;
 import apoc.util.collection.Iterators;
 import org.junit.Before;
@@ -18,9 +19,9 @@ import java.util.concurrent.TimeUnit;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.ExtendedApocConfig.APOC_AWS_KEY_ID;
 import static apoc.ExtendedApocConfig.APOC_AWS_SECRET_KEY;
-import static apoc.ml.bedrock.AWSConfig.HEADERS_KEY;
-import static apoc.ml.bedrock.AWSConfig.REGION_KEY;
-import static apoc.ml.bedrock.SageMakerConfig.ENDPOINT_NAME_KEY;
+import static apoc.ml.aws.AWSConfig.HEADERS_KEY;
+import static apoc.ml.aws.AWSConfig.REGION_KEY;
+import static apoc.ml.aws.SageMakerConfig.ENDPOINT_NAME_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
