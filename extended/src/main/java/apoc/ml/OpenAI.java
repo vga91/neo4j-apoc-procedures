@@ -20,6 +20,7 @@ import apoc.result.MapResult;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import static apoc.ExtendedApocConfig.APOC_ML_OPENAI_URL;
 import static apoc.ExtendedApocConfig.APOC_OPENAI_KEY;
 
 
@@ -28,7 +29,7 @@ public class OpenAI {
     @Context
     public ApocConfig apocConfig;
 
-    public static final String APOC_ML_OPENAI_URL = "apoc.ml.openai.url";
+    
 
     public static class EmbeddingResult {
         public final long index;
@@ -46,7 +47,9 @@ public class OpenAI {
         apiKey = apocConfig.getString(APOC_OPENAI_KEY, apiKey);
         if (apiKey == null || apiKey.isBlank())
             throw new IllegalArgumentException("API Key must not be empty");
-        String endpoint = System.getProperty(APOC_ML_OPENAI_URL,"https://api.openai.com/v1/");
+        String endpoint = apocConfig.getString(APOC_ML_OPENAI_URL,"https://api.openai.com/v1/");
+
+        System.out.println("endpoint = " + endpoint);
         Map<String, Object> headers = Map.of(
                 "Content-Type", "application/json",
                 "Authorization", "Bearer " + apiKey

@@ -12,7 +12,7 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.ml.OpenAI.APOC_ML_OPENAI_URL;
+import static apoc.ExtendedApocConfig.APOC_ML_OPENAI_URL;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
