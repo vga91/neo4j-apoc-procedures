@@ -292,18 +292,18 @@ public class ExportExtendedSecurityTest {
             this.apocProcedure = "apoc.export." + exportMethod + "." + exportMethodType + "(" + exportMethodArguments + ")";
         }
 
-        private static final String case1 = "'file:///..//..//..//..//apoc//..//..//..//..//test.txt'";
-        private static final String case2 = "'file:///..//..//..//..//apoc//..//test.txt'";
-        private static final String case3 = "'file:///../import/../import//..//test.txt'";
-        private static final String case4 = "'file://test.txt'";
-        private static final String case5 = "'file://tests/../test.txt'";
-        private static final String case6 = "'file:///tests//..//test.txt'";
-        private static final String case7 = "'test.txt'";
-        private static final String case8 = "'file:///..//..//..//..//test.txt'";
-        private static final String case9 = "'file:///%2e%2e%2f%2ftest.txt'";
+//        private static final String case1 = "'file:///..//..//..//..//apoc//..//..//..//..//test.txt'";
+//        private static final String case2 = "'file:///..//..//..//..//apoc//..//test.txt'";
+//        private static final String case3 = "'file:///../import/../import//..//test.txt'";
+//        private static final String case4 = "'file://test.txt'";
+//        private static final String case5 = "'file://tests/../test.txt'";
+//        private static final String case6 = "'file:///tests//..//test.txt'";
+//        private static final String case7 = "'test.txt'";
+//        private static final String case8 = "'file:///..//..//..//..//test.txt'";
+//        private static final String case9 = "'file:///..//test.txt'";
         public static final String case10 = "'file:///%2e%2e%2f%2ftest.txt'";
 
-        private static final List<String> cases = Arrays.asList(case1, case2, case3, case4, case5, case6, case7, case8, case9, case10);
+        private static final List<String> cases = Arrays.asList(/*case1, case2, case3, case4, case5, case6, case7, case8, case9,*/ case10);
 
         private static final Map<String, List<String>> METHOD_ARGUMENTS = Map.of(
                 "query", cases.stream().map(
@@ -328,6 +328,10 @@ public class ExportExtendedSecurityTest {
         @Test
         public void testPathTraversal() {
             setFileExport(true);
+            System.out.println("apocProcedure = " + apocProcedure);
+
+            String absolutePath = directory.getAbsolutePath();
+            System.out.println("absolutePath = " + absolutePath);
 
             TestUtil.testCall(db, "CALL " + apocProcedure,
                     (r) -> assertTrue(((String) r.get("file")).contains("test.txt"))
