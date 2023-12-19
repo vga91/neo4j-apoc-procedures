@@ -27,9 +27,6 @@ public class SageMaker {
     @Description("apoc.ml.sagemaker.chat(body, $conf) - To create a customizable SageMaker call")
     public Stream<MapResult> custom(@Name(value = "body") Object body,
                                     @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-        if (!configuration.containsKey(ENDPOINT_NAME_KEY)) {
-            throw new RuntimeException("The endpointName config must be explicit");
-        }
         AWSConfig conf = new SageMakerConfig(configuration);
 
         return executeRequestReturningMap(body, conf)

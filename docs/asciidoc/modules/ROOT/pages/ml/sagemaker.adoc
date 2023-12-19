@@ -40,10 +40,10 @@ instead of returning a generic `Object` as a result
 |===
 
 The `endpoint` config takes precedence over the `model` one.
-In case of all procedures, except the `sagemaker.list`, the default `endpoint` is `"https://runtime.sagemaker.<regionConfigValue>.amazonaws.com/endpoints/<endpointNameConfigValue>/invocations"`.
+In case of all procedures, the default `endpoint` is `"https://runtime.sagemaker.<regionConfigValue>.amazonaws.com/endpoints/<endpointNameConfigValue>/invocations"`.
 So, with the default `region` config, i.e. "us-east-1", the default endpoint is `"https://runtime.sagemaker.us-east-1.amazonaws.com/endpoints/<endpointNameConfigValue>/invocations"`.
 
-The `<endpointNameConfigValue>` part must be configured if we use the `ml.sagemaker.custom` procedure,
+If we use the `ml.sagemaker.custom` procedure, either the `<endpointNameConfigValue>` part or the `endpoint` url must be configured ,
 while with the `sagemaker.chat`, `sagemaker.completion`, `sagemaker.embedding` ones,
 has a default value of "Endpoint-Distilbart-xsum-1-1-1", "Endpoint-GPT-2-1", "Endpoint-Jina-Embeddings-v2-Base-en-1" respectively.
 
@@ -152,12 +152,15 @@ Via the `apoc.ml.sagemaker.custom` we can create a customizable SageMaker API Re
 Useful both for https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_runtime_InvokeEndpoint.html[invoke an endpoint], 
 in the case the response is incompatible with the previous procedures, and to use any other SageMaker API.
 
-For example, we can execute a `GET` request without body, usign the following query (note that the `body` parameter is null):
+For example, we can execute a `POST` request to call the https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListEndpoints.html[ListEndpoints API],
+we can execute:
 
 [source,cypher]
 ----
-CALL apoc.ml.sagemaker.custom(null,{
-    endpoint: "https://sagemaker.us-east-1.amazonaws.com/<restOfendpoint>",
-    method: "GET"
+CALL apoc.ml.sagemaker.custom({SortBy: "Name"},
+{
+    endpoint: "https://api.sagemaker.us-east-1.amazonaws.com/",
+    headers: {`X-Amz-Target`: "SageMaker.ListEndpoints", `Content-Type`: "application/x-amz-json-1.1"},
+    method: "POST"
 })
 ----
