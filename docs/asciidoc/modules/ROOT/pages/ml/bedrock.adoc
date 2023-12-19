@@ -108,6 +108,31 @@ CALL apoc.ml.bedrock.chat([
 | {"stop_reason": "stop_sequence","completion": " Hello!"}
 |===
 
+
+We can use the config `openAICompatible: true`, to use a `message` body request consistent with the apoc.ml.openai.chat procedure.
+With this config, the `prompt` request will be placed in an entry `{content: '<promts>'}` 
+and will have a default "\n\nHuman:"` prefix and `\n\nAssistant:` suffix, if not present.
+
+For example, instead of:
+
+.apoc.ml.bedrock.chat (with openAICompatible: false)
+[source,cypher]
+----
+CALL apoc.ml.bedrock.chat(
+    [ {prompt: "\n\nHuman: Hello world\n\nAssistant:",max_tokens_to_sample: 200} ]
+)
+----
+
+we can execute this query (note that the `role:"system"` entry is optional, it is just to be consistent with the OpenAI body):
+
+.apoc.ml.bedrock.chat (with openAICompatible: true)
+[source,cypher]
+----
+CALL apoc.ml.bedrock.chat([
+    {role:"system", content:"Hello world"}
+])
+----
+
 === Text Completion API
 
 This procedure `apoc.ml.bedrock.completion` can continue/complete a given text.
