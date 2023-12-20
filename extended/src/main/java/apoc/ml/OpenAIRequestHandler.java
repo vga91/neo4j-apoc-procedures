@@ -33,13 +33,15 @@ abstract class OpenAIRequestHandler {
     }
 
     public String getFullUrl(String method, Map<String, Object> procConfig, ApocConfig apocConfig) {
-        return Stream.of(getEndpoint(procConfig, apocConfig), method, getApiVersion(procConfig, apocConfig))
+        return Stream.of(getEndpoint(procConfig, apocConfig), /*method, */getApiVersion(procConfig, apocConfig))
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.joining("/"));
     }
 
     enum Type {
-        AZURE(new Azure(null)), OPENAI(new OpenAi("https://api.openai.com/v1"));
+        AZURE(new Azure(null)),
+        LOCALAI(new OpenAi(null)),
+        OPENAI(new OpenAi("https://api.openai.com/v1"));
 
         private final OpenAIRequestHandler handler;
         Type(OpenAIRequestHandler handler) {
@@ -50,6 +52,13 @@ abstract class OpenAIRequestHandler {
             return handler;
         }
     }
+
+//    static class LocalAi extends OpenAi {
+//
+//        public LocalAi() {
+//            super(n);
+//        }
+//    }
 
     static class Azure extends OpenAIRequestHandler {
 
