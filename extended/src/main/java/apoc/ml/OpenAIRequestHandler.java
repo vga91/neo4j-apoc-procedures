@@ -33,7 +33,7 @@ abstract class OpenAIRequestHandler {
     }
 
     public String getFullUrl(String method, Map<String, Object> procConfig, ApocConfig apocConfig) {
-        return Stream.of(getEndpoint(procConfig, apocConfig), method, getApiVersion(procConfig, apocConfig))
+        return Stream.of(getEndpoint(procConfig, apocConfig), adaptMethod(method), getApiVersion(procConfig, apocConfig))
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.joining("/"));
     }
@@ -46,11 +46,16 @@ abstract class OpenAIRequestHandler {
     public String adaptJsonPath(String jsonPath) {
         return jsonPath;
     }
+    
+    public String adaptMethod(String method) {
+        return method;
+    }
 
     enum Type {
         AZURE(new Azure(null)),
         LOCALAI(new OpenAi(null)),
-        HUGGING_FACE(new HuggingFace()),
+        COHERE(new Cohere()),
+        HUGGINGFACE(new HuggingFace()),
         OPENAI(new OpenAi("https://api.openai.com/v1"));
 
         private final OpenAIRequestHandler handler;
@@ -63,19 +68,47 @@ abstract class OpenAIRequestHandler {
         }
     }
 
-    private static class HuggingFace extends OpenAi {
-        public HuggingFace() {
-            super(null);
+    private static class Cohere extends OpenLM {
+        public Cohere() {
+            // todo
+            super("defaultUrl TODO");
         }
 
         @Override
         public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
+//            config.put("inputs", "non so"); TODO
+        }
+    }
+    
+    private static class HuggingFace extends OpenLM {
+        public HuggingFace() {
+            super(null);
+//            super("https://api-inference.huggingface.co/models");
+        }
+
+        @Override
+        public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
+//            Object inputsValue = config.remove("inputs");
+            config.putIfAbsent("inputs", inputs);
+
 //            config.put("inputs", "non so");
         }
+    }
+
+    private static class OpenLM extends OpenAi {
+        public OpenLM(String defaultUrl) {
+            super(defaultUrl);
+        }
+        
 
         @Override
         public String adaptJsonPath(String jsonPath) {
             return "$[0]";
+        }
+
+        @Override
+        public String adaptMethod(String method) {
+            return "";
         }
     }
     

@@ -29,7 +29,9 @@ public class OpenAI {
     public static final String APIKEY_CONF_KEY = "apiKey";
     public static final String ENDPOINT_CONF_KEY = "endpoint";
     public static final String API_VERSION_CONF_KEY = "apiVersion";
-    
+    public static final String JSON_PATH_CONF_KEY = "jsonPath";
+    public static final String PATH_CONF_KEY = "path";
+
     @Context
     public ApocConfig apocConfig;
 
@@ -60,6 +62,11 @@ public class OpenAI {
         OpenAIRequestHandler apiType = OpenAIRequestHandler.Type.valueOf(apiTypeString.toUpperCase(Locale.ENGLISH))
                 .get();
         String endpoint = apiType.getEndpoint(configuration, apocConfig);
+        
+        // TODO - aggiungere config per jsonPath
+        // TODO - aggiungere config per path
+        jsonPath = (String) configuration.getOrDefault(JSON_PATH_CONF_KEY, jsonPath);
+        path = (String) configuration.getOrDefault(PATH_CONF_KEY, path);
         
         apiKey = (String) configuration.getOrDefault(APIKEY_CONF_KEY, apocConfig.getString(APOC_OPENAI_KEY, apiKey));
         checkApiKey(apiKey, endpoint);
