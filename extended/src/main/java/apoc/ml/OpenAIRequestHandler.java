@@ -70,14 +70,15 @@ abstract class OpenAIRequestHandler {
 
     private static class Cohere extends OpenLM {
         public Cohere() {
+            super(null);
             // todo
-            super("defaultUrl TODO");
+//            super("defaultUrl TODO");
         }
 
-        @Override
-        public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
-//            config.put("inputs", "non so"); TODO
-        }
+//        @Override
+//        public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
+////            config.put("inputs", "non so"); TODO
+//        }
     }
     
     private static class HuggingFace extends OpenLM {

@@ -7,6 +7,7 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.URI;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.time.temporal.TemporalAccessor;
@@ -50,7 +51,9 @@ public class ExtendedUtil
 
     public static boolean isLocalAddress(String url) {
         try {
-            InetAddress address = InetAddress.getByName(url);
+            String host = URI.create(url).getHost();
+                    
+            InetAddress address = InetAddress.getByName(host);
             return address.isAnyLocalAddress()
                    || address.isLoopbackAddress()
                    || NetworkInterface.getByInetAddress(address) != null;
