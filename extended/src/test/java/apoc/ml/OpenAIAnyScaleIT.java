@@ -16,6 +16,7 @@ import static apoc.ml.OpenAITestResultUtils.assertChatCompletion;
 import static apoc.ml.OpenAITestResultUtils.assertCompletion;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class OpenAIAnyScaleIT {
 
@@ -46,21 +47,47 @@ public class OpenAIAnyScaleIT {
 
     @Test
     public void completion() {
+        String modelId = "Meta-Llama/Llama-Guard-7b";
         testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey, $conf)",
-                getParams("Meta-Llama/Llama-Guard-7b"),
-                (row) -> assertCompletion(row, "text-davinci-003"));
+                getParams(modelId),
+                (row) -> {
+                    var result = (Map<String,Object>) row.get("value");
+                    assertTrue(result.get("created") instanceof Number);
+                    assertTrue(result.containsKey("choices"));
+                    var finishReason = (String)((List<Map>) result.get("choices")).get(0).get("finish_reason");
+                    assertTrue(finishReason.matches("stop|length"));
+                    String text = (String) ((List<Map>) result.get("choices")).get(0).get("text");
+                    assertTrue(text != null && !text.isBlank());
+
+                    assertEquals(modelId, result.get("model"));
+                });
     }
 
     @Test
     public void chatCompletion() {
+        String modelId = "meta-llama/Llama-2-70b-chat-hf";
         testCall(db, """
             CALL apoc.ml.openai.chat([
             {role:"system", content:"Only answer with a single word"},
             {role:"user", content:"What planet do humans live on?"}
             ],  $apiKey, $conf)
             """, 
-                getParams("meta-llama/Llama-2-70b-chat-hf"),
-                (row) -> assertChatCompletion(row, "gpt-3.5-turbo"));
+                getParams(modelId),
+                (row) -> {
+                    var result = (Map<String,Object>) row.get("value");
+                    assertTrue(result.get("created") instanceof Number);
+                    assertTrue(result.containsKey("choices"));
+
+                    Map message = ((List<Map<String,Map>>) result.get("choices")).get(0).get("message");
+                    assertEquals("assistant", message.get("role"));
+                    String text = (String) message.get("content");
+                    assertTrue(text != null && !text.isBlank());
+
+                    assertTrue(result.containsKey("usage"));
+                    assertTrue(((Map) result.get("usage")).get("prompt_tokens") instanceof Number);
+
+                    assertTrue(result.get("model").toString().startsWith(modelId));
+                });
     }
 
     private Map<String, Object> getParams(String model) {

@@ -29,7 +29,8 @@ To start the test, follow the instructions in this video: https://www.youtube.co
 
 The APIs, especially the `/completions` one, are extremely unstable (i.e. we could get many SocketTimeoutExceptions),
 even via e.g. Insomnia,
-so it's better to change the `nTokPredict` value, placed in `llmatic.config.json`, to a low value, like `128`
+so it's better to change the `nTokPredict` value, placed in `llmatic.config.json`, to a low value, like `128`,
+before executing `npx llmatic start`
 
  */
 public class OpenAILMMaticIT {
