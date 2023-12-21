@@ -50,7 +50,10 @@ public class OpenAI {
         }
     }
 
-    static Stream<Object> executeRequest(String apiKey, Map<String, Object> configuration, String path, String model, String key, Object inputs, String jsonPath, ApocConfig apocConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
+    // TODO - path, jsonPath,
+//    static Stream<Object> executeRequest(String apiKey, Map<String, Object> configuration, String path, String model, String key, Object inputs, String jsonPath, ApocConfig apocConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
+    
+    static Stream<Object> executeRequest(/*OpenAIRequestHandler apiType, */String apiKey, Map<String, Object> configuration, String path, String model, String key, Object inputs, String jsonPath, ApocConfig apocConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
         String apiTypeString = (String) configuration.getOrDefault(API_TYPE_CONF_KEY,
                 apocConfig.getString(APOC_ML_OPENAI_TYPE, OpenAIRequestHandler.Type.OPENAI.name())
         );
@@ -60,8 +63,6 @@ public class OpenAI {
         
         apiKey = (String) configuration.getOrDefault(APIKEY_CONF_KEY, apocConfig.getString(APOC_OPENAI_KEY, apiKey));
         checkApiKey(apiKey, endpoint);
-
-
         
         final Map<String, Object> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");
@@ -70,10 +71,12 @@ public class OpenAI {
         var config = new HashMap<>(configuration);
         // we remove these keys from config, since the json payload is calculated starting from the config map
         Stream.of(ENDPOINT_CONF_KEY, API_TYPE_CONF_KEY, API_VERSION_CONF_KEY, APIKEY_CONF_KEY).forEach(config::remove);
-        config.putIfAbsent("model", model);
+        
+        apiType.addBodyEntries(key, inputs, model, config);
+//        config.putIfAbsent("model", model);
         
         // TODO - DELETE
-        config.put("inputs", "non so");
+//        config.put("inputs", "non so");
         
 //        config.putAll(inputs
 //        config.put(key, inputs);
@@ -84,7 +87,17 @@ public class OpenAI {
         // eg: https://my-resource.openai.azure.com/openai/deployments/apoc-embeddings-model
         // therefore is better to join the not-empty path pieces
         var url = apiType.getFullUrl(path, configuration, apocConfig);
-        return JsonUtil.loadJson(url, headers, payload, "$[0]", true, List.of(), urlAccessChecker);
+        return JsonUtil.loadJson(url, headers, payload, apiType.adaptJsonPath(jsonPath), true, List.of(), urlAccessChecker);
+//        return JsonUtil.loadJson(url, headers, payload, "$[0]", true, List.of(), urlAccessChecker);
+    }
+
+    private OpenAIRequestHandler getOpenAIRequestHandler(Map<String, Object> configuration) {
+        String apiTypeString = (String) configuration.getOrDefault(API_TYPE_CONF_KEY,
+                apocConfig.getString(APOC_ML_OPENAI_TYPE, OpenAIRequestHandler.Type.OPENAI.name())
+        );
+        OpenAIRequestHandler apiType = OpenAIRequestHandler.Type.valueOf(apiTypeString.toUpperCase(Locale.ENGLISH))
+                .get();
+        return apiType;
     }
 
     private static void checkApiKey(String apiKey, String endpoint) {
@@ -115,6 +128,7 @@ public class OpenAI {
       "model": "text-embedding-ada-002",
       "usage": { "prompt_tokens": 8, "total_tokens": 8 } }
     */
+//        OpenAIRequestHandler apiType = getOpenAIRequestHandler(configuration);
         Stream<Object> resultStream = executeRequest(apiKey, configuration, "embeddings", "text-embedding-ada-002", "input", texts, "$.data", apocConfig, urlAccessChecker);
         return resultStream
                 .flatMap(v -> ((List<Map<String, Object>>) v).stream())
@@ -123,7 +137,6 @@ public class OpenAI {
                     return new EmbeddingResult(index, texts.get(index.intValue()), (List<Double>) m.get("embedding"));
                 });
     }
-
 
     @Procedure("apoc.ml.openai.completion")
     @Description("apoc.ml.openai.completion(prompt, api_key, configuration) - prompts the completion API")
@@ -136,6 +149,7 @@ public class OpenAI {
       "usage": { "prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12 }
     }
     */
+//        OpenAIRequestHandler apiType = getOpenAIRequestHandler(configuration);
         return executeRequest(apiKey, configuration, "completions", "gpt-3.5-turbo-instruct", "prompt", prompt, "$", apocConfig, urlAccessChecker)
                 .map(v -> (Map<String,Object>)v).map(MapResult::new);
     }
@@ -143,6 +157,7 @@ public class OpenAI {
     @Procedure("apoc.ml.openai.chat")
     @Description("apoc.ml.openai.chat(messages, api_key, configuration]) - prompts the completion API")
     public Stream<MapResult> chatCompletion(@Name("messages") List<Map<String, Object>> messages, @Name("api_key") String apiKey, @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+//        OpenAIRequestHandler apiType = getOpenAIRequestHandler(configuration);
         return executeRequest(apiKey, configuration, "chat/completions", "gpt-3.5-turbo", "messages", messages, "$", apocConfig, urlAccessChecker)
                 .map(v -> (Map<String,Object>)v).map(MapResult::new);
         // https://platform.openai.com/docs/api-reference/chat/create
