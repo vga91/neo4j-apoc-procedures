@@ -1,6 +1,7 @@
 package apoc.ml;
 
 import apoc.util.TestUtil;
+import apoc.util.Util;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -15,27 +16,26 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import static apoc.ApocConfig.apocConfig;
-import static apoc.ml.OpenAI.API_TYPE_CONF_KEY;
+import static apoc.ml.OpenAI.APIKEY_CONF_KEY;
 import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
-import static apoc.ml.OpenAITestResultUtils.assertChatCompletion;
-import static apoc.ml.OpenAITestResultUtils.assertCompletion;
-import static apoc.util.TestUtil.testCall;
+import static apoc.ml.OpenAI.MODEL_CONF_KEY;
+import static apoc.ml.OpenAITestResultUtils.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/*
-To start the test, follow the instructions in this video: https://www.youtube.com/watch?v=V_baaAZMY44
 
-The APIs, especially the `/completions` one, are extremely unstable (i.e. we could get many SocketTimeoutExceptions),
-even via e.g. Insomnia,
-so it's better to change the `nTokPredict` value, placed in `llmatic.config.json`, to a low value, like `128`,
-before executing `npx llmatic start`
 
+/**
+ * To start the test, follow the instructions in this video: https://www.youtube.com/watch?v=V_baaAZMY44.
+ *
+ * NB: The APIs, especially the `/completions` one, are extremely unstable (i.e. we could get many SocketTimeoutExceptions), also via e.g. Insomnia or PostMan,
+ * even with `apoc.http.timeout.*` config increased.
+ * So it's better to change the `nTokPredict` value, placed in `llmatic.config.json`, to a low value, like `128`,
+ * before executing `npx llmatic start`
  */
-public class OpenAILMMaticIT {
+public class OpenAILLMaticIT {
     public static final String MODEL_ID = "meta-llama/Llama-2-70b-chat-hf";
-
     private String localAIUrl;
 
     @Rule
@@ -49,15 +49,13 @@ public class OpenAILMMaticIT {
         
         localAIUrl = System.getenv("LLM_MATIC_URL");
         Assume.assumeNotNull("No LOCAL_AI_URL environment configured", localAIUrl);
-//        openaiKey = System.getenv("OPENAI_KEY");
-//        Assume.assumeNotNull("No OPENAI_KEY environment configured", openaiKey);
         TestUtil.registerProcedure(db, OpenAI.class);
         
     }
 
     @Test
     public void getEmbedding() {
-        assertEventually(() -> db.executeTransactionally("CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, $conf)",
+        assertEventually(() -> db.executeTransactionally(EMBEDDING_QUERY,
                 getParams("thenlper/gte-large"),
                 r -> {
                     Map<String, Object> row = r.next();
@@ -73,7 +71,7 @@ public class OpenAILMMaticIT {
 
     @Test
     public void completion() {
-        assertEventually(() -> db.executeTransactionally("CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey, $conf)",
+        assertEventually(() -> db.executeTransactionally(COMPLETION_QUERY,
                 getParams(MODEL_ID),
                 (r) -> {
                     Map<String, Object> row = r.next();
@@ -92,12 +90,7 @@ public class OpenAILMMaticIT {
 
     @Test
     public void chatCompletion() {
-        assertEventually(() -> db.executeTransactionally("""
-            CALL apoc.ml.openai.chat([
-            {role:"system", content:"Only answer with a single word"},
-            {role:"user", content:"What planet do humans live on?"}
-            ],  $apiKey, $conf)
-            """, 
+        assertEventually(() -> db.executeTransactionally(CHAT_COMPLETION_QUERY, 
                 getParams(MODEL_ID),
                 (r) -> {
                     Map<String, Object> row = r.next();
@@ -123,18 +116,16 @@ public class OpenAILMMaticIT {
             try {
                 return booleanCallable.call();
             } catch (RuntimeException e) {
-                System.out.println("e = " + e);
                 return false;
             }
         }, val -> val, 60, TimeUnit.SECONDS);
     }
 
     private Map<String, Object> getParams(String model) {
-        return Map.of("apiKey", "openaiKey",
+        return Util.map(APIKEY_CONF_KEY, null,
                 "conf", Map.of(
                         ENDPOINT_CONF_KEY, localAIUrl,
-//                        ENDPOINT_CONF_KEY, "https://api.endpoints.anyscale.com/v1",
-                        "model", model
+                        MODEL_CONF_KEY, model
                 )
         );
     }

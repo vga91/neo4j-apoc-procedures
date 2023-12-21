@@ -14,6 +14,9 @@ import java.util.stream.Stream;
 import static apoc.ml.OpenAI.API_TYPE_CONF_KEY;
 import static apoc.ml.OpenAI.API_VERSION_CONF_KEY;
 import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
+import static apoc.ml.OpenAITestResultUtils.CHAT_COMPLETION_QUERY;
+import static apoc.ml.OpenAITestResultUtils.COMPLETION_QUERY;
+import static apoc.ml.OpenAITestResultUtils.EMBEDDING_QUERY;
 import static apoc.ml.OpenAITestResultUtils.assertChatCompletion;
 import static apoc.ml.OpenAITestResultUtils.assertCompletion;
 import static apoc.util.TestUtil.testCall;
@@ -56,7 +59,7 @@ public class OpenAIAzureIT {
 
     @Test
     public void embedding() {
-        testCall(db, "CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, $conf)",
+        testCall(db, EMBEDDING_QUERY,
                 getParams(OPENAI_EMBEDDING_URL),
                 OpenAITestResultUtils::assertEmbeddings);
     }
@@ -65,19 +68,14 @@ public class OpenAIAzureIT {
     @Test
     @Ignore("It returns wrong answers sometimes")
     public void completion() {
-        testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey, $conf)",
+        testCall(db, COMPLETION_QUERY,
                 getParams(OPENAI_CHAT_URL),
                 (row) -> assertCompletion(row, "gpt-35-turbo"));
     }
 
     @Test
     public void chatCompletion() {
-        testCall(db, """
-            CALL apoc.ml.openai.chat([
-            {role:"system", content:"Only answer with a single word"},
-            {role:"user", content:"What planet do humans live on?"}
-            ], $apiKey, $conf)
-            """, getParams(OPENAI_COMPLETION_URL),
+        testCall(db, CHAT_COMPLETION_QUERY, getParams(OPENAI_COMPLETION_URL),
                 (row) -> assertChatCompletion(row, "gpt-35-turbo"));
     }
 

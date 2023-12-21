@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.Map;
 
 import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
-import static apoc.ml.OpenAITestResultUtils.assertChatCompletion;
-import static apoc.ml.OpenAITestResultUtils.assertCompletion;
+import static apoc.ml.OpenAI.MODEL_CONF_KEY;
+import static apoc.ml.OpenAITestResultUtils.*;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,7 +35,7 @@ public class OpenAIAnyScaleIT {
 
     @Test
     public void getEmbedding() {
-        testCall(db, "CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, $conf)",
+        testCall(db, EMBEDDING_QUERY,
                 getParams("thenlper/gte-large"),
                 row -> {
                     assertEquals(0L, row.get("index"));
@@ -48,7 +48,7 @@ public class OpenAIAnyScaleIT {
     @Test
     public void completion() {
         String modelId = "Meta-Llama/Llama-Guard-7b";
-        testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey, $conf)",
+        testCall(db, COMPLETION_QUERY,
                 getParams(modelId),
                 (row) -> {
                     var result = (Map<String,Object>) row.get("value");
@@ -66,12 +66,7 @@ public class OpenAIAnyScaleIT {
     @Test
     public void chatCompletion() {
         String modelId = "meta-llama/Llama-2-70b-chat-hf";
-        testCall(db, """
-            CALL apoc.ml.openai.chat([
-            {role:"system", content:"Only answer with a single word"},
-            {role:"user", content:"What planet do humans live on?"}
-            ],  $apiKey, $conf)
-            """, 
+        testCall(db, CHAT_COMPLETION_QUERY, 
                 getParams(modelId),
                 (row) -> {
                     var result = (Map<String,Object>) row.get("value");
@@ -93,7 +88,7 @@ public class OpenAIAnyScaleIT {
     private Map<String, Object> getParams(String model) {
         return Map.of("apiKey", openaiKey,
                 "conf", Map.of(ENDPOINT_CONF_KEY, "https://api.endpoints.anyscale.com/v1",
-                        "model", model
+                        MODEL_CONF_KEY, model
                 )
         );
     }
