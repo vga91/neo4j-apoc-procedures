@@ -151,9 +151,9 @@ CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $a
 |===
 
 
-=== OpenML API
+=== OpenLM API
 
-We can also call the Completion API of HuggingFace and Cohere, similar to the https://github.com/r2d4/openlm[OpenML] library, as below.
+We can also call the Completion API of HuggingFace and Cohere, similar to the https://github.com/r2d4/openlm[OpenLM] library, as below.
 
 For the https://huggingface.co/[HuggingFace API], we have to define the config `apiType: 'HUGGINGFACE'`, since we have to transform the body request.
 Unlike the default behavior, under-the-hood the `/completions` suffix is not added to the URL.
@@ -232,14 +232,14 @@ CALL apoc.ml.openai.embedding(['Some Text'], $anyScaleApiKey,
 Or via https://localai.io/[LocalAI APIs] (note that the apiKey is `null` by default):
 [source,cypher]
 ----
-CALL apoc.ml.openai.embedding(['Some Text'], null, 
+CALL apoc.ml.openai.embedding(['Some Text'], "ignored", 
 {endpoint: 'http://localhost:8080/v1', model: 'text-embedding-ada-002'})
 ----
 
-Or also, by using https://github.com/fardjad/node-llmatic[LLMatic Library] (note that the apiKey is `null` by default):
+Or also, by using https://github.com/fardjad/node-llmatic[LLMatic Library]:
 [source,cypher]
 ----
-CALL apoc.ml.openai.embedding(['Some Text'], null, 
+CALL apoc.ml.openai.embedding(['Some Text'], "ignored", 
 {endpoint: 'http://localhost:3000/v1', model: 'thenlper/gte-large'})
 ----
 

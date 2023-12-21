@@ -54,16 +54,32 @@ public class OpenAI {
     }
 
     static Stream<Object> executeRequest(String apiKey, Map<String, Object> configuration, String path, String model, String key, Object inputs, String jsonPath, ApocConfig apocConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
+        apiKey = (String) configuration.getOrDefault(APIKEY_CONF_KEY, apocConfig.getString(APOC_OPENAI_KEY, apiKey));
+        if (apiKey == null || apiKey.isBlank())
+            throw new IllegalArgumentException("API Key must not be empty");
+
         String apiTypeString = (String) configuration.getOrDefault(API_TYPE_CONF_KEY,
                 apocConfig.getString(APOC_ML_OPENAI_TYPE, OpenAIRequestHandler.Type.OPENAI.name())
         );
-        OpenAIRequestHandler apiType = OpenAIRequestHandler.Type.valueOf(apiTypeString.toUpperCase(Locale.ENGLISH))
-                .get();
-
-        String endpoint = apiType.getEndpoint(configuration, apocConfig);
-        apiKey = (String) configuration.getOrDefault(APIKEY_CONF_KEY, apocConfig.getString(APOC_OPENAI_KEY, apiKey));
-        checkApiKey(apiKey, endpoint);
+        OpenAIRequestHandler.Type type = OpenAIRequestHandler.Type.valueOf(apiTypeString.toUpperCase(Locale.ENGLISH));
         
+        var config = new HashMap<>(configuration);
+        // we remove these keys from config, since the json payload is calculated starting from the config map
+        Stream.of(ENDPOINT_CONF_KEY, API_TYPE_CONF_KEY, API_VERSION_CONF_KEY, APIKEY_CONF_KEY).forEach(config::remove);
+        
+        switch (type) {
+            case HUGGINGFACE -> {
+                config.putIfAbsent("inputs", inputs);
+                jsonPath = "$[0]";
+            }
+            default -> {
+                config.putIfAbsent(MODEL_CONF_KEY, model);
+                config.put(key, inputs);
+            }
+        }
+        
+        OpenAIRequestHandler apiType = type.get();
+
         jsonPath = (String) configuration.getOrDefault(JSON_PATH_CONF_KEY, jsonPath);
         path = (String) configuration.getOrDefault(PATH_CONF_KEY, path);
         
@@ -71,29 +87,13 @@ public class OpenAI {
         headers.put("Content-Type", "application/json");
         apiType.addApiKey(headers, apiKey);
 
-        var config = new HashMap<>(configuration);
-        // we remove these keys from config, since the json payload is calculated starting from the config map
-        Stream.of(ENDPOINT_CONF_KEY, API_TYPE_CONF_KEY, API_VERSION_CONF_KEY, APIKEY_CONF_KEY).forEach(config::remove);
-        
-        apiType.addBodyEntries(key, inputs, model, config);
-
         String payload = JsonUtil.OBJECT_MAPPER.writeValueAsString(config);
         
         // new URL(endpoint), path) can produce a wrong path, since endpoint can have for example embedding,
         // eg: https://my-resource.openai.azure.com/openai/deployments/apoc-embeddings-model
         // therefore is better to join the not-empty path pieces
         var url = apiType.getFullUrl(path, configuration, apocConfig);
-        return JsonUtil.loadJson(url, headers, payload, apiType.getJsonPath(jsonPath), true, List.of(), urlAccessChecker);
-    }
-
-    private static void checkApiKey(String apiKey, String endpoint) {
-        // with localhost URLs, the API Key is not always mandatory
-        if (isLocalAddress(endpoint)) {
-            return;
-        }
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new IllegalArgumentException("API Key must not be empty");
-        }
+        return JsonUtil.loadJson(url, headers, payload, jsonPath, true, List.of(), urlAccessChecker);
     }
 
     @Procedure("apoc.ml.openai.embedding")

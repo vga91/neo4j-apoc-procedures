@@ -66,7 +66,7 @@ public class OpenAILocalAIIT {
     }
 
     private Map<String, Object> getParams(String model) {
-        return Util.map("apiKey", null,
+        return Util.map("apiKey", "x",
                 "conf", Map.of(ENDPOINT_CONF_KEY, localAIUrl,
                         MODEL_CONF_KEY, model)
         );

@@ -49,6 +49,7 @@ public class OpenAIOpenLMIT {
         String modelId = "gpt2";
         Map<String, String> conf = Map.of(ENDPOINT_CONF_KEY, "https://api-inference.huggingface.co/models/" + modelId,
                 API_TYPE_CONF_KEY, OpenAIRequestHandler.Type.HUGGINGFACE.name(),
+                PATH_CONF_KEY, "",
                 MODEL_CONF_KEY, modelId
         );
         testCall(db, COMPLETION_QUERY,

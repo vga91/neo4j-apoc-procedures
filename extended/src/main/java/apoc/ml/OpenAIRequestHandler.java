@@ -34,22 +34,9 @@ abstract class OpenAIRequestHandler {
     }
 
     public String getFullUrl(String method, Map<String, Object> procConfig, ApocConfig apocConfig) {
-        return Stream.of(getEndpoint(procConfig, apocConfig), getMethod(method), getApiVersion(procConfig, apocConfig))
+        return Stream.of(getEndpoint(procConfig, apocConfig), method, getApiVersion(procConfig, apocConfig))
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.joining("/"));
-    }
-    
-    public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
-        config.putIfAbsent("model", model);
-        config.put(key, inputs);
-    }
-    
-    public String getMethod(String method) {
-        return method;
-    }
-    
-    public String getJsonPath(String jsonPath) {
-        return jsonPath;
     }
 
     enum Type {
@@ -70,25 +57,6 @@ abstract class OpenAIRequestHandler {
     private static class HuggingFace extends OpenAi {
         public HuggingFace() {
             super(null);
-        }
-
-        @Override
-        public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
-            config.putIfAbsent("inputs", inputs);
-        }
-
-        /**
-         * Otherwise the {@link OpenAI#executeRequest(String, Map, String, String, String, Object, String, ApocConfig, URLAccessChecker)}
-         * returns a List, and therefore a ClassCastException, since a map should return 
-         */
-        @Override
-        public String getJsonPath(String jsonPath) {
-            return "$[0]";
-        }
-
-        @Override
-        public String getMethod(String method) {
-            return "";
         }
     }
 

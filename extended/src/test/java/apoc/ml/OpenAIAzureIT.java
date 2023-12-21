@@ -37,11 +37,11 @@ public class OpenAIAzureIT {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        OPENAI_KEY = System.getenv("OPENAI_KEY");
+        OPENAI_KEY = System.getenv("OPENAI_AZURE_KEY");
         // Azure OpenAI base URLs
-        OPENAI_EMBEDDING_URL = System.getenv("OPENAI_EMBEDDING_URL");
-        OPENAI_CHAT_URL = System.getenv("OPENAI_CHAT_URL");
-        OPENAI_COMPLETION_URL = System.getenv("OPENAI_COMPLETION_URL");
+        OPENAI_EMBEDDING_URL = System.getenv("OPENAI_AZURE_EMBEDDING_URL");
+        OPENAI_CHAT_URL = System.getenv("OPENAI_AZURE_CHAT_URL");
+        OPENAI_COMPLETION_URL = System.getenv("OPENAI_AZURE_COMPLETION_URL");
 
         // Azure OpenAI query url (`<baseURL>/<type>/?api-version=<OPENAI_AZURE_API_VERSION>`)
         OPENAI_AZURE_API_VERSION = System.getenv("OPENAI_AZURE_API_VERSION");
