@@ -61,12 +61,11 @@ public class OpenAI {
                 .get();
 
         String endpoint = apiType.getEndpoint(configuration, apocConfig);
+        apiKey = (String) configuration.getOrDefault(APIKEY_CONF_KEY, apocConfig.getString(APOC_OPENAI_KEY, apiKey));
+        checkApiKey(apiKey, endpoint);
         
         jsonPath = (String) configuration.getOrDefault(JSON_PATH_CONF_KEY, jsonPath);
         path = (String) configuration.getOrDefault(PATH_CONF_KEY, path);
-        
-        apiKey = (String) configuration.getOrDefault(APIKEY_CONF_KEY, apocConfig.getString(APOC_OPENAI_KEY, apiKey));
-        checkApiKey(apiKey, endpoint);
         
         final Map<String, Object> headers = new HashMap<>();
         headers.put("Content-Type", "application/json");

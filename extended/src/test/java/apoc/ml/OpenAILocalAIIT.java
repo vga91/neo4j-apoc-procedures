@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 
 /**
- * To start the test, follow the instructions provided here: https://localai.io/basics/build/
+ * To start the tests, follow the instructions provided here: https://localai.io/basics/build/
  * Then, download the embedding model, as explained here: https://localai.io/models/#embeddings-bert 
  * Finally, set the env var `LOCAL_AI_URL=http://localhost:<portNumber>/v1`, default is `LOCAL_AI_URL=http://localhost:8080/v1`
  */

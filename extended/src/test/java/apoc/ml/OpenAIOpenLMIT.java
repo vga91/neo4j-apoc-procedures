@@ -24,10 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * OpenLM-like tests for Cohere and HuggingFace, see here: https://github.com/r2d4/openlm
  * 
- * NB: It works only for `Completion` API, as described in the GitHub README.md
- * ```
- *      OpenLM currently supports the Completion endpoint, but over time will support more standardized endpoints that make sense.
- * ```
+ * NB: It works only for `Completion` API, as described in the README.md:
+ * https://github.com/r2d4/openlm/blob/main/README.md?plain=1#L36
  */
 public class OpenAIOpenLMIT {
     

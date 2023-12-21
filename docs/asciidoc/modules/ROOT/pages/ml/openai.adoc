@@ -6,7 +6,7 @@
 ====
 You need to acquire an https://platform.openai.com/account/api-keys[OpenAI API key^] to use these procedures. Using them will incur costs on your OpenAI account. You can set the api key globally by defining the `apoc.openai.key` configuration in `apoc.conf`
 
-But we can also use these procedures to call OpenAI-compatible APIs, which will therefore have their own API key (or even without API Key). 
+But you can also use these procedures to call OpenAI-compatible APIs, which will therefore have their own API key (or even without API Key). 
 See the paragraph <<openai_compatible_provider>> below.
 ====
 
@@ -153,9 +153,9 @@ CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $a
 
 === OpenML API
 
-we can also call the Completion API of HuggingFace and Cohere, similar to the https://github.com/r2d4/openlm[OpenML] library, as below.
+We can also call the Completion API of HuggingFace and Cohere, similar to the https://github.com/r2d4/openlm[OpenML] library, as below.
 
-For the https://huggingface.co/models[HuggingFace API], we have to define the config `apiType: 'HUGGINGFACE'`, since we have to transform the body request.
+For the https://huggingface.co/[HuggingFace API], we have to define the config `apiType: 'HUGGINGFACE'`, since we have to transform the body request.
 Unlike the default behavior, under-the-hood the `/completions` suffix is not added to the URL.
 
 For example:
@@ -229,14 +229,14 @@ CALL apoc.ml.openai.embedding(['Some Text'], $anyScaleApiKey,
 ----
 
 
-The https://localai.io/[LocalAI API] (note that the apiKey is `null` by default):
+Or via https://localai.io/[LocalAI APIs] (note that the apiKey is `null` by default):
 [source,cypher]
 ----
 CALL apoc.ml.openai.embedding(['Some Text'], null, 
 {endpoint: 'http://localhost:8080/v1', model: 'text-embedding-ada-002'})
 ----
 
-The https://github.com/fardjad/node-llmatic[LLMatic] (note that the apiKey is `null` by default):
+Or also, by using https://github.com/fardjad/node-llmatic[LLMatic Library] (note that the apiKey is `null` by default):
 [source,cypher]
 ----
 CALL apoc.ml.openai.embedding(['Some Text'], null, 

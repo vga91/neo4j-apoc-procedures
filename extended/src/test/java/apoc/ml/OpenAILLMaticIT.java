@@ -27,12 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 /**
- * To start the test, follow the instructions in this video: https://www.youtube.com/watch?v=V_baaAZMY44.
+ * To start the tests, follow the instructions in this video: https://www.youtube.com/watch?v=V_baaAZMY44.
  *
  * NB: The APIs, especially the `/completions` one, are extremely unstable (i.e. we could get many SocketTimeoutExceptions), also via e.g. Insomnia or PostMan,
- * even with `apoc.http.timeout.*` config increased.
+ * even with `assertEventually` and `apoc.http.timeout.*` configs increased.
  * So it's better to change the `nTokPredict` value, placed in `llmatic.config.json`, to a low value, like `128`,
- * before executing `npx llmatic start`
+ * before executing `npx llmatic start`.
+ * 
+ * Finally, set the env var `LLM_MATIC_URL=http://localhost:3000/v1`
  */
 public class OpenAILLMaticIT {
     public static final String MODEL_ID = "meta-llama/Llama-2-70b-chat-hf";
@@ -48,9 +50,8 @@ public class OpenAILLMaticIT {
         apocConfig().setProperty("apoc.http.timeout.read", 30_000);
         
         localAIUrl = System.getenv("LLM_MATIC_URL");
-        Assume.assumeNotNull("No LOCAL_AI_URL environment configured", localAIUrl);
+        Assume.assumeNotNull("No LLM_MATIC_URL environment configured", localAIUrl);
         TestUtil.registerProcedure(db, OpenAI.class);
-        
     }
 
     @Test
