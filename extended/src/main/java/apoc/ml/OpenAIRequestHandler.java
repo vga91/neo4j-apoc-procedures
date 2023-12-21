@@ -67,7 +67,7 @@ abstract class OpenAIRequestHandler {
         }
     }
     
-    private static class HuggingFace extends OpenLM {
+    private static class HuggingFace extends OpenAi {
         public HuggingFace() {
             super(null);
         }
@@ -84,12 +84,6 @@ abstract class OpenAIRequestHandler {
         @Override
         public String getJsonPath(String jsonPath) {
             return "$[0]";
-        }
-    }
-
-    private static class OpenLM extends OpenAi {
-        public OpenLM(String defaultUrl) {
-            super(defaultUrl);
         }
 
         @Override
