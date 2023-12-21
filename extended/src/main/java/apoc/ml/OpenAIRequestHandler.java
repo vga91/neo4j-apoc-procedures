@@ -33,14 +33,24 @@ abstract class OpenAIRequestHandler {
     }
 
     public String getFullUrl(String method, Map<String, Object> procConfig, ApocConfig apocConfig) {
-        return Stream.of(getEndpoint(procConfig, apocConfig), /*method, */getApiVersion(procConfig, apocConfig))
+        return Stream.of(getEndpoint(procConfig, apocConfig), method, getApiVersion(procConfig, apocConfig))
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.joining("/"));
+    }
+    
+    public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
+        config.putIfAbsent("model", model);
+        config.put(key, inputs);
+    }
+    
+    public String adaptJsonPath(String jsonPath) {
+        return jsonPath;
     }
 
     enum Type {
         AZURE(new Azure(null)),
         LOCALAI(new OpenAi(null)),
+        HUGGING_FACE(new HuggingFace()),
         OPENAI(new OpenAi("https://api.openai.com/v1"));
 
         private final OpenAIRequestHandler handler;
@@ -53,6 +63,22 @@ abstract class OpenAIRequestHandler {
         }
     }
 
+    private static class HuggingFace extends OpenAi {
+        public HuggingFace() {
+            super(null);
+        }
+
+        @Override
+        public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
+//            config.put("inputs", "non so");
+        }
+
+        @Override
+        public String adaptJsonPath(String jsonPath) {
+            return "$[0]";
+        }
+    }
+    
 //    static class LocalAi extends OpenAi {
 //
 //        public LocalAi() {

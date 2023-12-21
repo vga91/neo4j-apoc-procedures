@@ -10,11 +10,15 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.util.Map;
 
+import static apoc.ml.OpenAI.API_TYPE_CONF_KEY;
 import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
 import static apoc.ml.OpenAITestResultUtils.assertChatCompletion;
 import static apoc.ml.OpenAITestResultUtils.assertCompletion;
 import static apoc.util.TestUtil.testCall;
 
+/**
+ * OpenLM allows
+ */
 public class OpenAIOpenLMIT {
 
     private String openaiKey;
@@ -32,6 +36,9 @@ public class OpenAIOpenLMIT {
 
     @Test
     public void getEmbedding() {
+        // https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2
+        
+        // TODO?? -- JsonUtil.loadJson(url, headers, payload, "$", true, List.of(), urlAccessChecker)??
         testCall(db, "CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, $conf)",
                 getParams("thenlper/gte-large"),
                 OpenAITestResultUtils::assertEmbeddings);
@@ -60,6 +67,7 @@ public class OpenAIOpenLMIT {
     private Map<String, Object> getParams(String model) {
         return Map.of("apiKey", openaiKey,
                 "conf", Map.of(ENDPOINT_CONF_KEY, "https://api-inference.huggingface.co/models/gpt2",
+                        API_TYPE_CONF_KEY, OpenAIRequestHandler.Type.HUGGING_FACE.name(),
                         "model", model
                 )
         );

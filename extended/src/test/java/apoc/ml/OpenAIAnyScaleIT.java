@@ -27,8 +27,8 @@ public class OpenAIAnyScaleIT {
 
     @Before
     public void setUp() throws Exception {
-        openaiKey = System.getenv("OPENAI_KEY");
-        Assume.assumeNotNull("No OPENAI_KEY environment configured", openaiKey);
+        openaiKey = System.getenv("OPENAI_ANYSCALE_KEY");
+        Assume.assumeNotNull("No OPENAI_ANYSCALE_KEY environment configured", openaiKey);
         TestUtil.registerProcedure(db, OpenAI.class);
     }
 

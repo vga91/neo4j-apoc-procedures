@@ -8,6 +8,7 @@ import org.junit.Test;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.util.List;
 import java.util.Map;
 
 import static apoc.ml.OpenAI.API_TYPE_CONF_KEY;
@@ -15,14 +16,13 @@ import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
 import static apoc.ml.OpenAITestResultUtils.assertChatCompletion;
 import static apoc.ml.OpenAITestResultUtils.assertCompletion;
 import static apoc.util.TestUtil.testCall;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class OpenAILMMaticIT {
 
     /*
     Follow the instructions TODO
     */
-    
-    private String openaiKey;
 
     private String localAIUrl;
 
@@ -32,7 +32,7 @@ public class OpenAILMMaticIT {
 
     @Before
     public void setUp() throws Exception {
-        localAIUrl = System.getenv("LOCAL_AI_URL");
+        localAIUrl = System.getenv("LLM_MATIC_URL");
         Assume.assumeNotNull("No LOCAL_AI_URL environment configured", localAIUrl);
 //        openaiKey = System.getenv("OPENAI_KEY");
 //        Assume.assumeNotNull("No OPENAI_KEY environment configured", openaiKey);
@@ -43,7 +43,12 @@ public class OpenAILMMaticIT {
     public void getEmbedding() {
         testCall(db, "CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, $conf)",
                 getParams("thenlper/gte-large"),
-                OpenAITestResultUtils::assertEmbeddings);
+                row -> {
+                    assertEquals(0L, row.get("index"));
+                    assertEquals("Some Text", row.get("text"));
+                    var embedding = (List<Double>) row.get("embedding");
+                    assertEquals(5120, embedding.size());
+                });
     }
 
     @Test
