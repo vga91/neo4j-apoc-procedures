@@ -3,6 +3,7 @@ package apoc.ml;
 
 import apoc.ApocConfig;
 import org.apache.commons.lang3.StringUtils;
+import org.neo4j.graphdb.security.URLAccessChecker;
 
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -33,7 +34,7 @@ abstract class OpenAIRequestHandler {
     }
 
     public String getFullUrl(String method, Map<String, Object> procConfig, ApocConfig apocConfig) {
-        return Stream.of(getEndpoint(procConfig, apocConfig), adaptMethod(method), getApiVersion(procConfig, apocConfig))
+        return Stream.of(getEndpoint(procConfig, apocConfig), getMethod(method), getApiVersion(procConfig, apocConfig))
                 .filter(StringUtils::isNotBlank)
                 .collect(Collectors.joining("/"));
     }
@@ -43,18 +44,16 @@ abstract class OpenAIRequestHandler {
         config.put(key, inputs);
     }
     
-    public String adaptJsonPath(String jsonPath) {
-        return jsonPath;
+    public String getMethod(String method) {
+        return method;
     }
     
-    public String adaptMethod(String method) {
-        return method;
+    public String getJsonPath(String jsonPath) {
+        return jsonPath;
     }
 
     enum Type {
         AZURE(new Azure(null)),
-        LOCALAI(new OpenAi(null)),
-        COHERE(new Cohere()),
         HUGGINGFACE(new HuggingFace()),
         OPENAI(new OpenAi("https://api.openai.com/v1"));
 
@@ -67,32 +66,24 @@ abstract class OpenAIRequestHandler {
             return handler;
         }
     }
-
-    private static class Cohere extends OpenLM {
-        public Cohere() {
-            super(null);
-            // todo
-//            super("defaultUrl TODO");
-        }
-
-//        @Override
-//        public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
-////            config.put("inputs", "non so"); TODO
-//        }
-    }
     
     private static class HuggingFace extends OpenLM {
         public HuggingFace() {
             super(null);
-//            super("https://api-inference.huggingface.co/models");
         }
 
         @Override
         public void addBodyEntries(String key, Object inputs, String model, Map<String, Object> config) {
-//            Object inputsValue = config.remove("inputs");
             config.putIfAbsent("inputs", inputs);
+        }
 
-//            config.put("inputs", "non so");
+        /**
+         * Otherwise the {@link OpenAI#executeRequest(String, Map, String, String, String, Object, String, ApocConfig, URLAccessChecker)}
+         * returns a List, and therefore a ClassCastException, since a map should return 
+         */
+        @Override
+        public String getJsonPath(String jsonPath) {
+            return "$[0]";
         }
     }
 
@@ -100,25 +91,12 @@ abstract class OpenAIRequestHandler {
         public OpenLM(String defaultUrl) {
             super(defaultUrl);
         }
-        
 
         @Override
-        public String adaptJsonPath(String jsonPath) {
-            return "$[0]";
-        }
-
-        @Override
-        public String adaptMethod(String method) {
+        public String getMethod(String method) {
             return "";
         }
     }
-    
-//    static class LocalAi extends OpenAi {
-//
-//        public LocalAi() {
-//            super(n);
-//        }
-//    }
 
     static class Azure extends OpenAIRequestHandler {
 

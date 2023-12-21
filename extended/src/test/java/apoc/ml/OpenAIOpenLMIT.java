@@ -16,14 +16,18 @@ import static apoc.ml.OpenAI.API_TYPE_CONF_KEY;
 import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
 import static apoc.ml.OpenAI.MODEL_CONF_KEY;
 import static apoc.ml.OpenAI.PATH_CONF_KEY;
+import static apoc.ml.OpenAITestResultUtils.*;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * OpenLM allows
+ * OpenLM-like tests for Cohere and HuggingFace, see here: https://github.com/r2d4/openlm
  * 
- * It works only for `\completion` API
+ * NB: It works only for `Completion` API, as described in the GitHub README.md
+ * ```
+ *      OpenLM currently supports the Completion endpoint, but over time will support more standardized endpoints that make sense.
+ * ```
  */
 public class OpenAIOpenLMIT {
     
@@ -33,20 +37,12 @@ public class OpenAIOpenLMIT {
 
     @Before
     public void setUp() throws Exception {
-
         TestUtil.registerProcedure(db, OpenAI.class);
     }
 
-//    @Test
-//    public void getEmbedding() {
-//        // https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2
-//        
-//        // TODO?? -- JsonUtil.loadJson(url, headers, payload, "$", true, List.of(), urlAccessChecker)??
-//        testCall(db, "CALL apoc.ml.openai.embedding(['Some Text'], $apiKey, $conf)",
-//                getParams("thenlper/gte-large"),
-//                OpenAITestResultUtils::assertEmbeddings);
-//    }
-
+    /**
+     * Request converter similar to: https://github.com/r2d4/openlm/blob/main/openlm/llm/huggingface.py
+     */
     @Test
     public void completionWithHuggingFace() {
         String huggingFaceApiKey = System.getenv("HF_API_TOKEN");
@@ -54,13 +50,11 @@ public class OpenAIOpenLMIT {
         
         String modelId = "gpt2";
         Map<String, String> conf = Map.of(ENDPOINT_CONF_KEY, "https://api-inference.huggingface.co/models/" + modelId,
-                API_TYPE_CONF_KEY, OpenAIRequestHandler.Type.HUGGINGFACE.name()
-                ,
-                "model", modelId
+                API_TYPE_CONF_KEY, OpenAIRequestHandler.Type.HUGGINGFACE.name(),
+                MODEL_CONF_KEY, modelId
         );
-        testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey, $conf)",
+        testCall(db, COMPLETION_QUERY,
                 Map.of("conf", conf, "apiKey", huggingFaceApiKey),
-//                getParams("Meta-Llama/Llama-Guard-7b"),
                 (row) -> {
                     var result = (Map<String,Object>) row.get("value");
                     String generatedText = (String) result.get("generated_text");
@@ -69,6 +63,9 @@ public class OpenAIOpenLMIT {
                 });
     }
 
+    /**
+     * Request converter similar to: https://github.com/r2d4/openlm/blob/main/openlm/llm/cohere.py
+     */
     @Test
     public void completionWithCohere() {
         String cohereApiKey = System.getenv("COHERE_API_TOKEN");
@@ -77,12 +74,10 @@ public class OpenAIOpenLMIT {
         String modelId = "command";
         Map<String, String> conf = Map.of(ENDPOINT_CONF_KEY, "https://api.cohere.ai/v1/generate",
                 PATH_CONF_KEY, "",
-//                API_TYPE_CONF_KEY, OpenAIRequestHandler.Type.COHERE.name(),
-                // API_TYPE_CONF_KEY, OpenAIRequestHandler.Type.COHERE.name()
                 MODEL_CONF_KEY, modelId
         );
         
-        testCall(db, "CALL apoc.ml.openai.completion('What color is the sky? Answer in one word: ', $apiKey, $conf)",
+        testCall(db, COMPLETION_QUERY,
                 Map.of("conf", conf, "apiKey", cohereApiKey),
                 (row) -> {
                     var result = (Map<String,Object>) row.get("value");
@@ -96,27 +91,5 @@ public class OpenAIOpenLMIT {
                     assertTrue(result.get("id") instanceof String);
                     assertTrue(result.get("prompt") instanceof String);
                 });
-    }
-
-//    @Test
-//    public void chatCompletion() {
-//        testCall(db, """
-//                        CALL apoc.ml.openai.chat([
-//                                    {
-//                                    	inputs: "non so"
-//                                    }
-//                        ],  $apiKey, $conf)
-//                        """, 
-//                getParams("meta-llama/Llama-2-70b-chat-hf"),
-//                (row) -> assertChatCompletion(row, "gpt2"));
-//    }
-
-    private Map<String, Object> getParams(String model) {
-        return Map.of(//"apiKey", openaiKey,
-                "conf", Map.of(//ENDPOINT_CONF_KEY, "https://api-inference.huggingface.co/models/gpt2",
-                        API_TYPE_CONF_KEY, OpenAIRequestHandler.Type.HUGGINGFACE.name(),
-                        "model", model
-                )
-        );
     }
 }
