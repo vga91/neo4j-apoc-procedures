@@ -28,10 +28,10 @@ import static apoc.util.ExtendedTestUtil.testRetryCallEventually;
 import static apoc.util.MapUtil.map;
 import static apoc.util.SystemDbTestUtil.TIMEOUT;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 // Test cases taken and adapted from CypherProceduresStorageTest, with non-deprecated procedures
 public class CustomNewProcedureStorageTest {
@@ -366,14 +366,14 @@ public class CustomNewProcedureStorageTest {
         sysDb.executeTransactionally("call apoc.custom.installFunction('sumFun2(input1::INT, input2::INT) :: INT',$query)",
                 map("query", QUERY_CREATE));
     }
-
+    
     private void functionAssertions() {
         testResultEventually(db, "SHOW FUNCTIONS YIELD signature, name WHERE name STARTS WITH 'custom.sumFun' RETURN DISTINCT name, signature ORDER BY name",
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertEquals("custom.sumFun1(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    assertEquals("custom.sumFun1(input1 = null :: INTEGER, input2 = null :: INTEGER) :: INTEGER", row.get("signature"));
                     row = r.next();
-                    assertEquals("custom.sumFun2(input1 :: INTEGER?, input2 :: INTEGER?) :: (INTEGER?)", row.get("signature"));
+                    assertEquals("custom.sumFun2(input1 :: INTEGER, input2 :: INTEGER) :: INTEGER", row.get("signature"));
                     assertFalse(r.hasNext());
                 });
         testResultEventually(sysDb, "call apoc.custom.show() YIELD name RETURN name ORDER BY name",
@@ -388,7 +388,6 @@ public class CustomNewProcedureStorageTest {
         } catch (RuntimeException e) {
             assertTrue(e.getMessage().contains("Function call does not provide the required number of arguments: expected 2 got 0"));
         }
-
     }
 
     private void proceduresCreation() {
@@ -403,9 +402,9 @@ public class CustomNewProcedureStorageTest {
         testResultEventually(db, "SHOW PROCEDURES YIELD signature, name WHERE name STARTS WITH 'custom.sum' RETURN DISTINCT name, signature ORDER BY name",
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertEquals("custom.sum1(input1 = null :: INTEGER?, input2 = null :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    assertEquals("custom.sum1(input1 = null :: INTEGER, input2 = null :: INTEGER) :: (answer :: INTEGER)", row.get("signature"));
                     row = r.next();
-                    assertEquals("custom.sum2(input1 :: INTEGER?, input2 :: INTEGER?) :: (answer :: INTEGER?)", row.get("signature"));
+                    assertEquals("custom.sum2(input1 :: INTEGER, input2 :: INTEGER) :: (answer :: INTEGER)", row.get("signature"));
                     assertFalse(r.hasNext());
                 });
         testResultEventually(sysDb, "call apoc.custom.show() YIELD name RETURN name ORDER BY name",

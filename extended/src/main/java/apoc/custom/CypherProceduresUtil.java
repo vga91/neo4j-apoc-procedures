@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static apoc.custom.CypherProceduresHandler.PREFIX;
+import static apoc.custom.Signatures.NUMBER_TYPE;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.*;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTDuration;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTGeometry;
@@ -27,6 +28,7 @@ import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTPoint;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTString;
 
 public class CypherProceduresUtil {
+    public static final String MAP_RESULT_TYPE = "MAPRESULT";
 
     public static QualifiedName qualifiedName(@Name("name") String name) {
         String[] names = name.split("\\.");
@@ -126,43 +128,33 @@ public class CypherProceduresUtil {
         typeName = typeName.toUpperCase();
         if (typeName.startsWith("LIST OF ")) return NTList(typeof(typeName.substring(8)));
         if (typeName.startsWith("LIST ")) return NTList(typeof(typeName.substring(5)));
-        switch (typeName) {
-            case "ANY":
-                return NTAny;
-            case "MAP":
-                return NTMap;
-            case "NODE":
-                return NTNode;
-            case "REL", "RELATIONSHIP", "EDGE":
-                return NTRelationship;
-            case "PATH":
-                return NTPath;
-            case "NUMBER":
-                return NTNumber;
-            case "LONG", "INT", "INTEGER":
-                return NTInteger;
-            case "FLOAT", "DOUBLE":
-                return NTFloat;
-            case "BOOL", "BOOLEAN":
-                return NTBoolean;
-            case "DATE":
-                return NTDate;
-            case "TIME":
-                return NTTime;
-            case "LOCALTIME":
-                return NTLocalTime;
-            case "DATETIME":
-                return NTDateTime;
-            case "LOCALDATETIME":
-                return NTLocalDateTime;
-            case "DURATION":
-                return NTDuration;
-            case "POINT":
-                return NTPoint;
-            case "GEO", "GEOMETRY":
-                return NTGeometry;
-            default:
-                return NTString;
+        if (typeName.startsWith("LIST<") && typeName.endsWith(">")) {
+            AnyType typeof = typeof(typeName.substring(5, typeName.length() - 1));
+            return NTList(typeof);
         }
+        return getBaseType(typeName);
+    }
+
+    public static AnyType getBaseType(String typeName) {
+        return switch (typeName) {
+            case "ANY" -> NTAny;
+            case "MAP", MAP_RESULT_TYPE -> NTMap;
+            case "NODE" -> NTNode;
+            case "REL", "RELATIONSHIP", "EDGE" -> NTRelationship;
+            case "PATH" -> NTPath;
+            case "NUMBER", NUMBER_TYPE -> NTNumber;
+            case "LONG", "INT", "INTEGER" -> NTInteger;
+            case "FLOAT", "DOUBLE" -> NTFloat;
+            case "BOOL", "BOOLEAN" -> NTBoolean;
+            case "DATE" -> NTDate;
+            case "TIME", "ZONED TIME" -> NTTime;
+            case "LOCALTIME", "LOCAL TIME" -> NTLocalTime;
+            case "DATETIME", "ZONED DATETIME" -> NTDateTime;
+            case "LOCALDATETIME", "LOCAL DATETIME" -> NTLocalDateTime;
+            case "DURATION" -> NTDuration;
+            case "POINT" -> NTPoint;
+            case "GEO", "GEOMETRY" -> NTGeometry;
+            default -> NTString;
+        };
     }
 }

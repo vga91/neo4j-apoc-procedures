@@ -104,8 +104,192 @@ public class CypherNewProceduresTest {
         } catch (QueryExecutionException e) {
             String message = e.getMessage();
             assertTrue("Actual err. message is: " + message,
-                    message.contains("Note that procedure/function name, input and output names must have at least 2 character"));
+                    message.contains("Note that procedure/function name, possible map keys, input and output names must have at least 2 character"));
         }
+    }
+
+    @Test
+    public void shouldInstallProcedureWithDefaultListAndMaps() {
+        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithFloatList(minScore = [1.1,2.2,3.3] :: LIST OF FLOAT) :: (res :: BOOLEAN, first :: FLOAT)',\n" +
+                                  "    'return size($minScore) < 4 as res, $minScore[0] as first')");
+        testCallEventually("call custom.procWithFloatList", (row) -> {
+            assertEquals(true, row.get("res"));
+            assertEquals(1.1D, (double) row.get("first"), 0.1D);
+        });
+        testCallEventually( "call custom.procWithFloatList([9.1, 2.6, 3.1, 4.3, 5.5])", (row) -> {
+            assertEquals(false, row.get("res"));
+            assertEquals(9.1D, (double) row.get("first"), 0.1D);
+        });
+
+        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithIntList(minScore = [1,2,3] :: LIST OF INT) :: (res :: BOOLEAN, first :: FLOAT)',\n" +
+                                  "    'return size($minScore) < 4 as res, toInteger($minScore[0]) as first')");
+        testCallEventually( "call custom.procWithIntList", (row) -> {
+            assertEquals(true, row.get("res"));
+            assertEquals(1L, row.get("first"));
+        });
+        testCallEventually("call custom.procWithIntList([9,2,3,4,5])", (row) -> {
+            assertEquals(false, row.get("res"));
+            assertEquals(9L, row.get("first"));
+        });
+
+        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithListString(minScore = [\"1\",\"2\",\"3\"] :: LIST OF STRING) :: (res :: BOOLEAN, first :: FLOAT)',\n" +
+                                  "    'return size($minScore) < 4 as res, $minScore[0] + \" - suffix\" as first ')");
+        testCallEventually("call custom.procWithListString", (row) -> {
+            assertEquals(true, row.get("res"));
+            assertEquals("1 - suffix", row.get("first"));
+        });
+        testCallEventually("call custom.procWithListString(['aaa','bbb','ccc','ddd','eee'])", (row) -> {
+            assertEquals(false, row.get("res"));
+            assertEquals("aaa - suffix", row.get("first"));
+        });
+
+        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithListPlainString(minScore = [1, 2, 3] :: LIST OF STRING) :: (res :: BOOLEAN, first :: FLOAT)',\n" +
+                                  "    'return size($minScore) < 4 as res, $minScore[0] + \" - suffix\" as first ')");
+        testCallEventually( "call custom.procWithListPlainString", (row) -> {
+            assertEquals(true, row.get("res"));
+            assertEquals("1 - suffix", row.get("first"));
+        });
+        testCallEventually("call custom.procWithListPlainString(['aaa','bbb','ccc','ddd','eee'])", (row) -> {
+            assertEquals(false, row.get("res"));
+            assertEquals("aaa - suffix", row.get("first"));
+        });
+
+        sysDb.executeTransactionally("call apoc.custom.installProcedure(\"procWithListStringQuoted(minScore = ['1','2','3'] :: LIST OF STRING) :: (res :: BOOLEAN, first :: FLOAT)\",\n" +
+                                  "    'return size($minScore) < 4 as res, $minScore[0] + \" - suffix\" as first ')");
+        testCallEventually("call custom.procWithListStringQuoted", (row) -> {
+            assertEquals(true, row.get("res"));
+            assertEquals("1 - suffix", row.get("first"));
+        });
+        testCallEventually("call custom.procWithListStringQuoted(['aaa','bbb','ccc','ddd','eee'])", (row) -> {
+            assertEquals(false, row.get("res"));
+            assertEquals("aaa - suffix", row.get("first"));
+        });
+
+        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithListStringVars(minScore = [true,false,null] :: LIST OF STRING) :: (res :: BOOLEAN, first :: STRING)',\n" +
+                                  "    'return size($minScore) < 4 as res, $minScore[0] as first ')");
+        testCallEventually("call custom.procWithListStringVars", (row) -> {
+            assertEquals(true, row.get("res"));
+            assertEquals("true", row.get("first"));
+        });
+        testCallEventually("call custom.procWithListStringVars(['aaa','bbb','ccc','ddd','eee'])", (row) -> {
+            assertEquals(false, row.get("res"));
+            assertEquals("aaa", row.get("first"));
+        });
+
+        sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithMapList(minScore = {aa: 1, bb: \"2\"} :: MAP) :: (res :: MAP, first :: ANY)',\n" +
+                                  "    'return $minScore as res, $minScore[\"a\"] as first ')");
+        testCallEventually("call custom.procWithMapList", (row) -> {
+            assertEquals(Map.of("aa", 1L, "bb", "2"), row.get("res"));
+        });
+        testCallEventually("call custom.procWithMapList({c: true})", (row) -> {
+            assertEquals(Map.of("c", true), row.get("res"));
+        });
+    }
+
+    @Test
+    public void shouldInstallFunctionWithDefaultListAndMaps() {
+        sysDb.executeTransactionally("call apoc.custom.installFunction('funWithFloatList(minScore = [1.1,2.2,3.3] :: LIST OF FLOAT) :: FLOAT',\n" +
+                                  "    'return $minScore[0]')");
+        testCallEventually( "RETURN custom.funWithFloatList() AS res",
+                (row) -> assertEquals(1.1D, (double) row.get("res"), 0.1D));
+        testCallEventually( "RETURN custom.funWithFloatList([9.1, 2.6, 3.1, 4.3, 5.5]) AS res",
+                (row) -> assertEquals(9.1D, (double) row.get("res"), 0.1D));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithIntList(minScore = [1,2,3] :: LIST OF INT) :: BOOLEAN',\n" +
+                                  "    'return size($minScore) < 4')");
+        testCallEventually("RETURN custom.funWithIntList() AS res",
+                (row) -> assertEquals(true, row.get("res")));
+        testCallEventually("RETURN custom.funWithIntList([9,2,3,4,5]) AS res",
+                (row) -> assertEquals(false, row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithListString(minScore = [\"1\",\"2\",\"3\"] :: LIST OF STRING) :: BOOLEAN',\n" +
+                                  "    'return size($minScore) < 4')");
+        testCallEventually("RETURN custom.funWithListString() AS res",
+                (row) -> assertEquals(true, row.get("res")));
+        testCallEventually("RETURN custom.funWithListString(['aaa','bbb','ccc','ddd','eee']) AS res",
+                (row) -> assertEquals(false, row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithListStringPlain(minScore = [1, 2, 3] :: LIST OF STRING) :: BOOLEAN',\n" +
+                                  "    'return size($minScore) < 4')");
+        testCallEventually("RETURN custom.funWithListStringPlain() AS res",
+                (row) -> assertEquals(true, row.get("res")));
+        testCallEventually( "RETURN custom.funWithListStringPlain(['aaa','bbb','ccc','ddd','eee']) AS res",
+                (row) -> assertEquals(false, row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction(\"funWithListStringQuoted(minScore = ['1','2','3'] :: LIST OF STRING) :: BOOLEAN\",\n" +
+                                  "    'return size($minScore) < 4')");
+        testCallEventually( "RETURN custom.funWithListStringQuoted() AS res",
+                (row) -> assertEquals(true, row.get("res")));
+        testCallEventually( "RETURN custom.funWithListStringQuoted(['aaa','bbb','ccc','ddd','eee']) AS res",
+                (row) -> assertEquals(false, row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithListStringVars(minScore = [true,false,null] :: LIST OF STRING) :: BOOLEAN',\n" +
+                                  "    'return size($minScore) < 4')");
+        testCallEventually("RETURN custom.funWithListStringVars() AS res",
+                (row) -> assertEquals(true, row.get("res")));
+        testCallEventually("RETURN custom.funWithListStringVars(['aaa','bbb','ccc','ddd','eee']) AS res",
+                (row) -> assertEquals(false, row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithMapList(minScore = {aa: 1, bb: \"2\"} :: MAP) :: MAP',\n" +
+                                  "    'return $minScore AS mapRes')");
+        testCallEventually("RETURN custom.funWithMapList() AS res",
+                (row) -> assertEquals(Map.of("mapRes", Map.of("aa", 1L, "bb", "2")), row.get("res")));
+        testCallEventually("RETURN custom.funWithMapList({c: true}) AS res",
+                (row) -> assertEquals(Map.of("mapRes", Map.of("c", true)), row.get("res")));
+    }
+
+    @Test
+    public void shouldInstallProcedureWithDefaultString() {
+        String query = "RETURN $minScore + ' - suffix' as res";
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure(\"procWithSingleQuotedText(minScore=' foo \\\" bar '::STRING)::(res::STRING)\", $query)",
+                Map.of("query", query));
+        testCallEventually("CALL custom.procWithSingleQuotedText", (row) -> {
+            assertEquals(" foo \" bar  - suffix", row.get("res"));
+        });
+
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('procWithDoubleQuotedText(minScore=\" foo \\' bar \"::STRING) :: (res::STRING)', $query)",
+                Map.of("query", query));
+        testCallEventually("CALL custom.procWithDoubleQuotedText", (row) -> {
+            assertEquals(" foo ' bar  - suffix", row.get("res"));
+        });
+        testCallEventually("CALL custom.procWithDoubleQuotedText('myText')", (row) -> assertEquals("myText - suffix", row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('procWithPlainText(minScore = plainText :: STRING) :: (res::STRING)', $query)",
+                Map.of("query", query));
+        testCallEventually("CALL custom.procWithPlainText", (row) -> assertEquals("plainText - suffix", row.get("res")));
+        testCallEventually("CALL custom.procWithPlainText('myText')", (row) -> assertEquals("myText - suffix", row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('procWithStringNull(minScore = null :: STRING) :: (res :: STRING)', $query)",
+                Map.of("query", query));
+        testCallEventually("CALL custom.procWithStringNull", (row) -> assertNull(row.get("res")));
+        testCallEventually("CALL custom.procWithStringNull('other')", (row) -> assertEquals("other - suffix", row.get("res")));
+    }
+
+    @Test
+    public void shouldInstallFunctionWithDefaultString() {
+        String query = "RETURN $minScore + ' - suffix' as res";
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction(\"funWithSingleQuotedText(minScore=' foo \\\" bar '::STRING):: STRING\", $query)",
+                Map.of("query", query));
+        testCallEventually("RETURN custom.funWithSingleQuotedText() AS res", (row) -> {
+            assertEquals(" foo \" bar  - suffix", row.get("res"));
+        });
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithDoubleQuotedText(minScore=\" foo \\' bar \"::STRING) :: STRING', $query)",
+                Map.of("query", query));
+        testCallEventually("RETURN custom.funWithDoubleQuotedText() AS res", (row) -> {
+            assertEquals(" foo ' bar  - suffix", row.get("res"));
+        });
+        testCallEventually("RETURN custom.funWithDoubleQuotedText('myText') AS res", (row) -> assertEquals("myText - suffix", row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithPlainText(minScore = plainText :: STRING) :: STRING', $query)",
+                Map.of("query", query));
+        testCallEventually("RETURN custom.funWithPlainText() AS res", (row) -> assertEquals("plainText - suffix", row.get("res")));
+        testCallEventually("RETURN custom.funWithPlainText('myText') AS res", (row) -> assertEquals("myText - suffix", row.get("res")));
+
+        sysDb.executeTransactionally("CALL apoc.custom.installFunction('funWithStringNull(minScore = null :: STRING) :: STRING', $query)",
+                Map.of("query", query));
+        testCallEventually("RETURN custom.funWithStringNull() AS res", (row) -> assertNull(row.get("res")));
+        testCallEventually("RETURN custom.funWithStringNull('other') AS res", (row) -> assertEquals("other - suffix", row.get("res")));
     }
 
     @Test
@@ -188,7 +372,7 @@ public class CypherNewProceduresTest {
     }
 
     @Test
-    public void  testDeclareFunctionReturnTypes() {
+    public void  testinstallFunctionReturnTypes() {
         // given
         db.executeTransactionally("UNWIND range(1, 4) as val CREATE (i:Target {value: val});");
 
@@ -232,47 +416,10 @@ public class CypherNewProceduresTest {
     }
 
     @Test
-    public void registerSimpleStatementFunctionWithOneChar() throws Exception {
+    public void registerSimpleStatementFunctionWithOneChar() {
         final String procedureSignature = "b() :: STRING";
         assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, procedureSignature),
                 "CALL apoc.custom.installFunction('" + procedureSignature + "','RETURN 42 as answer')");
-    }
-
-    @Test
-    public void testAllParameterTypesFunction() throws Exception {
-        sysDb.executeTransactionally("call apoc.custom.asFunction('answer','RETURN [$int,$float,$string,$map,$`list int`,$bool,$date,$datetime,$point] as data','list of any'," +
-                "[['int','int'],['float','float'],['string','string'],['map','map'],['list int','list int'],['bool','bool'],['date','date'],['datetime','datetime'],['point','point']], true)");
-        testCall(db, "return custom.answer(42,3.14,'foo',{a:1},[1],true,date(),datetime(),point({x:1,y:2})) as data", (row) -> assertEquals(9, ((List)row.get("data")).size()));
-    }
-
-    @Test
-    public void shouldRegisterSimpleStatementWithDescription() {
-        // given
-        sysDb.executeTransactionally("CALL apoc.custom.installProcedure('answer() :: (answer :: STRING)','RETURN 42 as answer', 'neo4j', 'read', 'Answer to the Ultimate Question of Life, the Universe, and Everything')");
-
-        // when
-        testCall(db, "call custom.answer()", (row) -> assertEquals(42L, row.get("answer")));
-
-        // then
-        testCall(db, "call apoc.custom.list()", row -> {
-            assertEquals("Answer to the Ultimate Question of Life, the Universe, and Everything", row.get("description"));
-            assertEquals("procedure", row.get("type"));
-        });
-    }
-
-    @Test
-    public void shouldRegisterSimpleStatementFunctionDescription() {
-        // given
-        sysDb.executeTransactionally("CALL apoc.custom.installFunction('answer() :: STRING','RETURN 42 as answer', 'neo4j', 'read', 'Answer to the Ultimate Question of Life, the Universe, and Everything')");
-
-        // when
-        testCallEventually("return custom.answer() as row", (row) -> assertEquals(42L, row.get("answer")));
-
-        // then
-        testCall(db, "call apoc.custom.list()", row -> {
-            assertEquals("Answer to the Ultimate Question of Life, the Universe, and Everything", row.get("description"));
-            assertEquals("function", row.get("type"));
-        });
     }
 
     @Test
@@ -526,7 +673,7 @@ public class CypherNewProceduresTest {
     }
 
     @Test
-    public void shouldDeclareProcedureWithDefaultBooleanOrNull() {
+    public void shouldinstallProcedureWithDefaultBooleanOrNull() {
         sysDb.executeTransactionally("call apoc.custom.installProcedure('procWithBool(minScore = true :: BOOLEAN) :: (res :: INT)',\n" +
                 "    'RETURN case when $minScore then 1 else 2 end as res')");
 
@@ -542,7 +689,7 @@ public class CypherNewProceduresTest {
     }
 
     @Test
-    public void shouldDeclareFunctionWithDefaultBooleanOrNull() {
+    public void shouldinstallFunctionWithDefaultBooleanOrNull() {
         sysDb.executeTransactionally("call apoc.custom.installFunction('funWithBool(minScore = true :: BOOLEAN) :: INT',\n" +
                 "'RETURN case when $minScore then 1 else 2 end as res')");
         testCallEventually("RETURN custom.funWithBool() AS res", (row) -> assertEquals(1L, row.get("res")));
@@ -556,7 +703,7 @@ public class CypherNewProceduresTest {
     }
 
     @Test
-    public void shouldFailDeclareFunctionWithDefaultNumberParameters() {
+    public void shouldFailinstallFunctionWithDefaultNumberParameters() {
         final String query = "RETURN $base * $exp AS res";
         sysDb.executeTransactionally("CALL apoc.custom.installFunction('defaultFloatFun(base=2.4::FLOAT,exp=1.2::FLOAT):: INT', $query)",
                 Map.of("query", query));
@@ -584,7 +731,7 @@ public class CypherNewProceduresTest {
     }
 
     @Test
-    public void shouldFailDeclareProcedureWithDefaultNumberParameters() {
+    public void shouldFailinstallProcedureWithDefaultNumberParameters() {
         final String query = "RETURN $base * $exp AS res";
         sysDb.executeTransactionally("CALL apoc.custom.installProcedure('defaultFloatProc(base=2.4::FLOAT,exp=1.2::FLOAT)::(res::INT)', $query)",
                 Map.of("query", query));
@@ -616,7 +763,7 @@ public class CypherNewProceduresTest {
     }
 
     @Test
-    public void shouldFailDeclareFunctionAndProcedureWithInvalidParameterTypes() {
+    public void shouldFailinstallFunctionAndProcedureWithInvalidParameterTypes() {
         final String procedureStatementInvalidInput = "sum(input:: INVALID) :: (answer::INT)";
         assertProcedureFails(sysDb, String.format(SIGNATURE_SYNTAX_ERROR, procedureStatementInvalidInput),
                 "call apoc.custom.installProcedure('" + procedureStatementInvalidInput + "','RETURN $input AS input')");

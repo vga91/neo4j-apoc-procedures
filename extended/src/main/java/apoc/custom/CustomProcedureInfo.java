@@ -16,8 +16,6 @@ import static apoc.custom.CypherProceduresUtil.getProcedureInfo;
 import static apoc.custom.CypherProceduresHandler.FUNCTION;
 import static apoc.custom.CypherProceduresHandler.PREFIX;
 import static apoc.custom.CypherProceduresHandler.PROCEDURE;
-import static apoc.custom.CypherProceduresUtil.getFunctionInfo;
-import static apoc.custom.CypherProceduresUtil.getProcedureInfo;
 
 public class CustomProcedureInfo {
     public String type;

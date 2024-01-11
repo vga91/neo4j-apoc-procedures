@@ -32,7 +32,6 @@ import org.neo4j.kernel.impl.util.ValueUtils;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.kernel.lifecycle.LifecycleAdapter;
 import org.neo4j.logging.Log;
-import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.impl.ProcedureHolderUtils;
 import org.neo4j.scheduler.Group;
@@ -58,36 +57,12 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
-import static apoc.custom.Signatures.NUMBER_TYPE;
-import static apoc.util.MapUtil.map;
-import static apoc.custom.CustomHandler.getProcedureSignature;
-import static apoc.custom.CustomHandler.getUserFunctionSignature;
-import static apoc.custom.CypherHandlerNewProcedure.getProcedureSignature;
-import static apoc.custom.CypherHandlerNewProcedure.getUserFunctionSignature;
-import static apoc.custom.CypherHandlerNewProcedure.qualifiedName;
 import static apoc.custom.CypherProceduresUtil.*;
 import static apoc.custom.CypherHandlerNewProcedure.serializeSignatures;
 import static java.util.Collections.singletonList;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.AnyType;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTAny;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTBoolean;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTDate;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTDateTime;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTDuration;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTFloat;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTGeometry;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTInteger;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTList;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTLocalDateTime;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTLocalTime;
 import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTMap;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTNode;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTNumber;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTPath;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTPoint;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTRelationship;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTString;
-import static org.neo4j.internal.kernel.api.procs.Neo4jTypes.NTTime;
 
 public class CypherProceduresHandler extends LifecycleAdapter implements AvailabilityListener {
     public static final String PREFIX = "custom";
@@ -165,9 +140,10 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
     private UserFunctionDescriptor userFunctionDescriptor(Node node) {
         String statement = (String) node.getProperty(SystemPropertyKeys.statement.name());
         boolean forceSingle = (boolean) node.getProperty(ExtendedSystemPropertyKeys.forceSingle.name(), false);
+        boolean mapResult = (boolean) node.getProperty(ExtendedSystemPropertyKeys.mapResult.name(), false);
 
         UserFunctionSignature signature = getUserFunctionSignature(node);
-        return new UserFunctionDescriptor(signature, statement, forceSingle);
+        return new UserFunctionDescriptor(signature, statement, forceSingle, mapResult);
     }
 
     public synchronized void restoreProceduresAndFunctions() {
@@ -393,146 +369,6 @@ public class CypherProceduresHandler extends LifecycleAdapter implements Availab
         namespace.add(PREFIX);
         namespace.addAll(Arrays.asList(names));
         return new QualifiedName(namespace.subList(0, namespace.size() - 1), names[names.length - 1]);
-    }
-
-    public List<FieldSignature> inputSignatures(@Name(value = "inputs", defaultValue = "null") List<List<String>> inputs) {
-        List<FieldSignature> inputSignature = inputs == null ? singletonList(FieldSignature.inputField("params", NTMap, DefaultParameterValue.ntMap(Collections.emptyMap()))) :
-                inputs.stream().map(pair -> {
-                    DefaultParameterValue defaultValue = defaultValue(pair.get(1), pair.size() > 2 ? pair.get(2) : null);
-                    return defaultValue == null ?
-                            FieldSignature.inputField(pair.get(0), typeof(pair.get(1))) :
-                            FieldSignature.inputField(pair.get(0), typeof(pair.get(1)), defaultValue);
-                }).collect(Collectors.toList());
-        return inputSignature;
-    }
-
-    public List<FieldSignature> outputSignatures(@Name(value = "outputs", defaultValue = "null") List<List<String>> outputs) {
-        return outputs == null ? singletonList(FieldSignature.inputField("row", NTMap)) :
-                outputs.stream().map(pair -> FieldSignature.outputField(pair.get(0), typeof(pair.get(1)))).collect(Collectors.toList());
-    }
-
-    // todo - move to NewProcs Handler - because is static
-    public static Neo4jTypes.AnyType typeof(String typeName) {
-        typeName = typeName.replaceAll("\\?", "");
-        typeName = typeName.toUpperCase();
-        if (typeName.startsWith("LIST OF ")) return NTList(typeof(typeName.substring(8)));
-        if (typeName.startsWith("LIST ")) return NTList(typeof(typeName.substring(5)));
-        if (typeName.startsWith("LIST<") && typeName.endsWith(">")) {
-            AnyType typeof = typeof(typeName.substring(5, typeName.length() - 1));
-            return NTList(typeof);
-        }
-        switch (typeName) {
-            case "ANY":
-                return NTAny;
-            case "MAP":
-                return NTMap;
-            case "NODE":
-                return NTNode;
-            case "REL":
-                return NTRelationship;
-            case "RELATIONSHIP":
-                return NTRelationship;
-            case "EDGE":
-                return NTRelationship;
-            case "PATH":
-                return NTPath;
-            case "NUMBER":
-            case NUMBER_TYPE:
-                return NTNumber;
-            case "LONG":
-                return NTInteger;
-            case "INT":
-                return NTInteger;
-            case "INTEGER":
-                return NTInteger;
-            case "FLOAT":
-                return NTFloat;
-            case "DOUBLE":
-                return NTFloat;
-            case "BOOL":
-                return NTBoolean;
-            case "BOOLEAN":
-                return NTBoolean;
-            case "DATE":
-                return NTDate;
-            case "TIME":
-            case "ZONED TIME":
-                return NTTime;
-            case "LOCALTIME":
-            case "LOCAL TIME":
-                return NTLocalTime;
-            case "DATETIME":
-            case "ZONED DATETIME":
-                return NTDateTime;
-            case "LOCALDATETIME":
-            case "LOCAL DATETIME":
-                return NTLocalDateTime;
-            case "DURATION":
-                return NTDuration;
-            case "POINT":
-                return NTPoint;
-            case "GEO":
-                return NTGeometry;
-            case "GEOMETRY":
-                return NTGeometry;
-            case "STRING":
-                return NTString;
-            case "TEXT":
-                return NTString;
-            default:
-                return NTString;
-        }
-    }
-
-    private DefaultParameterValue defaultValue(String typeName, String stringValue) {
-        if (stringValue == null) return null;
-        Object value = JsonUtil.parse(stringValue, null, Object.class);
-        if (value == null) return null;
-        typeName = typeName.toUpperCase();
-        if (typeName.startsWith("LIST "))
-            return DefaultParameterValue.ntList((List<?>) value, typeof(typeName.substring(5)));
-        switch (typeName) {
-            case "MAP":
-                return DefaultParameterValue.ntMap((Map<String, Object>) value);
-            case "NODE":
-            case "REL":
-            case "RELATIONSHIP":
-            case "EDGE":
-            case "PATH":
-                return null;
-            case "NUMBER":
-            case NUMBER_TYPE:
-                return value instanceof Float || value instanceof Double ? DefaultParameterValue.ntFloat(((Number) value).doubleValue()) : DefaultParameterValue.ntInteger(((Number) value).longValue());
-            case "LONG":
-            case "INT":
-            case "INTEGER":
-                return DefaultParameterValue.ntInteger(((Number) value).longValue());
-            case "FLOAT":
-            case "DOUBLE":
-                return DefaultParameterValue.ntFloat(((Number) value).doubleValue());
-            case "BOOL":
-            case "BOOLEAN":
-                return DefaultParameterValue.ntBoolean((Boolean) value);
-            case "DATE":
-            case "TIME":
-            case "LOCALTIME":
-            case "DATETIME":
-            case "LOCALDATETIME":
-            case "DURATION":
-            case "ZONED TIME":
-            case "LOCAL TIME":
-            case "ZONED DATETIME":
-            case "LOCAL DATETIME":
-            case "POINT":
-            case "GEO":
-            case "GEOMETRY":
-                return null;
-            case "STRING":
-            case "TEXT":
-                return DefaultParameterValue.ntString(value.toString());
-            default:
-                return null;
-        }
     }
 
     private AnyValue[] toResult(Map<String, Object> row, String[] names, boolean defaultOutputs) {
