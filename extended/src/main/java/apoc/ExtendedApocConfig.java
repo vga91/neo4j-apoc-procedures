@@ -33,6 +33,8 @@ public class ExtendedApocConfig extends LifecycleAdapter
     public static final String APOC_ML_OPENAI_URL = "apoc.ml.openai.url";
     public static final String APOC_ML_OPENAI_TYPE = "apoc.ml.openai.type";
     public static final String APOC_ML_OPENAI_AZURE_VERSION = "apoc.ml.azure.api.version";
+    public static final String APOC_WATSON_KEY = "apoc.watson.key";
+    public static final String APOC_WATSON_PROJECT_ID = "apoc.watson.project.id";
     public static final String APOC_AWS_KEY_ID = "apoc.aws.key.id";
     public static final String APOC_AWS_SECRET_KEY = "apoc.aws.secret.key";
     public enum UuidFormatType { hex, base64 }
