@@ -60,6 +60,7 @@ apoc.generate.ws
 apoc.gephi.add
 apoc.get.nodes
 apoc.get.rels
+apoc.import.arrow
 apoc.import.parquet
 apoc.load.csv
 apoc.load.csvParams
