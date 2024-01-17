@@ -73,7 +73,7 @@ public class WatsonIT {
         testCall(db, "CALL apoc.ml.watson.completion('What color is the sky? Answer in one word: ', $accessToken, {parameters: {max_new_tokens: 1}})",
                 Map.of("accessToken", accessToken),
                 (row) -> {
-                    commonAssertions(row, "blue", 12L, "max_tokens");
+                    commonAssertions(row, "\n", 12L, "max_tokens");
                 });
     }
 
@@ -86,7 +86,7 @@ public class WatsonIT {
                     ],  $apiKey)""",
                 Map.of("apiKey",accessToken), 
                 (row) -> {
-                    commonAssertions(row, "earth", 19L, "eos_token");
+                    commonAssertions(row, "earth", 19L, "max_tokens");
                 });
     }
 

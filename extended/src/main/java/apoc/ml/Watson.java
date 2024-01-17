@@ -22,7 +22,12 @@ import static apoc.ExtendedApocConfig.APOC_ML_WATSON_PROJECT_ID;
 
 @Extended
 public class Watson {
-    public static final String PROJECT_ID = "project_id";
+    private static final String PROJECT_ID_KEY = "project_id";
+    private static final String SPACE_ID_KEY = "space_id";
+    private static final String WML_INSTANCE_CRN_KEY = "wml_instance_crn";
+    private static final String MODEL_ID_KEY = "model_id";
+    private static final String DEFAULT_MODEL_ID = "ibm/granite-13b-chat-v2";
+
     @Context
     public ApocConfig apocConfig;
 
@@ -35,9 +40,9 @@ public class Watson {
     @Description("apoc.ml.watson.chat(messages, accessToken, $configuration) - prompts the completion API")
     public Stream<MapResult> chatCompletion(@Name("messages") List<Map<String, Object>> messages, @Name("accessToken") String accessToken, @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
         String prompt = messages.stream()
-                .map(i -> {
-                    Object role = i.get("role");
-                    Object content = i.get("content");
+                .map(message -> {
+                    Object role = message.get("role");
+                    Object content = message.get("content");
                     if (role == null || content == null) {
                         throw new RuntimeException("The `messages` items must have the keys: `role` and `content`");
                     }
@@ -58,22 +63,20 @@ public class Watson {
         try {
             // the body request has to contain space_id or project_id or wml_instance_crn,
             // in case is missing we put the project_id from apoc.conf, otherwise we throw an exception
-            String spaceId = "space_id";
-            String wmlInstanceCrn = "wml_instance_crn";
-            if (!configuration.containsKey(PROJECT_ID) && !configuration.containsKey(spaceId) && !configuration.containsKey(wmlInstanceCrn)) {
+            if (!configuration.containsKey(PROJECT_ID_KEY) && !configuration.containsKey(SPACE_ID_KEY) && !configuration.containsKey(WML_INSTANCE_CRN_KEY)) {
                 String apocConfProjectId = apocConfig.getString(APOC_ML_WATSON_PROJECT_ID, null);
                 if (apocConfProjectId == null) {
                     String errMessage = "The body request has none of %s, %s, and %s and the APOC config `%s` is not present.%nPlease, define one of these"
-                                             .formatted(PROJECT_ID, spaceId, wmlInstanceCrn, APOC_ML_WATSON_PROJECT_ID);
+                                             .formatted(PROJECT_ID_KEY, SPACE_ID_KEY, WML_INSTANCE_CRN_KEY, APOC_ML_WATSON_PROJECT_ID);
                     throw new RuntimeException(errMessage);
                 }
-                configuration.put(PROJECT_ID, apocConfProjectId);
+                configuration.put(PROJECT_ID_KEY, apocConfProjectId);
             }
             
             String endpoint = getEndpoint(configuration);
 
             var config = new HashMap<>(configuration);
-            config.putIfAbsent("model_id", "ibm/granite-13b-chat-v2");
+            config.putIfAbsent(MODEL_ID_KEY, DEFAULT_MODEL_ID);
             config.put("input", input);
             
             Map<String, Object> headers = Map.of("Content-Type", "application/json",

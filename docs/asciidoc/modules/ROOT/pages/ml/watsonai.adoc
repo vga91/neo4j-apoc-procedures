@@ -43,8 +43,7 @@ we can create the following configuration map:
 Note that the `model_id` is not mandatory, since has a default value `"ibm/granite-13b-chat-v2"`
 
 Also the `project_id` is not mandatory, if it has been defined via APOC configuration,
-or if alternatively is present in the configuration map an entry with the key `space_id` or `wml_instance_crn`.
-Otherwise, an error will be thrown, since the Watson Request APIs require one of these.
+or if alternatively is present in the configuration map an entry with the key `space_id` or `wml_instance_crn`; otherwise, an error will be thrown, since the Watson Request APIs require one of these.
 
 In addition, we can put in the configuration map, the entry `endpoint: "ENDPOINT_URL`, 
 which define the REST API endpoint, and takes precedence over the `apoc.watson.url` APOC configuration.
