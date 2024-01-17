@@ -9,53 +9,46 @@ import org.neo4j.procedure.UserFunction;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Extended
 public class MapsExtended {
 
     @UserFunction("apoc.map.renameKey")
-    @Description("Adds or updates the given entry in the `MAP`.")
+    @Description("Rename the given key(s) in the `MAP`.")
     public Map<String, Object> renameKey(@Name("map") Map<String, Object> map, 
                                          @Name("keyFrom") String keyFrom,
                                          @Name("keyTo") String keyTo,
                                          @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        return renameKeyRecursively(map, keyFrom, keyTo, config);
-    }
-
-    private Map<String, Object> renameKeyRecursively(Map<String, Object> map, String keyFrom, String keyTo, Map<String, Object> config) {
-
         boolean removeRecursively = Util.toBoolean(config.getOrDefault("recursive", true));
-        HashMap<String, Object> mapToUpdate = new HashMap<>(map);
+        Map<String, Object> mapToUpdate = new HashMap<>(map);
         if (removeRecursively) {
-            extracted(map, keyFrom, keyTo, config, mapToUpdate);
+            return (Map<String, Object>) renameKeyRecursively(map, keyFrom, keyTo);
         }
         if (mapToUpdate.containsKey(keyFrom)) {
-            Object remove = mapToUpdate.remove(keyFrom);
-            mapToUpdate.put(keyTo, remove);
+            Object value = mapToUpdate.remove(keyFrom);
+            mapToUpdate.put(keyTo, value);
         }
         return mapToUpdate;
     }
 
-    private void extracted(Map<String, Object> map, String keyFrom, String keyTo, Map<String, Object> config, HashMap<String, Object> mapToUpdate) {
-        // TODO - change with forEach(k,v -> )
-        map.forEach((key, value) -> {
-            if (value instanceof Map innerMap) {
-                Map map1 = renameKeyRecursively(innerMap, keyFrom, keyTo, config);
-//                    entry.setValue(map1);
-                // TODO --> e.setValue(newList);??
-                mapToUpdate.put(key, map1);
-            }
-            if (value instanceof List subList) {
-                List newList = subList.stream()
-                        .map(v -> {
-                            if (v instanceof Map subMap) {
-                                return renameKeyRecursively(subMap, keyFrom, keyTo, config);
-                            }
-                            return v;
-                        }).toList();
-                mapToUpdate.put(key, newList);
-            }
-        });
+    private Object renameKeyRecursively(Object object, String keyFrom, String keyTo) {
+        if (object instanceof Map) {
+            return ((Map<String, Object>) object).entrySet()
+                    .stream()
+                    .collect(Collectors.toMap(
+                        e -> {
+                            String key = e.getKey();
+                            return key.equals(keyFrom) ? keyTo : key;
+                        },
+                        e -> renameKeyRecursively(e.getValue(), keyFrom, keyTo))
+                    );
+        }
+        if (object instanceof List subList) {
+            return subList.stream()
+                    .map(v -> renameKeyRecursively(v, keyFrom, keyTo)).toList();
+        }
+        return object;
     }
 
 }
