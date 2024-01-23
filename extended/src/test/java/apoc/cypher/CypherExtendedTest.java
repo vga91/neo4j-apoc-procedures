@@ -245,7 +245,14 @@ public class CypherExtendedTest {
                     Map.of(),
                     expected);
         }
+
+        // Check that `SHOW TRANSACTIONS` just returns itself 
+        String showTransactionsQuery = "SHOW TRANSACTIONS";
+        testCall(db, showTransactionsQuery,
+                r -> assertEquals(showTransactionsQuery, r.get("currentQuery")));
     }
+
+
 
     @Test
     public void testIssue3751RunFiles() {

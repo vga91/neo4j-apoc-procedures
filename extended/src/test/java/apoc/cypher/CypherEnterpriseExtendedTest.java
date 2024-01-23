@@ -243,6 +243,11 @@ public class CypherEnterpriseExtendedTest {
 
             session.writeTransaction(tx -> tx.run("MATCH (n) DETACH DELETE n"));
         }
+
+        // Check that `SHOW TRANSACTIONS` just returns itself 
+        String showTransactionsQuery = "SHOW TRANSACTIONS";
+        testCall(session, showTransactionsQuery,
+                r -> assertEquals(showTransactionsQuery, r.get("currentQuery")));
     }
 
     public void testRunProcedureWithSimpleReturnResults(String query, Map<String, Object> params) {

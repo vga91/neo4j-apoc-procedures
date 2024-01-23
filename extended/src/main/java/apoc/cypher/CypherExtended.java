@@ -250,7 +250,6 @@ public class CypherExtended {
             while (result.hasNext()) {
                 terminationGuard.check();
                 Map<String, Object> res = EntityUtil.anyRebind(tx, result.next());
-//                Map<String, Object> res = tx == null ? result.next() : EntityUtil.anyRebind(tx, result.next());
                 queue.put(new RowResult(row++, res));
             }
             if (addStatistics) {
@@ -373,16 +372,16 @@ public class CypherExtended {
     public Stream<MapResult> mapParallel2(@Name("fragment") String fragment, @Name("params") Map<String, Object> params, @Name("list") List<Object> data, @Name("partitions") long partitions,@Name(value = "timeout",defaultValue = "10") long timeout) {
         final String statement = withParamsAndIterator(fragment, params.keySet(), "_");
         tx.execute("EXPLAIN " + statement).close();
-        BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(100000);
+        int queueCapacity = 100000;
+        BlockingQueue<RowResult> queue = new ArrayBlockingQueue<>(queueCapacity);
+        ArrayBlockingQueue<Transaction> transactions = new ArrayBlockingQueue<>(queueCapacity);
         Stream<List<Object>> parallelPartitions = Util.partitionSubList(data, (int)(partitions <= 0 ? PARTITIONS : partitions), null);
         Util.inFuture(pools, () -> {
             long total = parallelPartitions
                 .map((List<Object> partition) -> {
                     Transaction transaction = db.beginTx();
-                    Result result = transaction.execute(statement, parallelParams(params, "_", partition));
-                    try 
-//                                () 
-                    {
+                    transactions.add(transaction);
+                    try (Result result = transaction.execute(statement, parallelParams(params, "_", partition))) {
                         return consumeResult(result, queue, false, transaction);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
@@ -392,8 +391,9 @@ public class CypherExtended {
             return total;
         });
         
-        
-        return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, (int)timeout),true).map((rowResult) -> new MapResult(rowResult.result));
+        return StreamSupport.stream(new QueueBasedSpliterator<>(queue, RowResult.TOMBSTONE, terminationGuard, (int)timeout),true)
+                .map(rowResult -> new MapResult(rowResult.result))
+                .onClose(() -> transactions.forEach(Transaction::close));
     }
 
     public Map<String, Object> parallelParams(@Name("params") Map<String, Object> params, String key, List<Object> partition) {
