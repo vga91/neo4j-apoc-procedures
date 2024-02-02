@@ -1,8 +1,6 @@
 package apoc.agg;
 
 import apoc.Extended;
-import com.amazonaws.util.NumberUtils;
-import org.HdrHistogram.HistogramUtil;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.kernel.impl.util.ValueUtils;
 import org.neo4j.procedure.Description;
@@ -10,14 +8,14 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.UserAggregationFunction;
 import org.neo4j.procedure.UserAggregationResult;
 import org.neo4j.procedure.UserAggregationUpdate;
-import org.neo4j.values.storable.LongValue;
+import org.neo4j.values.AnyValue;
 import org.neo4j.values.storable.NumberValue;
 import org.neo4j.values.utils.ValueMath;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Extended
 public class MultiStats {
@@ -59,7 +57,7 @@ https://community.neo4j.com/t/listing-the-community-size-of-different-community-
 //        private DoubleHistogram doubles;
 //        private List<Double> percentiles = asList(0.5D, 0.75D, 0.9D, 0.95D, 0.9D, 0.99D);
 //        private Number minValue;
-        private final Map<String, Map<String, NumberValue>> result = new HashMap<>();
+        private final Map<String, Map<String, Map<String, NumberValue>>> result = new HashMap<>();
 
         // --> TODO - sum must be similar to https://neo4j.com/docs/cypher-manual/current/functions/aggregating/#functions-sum
         
@@ -73,55 +71,44 @@ https://community.neo4j.com/t/listing-the-community-size-of-different-community-
             // todo - can be also a map, maybe?
             Entity entity = (Entity) value; 
             
-            // per ogni prop
+            // for each prop
             keys.forEach(key -> {
                 if (entity.hasProperty(key)) {
                     Object property = entity.getProperty(key);
-                    // todo - forse metterlo all'esterno
-                    result.compute(key, (ignored, v) -> {
-                        Map<String, NumberValue> map;
-                        if (v == null) {
-                            map = new HashMap<>();
-                        } else {
-                            map = v;
-                        }
-
-                        NumberValue count = map.compute("count", ((subKey, subVal) -> (NumberValue) ValueUtils.of(subVal == null ? 1 : subVal.longValue() + 1)) );
-                        
-                        if (property instanceof Number propNum) {
-//                            NumberValue
-//                            
-                            NumberValue of = (NumberValue) ValueUtils.of(property);
-                            
-//                            ValueMath.overflowSafeAdd(
-                            
-//                            ValueMath.overflowSafeAdd(  )
-                            
-                            
-                            // todo - double and long must be different ?
-                            NumberValue sum = map.compute("sum", ((subKey, subVal) -> subVal == null ? of : ValueMath.overflowSafeAdd(subVal, of)));
-
-                            // NB: avg() return always a double
-                            NumberValue avg = map.compute("avg", ((subKey, subVal) -> subVal == null ? of : sum.dividedBy(count.doubleValue())  ));
-//                            NumberValue avg = map.compute("avg", ((subKey, subVal) -> subVal == null ? of : sum.divideBy (count)  ));
-                        }
-
-                        return map;
-                    });
                     
-//                    Map<String, Number> orDefault = result.getOrDefault(key, new HashMap<>());
-//                    orDefault.compute("count", ((k, v) -> v == null ? 1 : v.longValue() + 1));
-//                    System.out.println("orDefault = " + orDefault);
+                    result.compute(key, (ignored, v) -> {
+                        Map<String, Map<String, NumberValue>> map1 = Objects.requireNonNullElseGet(v, HashMap::new);
+                        
+                        // todo - it can be null?
+                        map1.compute(property.toString(), (propKey, propVal) -> {
+
+                            Map<String, NumberValue> map = Objects.requireNonNullElseGet(propVal, HashMap::new);
+                            
+                            NumberValue count = map.compute("count", ((subKey, subVal) -> (NumberValue) ValueUtils.of(subVal == null ? 1 : subVal.longValue() + 1)) );
+
+                            AnyValue of1 = ValueUtils.of(property);
+
+                            if (of1 instanceof NumberValue of) {
+                                NumberValue sum = map.compute("sum", ((subKey, subVal) -> subVal == null ? of : ValueMath.overflowSafeAdd(subVal, of)));
+
+                                // NB: avg() return always a double
+                                NumberValue avg = map.compute("avg", ((subKey, subVal) -> subVal == null ? of : sum.dividedBy(count.doubleValue())  ));
+                            }
+
+                            return map;
+                        });
+
+
+                        return map1;
+                    });
                 }
             });
-//            value.getProperty()
         }
         
-        // --> Map<key, Map<key, Map<key, value>> >
 
         @UserAggregationResult
         // apoc.agg.multiStats([key1,key2,key3]) -> Map<Key,Map<agg="sum,count,avg", number>>
-        public Map<String, Map<String, NumberValue>> result() {
+        public Map<String, Map<String, Map<String, NumberValue>>> result() {
             return result;
         }
     }
