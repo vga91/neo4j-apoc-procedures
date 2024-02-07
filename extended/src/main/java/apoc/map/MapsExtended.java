@@ -16,37 +16,37 @@ public class MapsExtended {
 
     @UserFunction("apoc.map.renameKey")
     @Description("Rename the given key(s) in the `MAP`.")
-    public Map<String, Object> renameKey(@Name("map") Map<String, Object> map, 
-                                         @Name("keyFrom") String keyFrom,
-                                         @Name("keyTo") String keyTo,
-                                         @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
-        boolean removeRecursively = Util.toBoolean(config.getOrDefault("recursive", true));
-        Map<String, Object> mapToUpdate = new HashMap<>(map);
-        if (removeRecursively) {
+    public Map<String, Object> renameKeyRecursively(@Name("map") Map<String, Object> map,
+                                                    @Name("keyFrom") String keyFrom,
+                                                    @Name("keyTo") String keyTo,
+                                                    @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+        boolean recursive = Util.toBoolean(config.getOrDefault("recursive", true));
+        if (recursive) {
             return (Map<String, Object>) renameKeyRecursively(map, keyFrom, keyTo);
         }
-        if (mapToUpdate.containsKey(keyFrom)) {
-            Object value = mapToUpdate.remove(keyFrom);
-            mapToUpdate.put(keyTo, value);
+        if (map.containsKey(keyFrom)) {
+            Object value = map.remove(keyFrom);
+            map.put(keyTo, value);
         }
-        return mapToUpdate;
+        return map;
     }
 
     private Object renameKeyRecursively(Object object, String keyFrom, String keyTo) {
-        if (object instanceof Map) {
+        if (object instanceof Map<?, ?>) {
             return ((Map<String, Object>) object).entrySet()
                     .stream()
                     .collect(Collectors.toMap(
-                        e -> {
-                            String key = e.getKey();
-                            return key.equals(keyFrom) ? keyTo : key;
-                        },
-                        e -> renameKeyRecursively(e.getValue(), keyFrom, keyTo))
+                            e -> {
+                                String key = e.getKey();
+                                return key.equals(keyFrom) ? keyTo : key;
+                            },
+                            e -> renameKeyRecursively(e.getValue(), keyFrom, keyTo))
                     );
         }
-        if (object instanceof List subList) {
+        if (object instanceof List<?> subList) {
             return subList.stream()
-                    .map(v -> renameKeyRecursively(v, keyFrom, keyTo)).toList();
+                    .map(v -> renameKeyRecursively(v, keyFrom, keyTo))
+                    .toList();
         }
         return object;
     }
