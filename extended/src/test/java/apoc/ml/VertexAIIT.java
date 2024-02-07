@@ -106,11 +106,6 @@ CALL apoc.ml.vertexai.chat([
     }
 
     @Test
-    public void image() {
-        // todo - find api reference..
-    }
-
-    @Test
     public void customWithStringFormat() {
         
     }
