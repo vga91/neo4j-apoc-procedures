@@ -99,4 +99,31 @@ CALL apoc.ml.vertexai.chat([
             assertEquals(true, text.toLowerCase().contains("gallifrey"));
         });
     }
+
+    @Test
+    public void stream() {
+        
+    }
+
+    @Test
+    public void image() {
+        // todo - find api reference..
+    }
+
+    @Test
+    public void customWithStringFormat() {
+        
+    }
+
+    @Test
+    public void customWithCompleteString() {
+        
+    }
+
+    @Test
+    public void customWithSuffix() {
+        // TODO - solo suffix `:streamGenerateContent`, come config...
+        
+        // TODO - controllo: se non c'è il config suffix né l'url intero
+    }
 }

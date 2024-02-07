@@ -1,5 +1,6 @@
 package apoc.ml;
 
+import apoc.ApocConfig;
 import apoc.Extended;
 import apoc.result.MapResult;
 import apoc.util.JsonUtil;
@@ -19,14 +20,30 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
+import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
+
 
 @Extended
 public class VertexAI {
     @Context
     public URLAccessChecker urlAccessChecker;
 
+    @Context
+    public ApocConfig apocConfig;
+
+
     // "https://${region}-aiplatform.googleapis.com/v1/projects/${project}/locations/${region}/publishers/google/models/${model}:predict"
-    private static final String BASE_URL = "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:predict";
+    
+    // todo - raggrupare 
+//    private static final String BASE_URL = "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:predict";
+//    private static final String BASE_URL_STREAM = "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:streamGenerateContent";
+    
+    
+    
+    private static final String BASE_URL = "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s";
+    // todo - create custom con ...models/%s:%s
+    // todo - messaggio d'errore parlante se l'url non è corretto??
+    
     public static final String APOC_ML_VERTEXAI_URL = "apoc.ml.vertexai.url";
     public static final String DEFAULT_REGION = "us-central1";
 
@@ -42,27 +59,146 @@ public class VertexAI {
         }
     }
 
-    private static Stream<Object> executeRequest(String accessToken, String project, Map<String, Object> configuration, String defaultModel, Object inputs, String jsonPath, Collection<String> retainConfigKeys, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
+    public record Image(String base64Image) {
+        public static Image from(Map<String, Object> map) {
+            String base64 = (String) map.get("base64");
+
+            return new Image(base64);
+        }
+    }
+    
+    abstract class VertexAIHandler {
+        private final String defaultUrl;
+
+        VertexAIHandler(String defaultUrl) {
+            this.defaultUrl = defaultUrl;
+        }
+
+//        public String getDefaultUrl() {
+//            return defaultUrl;
+//        }
+        
+        public abstract String getUrlTemplate();
+        
+        public String getUrlTemplate(Map<String, Object> procConfig, ApocConfig apocConfig) {
+            String urlTemplate = (String) procConfig.getOrDefault(ENDPOINT_CONF_KEY,
+                    apocConfig.getString(APOC_ML_VERTEXAI_URL, System.getProperty(APOC_ML_VERTEXAI_URL, defaultUrl)));
+            
+            
+            if (urlTemplate == null) {
+                throw new RuntimeException("errore todo ");
+            }
+            return urlTemplate;
+        }
+
+        public String getFullUrl(Map<String, Object> configuration, ApocConfig apocConfig, String defaultModel, String project) {
+            String endpoint = getUrlTemplate(configuration, apocConfig);
+
+            String model = configuration.getOrDefault("model", defaultModel).toString();
+            String region = configuration.getOrDefault("region", DEFAULT_REGION).toString();
+            String resource = configuration.getOrDefault("resource", defaultResource).toString();
+            
+            return String.format(endpoint, region, project, region, model);
+//            return Stream.of(getEndpoint(procConfig, apocConfig), method, getApiVersion(procConfig, apocConfig))
+//                    .filter(StringUtils::isNotBlank)
+//                    .collect(Collectors.joining("/"));
+        }
+
+        enum Type {
+//            PREDICT(new VertexAIHandler.Predict(BASE_URL)),
+//            STREAM(new VertexAIHandler.Stream(BASE_URL_STREAM)),
+//            CUSTOM(new VertexAIHandler.Custom(null));
+            PREDICT(BASE_URL),
+            STREAM(BASE_URL_STREAM),
+            CUSTOM(null);
+
+            private final String defaultUrl;
+            
+            Type(String defaultUrl) {
+                this.defaultUrl = defaultUrl;
+            }
+
+            public String getUrlTemplate(Map<String, Object> procConfig, ApocConfig apocConfig) {
+                String urlTemplate = (String) procConfig.getOrDefault(ENDPOINT_CONF_KEY,
+                        apocConfig.getString(APOC_ML_VERTEXAI_URL, System.getProperty(APOC_ML_VERTEXAI_URL, defaultUrl)));
+                if (urlTemplate == null) {
+                    throw new RuntimeException("errore todo ");
+                }
+                return urlTemplate;
+            }
+
+            public String getFullUrl(Map<String, Object> configuration, ApocConfig apocConfig, String defaultModel, String project) {
+                String endpoint = getUrlTemplate(configuration, apocConfig);
+
+                String model = configuration.getOrDefault("model", defaultModel).toString();
+                String region = configuration.getOrDefault("region", DEFAULT_REGION).toString();
+
+                return String.format(endpoint, region, project, region, model);
+//            return Stream.of(getEndpoint(procConfig, apocConfig), method, getApiVersion(procConfig, apocConfig))
+//                    .filter(StringUtils::isNotBlank)
+//                    .collect(Collectors.joining("/"));
+            }
+        }
+    }
+    
+    
+
+    
+    // todo - configuration --> region, endpoint
+    private Stream<Object> executeRequest(String accessToken, String project, Map<String, Object> configuration, String defaultModel, Object inputs, String jsonPath, Collection<String> retainConfigKeys, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
+        return executeRequest(accessToken, project, configuration, defaultModel, inputs, jsonPath, retainConfigKeys, urlAccessChecker, VertexAIHandler.Type.PREDICT);
+    }
+    
+    private Stream<Object> executeRequest(String accessToken, String project, Map<String, Object> configuration, String defaultModel, Object inputs, String jsonPath, Collection<String> retainConfigKeys, URLAccessChecker urlAccessChecker, 
+                                                 VertexAIHandler.Type vertexAIHandlerType) throws JsonProcessingException, MalformedURLException {
         if (accessToken == null || accessToken.isBlank())
             throw new IllegalArgumentException("Access Token must not be empty");
         if (project == null || project.isBlank())
             throw new IllegalArgumentException("Project must not be empty");
+        
         String urlTemplate = System.getProperty(APOC_ML_VERTEXAI_URL, BASE_URL);
 
         String model = configuration.getOrDefault("model", defaultModel).toString();
         String region = configuration.getOrDefault("region", DEFAULT_REGION).toString();
-        String endpoint = String.format(urlTemplate, region, project, region, model);
+//        String endpoint = String.format(urlTemplate, region, project, region, model);
 
         Map<String, Object> headers = Map.of(
                 "Content-Type", "application/json",
                 "Accept", "application/json",
                 "Authorization", "Bearer " + accessToken
         );
+        
+        // todo - change data...
+        /*
+        {
+    "contents": [
+        {
+            "role": "user",
+            "parts": [
+                {
+                    "text": "test"
+                }
+            ]
+        }
+    ],
+    "generation_config": {
+        "maxOutputTokens": 2048,
+        "temperature": 0.4,
+        "topP": 1,
+        "topK": 32
+    },
+    "safetySettings": []
+}
+        
+         */
 
+        
+        // todo - cambiare
         Map<String, Object> data = Map.of("instances", inputs, "parameters", getParameters(configuration, retainConfigKeys));
         String payload = new ObjectMapper().writeValueAsString(data);
 
-        return JsonUtil.loadJson(endpoint, headers, payload, jsonPath, true, List.of(), urlAccessChecker);
+//        VertexAIHandler vertexAIHandler = vertexAIHandlerType.get();
+        return JsonUtil.loadJson(vertexAIHandlerType.getFullUrl(configuration, apocConfig, defaultModel, project), headers, payload, jsonPath, true, List.of(), urlAccessChecker);
     }
 
     @Procedure("apoc.ml.vertexai.embedding")
@@ -271,4 +407,36 @@ docs https://cloud.google.com/vertex-ai/docs/generative-ai/text/test-text-prompt
 }
          */
     }
+    
+    /*
+        todo: 
+        TODO: apoc.ml.vertexai.stream: gemini
+       
+        TODO: apoc.ml.vertexai.image: --> non lo testo, trovo solo la api??
+        
+        TODO: apoc.ml.vertexai.custom --> devo definire cose
+    
+     */
+
+    
+    
+    
+//    @Procedure("apoc.ml.vertexai.stream")
+//    @Description("TODO")
+//    public Stream<MapResult> stream(@Name("messages") List<Map<String, String>> messages,
+//                                    @Name("accessToken") String accessToken,
+//                                    @Name("project") String project,
+//                                    @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+//        
+//    }
+
+
+    // https://cloud.google.com/vertex-ai/docs/generative-ai/image/image-captioning#-drest
+//    @Procedure("apoc.ml.vertexai.image")
+//    public Stream<Image> image(@Name(value = "body") Map<String, Object> body,
+//                                                   @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
+//        return executeRequest(accessToken, project, configuration, "chat-bison", inputs, "$.predictions", parameterKeys, urlAccessChecker)
+//                .flatMap(v -> ((List<Map<String, Object>>) v).stream())
+//                .map(v -> (Map<String, Object>) v).map(MapResult::new);
+//    }
 }
