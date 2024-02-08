@@ -14,6 +14,7 @@ import org.neo4j.procedure.Procedure;
 
 import java.net.MalformedURLException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,11 +78,18 @@ public class VertexAI {
 //        String region = configuration.getOrDefault("region", DEFAULT_REGION).toString();
 //        String endpoint = String.format(urlTemplate, region, project, region, model);
 
-        Map<String, Object> headers = Map.of(
-                "Content-Type", "application/json",
-                "Accept", "application/json",
-                "Authorization", "Bearer " + accessToken
-        );
+
+        Map<String, Object> headers = (Map<String, Object>) configuration.getOrDefault("headers", new HashMap<>());
+        
+        headers.putIfAbsent("Content-Type", "application/json");
+        headers.putIfAbsent("Accept", "application/json");
+        headers.putIfAbsent("Authorization", "Bearer " + accessToken);
+
+//        Map<String, Object> headers = Map.of(
+//                "Content-Type", "application/json",
+//                "Accept", "application/json",
+//                "Authorization", "Bearer " + accessToken
+//        );
         
         // todo - change data...
         /*
@@ -109,11 +117,14 @@ public class VertexAI {
 
         
         // todo - cambiare
-        Map<String, Object> data = Map.of("instances", inputs, "parameters", getParameters(configuration, retainConfigKeys));
+        Map<String, Object> parameters = getParameters(configuration, retainConfigKeys);
+        VertexAIRequestHandler vertexAIRequestHandler = vertexAIHandlerType.get();
+        Map<String, Object> data = vertexAIRequestHandler.getBody(inputs, parameters);
+//        Map<String, Object> data = Map.of("instances", inputs, "parameters", parameters);
         String payload = new ObjectMapper().writeValueAsString(data);
 
 //        VertexAIHandler vertexAIHandler = vertexAIHandlerType.get();
-        return JsonUtil.loadJson(vertexAIHandlerType.get().getFullUrl(configuration, apocConfig, defaultModel, project), headers, payload, jsonPath, true, List.of(), urlAccessChecker);
+        return JsonUtil.loadJson(vertexAIRequestHandler.getFullUrl(configuration, apocConfig, defaultModel, project), headers, payload, jsonPath, true, List.of(), urlAccessChecker);
     }
 
     @Procedure("apoc.ml.vertexai.embedding")
@@ -336,22 +347,27 @@ docs https://cloud.google.com/vertex-ai/docs/generative-ai/text/test-text-prompt
     
     
     
-//    @Procedure("apoc.ml.vertexai.stream")
-//    @Description("TODO")
-//    public Stream<MapResult> stream(@Name("messages") List<Map<String, String>> messages,
-//                                    @Name("accessToken") String accessToken,
-//                                    @Name("project") String project,
-//                                    @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-//        
-//    }
+    @Procedure("apoc.ml.vertexai.stream")
+    @Description("TODO")
+    public Stream<MapResult> stream(@Name("messages") List<Map<String, String>> contents,
+                                    @Name("accessToken") String accessToken,
+                                    @Name("project") String project,
+                                    @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+        var parameterKeys = List.of("temperature", "topK", "topP", "maxOutputTokens");
+        
+        return executeRequest(accessToken, project, configuration, "gemini-pro", contents, "$", parameterKeys, urlAccessChecker)
+                .flatMap(v -> ((List<Map<String, Object>>) v).stream())
+                .map(MapResult::new);
+    }
 
 
     // https://cloud.google.com/vertex-ai/docs/generative-ai/image/image-captioning#-drest
-//    @Procedure("apoc.ml.vertexai.image")
-//    public Stream<Image> image(@Name(value = "body") Map<String, Object> body,
-//                                                   @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-//        return executeRequest(accessToken, project, configuration, "chat-bison", inputs, "$.predictions", parameterKeys, urlAccessChecker)
-//                .flatMap(v -> ((List<Map<String, Object>>) v).stream())
-//                .map(v -> (Map<String, Object>) v).map(MapResult::new);
-//    }
+    @Procedure("apoc.ml.vertexai.custom")
+    public Stream<MapResult> custom(@Name(value = "body") Map<String, Object> body,
+                                    @Name("accessToken") String accessToken,
+                                    @Name("project") String project,
+                                    @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+        return executeRequest(accessToken, project, configuration, "gemini-pro", body, "$", Collections.emptyList(), urlAccessChecker)
+                .map(v -> (Map<String, Object>) v).map(MapResult::new);
+    }
 }

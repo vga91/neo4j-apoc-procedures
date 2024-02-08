@@ -2,7 +2,11 @@ package apoc.ml;
 
 
 import apoc.ApocConfig;
+import org.apache.commons.io.output.NullAppendable;
 
+import java.io.IOException;
+import java.util.Formatter;
+import java.util.Locale;
 import java.util.Map;
 
 import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
@@ -10,6 +14,10 @@ import static apoc.ml.VertexAI.APOC_ML_VERTEXAI_URL;
 import static apoc.ml.VertexAI.DEFAULT_REGION;
 
 public abstract class VertexAIRequestHandler {
+    private static final String BASE_URL = "https://%1$s-aiplatform.googleapis.com/v1/projects/%2$s/locations/%3$s/publishers/google/models/%4$s:%5$s";
+    private static final String STREAM_RESOURCE = "streamGenerateContent";
+    private static final String PREDICT_RESOURCE = "predict";
+    
 //        private final String defaultUrl;
 //        private final String defaultUrl;
 
@@ -17,7 +25,7 @@ public abstract class VertexAIRequestHandler {
 //            this.defaultUrl = defaultUrl;
 //        }
 
-    public abstract String getDefaultUrl();
+//    public abstract String getDefaultUrl();
     public abstract String getDefaultResource();
 
 //        {
@@ -28,7 +36,7 @@ public abstract class VertexAIRequestHandler {
 
     private String getUrlTemplate(Map<String, Object> procConfig, ApocConfig apocConfig) {
         String urlTemplate = (String) procConfig.getOrDefault(ENDPOINT_CONF_KEY,
-                apocConfig.getString(APOC_ML_VERTEXAI_URL, System.getProperty(APOC_ML_VERTEXAI_URL, getDefaultUrl())));
+                apocConfig.getString(APOC_ML_VERTEXAI_URL, System.getProperty(APOC_ML_VERTEXAI_URL, BASE_URL)));
 
 
 //        if (urlTemplate == null) {
@@ -38,42 +46,50 @@ public abstract class VertexAIRequestHandler {
     }
 
     
-    public String getBody(Object in) {
+    public abstract Map<String, Object> getBody(Object inputs, Map<String, Object> parameters);
+//    {
         // todo cambiare partendo da questo--> Map<String, Object> data = Map.of("instances", inputs
-    }
+//    }
 
 
     public String getFullUrl(Map<String, Object> configuration, ApocConfig apocConfig, String defaultModel, String project) {
-        String endpoint = getUrlTemplate(configuration, apocConfig);
-
         String model = configuration.getOrDefault("model", defaultModel).toString();
         String region = configuration.getOrDefault("region", DEFAULT_REGION).toString();
         String resource = configuration.getOrDefault("resource", getDefaultResource()).toString();
         
-        if (endpoint == null && resource == null) {
-            throw new RuntimeException("TODO: fkfkfkfkfk");
-        }
+        String endpoint = getUrlTemplate(configuration, apocConfig);
+//        if (endpoint == null && resource == null) {
+//            throw new RuntimeException("TODO: fkfkfkfkfk");
+//        }
 
-        return String.format(endpoint, region, project, region, model);
-//            return Stream.of(getEndpoint(procConfig, apocConfig), method, getApiVersion(procConfig, apocConfig))
-//                    .filter(StringUtils::isNotBlank)
-//                    .collect(Collectors.joining("/"));
+//        Formatter aaa = new Formatter(new Appendable() {
+//            @Override
+//            public Appendable append(CharSequence csq) throws IOException {
+//                return null;
+//            }
+//
+//            @Override
+//            public Appendable append(CharSequence csq, int start, int end) throws IOException {
+//                return null;
+//            }
+//
+//            @Override
+//            public Appendable append(char c) throws IOException {
+//                return null;
+//            }
+//        }, Locale.getDefault()).format("%1$s %1$s %2$s b", "aaa", null);
+
+        // String.format("%1$s %1$s %2$s b", "xxx", "yyy", "zzz")
+
+        return String.format(endpoint,
+                region, project, region, model, resource);
     }
 
     enum Type {
         PREDICT(new Predict()),
         STREAM(new Stream()),
         CUSTOM(new Custom());
-//            PREDICT(BASE_URL),
-//            STREAM(BASE_URL_STREAM),
-//            CUSTOM(null);
-
-//            private final String defaultUrl;
-//            
-//            Type(String defaultUrl) {
-//                this.defaultUrl = defaultUrl;
-//            }
-
+        
         private final VertexAIRequestHandler handler;
         Type(VertexAIRequestHandler handler) {
             this.handler = handler;
@@ -82,71 +98,44 @@ public abstract class VertexAIRequestHandler {
         public VertexAIRequestHandler get() {
             return handler;
         }
-
-//            public String getUrlTemplate(Map<String, Object> procConfig, ApocConfig apocConfig) {
-//                String urlTemplate = (String) procConfig.getOrDefault(ENDPOINT_CONF_KEY,
-//                        apocConfig.getString(APOC_ML_VERTEXAI_URL, System.getProperty(APOC_ML_VERTEXAI_URL, defaultUrl)));
-//                if (urlTemplate == null) {
-//                    throw new RuntimeException("errore todo ");
-//                }
-//                return urlTemplate;
-//            }
-//
-//            public String getFullUrl(Map<String, Object> configuration, ApocConfig apocConfig, String defaultModel, String project) {
-//                String endpoint = getUrlTemplate(configuration, apocConfig);
-//
-//                String model = configuration.getOrDefault("model", defaultModel).toString();
-//                String region = configuration.getOrDefault("region", DEFAULT_REGION).toString();
-//
-//                return String.format(endpoint, region, project, region, model);
-////            return Stream.of(getEndpoint(procConfig, apocConfig), method, getApiVersion(procConfig, apocConfig))
-////                    .filter(StringUtils::isNotBlank)
-////                    .collect(Collectors.joining("/"));
-//            }
     }
 
     private static class Predict extends VertexAIRequestHandler {
-        @Override
-        public String getDefaultUrl() {
-            return "https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s";
-        }
 
         @Override
         public String getDefaultResource() {
-            return "predict";
+            return PREDICT_RESOURCE;
+        }
+
+        @Override
+        public Map<String, Object> getBody(Object inputs, Map<String, Object> parameters) {
+            return Map.of("instances", inputs, "parameters", parameters);
         }
     }
 
     private static class Stream extends VertexAIRequestHandler {
-        @Override
-        public String getDefaultUrl() {
-            return null;
-        }
 
         @Override
         public String getDefaultResource() {
-            return null;
+            return STREAM_RESOURCE;
         }
 
-
         @Override
-        public String getFullUrl(Map<String, Object> configuration, ApocConfig apocConfig, String defaultModel, String project) {
-            String fullUrl = super.getFullUrl(configuration, apocConfig, defaultModel, project);
-            
-            // TODO...
-            return fullUrl;
+        public Map<String, Object> getBody(Object inputs, Map<String, Object> parameters) {
+            return Map.of("contents", inputs, "generation_config", parameters);
         }
     }
 
     private static class Custom extends VertexAIRequestHandler {
-        @Override
-        public String getDefaultUrl() {
-            return null;
-        }
 
         @Override
         public String getDefaultResource() {
-            return null;
+            return STREAM_RESOURCE;
+        }
+
+        @Override
+        public Map<String, Object> getBody(Object inputs, Map<String, Object> parameters) {
+            return (Map<String, Object>) inputs;
         }
     }
 }

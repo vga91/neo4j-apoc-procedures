@@ -102,12 +102,24 @@ CALL apoc.ml.vertexai.chat([
 
     @Test
     public void stream() {
-        
+        testCall(db, """
+                        CALL apoc.ml.vertexai.stream([
+                            {role:"user", content:"What planet do timelords live on?"}], 
+                            $apiKey, $project)
+                """, parameters, (row) -> {
+            System.out.println("row = " + row);
+        });
     }
-
+    
     @Test
     public void customWithStringFormat() {
-        
+        testCall(db, """
+                        CALL apoc.ml.vertexai.custom([
+                            {role:"user", content:"What planet do timelords live on?"}], 
+                            $apiKey, $project)
+                """, parameters, (row) -> {
+            System.out.println("row = " + row);
+        });
     }
 
     @Test
@@ -120,5 +132,32 @@ CALL apoc.ml.vertexai.chat([
         // TODO - solo suffix `:streamGenerateContent`, come config...
         
         // TODO - controllo: se non c'è il config suffix né l'url intero
+    }
+
+    @Test
+    public void customWithWrongHeader() {
+        Map<String, String> headers = Map.of("Content-Type", "invalid",
+                "Authorization", "invalid");
+        
+        
+        Map.of("role", "user", "parts", List.of());
+
+        testCall(db, """
+                        CALL apoc.ml.vertexai.custom(
+                            {
+                             contents: [
+                                 {
+                                     role: "user",
+                                     parts: [
+                                         {
+                                             text: "translate hello in italian"
+                                         }
+                                     ]
+                                 }
+                             ]
+                            }, $apiKey, $project, {headers: $headers})
+                """, Map.of("apiKey", vertexAiKey, "project", vertexAiProject, "headers", headers), (row) -> {
+            System.out.println("row = " + row);
+        });
     }
 }
