@@ -1,23 +1,37 @@
 package apoc.ml;
 
 import apoc.util.TestUtil;
+import org.apache.commons.io.FileUtils;
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static apoc.util.TestUtil.testCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class VertexAIIT {
 
     private String vertexAiKey;
     private String vertexAiProject;
+    
+    private final List<Map<String, Object>> streamContents = List.of(
+            Map.of("role", "user",
+                    "parts", List.of(Map.of("text", "translate book in italian"))
+            )
+    );
 
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule();
@@ -51,87 +65,110 @@ public class VertexAIIT {
     @Test
     public void completion() {
         testCall(db, "CALL apoc.ml.vertexai.completion('What color is the sky? Answer in one word: ', $apiKey, $project)", parameters,(row) -> {
-                    System.out.println("row = " + row);
-            var result = (Map<String,Object>)row.get("value");
-            // {value={safetyAttributes={blocked=false, scores=[0.1], categories=[Sexual]}, recitationResult={recitations=[], recitationAction=NO_ACTION}, content=blue}}
-            assertEquals(true, result.containsKey("safetyAttributes"));
-            var safetyAttributes = (Map) result.get("safetyAttributes");
-            assertEquals(false, safetyAttributes.get("blocked"));
-            assertEquals(true, safetyAttributes.containsKey("categories"));
-
-            String text = (String) result.get("content");
-            assertEquals(true, text != null && !text.isBlank());
-            assertEquals(true, text.toLowerCase().contains("blue"));
-
-            assertEquals(true, result.containsKey("recitationResult"));
-            assertEquals("NO_ACTION", ((Map)result.get("recitationResult")).get("recitationAction"));
+            assertCorrectResponse(row, "blue");
         });
     }
 
     @Test
     public void chatCompletion() {
         testCall(db, """
-CALL apoc.ml.vertexai.chat([
-{author:"user", content:"What planet do timelords live on?"}
-],  $apiKey, $project, {temperature:0},
-"Fictional universe of Doctor Who. Only answer with a single word!",
-[{input:{content:"What planet do humans live on?"}, output:{content:"Earth"}}])
-""", parameters, (row) -> {
-            System.out.println("row = " + row);
-            // {value={candidates=[{author=1, content=Gallifrey.}], safetyAttributes={blocked=false, scores=[0.1, 0.1, 0.1], categories=[Religion & Belief, Sexual, Toxic]}, recitationResults=[{recitations=[], recitationAction=NO_ACTION}]}}
-            var result = (Map<String,Object>)row.get("value");
-
-            assertEquals(true, result.containsKey("safetyAttributes"));
-            var safetyAttributes = (Map) result.get("safetyAttributes");
-            assertEquals(false, safetyAttributes.get("blocked"));
-            assertEquals(true, safetyAttributes.containsKey("categories"));
-            assertEquals(3, ((List)safetyAttributes.get("categories")).size());
-
-            assertEquals(true, result.containsKey("recitationResults"));
-            assertEquals("NO_ACTION", ((List<Map>)result.get("recitationResults")).get(0).get("recitationAction"));
-
-            var candidates = (List<Map<String,Object>>)result.get("candidates");
-            var author = candidates.get(0).get("author");
-            assertEquals("1", author);
-
-            var text = (String)candidates.get(0).get("content");
-            assertEquals(true, text != null && !text.isBlank());
-            assertEquals(true, text.toLowerCase().contains("gallifrey"));
-        });
+                    CALL apoc.ml.vertexai.chat([
+                    {author:"user", content:"What planet do timelords live on?"}
+                    ],  $apiKey, $project, {temperature:0},
+                    "Fictional universe of Doctor Who. Only answer with a single word!",
+                    [{input:{content:"What planet do humans live on?"}, output:{content:"Earth"}}])""", 
+                parameters,
+                (row) -> assertCorrectResponse(row, "gallifrey"));
     }
 
     @Test
     public void stream() {
-        testCall(db, """
-                        CALL apoc.ml.vertexai.stream([
-                            {role:"user", content:"What planet do timelords live on?"}], 
-                            $apiKey, $project)
-                """, parameters, (row) -> {
-            System.out.println("row = " + row);
+        HashMap<String, Object> params = new HashMap<>(parameters);
+        params.put("contents", streamContents);
+        testCall(db, "CALL apoc.ml.vertexai.stream($contents,$apiKey, $project)", 
+                params, (row) -> {
+            assertCorrectResponse(row, "libro");
         });
     }
     
     @Test
+    public void customWithCompleteString() {
+        HashMap<String, Object> params = new HashMap<>(parameters);
+        params.put("contents", streamContents);
+        params.put("endpoint", "https://us-central1-aiplatform.googleapis.com/v1/projects/" + vertexAiProject + "/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent");
+        testCall(db, " CALL apoc.ml.vertexai.custom({contents: $contents}, $apiKey, null, {endpoint: $endpoint})", 
+                params, 
+                (row) -> assertCorrectResponse(row, "libro"));
+    }
+    
+    @Test
     public void customWithStringFormat() {
-        testCall(db, """
-                        CALL apoc.ml.vertexai.custom([
-                            {role:"user", content:"What planet do timelords live on?"}], 
-                            $apiKey, $project)
-                """, parameters, (row) -> {
-            System.out.println("row = " + row);
-        });
+        HashMap<String, Object> params = new HashMap<>(parameters);
+        params.put("contents", streamContents);
+        params.put("endpoint", "https://us-central1-aiplatform.googleapis.com/v1/projects/%2$s/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent");
+        testCall(db, "CALL apoc.ml.vertexai.custom({contents: $contents}, $apiKey, $project, {endpoint: $endpoint})", 
+                params, 
+                (row) -> assertCorrectResponse(row, "libro"));
     }
 
     @Test
-    public void customWithCompleteString() {
-        
+    public void customWithGeminiVisionMultiType() throws IOException {
+        String path = Thread.currentThread().getContextClassLoader().getResource("tarallo.png").getPath();
+
+        byte[] fileContent = FileUtils.readFileToByteArray(new File(path));
+        String base64Image = Base64.getEncoder().encodeToString(fileContent);
+
+        List<Map<String, ?>> parts = List.of(
+                Map.of("text", "What is this?"),
+                Map.of("inlineData", Map.of(
+                        "mimeType", "image/png", "data", base64Image))
+        );
+        List<Map<String, ?>> contents = List.of(
+                Map.of("role", "user", "parts", parts)
+        );
+
+        HashMap<String, Object> params = new HashMap<>(parameters);
+        params.put("contents", contents);
+
+        testCall(db, """
+                        CALL apoc.ml.vertexai.custom({contents: $contents},
+                            $apiKey,
+                            $project,
+                            {model: 'gemini-pro-vision'})""", 
+                params, 
+                (row) -> assertCorrectResponse(row, "tarallo"));
     }
 
     @Test
     public void customWithSuffix() {
-        // TODO - solo suffix `:streamGenerateContent`, come config...
-        
-        // TODO - controllo: se non c'è il config suffix né l'url intero
+        HashMap<String, Object> params = new HashMap<>(parameters);
+        params.put("contents", streamContents);
+
+        testCall(db, "CALL apoc.ml.vertexai.custom({contents: $contents}, $apiKey, $project)", 
+                params, 
+                (row) -> assertCorrectResponse(row, "libro"));
+    }
+    
+    @Test
+    public void customWithCodeBison() {
+        testCall(db, """
+               CALL apoc.ml.vertexai.custom({instances:
+                [{messages: [{author: "user", content: "Who are you?"}]}]
+               },
+               $apiKey, $project, {model: "codechat-bison", resource: "predict"})""", 
+                parameters, 
+                (row) -> assertCorrectResponse(row, "language model"));
+    }
+
+    @Test
+    public void customWithChatCompletion() {
+        testCall(db, """
+            CALL apoc.ml.vertexai.custom({instances:
+                [{messages: [{author: "user", content: "What planet do human live on?"}]}]
+               },
+            $apiKey, $project, {model: "chat-bison", resource: "predict"})""", 
+            parameters, 
+            (row) -> assertCorrectResponse(row, "earth"));
     }
 
     @Test
@@ -139,25 +176,52 @@ CALL apoc.ml.vertexai.chat([
         Map<String, String> headers = Map.of("Content-Type", "invalid",
                 "Authorization", "invalid");
         
+        try {
+            testCall(db, """
+                        CALL apoc.ml.vertexai.custom(
+                            {
+                             contents: $contents
+                            }, $apiKey, $project, {headers: $headers})
+                """, Map.of("apiKey", vertexAiKey, 
+                "project", vertexAiProject, 
+                "headers", headers,
+        "contents", streamContents), (row) -> fail("Should fail due to 401 response"));
+        } catch (RuntimeException e) {
+            String errMsg = e.getMessage();
+            assertTrue(errMsg.contains("Server returned HTTP response code: 401"), "Current err. message is:" + errMsg);
+        }
         
-        Map.of("role", "user", "parts", List.of());
+    }
 
+    @Test
+    @Ignore("Is not enabled by default when creating a project, but you must manually request access to use API, otherwise you will get a 401")
+    public void customWithTextToSpeechAPI() {
+        Map<String, Object> params = Map.of("apiKey", vertexAiKey,
+                "project", vertexAiProject,
+                "endpoint", "https://texttospeech.googleapis.com/v1/text:synthesize");
         testCall(db, """
                         CALL apoc.ml.vertexai.custom(
                             {
-                             contents: [
-                                 {
-                                     role: "user",
-                                     parts: [
-                                         {
-                                             text: "translate hello in italian"
-                                         }
-                                     ]
-                                 }
-                             ]
-                            }, $apiKey, $project, {headers: $headers})
-                """, Map.of("apiKey", vertexAiKey, "project", vertexAiProject, "headers", headers), (row) -> {
-            System.out.println("row = " + row);
+                              input:{
+                                text:'just a test'
+                              },
+                              voice:{
+                                languageCode:'en-US',
+                                name:'en-US-Studio-O'
+                              },
+                              audioConfig:{
+                                audioEncoding:'LINEAR16',
+                                speakingRate:'1'
+                              }
+                            }, $apiKey, $project, {endpoint: $endpoint})
+                """, params, (row) -> {
+            assertCorrectResponse(row, "audioContent");
         });
+    }
+
+    private void assertCorrectResponse(Map<String, Object> row, String expected) {
+        String stringRow = row.toString();
+        assertTrue(stringRow.toLowerCase().contains(expected),
+                "Actual result is: " + stringRow);
     }
 }

@@ -3,9 +3,11 @@ package apoc.ml;
 import apoc.ApocConfig;
 import apoc.Extended;
 import apoc.result.MapResult;
+import apoc.result.ObjectResult;
 import apoc.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.neo4j.graphdb.security.URLAccessChecker;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -21,7 +23,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-import static apoc.ml.OpenAI.ENDPOINT_CONF_KEY;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 
 
 @Extended
@@ -45,7 +47,7 @@ public class VertexAI {
     // todo - create custom con ...models/%s:%s
     // todo - messaggio d'errore parlante se l'url non è corretto??
     
-    public static final String APOC_ML_VERTEXAI_URL = "apoc.ml.vertexai.url";
+    
     public static final String DEFAULT_REGION = "us-central1";
 
     public static class EmbeddingResult {
@@ -69,8 +71,6 @@ public class VertexAI {
                                                  VertexAIRequestHandler.Type vertexAIHandlerType) throws JsonProcessingException, MalformedURLException {
         if (accessToken == null || accessToken.isBlank())
             throw new IllegalArgumentException("Access Token must not be empty");
-        if (project == null || project.isBlank())
-            throw new IllegalArgumentException("Project must not be empty");
         
 //        String urlTemplate = System.getProperty(APOC_ML_VERTEXAI_URL, BASE_URL);
 //
@@ -165,6 +165,8 @@ public class VertexAI {
                     return new EmbeddingResult(index, texts.get(index), (List<Double>) embeddings.get("values"));
                 });
     }
+    
+    // todo - json path??
 
 
     @Procedure("apoc.ml.vertexai.completion")
@@ -355,7 +357,7 @@ docs https://cloud.google.com/vertex-ai/docs/generative-ai/text/test-text-prompt
                                     @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
         var parameterKeys = List.of("temperature", "topK", "topP", "maxOutputTokens");
         
-        return executeRequest(accessToken, project, configuration, "gemini-pro", contents, "$", parameterKeys, urlAccessChecker)
+        return executeRequest(accessToken, project, configuration, "gemini-pro", contents, "$[0].candidates", parameterKeys, urlAccessChecker, VertexAIRequestHandler.Type.STREAM)
                 .flatMap(v -> ((List<Map<String, Object>>) v).stream())
                 .map(MapResult::new);
     }
@@ -363,11 +365,12 @@ docs https://cloud.google.com/vertex-ai/docs/generative-ai/text/test-text-prompt
 
     // https://cloud.google.com/vertex-ai/docs/generative-ai/image/image-captioning#-drest
     @Procedure("apoc.ml.vertexai.custom")
-    public Stream<MapResult> custom(@Name(value = "body") Map<String, Object> body,
-                                    @Name("accessToken") String accessToken,
-                                    @Name("project") String project,
-                                    @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-        return executeRequest(accessToken, project, configuration, "gemini-pro", body, "$", Collections.emptyList(), urlAccessChecker)
-                .map(v -> (Map<String, Object>) v).map(MapResult::new);
+    public Stream<ObjectResult> custom(@Name(value = "body") Map<String, Object> body,
+                                       @Name("accessToken") String accessToken,
+                                       @Name("project") String project,
+                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+        return executeRequest(accessToken, project, configuration, "gemini-pro", body, "$", Collections.emptyList(), urlAccessChecker, VertexAIRequestHandler.Type.CUSTOM)
+                .map(ObjectResult::new);
+//                .map(v -> (Map<String, Object>) v).map(MapResult::new);
     }
 }
