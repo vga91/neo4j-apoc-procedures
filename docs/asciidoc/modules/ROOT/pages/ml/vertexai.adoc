@@ -18,21 +18,21 @@ Moreover, they can have the following configuration keys, as the last parameter.
 [opts=header]
 |===
 | key | description | default
-| endpoint | analogous to `apoc.ml.vertexai.url` APOC config | https://%1$s-aiplatform.googleapis.com/v1/projects/%2$s/locations/%3$s/publishers/google/models/%4$s:%5$s
+| endpoint | analogous to `apoc.ml.vertexai.url` APOC config | https://%1$s-aiplatform.googleapis.com/v1/projects/%2$s/locations/%1$s/publishers/google/models/%3$s:%4$s
 | headers | to add or edit the HTTP default header | 
     `{``Content-Type``: "application/json", ``Accept``: "application/json", ``Authorization``: "Bearer " + <$accessToken, i.e. 2nd parameter> }`
 | model | The Vertex AI model | depends on the procedure
 | region | The Vertex AI region  | us-central1
 | resource | The Vertex AI resource (see below) | depends on the procedure
-| temperature, maxOutputTokens, maxDecodeSteps, topP, topK | Optional parameter which can be passed into the HTTP request. Depend on the API used. With the GeminiAI, for instance,  |
-    {temperature, maxOutputTokens, maxDecodeSteps, topP, topK}
+| temperature, maxOutputTokens, maxDecodeSteps, topP, topK | Optional parameter which can be passed into the HTTP request. Depend on the API used |
+    {temperature: 0.3, maxOutputTokens: 256, maxDecodeSteps: 200, topP: 0.8, topK: 40}
 |===
 
 We can define the `endpoint` configuration as a full URL, e.g. `https://us-central1-aiplatform.googleapis.com/v1/projects/myVertexAIProject/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent`,
 or define it via parameters that will then be replaced by the other configurations.
 
 For example, if we define no `endpoint` config., 
-the default one `https://%1$s-aiplatform.googleapis.com/v1/projects/%2$s/locations/%3$s/publishers/google/models/%4$s:%5$s` will be valued, where:
+the default one `https://%1$s-aiplatform.googleapis.com/v1/projects/%2$s/locations/%1$s/publishers/google/models/%3$s:%4$s` will be valued, where:
 - `%1$s` will be model with the `model` configuration
 - `%2$s` with `region` configuration
 - `%3$s` with the 3rd parameter (`project`)
@@ -176,7 +176,7 @@ This procedure `apoc.ml.vertexai.stream` takes a list of maps of contents exchan
 
 By default, it uses the https://cloud.google.com/vertex-ai/docs/generative-ai/multimodal/overview[Gemini AI APIs].
 
-.Chat Completion Call
+
 [source,cypher]
 ----
 CALL apoc.ml.vertexai.stream([{role: "user", parts: [{text: "translate book in italian"}]}], '<accessToken>', '<projectID>')
@@ -188,6 +188,37 @@ CALL apoc.ml.vertexai.stream([{role: "user", parts: [{text: "translate book in i
 | value
 | `{finishReason:"STOP", safetyRatings:[{probability:"NEGLIGIBLE", category:"HARM_CATEGORY_HARASSMENT"}, {probability:"NEGLIGIBLE", category:"HARM_CATEGORY_HATE_SPEECH"}, {probability:"NEGLIGIBLE", category:"HARM_CATEGORY_SEXUALLY_EXPLICIT"}, {probability:"NEGLIGIBLE", category:"HARM_CATEGORY_DANGEROUS_CONTENT"}], content:{role:"model", parts:[{text:"Libro"}]}}`
 |===
+
+
+We can adjust the parameter, for example `temperature`
+
+[source,cypher]
+----
+CALL apoc.ml.vertexai.stream([{role: "user", parts: [{text: "translate book in italian"}]}], '<accessToken>', '<projectID>', 
+    {temperature: 0})
+----
+
+which corresponds to the following Http body request, where `maxOutputTokens`, `topP` and `topK` have the default values specified above (`Common configuration parameter`):
+----
+{
+    "contents": [
+        {
+            "role": "user",
+            "parts": [
+                {
+                    "text": "translate book in italian"
+                }
+            ]
+        }
+    ],
+    "generation_config": {
+        "temperature": 0,
+        "maxOutputTokens": 256,
+        "topP": 0.8,
+        "topK": 40
+    }
+}
+----
 
 
 == Custom API

@@ -17,6 +17,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.ml.VertexAIHandler.ENDPOINT_CONF_KEY;
+import static apoc.ml.VertexAIHandler.MODEL_CONF_KEY;
+import static apoc.ml.VertexAIHandler.RESOURCE_CONF_KEY;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -95,7 +98,7 @@ public class VertexAIIT {
     public void customWithCompleteString() {
         HashMap<String, Object> params = new HashMap<>(parameters);
         params.put("contents", streamContents);
-        params.put("endpoint", "https://us-central1-aiplatform.googleapis.com/v1/projects/" + vertexAiProject + "/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent");
+        params.put(ENDPOINT_CONF_KEY, "https://us-central1-aiplatform.googleapis.com/v1/projects/" + vertexAiProject + "/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent");
         testCall(db, " CALL apoc.ml.vertexai.custom({contents: $contents}, $apiKey, null, {endpoint: $endpoint})", 
                 params, 
                 (row) -> assertCorrectResponse(row, "libro"));
@@ -105,7 +108,7 @@ public class VertexAIIT {
     public void customWithStringFormat() {
         HashMap<String, Object> params = new HashMap<>(parameters);
         params.put("contents", streamContents);
-        params.put("endpoint", "https://us-central1-aiplatform.googleapis.com/v1/projects/%2$s/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent");
+        params.put(ENDPOINT_CONF_KEY, "https://us-central1-aiplatform.googleapis.com/v1/projects/%2$s/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent");
         testCall(db, "CALL apoc.ml.vertexai.custom({contents: $contents}, $apiKey, $project, {endpoint: $endpoint})", 
                 params, 
                 (row) -> assertCorrectResponse(row, "libro"));
@@ -126,15 +129,15 @@ public class VertexAIIT {
         List<Map<String, ?>> contents = List.of(
                 Map.of("role", "user", "parts", parts)
         );
-
-        HashMap<String, Object> params = new HashMap<>(parameters);
+        Map<String, Object> params = new HashMap<>(parameters);
         params.put("contents", contents);
+        params.put("conf", Map.of(MODEL_CONF_KEY, "gemini-pro-vision"));
 
         testCall(db, """
                         CALL apoc.ml.vertexai.custom({contents: $contents},
                             $apiKey,
                             $project,
-                            {model: 'gemini-pro-vision'})""", 
+                            $conf)""", 
                 params, 
                 (row) -> assertCorrectResponse(row, "tarallo"));
     }
@@ -151,23 +154,29 @@ public class VertexAIIT {
     
     @Test
     public void customWithCodeBison() {
+        Map<String, Object> params = new HashMap<>(parameters);
+        params.put("conf", Map.of(MODEL_CONF_KEY, "gemini-pro-vision", RESOURCE_CONF_KEY, "predict"));
+        
         testCall(db, """
                CALL apoc.ml.vertexai.custom({instances:
                 [{messages: [{author: "user", content: "Who are you?"}]}]
                },
-               $apiKey, $project, {model: "codechat-bison", resource: "predict"})""", 
-                parameters, 
+               $apiKey, $project, $conf)""",
+                params, 
                 (row) -> assertCorrectResponse(row, "language model"));
     }
 
     @Test
     public void customWithChatCompletion() {
+        Map<String, Object> params = new HashMap<>(parameters);
+        params.put("conf", Map.of(MODEL_CONF_KEY, "chat-bison", RESOURCE_CONF_KEY, "predict"));
+        
         testCall(db, """
             CALL apoc.ml.vertexai.custom({instances:
                 [{messages: [{author: "user", content: "What planet do human live on?"}]}]
                },
-            $apiKey, $project, {model: "chat-bison", resource: "predict"})""", 
-            parameters, 
+            $apiKey, $project, $conf)""",
+                params, 
             (row) -> assertCorrectResponse(row, "earth"));
     }
 
