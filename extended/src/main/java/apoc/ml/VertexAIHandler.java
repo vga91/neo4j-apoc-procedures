@@ -15,8 +15,8 @@ public abstract class VertexAIHandler {
     public static final String MODEL_CONF_KEY = "model";
     public static final String RESOURCE_CONF_KEY = "resource";
     
-    private static final String STREAM_RESOURCE = "streamGenerateContent";
-    private static final String PREDICT_RESOURCE = "predict";
+    public static final String STREAM_RESOURCE = "streamGenerateContent";
+    public static final String PREDICT_RESOURCE = "predict";
     
     private static final String DEFAULT_BASE_URL = "https://%1$s-aiplatform.googleapis.com/v1/projects/%2$s/locations/%1$s/publishers/google/models/%3$s:%4$s";
     public static final String DEFAULT_REGION = "us-central1";

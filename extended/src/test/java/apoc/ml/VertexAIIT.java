@@ -19,7 +19,9 @@ import java.util.Map;
 
 import static apoc.ml.VertexAIHandler.ENDPOINT_CONF_KEY;
 import static apoc.ml.VertexAIHandler.MODEL_CONF_KEY;
+import static apoc.ml.VertexAIHandler.PREDICT_RESOURCE;
 import static apoc.ml.VertexAIHandler.RESOURCE_CONF_KEY;
+import static apoc.ml.VertexAIHandler.STREAM_RESOURCE;
 import static apoc.util.TestUtil.testCall;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -98,7 +100,8 @@ public class VertexAIIT {
     public void customWithCompleteString() {
         HashMap<String, Object> params = new HashMap<>(parameters);
         params.put("contents", streamContents);
-        params.put(ENDPOINT_CONF_KEY, "https://us-central1-aiplatform.googleapis.com/v1/projects/" + vertexAiProject + "/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent");
+        String endpoint = "https://us-central1-aiplatform.googleapis.com/v1/projects/" + vertexAiProject + "/locations/us-central1/publishers/google/models/gemini-pro-vision:" + STREAM_RESOURCE;
+        params.put(ENDPOINT_CONF_KEY, endpoint);
         testCall(db, " CALL apoc.ml.vertexai.custom({contents: $contents}, $apiKey, null, {endpoint: $endpoint})", 
                 params, 
                 (row) -> assertCorrectResponse(row, "libro"));
@@ -108,7 +111,8 @@ public class VertexAIIT {
     public void customWithStringFormat() {
         HashMap<String, Object> params = new HashMap<>(parameters);
         params.put("contents", streamContents);
-        params.put(ENDPOINT_CONF_KEY, "https://us-central1-aiplatform.googleapis.com/v1/projects/%2$s/locations/us-central1/publishers/google/models/gemini-pro-vision:streamGenerateContent");
+        String endpoint = "https://us-central1-aiplatform.googleapis.com/v1/projects/%2$s/locations/us-central1/publishers/google/models/gemini-pro-vision:" + STREAM_RESOURCE;
+        params.put(ENDPOINT_CONF_KEY, endpoint);
         testCall(db, "CALL apoc.ml.vertexai.custom({contents: $contents}, $apiKey, $project, {endpoint: $endpoint})", 
                 params, 
                 (row) -> assertCorrectResponse(row, "libro"));
@@ -155,7 +159,7 @@ public class VertexAIIT {
     @Test
     public void customWithCodeBison() {
         Map<String, Object> params = new HashMap<>(parameters);
-        params.put("conf", Map.of(MODEL_CONF_KEY, "gemini-pro-vision", RESOURCE_CONF_KEY, "predict"));
+        params.put("conf", Map.of(MODEL_CONF_KEY, "codechat-bison", RESOURCE_CONF_KEY, PREDICT_RESOURCE));
         
         testCall(db, """
                CALL apoc.ml.vertexai.custom({instances:
@@ -169,7 +173,7 @@ public class VertexAIIT {
     @Test
     public void customWithChatCompletion() {
         Map<String, Object> params = new HashMap<>(parameters);
-        params.put("conf", Map.of(MODEL_CONF_KEY, "chat-bison", RESOURCE_CONF_KEY, "predict"));
+        params.put("conf", Map.of(MODEL_CONF_KEY, "chat-bison", RESOURCE_CONF_KEY, PREDICT_RESOURCE));
         
         testCall(db, """
             CALL apoc.ml.vertexai.custom({instances:
@@ -199,7 +203,6 @@ public class VertexAIIT {
             String errMsg = e.getMessage();
             assertTrue(errMsg.contains("Server returned HTTP response code: 401"), "Current err. message is:" + errMsg);
         }
-        
     }
 
     @Test
