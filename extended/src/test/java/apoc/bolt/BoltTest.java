@@ -2,11 +2,14 @@ package apoc.bolt;
 
 import apoc.cypher.Cypher;
 import apoc.export.cypher.ExportCypher;
+import apoc.path.PathExplorer;
+import apoc.refactor.GraphRefactoring;
 import apoc.util.Neo4jContainerExtension;
 import apoc.util.TestContainerUtil;
 import apoc.util.TestContainerUtil.ApocPackage;
 import apoc.util.TestUtil;
 import apoc.util.Util;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assume;
 import org.junit.BeforeClass;
@@ -15,6 +18,7 @@ import org.junit.Test;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
+import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -27,7 +31,9 @@ import java.util.Map;
 
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.neo4j.driver.Values.isoDuration;
 import static org.neo4j.driver.Values.point;
@@ -45,9 +51,9 @@ public class BoltTest {
 
     @BeforeClass
     public static void setUp() throws Exception {
-        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.EXTENDED), true).withInitScript("init_neo4j_bolt.cypher");
+        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.EXTENDED, ApocPackage.CORE), true).withInitScript("init_neo4j_bolt.cypher");
         neo4jContainer.start();
-        TestUtil.registerProcedure(db, Bolt.class, ExportCypher.class, Cypher.class);
+        TestUtil.registerProcedure(db, Bolt.class, ExportCypher.class, Cypher.class, PathExplorer.class, GraphRefactoring.class);
     }
 
     @AfterClass
@@ -55,6 +61,147 @@ public class BoltTest {
         neo4jContainer.close();
     }
     
+    @After
+    public void after() {
+        db.executeTransactionally("MATCH (n) DETACH DELETE n");
+    }
+
+    @Test
+    public void test() {
+        neo4jContainer.getSession().executeWrite(tx -> tx.run("CREATE (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})").consume());
+
+        String boltQuery = """
+            MATCH (rootA:Person {foobar: 'foobar'})
+            WITH rootA
+            CALL apoc.path.subgraphAll(rootA, {relationshipFilter:'VIEWED>'})
+            YIELD nodes, relationships
+            RETURN nodes, relationships, rootA""";
+        String boltUrl = getBoltUrl().replaceAll("'", "");
+        
+        String query = """
+                CALL apoc.bolt.load($boltUrl, $boltQuery, {}, {virtual: $virtual})
+                YIELD row
+                RETURN row""";
+
+        TestUtil.testCall(db, query,
+                Map.of("boltUrl", boltUrl, "boltQuery", boltQuery, "virtual", false),
+                this::virtualFalseEntitiesAssertions);
+
+
+        String query1 = """
+                CALL apoc.bolt.load($boltUrl, $boltQuery, {}, {virtual: $virtual}) YIELD row
+                WITH row
+                WITH row.nodes AS nodes, row.relationships AS relationships, row.rootA AS rootA
+                CALL apoc.refactor.cloneSubgraph(nodes, relationships)
+                YIELD input, output, error
+                RETURN input, output, error;""";
+        TestUtil.testResult(db, query1,
+                Map.of("boltUrl", boltUrl, "boltQuery", boltQuery, "virtual", true),
+                r -> {
+                    graphRefactorAssertions(r.next());
+                    graphRefactorAssertions(r.next());
+                    assertFalse(r.hasNext());
+                });
+
+        TestUtil.testCallCount(db, "MATCH (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1}) RETURN *",1);
+    }
+    
+    @Test
+    public void test2() {
+
+        String boltQuery = """
+            MERGE (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})
+            WITH rootA
+            CALL apoc.path.subgraphAll(rootA, {relationshipFilter:'VIEWED>'})
+            YIELD nodes, relationships
+            RETURN nodes, relationships, rootA""";
+        String boltUrl = getBoltUrl().replaceAll("'", "");
+        
+        String query = """
+                   CALL apoc.bolt.execute($boltUrl, $boltQuery, {}, {virtual: $virtual}) YIELD row
+                   WITH row
+                   RETURN row""";
+        
+        TestUtil.testCall(db, query,
+                Map.of("boltUrl", boltUrl, "boltQuery", boltQuery, "virtual", true),
+                this::virtualTrueEntitiesAssertions);
+
+
+        TestUtil.testCall(db, query,
+                Map.of("boltUrl", boltUrl, "boltQuery", boltQuery, "virtual", false),
+                this::virtualFalseEntitiesAssertions);
+    }
+    
+    @Test
+    public void test3() {
+        String localStatement = "RETURN 'foobar' AS foobar";
+        
+        String remoteStatement = """
+            MERGE (rootA:Person {foobar: foobar})-[:VIEWED]->(:Other {id: 1})
+            WITH rootA
+            CALL apoc.path.subgraphAll(rootA, {relationshipFilter:'VIEWED>'})
+            YIELD nodes, relationships
+            RETURN nodes, relationships, rootA""";
+        
+        String boltUrl = getBoltUrl().replaceAll("'", "");
+        
+        String query = """
+                   CALL apoc.bolt.load.fromLocal($boltUrl, $localStatement, $remoteStatement, {virtual: $virtual, readOnly: false}) YIELD row
+                   WITH row
+                   RETURN row""";
+        
+        TestUtil.testCall(db, query,
+                Map.of("boltUrl", boltUrl, "localStatement", localStatement, "remoteStatement", remoteStatement, "virtual", true),
+                this::virtualTrueEntitiesAssertions);
+
+        TestUtil.testCall(db, query,
+                Map.of("boltUrl", boltUrl, "localStatement", localStatement, "remoteStatement", remoteStatement, "virtual", false),
+                this::virtualFalseEntitiesAssertions);
+    }
+
+    private void virtualTrueEntitiesAssertions(Map<String, Object> r) {
+        Map<String, Object> row = (Map<String, Object>) r.get("row");
+        List<Node> nodes = (List<Node>) row.get("nodes");
+        assertEquals(2, nodes.size());
+        List<Long> ids = nodes.stream().map(i -> i.getId()).toList();
+
+        List<Relationship> relationships = (List<Relationship>) row.get("relationships");
+        assertEquals(1, relationships.size());
+
+        Relationship rel = relationships.get(0);
+        assertTrue(ids.contains(rel.getStartNodeId()));
+        assertTrue(ids.contains(rel.getEndNodeId()));
+        assertEquals(RelationshipType.withName("VIEWED"), rel.getType());
+
+        Node rootA = (Node) row.get("rootA");
+        assertEquals(List.of(Label.label("Person")), rootA.getLabels());
+        assertEquals(Map.of("foobar", "foobar"), rootA.getAllProperties());
+    }
+
+    private void virtualFalseEntitiesAssertions(Map<String, Object> r) {
+        Map<String, Object> row = (Map<String, Object>) r.get("row");
+        List<Map> nodes = (List<Map>) row.get("nodes");
+        assertEquals(2, nodes.size());
+        List<Long> ids = nodes.stream().map(i -> (Long) i.get("id")).toList();
+
+        List<Map> relationships = (List<Map>) row.get("relationships");
+        assertEquals(1, relationships.size());
+
+        Map rel = relationships.get(0);
+        assertTrue(ids.contains((Long) rel.get("start")));
+        assertTrue(ids.contains((Long) rel.get("end")));
+        assertEquals("VIEWED", rel.get("type"));
+
+        Map rootA = (Map) row.get("rootA");
+        assertEquals(List.of("Person"), rootA.get("labels"));
+        assertEquals(Map.of("foobar", "foobar"), rootA.get("properties"));
+    }
+
+    private void graphRefactorAssertions(Map<String, Object> r) {
+        assertNull(r.get("error"));
+        assertTrue(r.get("input") instanceof Long);
+    }
+
     @Test
     public void testNeo4jBolt() {
         final String uriDbBefore4 = System.getenv("URI_DB_BEFORE_4");

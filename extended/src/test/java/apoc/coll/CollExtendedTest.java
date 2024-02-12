@@ -1,5 +1,7 @@
 package apoc.coll;
 
+import apoc.bolt.Bolt;
+import apoc.path.PathExplorer;
 import apoc.util.TestUtil;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -25,8 +27,9 @@ public class CollExtendedTest {
     
     @BeforeClass
     public static void setUp() throws Exception {
-        TestUtil.registerProcedure(db, CollExtended.class);
+        TestUtil.registerProcedure(db, CollExtended.class, Bolt.class, PathExplorer.class);
     }
+
 
     @Test
     public void testAvgDuration() {
