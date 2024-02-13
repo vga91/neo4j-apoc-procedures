@@ -44,6 +44,8 @@ import static org.neo4j.driver.Values.point;
  */
 public class BoltTest {
 
+    public static String BOLT_URL;
+    
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
 
@@ -54,6 +56,7 @@ public class BoltTest {
         neo4jContainer = createEnterpriseDB(List.of(ApocPackage.EXTENDED, ApocPackage.CORE), true).withInitScript("init_neo4j_bolt.cypher");
         neo4jContainer.start();
         TestUtil.registerProcedure(db, Bolt.class, ExportCypher.class, Cypher.class, PathExplorer.class, GraphRefactoring.class);
+        BOLT_URL = getBoltUrl().replaceAll("'", "");
     }
 
     @AfterClass
@@ -67,73 +70,75 @@ public class BoltTest {
     }
 
     @Test
-    public void test() {
+    public void testBoltLoadWithSubgraphAllQuery() {
         neo4jContainer.getSession().executeWrite(tx -> tx.run("CREATE (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})").consume());
 
+        // procedure with config virtual: false
         String boltQuery = """
             MATCH (rootA:Person {foobar: 'foobar'})
             WITH rootA
             CALL apoc.path.subgraphAll(rootA, {relationshipFilter:'VIEWED>'})
             YIELD nodes, relationships
             RETURN nodes, relationships, rootA""";
-        String boltUrl = getBoltUrl().replaceAll("'", "");
         
-        String query = """
-                CALL apoc.bolt.load($boltUrl, $boltQuery, {}, {virtual: $virtual})
+        String boltLoadQueryVirtualFalse = """
+                CALL apoc.bolt.load($boltUrl, $boltQuery, {}, {virtual: false})
                 YIELD row
                 RETURN row""";
 
-        TestUtil.testCall(db, query,
-                Map.of("boltUrl", boltUrl, "boltQuery", boltQuery, "virtual", false),
+        TestUtil.testCall(db, boltLoadQueryVirtualFalse,
+                Map.of("boltUrl", BOLT_URL, "boltQuery", boltQuery, "virtual", false),
                 this::virtualFalseEntitiesAssertions);
 
-
-        String query1 = """
-                CALL apoc.bolt.load($boltUrl, $boltQuery, {}, {virtual: $virtual}) YIELD row
+        // procedure with config virtual: true
+        String boltLoadQueryVirtualTrue = """
+                CALL apoc.bolt.load($boltUrl, $boltQuery, {}, {virtual: true}) YIELD row
                 WITH row
                 WITH row.nodes AS nodes, row.relationships AS relationships, row.rootA AS rootA
                 CALL apoc.refactor.cloneSubgraph(nodes, relationships)
                 YIELD input, output, error
                 RETURN input, output, error;""";
-        TestUtil.testResult(db, query1,
-                Map.of("boltUrl", boltUrl, "boltQuery", boltQuery, "virtual", true),
+        
+        TestUtil.testResult(db, boltLoadQueryVirtualTrue,
+                Map.of("boltUrl", BOLT_URL, "boltQuery", boltQuery, "virtual", true),
                 r -> {
                     graphRefactorAssertions(r.next());
                     graphRefactorAssertions(r.next());
                     assertFalse(r.hasNext());
                 });
-
+        
+        // check that `apoc.refactor.cloneSubgraph` after `apoc.bolt.load` creates entities correctly 
         TestUtil.testCallCount(db, "MATCH (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1}) RETURN *",1);
     }
     
     @Test
-    public void test2() {
-
+    public void testBoltExecuteWithSubgraphAllQuery() {
         String boltQuery = """
             MERGE (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})
             WITH rootA
             CALL apoc.path.subgraphAll(rootA, {relationshipFilter:'VIEWED>'})
             YIELD nodes, relationships
             RETURN nodes, relationships, rootA""";
-        String boltUrl = getBoltUrl().replaceAll("'", "");
+        String boltUrl = BOLT_URL;
         
         String query = """
                    CALL apoc.bolt.execute($boltUrl, $boltQuery, {}, {virtual: $virtual}) YIELD row
                    WITH row
                    RETURN row""";
-        
+
+        // procedure with config virtual: true
         TestUtil.testCall(db, query,
                 Map.of("boltUrl", boltUrl, "boltQuery", boltQuery, "virtual", true),
                 this::virtualTrueEntitiesAssertions);
-
-
+        
+        // procedure with config virtual: false
         TestUtil.testCall(db, query,
                 Map.of("boltUrl", boltUrl, "boltQuery", boltQuery, "virtual", false),
                 this::virtualFalseEntitiesAssertions);
     }
     
     @Test
-    public void test3() {
+    public void testBoltFromLocalWithSubgraphAllQuery() {
         String localStatement = "RETURN 'foobar' AS foobar";
         
         String remoteStatement = """
@@ -143,17 +148,19 @@ public class BoltTest {
             YIELD nodes, relationships
             RETURN nodes, relationships, rootA""";
         
-        String boltUrl = getBoltUrl().replaceAll("'", "");
+        String boltUrl = BOLT_URL;
         
         String query = """
                    CALL apoc.bolt.load.fromLocal($boltUrl, $localStatement, $remoteStatement, {virtual: $virtual, readOnly: false}) YIELD row
                    WITH row
                    RETURN row""";
         
+        // procedure with config virtual: true
         TestUtil.testCall(db, query,
                 Map.of("boltUrl", boltUrl, "localStatement", localStatement, "remoteStatement", remoteStatement, "virtual", true),
                 this::virtualTrueEntitiesAssertions);
-
+        
+        // procedure with config virtual: false
         TestUtil.testCall(db, query,
                 Map.of("boltUrl", boltUrl, "localStatement", localStatement, "remoteStatement", remoteStatement, "virtual", false),
                 this::virtualFalseEntitiesAssertions);
@@ -553,7 +560,7 @@ public class BoltTest {
         String localStatement = "RETURN 'foobar' AS foobar";
         String remoteStatement = "CREATE (n: TestLoadFromLocalNode { m: foobar })";
         final Map<String, Object> map = Util.map(
-                "url", getBoltUrl().replaceAll("'", ""),
+                "url", BOLT_URL,
                 "localStatement", localStatement,
                 "remoteStatement", remoteStatement,
                 "config", Util.map("readOnly", false));
@@ -567,7 +574,7 @@ public class BoltTest {
     public void testLoadFromLocalStream() {
         String localStatement = "RETURN \"CREATE (n: TestLoadFromLocalStream)\" AS statement";
         final Map<String, Object> map = Util.map(
-                "url", getBoltUrl().replaceAll("'", ""),
+                "url", BOLT_URL,
                 "localStatement", localStatement,
                 "remoteStatement", null,
                 "config", Util.map("readOnly", false, "streamStatements", true));
@@ -577,7 +584,7 @@ public class BoltTest {
         assertEquals(1L, remoteCount);
     }
 
-    private String getBoltUrl() {
+    private static String getBoltUrl() {
         return String.format("'bolt://neo4j:%s@%s:%s'",
                 TestContainerUtil.password,
                 neo4jContainer.getContainerIpAddress(),
