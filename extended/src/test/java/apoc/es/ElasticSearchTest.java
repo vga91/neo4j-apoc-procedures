@@ -3,6 +3,7 @@ package apoc.es;
 import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
 import apoc.util.Util;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
@@ -28,7 +29,6 @@ import static org.junit.Assert.*;
 public class ElasticSearchTest {
 
     private static final String URL_CONF = "apoc.es.url";
-    private static final String HOST_CONF = "apoc.es.host";
     private static String HTTP_HOST_ADDRESS;
     private static String HTTP_URL_ADDRESS;
     
@@ -48,6 +48,9 @@ public class ElasticSearchTest {
     public static DbmsRule db = new ImpermanentDbmsRule();
 
     private static Map<String, Object> defaultParams = Util.map("index", ES_INDEX, "type", ES_TYPE, "id", ES_ID);
+    private static Map<String, Object> paramsWithBasicAuth;
+    private static Map<String, String> basicAuthHeader;
+    
 
     // We need a reference to the class implementing the procedures
     private final ElasticSearch es = new ElasticSearch();
@@ -60,17 +63,33 @@ public class ElasticSearchTest {
                 .withPassword(password);
         elastic.start();
 
+        String httpHostAddress = elastic.getHttpHostAddress();
+        System.out.println("httpHostAddress = " + httpHostAddress);
         HTTP_HOST_ADDRESS = String.format("elastic:%s@%s", 
                 password,
-                elastic.getHttpHostAddress());
+                httpHostAddress);
         
         HTTP_URL_ADDRESS = "http://" + HTTP_HOST_ADDRESS;
 
         defaultParams.put("host", HTTP_HOST_ADDRESS);
         defaultParams.put("url", HTTP_URL_ADDRESS);
         
+        // We can authenticate to elastic using the url `<elastic>:<password>@<hostAddress>`
+        // or via Basic authentication, i.e. using the url `<hostAddress>` together with the header `Authorization: Basic <token>`
+        // where <token> is Base64(<username>:<password>)
+        String token = Base64.getEncoder().encodeToString(("elastic:"+ password).getBytes());
+        basicAuthHeader = Map.of("Authorization", "Basic " + token);
+        
+        paramsWithBasicAuth = new HashMap<>(defaultParams);
+        paramsWithBasicAuth.put("host", elastic.getHttpHostAddress());
+        paramsWithBasicAuth.put("headers", basicAuthHeader);
+
         TestUtil.registerProcedure(db, ElasticSearch.class);
         insertDocuments();
+    }
+
+    private static String getRowProcsUrl(String id) {
+        return ES_INDEX + "/" + ES_TYPE + "/" + id + "?refresh=true";
     }
 
     @AfterClass
@@ -87,13 +106,26 @@ public class ElasticSearchTest {
      */
     private static Map<String, Object> createDefaultProcedureParametersWithPayloadAndId(String payload, String id) {
         try {
-            return Util.merge(defaultParams, Util.map("payload", JsonUtil.OBJECT_MAPPER.readValue(payload, Map.class), "id", id));
+            Map mapPayload = JsonUtil.OBJECT_MAPPER.readValue(payload, Map.class);
+            return addPayloadAndIdToParams(defaultParams, mapPayload, id);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
+    
+    
+    private static Map<String, Object> addPayloadAndIdToParams(Map<String, Object> params, Object payload, String id) {
+            return Util.merge(params, Util.map("payload", payload, "id", id));
+    }
 
-    private static void insertDocuments() {
+    /**
+     * TODO: All put and putRaw procedures have to be entered here,
+     *  since there is no `apoc.es.remove` (there is an issue to add it), 
+     *  so by putting a post inside an `@Test`, the result of `apoc.es.stats` would change based on the order in which the tests were run.
+     *  Better to create `@Tests` with the post/postRaw procedures when the `apoc.es.remove` procedure is created
+     */
+    private static void insertDocuments() throws JsonProcessingException {
+        // -- post
         Map<String, Object> params = createDefaultProcedureParametersWithPayloadAndId("{\"procedurePackage\":\"es\",\"procedureName\":\"get\",\"procedureDescription\":\"perform a GET operation to ElasticSearch\"}", UUID.randomUUID().toString());
         TestUtil.testCall(db, "CALL apoc.es.put($host,$index,$type,$id,'refresh=true',$payload) yield value", params, r -> {
             Object created = extractValueFromResponse(r, "$.result");
@@ -111,9 +143,34 @@ public class ElasticSearchTest {
             Object created = extractValueFromResponse(r, "$.result");
             assertEquals("created", created);
         });
+
+        // -- postRaw
+        params = Map.of("url", HTTP_URL_ADDRESS, "suffix", getRowProcsUrl(UUID.randomUUID().toString()), "payload", "{\"naruto\":\"Uzumaki\"}");
+        TestUtil.testCall(db, "CALL apoc.es.postRaw($url, $suffix, $payload) yield value", params, r -> {
+            Object updated = extractValueFromResponse(r, "$.result");
+            assertEquals("created", updated);
+        });
+        
+        // -- post with header
+        Map payloadMap = JsonUtil.OBJECT_MAPPER.readValue("{\"ajeje\":\"Brazorf\"}", Map.class);
+        params = addPayloadAndIdToParams(paramsWithBasicAuth, payloadMap, ES_ID);
+        TestUtil.testCall(db, "CALL apoc.es.post($host,$index,$type,'refresh=true', $payload, {headers: $headers}) yield value", params, r -> {
+            Object updated = extractValueFromResponse(r, "$.result");
+            assertEquals("created", updated);
+        });
+
+        // -- postRaw with header
+        params = Map.of("url", elastic.getHttpHostAddress(),
+                "headers", basicAuthHeader,
+                "suffix", getRowProcsUrl(UUID.randomUUID().toString()), 
+                "payload", "{\"pdor\":\"Son of Kmer\"}");
+        TestUtil.testCall(db, "CALL apoc.es.postRaw($url, $suffix, $payload, {headers: $headers}) yield value", params, r -> {
+            Object updated = extractValueFromResponse(r, "$.result");
+            assertEquals("created", updated);
+        });
     }
 
-    private static final Object extractValueFromResponse(Map response, String jsonPath) {
+    private static Object extractValueFromResponse(Map response, String jsonPath) {
         Object jsonResponse = response.get("value");
         assertNotNull(jsonResponse);
 
@@ -126,6 +183,10 @@ public class ElasticSearchTest {
     @Test
     public void testStats() throws Exception {
         TestUtil.testCall(db, "CALL apoc.es.stats($host)", defaultParams, 
+                commonEsStatsConsumer());
+        
+        // with header conf
+        TestUtil.testCall(db, "CALL apoc.es.stats($host, {headers: $headers})", paramsWithBasicAuth, 
                 commonEsStatsConsumer());
     }
 
@@ -147,6 +208,31 @@ public class ElasticSearchTest {
                 commonEsStatsConsumer());
         
         TestUtil.testCall(db, "CALL apoc.es.get($url,$index,$type,$id,null,null) yield value", defaultParams, 
+                commonEsGetConsumer());
+
+        // with header conf
+        TestUtil.testCall(db, "CALL apoc.es.stats($url, {headers: $headers})", paramsWithBasicAuth,
+                commonEsStatsConsumer());
+
+        TestUtil.testCall(db, "CALL apoc.es.get($url,$index,$type,$id,null,null) yield value", paramsWithBasicAuth,
+                commonEsGetConsumer());
+    }
+
+    @Test
+    public void testGetRowProcedure() {
+        Map<String, Object> params = Map.of("url", HTTP_URL_ADDRESS, "suffix", getRowProcsUrl(ES_ID));
+
+        TestUtil.testCall(db, "CALL apoc.es.getRaw($url,$suffix, null)", params,
+                commonEsGetConsumer());
+    }
+
+    @Test
+    public void testGetRowProcedureWithHeader() {
+        Map<String, Object> params = Map.of("url", elastic.getHttpHostAddress(), 
+                "suffix", getRowProcsUrl(ES_ID),
+                "headers", basicAuthHeader);
+
+        TestUtil.testCall(db, "CALL apoc.es.getRaw($url, $suffix, null, {headers: $headers})", params,
                 commonEsGetConsumer());
     }
 
@@ -173,7 +259,6 @@ public class ElasticSearchTest {
 
         TestUtil.testCall(db, "CALL apoc.es.get('myUrlKey',$index,$type,$id,null,null) yield value", defaultParams, 
                 commonEsGetConsumer());
-        
     }
 
     @Test
@@ -244,7 +329,7 @@ public class ElasticSearchTest {
     public void testSearchWithQueryNull() throws Exception {
         TestUtil.testCall(db, "CALL apoc.es.query($host,$index,$type,null,null) yield value", defaultParams, r -> {
             Object hits = extractValueFromResponse(r, "$.hits.hits");
-            assertEquals(3, ((List) hits).size());
+            assertEquals(6, ((List) hits).size());
         });
     }
 
@@ -255,6 +340,12 @@ public class ElasticSearchTest {
     @Test
     public void testSearchWithQueryAsAString() throws Exception {
         TestUtil.testCall(db, "CALL apoc.es.query($host,$index,$type,'q=name:Neo4j',null) yield value", defaultParams, r -> {
+            Object name = extractValueFromResponse(r, "$.hits.hits[0]._source.name");
+            assertEquals("Neo4j", name);
+        });
+        
+        // -- with header
+        TestUtil.testCall(db, "CALL apoc.es.query($host, $index, $type, 'q=name:Neo4j', null, {headers: $headers}) yield value", paramsWithBasicAuth, r -> {
             Object name = extractValueFromResponse(r, "$.hits.hits[0]._source.name");
             assertEquals("Neo4j", name);
         });
@@ -306,9 +397,11 @@ public class ElasticSearchTest {
      * http://localhost:9200/test-index/test-type/f561c1c5-4092-4c5d-98a6-5ea2b3417415/_update
      */
     @Test
-    public void testPostUpdateDocument() throws IOException{
+    public void testPutUpdateDocument() throws IOException{
+        String awesome = "awesome1";
+        
         Map<String, Object> doc = JsonUtil.OBJECT_MAPPER.readValue(DOCUMENT, Map.class);
-        doc.put("tags", Arrays.asList("awesome"));
+        doc.put("tags", Arrays.asList(awesome));
         Map<String, Object> params = createDefaultProcedureParametersWithPayloadAndId(JsonUtil.OBJECT_MAPPER.writeValueAsString(doc), ES_ID);
         TestUtil.testCall(db, "CALL apoc.es.put($host,$index,$type,$id,'refresh=true',$payload) yield value", params, r -> {
             Object updated = extractValueFromResponse(r, "$.result");
@@ -317,7 +410,30 @@ public class ElasticSearchTest {
 
         TestUtil.testCall(db, "CALL apoc.es.get($host,$index,$type,$id,null,null) yield value", params, r -> {
             Object tag = extractValueFromResponse(r, "$._source.tags[0]");
-            assertEquals("awesome", tag);
+            assertEquals(awesome, tag);
+        });
+    }
+    
+    @Test
+    public void testPutUpdateDocumentWithHeader() throws IOException{
+        String awesome = "awesome4";
+        // todo - test common if works...
+        
+        Map<String, Object> doc = JsonUtil.OBJECT_MAPPER.readValue(DOCUMENT, Map.class);
+        doc.put("tags", Arrays.asList(awesome));
+        Map<String, Object> params = addPayloadAndIdToParams(paramsWithBasicAuth, doc, ES_ID);
+        TestUtil.testCall(db, "CALL apoc.es.put($host,$index,$type,$id,'refresh=true',$payload, {headers: $headers}) yield value", 
+                params, 
+                r -> {
+            Object updated = extractValueFromResponse(r, "$.result");
+            assertEquals("updated", updated);
+        });
+
+        TestUtil.testCall(db, "CALL apoc.es.get($host, $index, $type, $id, null, null, {headers: $headers}) yield value",
+                params,
+                r -> {
+            Object tag = extractValueFromResponse(r, "$._source.tags[0]");
+            assertEquals(awesome, tag);
         });
     }
 
@@ -359,7 +475,7 @@ public class ElasticSearchTest {
         String index = ES_INDEX;
         String type = ES_TYPE;
         String id = ES_TYPE;
-
+ 
         String host = HOST;
         String hostUrl = es.getElasticSearchUrl(host);
         String queryUrl = hostUrl + String.format("/%s/%s/%s?%s", index == null ? "_all" : index,
@@ -389,6 +505,7 @@ public class ElasticSearchTest {
         assertNotEquals(queryUrl, es.getQueryUrl(host, index, type, id, new HashMap<String, String>()));
         assertTrue(!es.getQueryUrl(host, index, type, id, new HashMap<String, String>()).endsWith("?"));
     }
+    
 
     private static Consumer<Map<String, Object>> commonEsGetConsumer() {
         return r -> {
@@ -402,7 +519,7 @@ public class ElasticSearchTest {
             assertNotNull(r.get("value"));
 
             Object numOfDocs = extractValueFromResponse(r, "$._all.total.docs.count");
-            assertEquals(3, numOfDocs);
+            assertEquals(6, numOfDocs);
         };
     }
 }
