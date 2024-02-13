@@ -137,7 +137,7 @@ public class BoltConnection {
     private Object toMap(Map<String, Object> entity, Map<Long, Object> nodeCache) {
         return entity.entrySet().stream()
                 .map(entry -> new AbstractMap.SimpleEntry(entry.getKey(), convertRecursive(entry.getValue(), nodeCache)))
-                .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
+                .collect(Collectors.toMap(AbstractMap.SimpleEntry::getKey, AbstractMap.SimpleEntry::getValue));
     }
 
     private Object toCollection(Collection entity, Map<Long, Object> nodeCache) {

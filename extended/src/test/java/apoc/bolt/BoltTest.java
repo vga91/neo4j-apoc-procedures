@@ -15,6 +15,8 @@ import org.junit.Assume;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.neo4j.driver.Session;
+import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
@@ -50,6 +52,7 @@ public class BoltTest {
     public static DbmsRule db = new ImpermanentDbmsRule();
 
     private static Neo4jContainerExtension neo4jContainer;
+    private static Session session;
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -57,6 +60,7 @@ public class BoltTest {
         neo4jContainer.start();
         TestUtil.registerProcedure(db, Bolt.class, ExportCypher.class, Cypher.class, PathExplorer.class, GraphRefactoring.class);
         BOLT_URL = getBoltUrl().replaceAll("'", "");
+        session = neo4jContainer.getSession();
     }
 
     @AfterClass
@@ -67,15 +71,16 @@ public class BoltTest {
     @After
     public void after() {
         db.executeTransactionally("MATCH (n) DETACH DELETE n");
+        session.executeWrite(tx -> tx.run("MATCH (n:BoltStart), (m:Other) DETACH DELETE n, m").consume());
     }
 
     @Test
     public void testBoltLoadWithSubgraphAllQuery() {
-        neo4jContainer.getSession().executeWrite(tx -> tx.run("CREATE (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})").consume());
+        session.executeWrite(tx -> tx.run("CREATE (rootA:BoltStart {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})").consume());
 
         // procedure with config virtual: false
         String boltQuery = """
-            MATCH (rootA:Person {foobar: 'foobar'})
+            MATCH (rootA:BoltStart {foobar: 'foobar'})
             WITH rootA
             CALL apoc.path.subgraphAll(rootA, {relationshipFilter:'VIEWED>'})
             YIELD nodes, relationships
@@ -108,13 +113,13 @@ public class BoltTest {
                 });
         
         // check that `apoc.refactor.cloneSubgraph` after `apoc.bolt.load` creates entities correctly 
-        TestUtil.testCallCount(db, "MATCH (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1}) RETURN *",1);
+        TestUtil.testCallCount(db, "MATCH (rootA:BoltStart {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1}) RETURN *",1);
     }
     
     @Test
     public void testBoltExecuteWithSubgraphAllQuery() {
         String boltQuery = """
-            MERGE (rootA:Person {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})
+            MERGE (rootA:BoltStart {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})
             WITH rootA
             CALL apoc.path.subgraphAll(rootA, {relationshipFilter:'VIEWED>'})
             YIELD nodes, relationships
@@ -142,13 +147,11 @@ public class BoltTest {
         String localStatement = "RETURN 'foobar' AS foobar";
         
         String remoteStatement = """
-            MERGE (rootA:Person {foobar: foobar})-[:VIEWED]->(:Other {id: 1})
+            MERGE (rootA:BoltStart {foobar: foobar})-[:VIEWED]->(:Other {id: 1})
             WITH rootA
             CALL apoc.path.subgraphAll(rootA, {relationshipFilter:'VIEWED>'})
             YIELD nodes, relationships
             RETURN nodes, relationships, rootA""";
-        
-        String boltUrl = BOLT_URL;
         
         String query = """
                    CALL apoc.bolt.load.fromLocal($boltUrl, $localStatement, $remoteStatement, {virtual: $virtual, readOnly: false}) YIELD row
@@ -157,12 +160,12 @@ public class BoltTest {
         
         // procedure with config virtual: true
         TestUtil.testCall(db, query,
-                Map.of("boltUrl", boltUrl, "localStatement", localStatement, "remoteStatement", remoteStatement, "virtual", true),
+                Map.of("boltUrl", BOLT_URL, "localStatement", localStatement, "remoteStatement", remoteStatement, "virtual", true),
                 this::virtualTrueEntitiesAssertions);
         
         // procedure with config virtual: false
         TestUtil.testCall(db, query,
-                Map.of("boltUrl", boltUrl, "localStatement", localStatement, "remoteStatement", remoteStatement, "virtual", false),
+                Map.of("boltUrl", BOLT_URL, "localStatement", localStatement, "remoteStatement", remoteStatement, "virtual", false),
                 this::virtualFalseEntitiesAssertions);
     }
 
@@ -181,7 +184,7 @@ public class BoltTest {
         assertEquals(RelationshipType.withName("VIEWED"), rel.getType());
 
         Node rootA = (Node) row.get("rootA");
-        assertEquals(List.of(Label.label("Person")), rootA.getLabels());
+        assertEquals(List.of(Label.label("BoltStart")), rootA.getLabels());
         assertEquals(Map.of("foobar", "foobar"), rootA.getAllProperties());
     }
 
@@ -200,13 +203,90 @@ public class BoltTest {
         assertEquals("VIEWED", rel.get("type"));
 
         Map rootA = (Map) row.get("rootA");
-        assertEquals(List.of("Person"), rootA.get("labels"));
+        assertEquals(List.of("BoltStart"), rootA.get("labels"));
         assertEquals(Map.of("foobar", "foobar"), rootA.get("properties"));
     }
 
     private void graphRefactorAssertions(Map<String, Object> r) {
         assertNull(r.get("error"));
         assertTrue(r.get("input") instanceof Long);
+    }
+
+    @Test
+    public void testBoltLoadReturningMapAndList() {
+        session.executeWrite(tx -> tx.run("CREATE (rootA:BoltStart {foobar: 'foobar'})-[:VIEWED {id: 2}]->(:Other {id: 1})").consume());
+        
+        // procedure with config virtual: false
+        String boltQuery = """
+            MATCH (start:BoltStart {foobar: 'foobar'})-[rel:VIEWED]->(end:Other)
+            WITH start, rel, end, [start, end, rel] as list
+            RETURN  start, rel, end, {keyOne: start, keyTwo: {innerKey: list}} as map, list""";
+
+        String boltLoadQuery = """
+                CALL apoc.bolt.load($boltUrl, $boltQuery, {}, {virtual: $virtual})
+                YIELD row
+                RETURN row""";
+
+        TestUtil.testCall(db, boltLoadQuery,
+                Map.of("boltUrl", BOLT_URL, "boltQuery", boltQuery, "virtual", true),
+                this::virtualTrueWithMapAndListAssertions);
+
+        TestUtil.testCall(db, boltLoadQuery,
+                Map.of("boltUrl", BOLT_URL, "boltQuery", boltQuery, "virtual", false),
+                this::virtualFalseWithMapAndListAssertions);
+    }
+
+    private void virtualFalseWithMapAndListAssertions(Map<String, Object> r) {
+        Map<String, Object> row = (Map<String, Object>) r.get("row");
+
+        Map start = (Map) row.get("start");
+        assertEquals("NODE", start.get("entityType")); 
+        Map end = (Map) row.get("end");
+        assertEquals("NODE", end.get("entityType"));
+        Map rel = (Map) row.get("rel");
+        assertEquals("RELATIONSHIP", rel.get("entityType"));
+
+        List<Map> list = (List<Map>) row.get("list");
+        assertEquals(3, list.size());
+
+        assertEquals(start, list.get(0));
+        assertEquals(end, list.get(1));
+        assertEquals(rel, list.get(2));
+        
+        Map map = (Map) row.get("map");
+        assertEquals(start, map.get("keyOne"));
+
+        Map mapKeyTwo = (Map) map.get("keyTwo");
+        assertEquals(list, mapKeyTwo.get("innerKey"));
+    }
+
+    private void virtualTrueWithMapAndListAssertions(Map<String, Object> r) {
+        Map<String, Object> row = (Map<String, Object>) r.get("row");
+
+        Node start = (Node) row.get("start");
+        assertEquals(List.of(Label.label("BoltStart")), start.getLabels());
+        assertEquals(Map.of("foobar", "foobar"), start.getAllProperties());
+        
+        Node end = (Node) row.get("end");
+        assertEquals(List.of(Label.label("Other")), end.getLabels());
+        assertEquals(Map.of("id", 1L), end.getAllProperties());
+        
+        Relationship rel = (Relationship) row.get("rel");
+        assertEquals(RelationshipType.withName("VIEWED"), rel.getType());
+        assertEquals(Map.of("id", 2L), rel.getAllProperties());
+
+        List<Entity> list = (List<Entity>) row.get("list");
+        assertEquals(3, list.size());
+
+        assertEquals(start, list.get(0));
+        assertEquals(end, list.get(1));
+        assertEquals(rel, list.get(2));
+        
+        Map map = (Map) row.get("map");
+        assertEquals(start, map.get("keyOne"));
+
+        Map mapKeyTwo = (Map) map.get("keyTwo");
+        assertEquals(list, mapKeyTwo.get("innerKey"));
     }
 
     @Test
