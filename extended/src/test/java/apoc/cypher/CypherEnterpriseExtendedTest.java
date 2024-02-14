@@ -23,6 +23,7 @@ import org.neo4j.driver.types.Relationship;
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
 import static apoc.util.TestContainerUtil.importFolder;
 import static apoc.util.TestContainerUtil.testCall;
+import static apoc.util.TestContainerUtil.testCallEmpty;
 import static apoc.util.TestContainerUtil.testResult;
 import static apoc.util.Util.map;
 import static org.junit.Assert.assertEquals;
@@ -132,7 +133,15 @@ public class CypherEnterpriseExtendedTest {
         String query = "CALL apoc.cypher.runFile($file)";
         Map<String, Object> params = Map.of("file", MATCH_RETURN_FILE);
 
-        testRunProcedureWithSimpleReturnResults(query, params);
+        testRunProcedureWithSimpleReturnResults(query, params, true);
+    }
+
+    @Test
+    public void testRunReadFileWithResults() {
+        String query = "CALL apoc.cypher.runReadFile($file)";
+        Map<String, Object> params = Map.of("file", MATCH_RETURN_FILE);
+
+        testRunProcedureWithSimpleReturnResults(query, params, false);
     }
 
     @Test
@@ -144,11 +153,39 @@ public class CypherEnterpriseExtendedTest {
     }
 
     @Test
+    public void testRunReadFileWithWriteOperation() {
+        String query = "CALL apoc.cypher.runReadFile($file)";
+        Map<String, Object> params = Map.of("file", SET_RETURN_FILE);
+
+        // performing `WRITE` operations on the `apoc.cypher.runReadFile` procedure returns an empty result
+        session.writeTransaction(tx -> tx.run(CREATE_RESULT_NODES));
+        testCallEmpty(session, query, params);
+    }
+    
+    @Test
+    public void testReadRunFilesWithWriteOperation() {
+        String query = "CALL apoc.cypher.runReadFiles([$file])";
+        Map<String, Object> params = Map.of("file", SET_RETURN_FILE);
+
+        // performing `WRITE` operations on the `apoc.cypher.runReadFile` procedure returns an empty result
+        session.writeTransaction(tx -> tx.run(CREATE_RESULT_NODES));
+        testCallEmpty(session, query, params);
+    }
+
+    @Test
     public void testRunFilesWithResults() {
         String query = "CALL apoc.cypher.runFiles([$file])";
         Map<String, Object> params = Map.of("file", MATCH_RETURN_FILE);
 
-        testRunProcedureWithSimpleReturnResults(query, params);
+        testRunProcedureWithSimpleReturnResults(query, params, true);
+    }
+
+    @Test
+    public void testRunReadFilesWithResults() {
+        String query = "CALL apoc.cypher.runReadFiles([$file])";
+        Map<String, Object> params = Map.of("file", MATCH_RETURN_FILE);
+
+        testRunProcedureWithSimpleReturnResults(query, params, false);
     }
 
     @Test
@@ -250,7 +287,7 @@ public class CypherEnterpriseExtendedTest {
                 r -> assertEquals(showTransactionsQuery, r.get("currentQuery")));
     }
 
-    public void testRunProcedureWithSimpleReturnResults(String query, Map<String, Object> params) {
+    public void testRunProcedureWithSimpleReturnResults(String query, Map<String, Object> params, boolean statisticsConf) {
         session.writeTransaction(tx -> tx.run(CREATE_RETURNQUERY_NODES));
         testResult(session, query, params,
                 r -> {
@@ -264,12 +301,14 @@ public class CypherEnterpriseExtendedTest {
                     row = r.next();
                     assertReturnQueryNode(row, 3L);
 
-                    // check `queryStatistics` row
-                    row = r.next();
-                    Map result = (Map) row.get("result");
-                    assertEquals(-1L, row.get("row"));
-                    assertEquals(0L, (long) result.get("nodesCreated"));
-                    assertEquals(0L, (long) result.get("propertiesSet"));
+                    if (statisticsConf) {
+                        // check `queryStatistics` row
+                        row = r.next();
+                        Map result = (Map) row.get("result");
+                        assertEquals(-1L, row.get("row"));
+                        assertEquals(0L, (long) result.get("nodesCreated"));
+                        assertEquals(0L, (long) result.get("propertiesSet"));
+                    }
 
                     assertFalse(r.hasNext());
                 });
