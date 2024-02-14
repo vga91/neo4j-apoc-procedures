@@ -13,7 +13,6 @@ and this file, located in `.$NEO4J_HOME/import`:
 ----
 MATCH (n:ReturnQuery) RETURN n;
 MATCH (n:Other) RETURN n;
-
 ----
 
 we can run the Cypher commands in `match.cypher`, by running the following query:

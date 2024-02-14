@@ -125,7 +125,15 @@ public class CypherEnterpriseExtendedTest {
         String query = "CALL apoc.cypher.runFile($file)";
         Map<String, Object> params = Map.of("file", SET_RETURN_FILE);
 
-        testRunProcedureWithSetAndReturnResults(query, params);
+        testRunProcedureWithSetAndReturnResults(query, params, true);
+    }
+
+    @Test
+    public void testRunFileWithSetAndResultsAndStatisticsFalse() {
+        String query = "CALL apoc.cypher.runFile($file, {statistics: false})";
+        Map<String, Object> params = Map.of("file", SET_RETURN_FILE);
+
+        testRunProcedureWithSetAndReturnResults(query, params, false);
     }
 
     @Test
@@ -134,6 +142,14 @@ public class CypherEnterpriseExtendedTest {
         Map<String, Object> params = Map.of("file", MATCH_RETURN_FILE);
 
         testRunProcedureWithSimpleReturnResults(query, params, true);
+    }
+
+    @Test
+    public void testRunFileWithResultsAndStatisticsFalse() {
+        String query = "CALL apoc.cypher.runReadFile($file, {statistics: false})";
+        Map<String, Object> params = Map.of("file", MATCH_RETURN_FILE);
+
+        testRunProcedureWithSimpleReturnResults(query, params, false);
     }
 
     @Test
@@ -149,7 +165,14 @@ public class CypherEnterpriseExtendedTest {
         String query = "CALL apoc.cypher.runFiles([$file])";
         Map<String, Object> params = Map.of("file", SET_RETURN_FILE);
 
-        testRunProcedureWithSetAndReturnResults(query, params);
+        testRunProcedureWithSetAndReturnResults(query, params, true);
+    }
+    @Test
+    public void testRunFilesWithSetAndResultsAndStatisticsFalse() {
+        String query = "CALL apoc.cypher.runFiles([$file], {statistics: false})";
+        Map<String, Object> params = Map.of("file", SET_RETURN_FILE);
+
+        testRunProcedureWithSetAndReturnResults(query, params, false);
     }
 
     @Test
@@ -178,6 +201,14 @@ public class CypherEnterpriseExtendedTest {
         Map<String, Object> params = Map.of("file", MATCH_RETURN_FILE);
 
         testRunProcedureWithSimpleReturnResults(query, params, true);
+    }
+
+    @Test
+    public void testRunFilesWithResultsAndStatisticsFalse() {
+        String query = "CALL apoc.cypher.runReadFiles([$file], {statistics: false})";
+        Map<String, Object> params = Map.of("file", MATCH_RETURN_FILE);
+
+        testRunProcedureWithSimpleReturnResults(query, params, false);
     }
 
     @Test
@@ -314,7 +345,7 @@ public class CypherEnterpriseExtendedTest {
                 });
     }
 
-    public void testRunProcedureWithSetAndReturnResults(String query, Map<String, Object> params) {
+    public void testRunProcedureWithSetAndReturnResults(String query, Map<String, Object> params, boolean statisticsConf) {
         session.writeTransaction(tx -> tx.run(CREATE_RESULT_NODES));
 
         testResult(session, query, params,
@@ -329,9 +360,11 @@ public class CypherEnterpriseExtendedTest {
                     row = r.next();
                     assertRunProcNode(row, 3L);
 
-                    // check `queryStatistics` row
-                    row = r.next();
-                    assertRunProcStatistics(row);
+                    if (statisticsConf) {
+                        // check `queryStatistics` row
+                        row = r.next();
+                        assertRunProcStatistics(row);
+                    }
 
                     // check that all results from the 2nd statement are correctly returned
                     row = r.next();
@@ -343,9 +376,11 @@ public class CypherEnterpriseExtendedTest {
                     row = r.next();
                     assertRunProcRel(row, 3L);
 
-                    // check `queryStatistics` row
-                    row = r.next();
-                    assertRunProcStatistics(row);
+                    if (statisticsConf) {
+                        // check `queryStatistics` row
+                        row = r.next();
+                        assertRunProcStatistics(row);
+                    }
 
                     // check that all results from the 3rd statement are correctly returned
                     row = r.next();
@@ -358,10 +393,12 @@ public class CypherEnterpriseExtendedTest {
                     assertEquals(4L, rels.size());
                     assertEquals(4L, nodes.size());
                     assertEquals(4L, others.size());
-                    row = r.next();
 
-                    // check `queryStatistics` row
-                    assertRunProcStatistics(row);
+                    if (statisticsConf) {
+                        // check `queryStatistics` row
+                        row = r.next();
+                        assertRunProcStatistics(row);
+                    }
                     assertFalse(r.hasNext());
                 });
 

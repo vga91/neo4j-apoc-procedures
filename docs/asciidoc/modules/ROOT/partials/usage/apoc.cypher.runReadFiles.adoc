@@ -14,7 +14,6 @@ and the following files, located in `.$NEO4J_HOME/import`:
 [source, cypher]
 ----
 MATCH (n:ReturnQuery) RETURN n;
-
 MATCH (n:Other) RETURN n;
 ----
 
