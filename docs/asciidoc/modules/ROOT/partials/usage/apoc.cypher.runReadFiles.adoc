@@ -38,6 +38,6 @@ CALL apoc.cypher.runReadFiles(["match_first.cypher", "match_second.cypher"]);
 | 1  | {"n":{"identity":2,"labels":["ReturnQuery"],"properties":{"id":2},"elementId":"..."}}
 | 2  | {"n":{"identity":3,"labels":["ReturnQuery"],"properties":{"id":3},"elementId":"..."}}
 | 0  | {"n":{"identity":4,"labels":["Other"],"properties":{"id":4},"elementId":"..."}}
-| 0  | {"n":{"identity":5,"labels":["Other"],"properties":{"id":5},"elementId":"..."}}
+| 0  | {"n":{"identity":5,"labels":["SecondFile"],"properties":{"id":5},"elementId":"..."}}
 |===
 

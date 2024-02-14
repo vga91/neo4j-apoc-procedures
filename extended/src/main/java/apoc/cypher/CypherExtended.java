@@ -92,7 +92,7 @@ public class CypherExtended {
     @Procedure(value = "apoc.cypher.runReadFile", mode = READ)
     @Description("apoc.cypher.runReadFile(file or url,[{statistics:true,timeout:10,parameters:{}}]) - runs each `READ` statement in the file, all semicolon separated")
     public Stream<RowResult> runReadFile(@Name("file") String fileName, @Name(value = "config",defaultValue = "{}") Map<String,Object> config) {
-        return runReadFiles(singletonList(fileName),config);
+        return runReadFiles(singletonList(fileName), config);
     }
 
     @Procedure(value = "apoc.cypher.runFiles", mode = WRITE)
