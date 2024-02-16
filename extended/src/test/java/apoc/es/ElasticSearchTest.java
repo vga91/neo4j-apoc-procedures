@@ -372,10 +372,8 @@ public class ElasticSearchTest {
      */
     @Test
     public void testPutUpdateDocument() throws IOException{
-        String awesome = UUID.randomUUID().toString();
-        
         Map<String, Object> doc = JsonUtil.OBJECT_MAPPER.readValue(DOCUMENT, Map.class);
-        doc.put("tags", Arrays.asList(awesome));
+        doc.put("tags", Arrays.asList("awesome"));
         Map<String, Object> params = createDefaultProcedureParametersWithPayloadAndId(JsonUtil.OBJECT_MAPPER.writeValueAsString(doc), ES_ID);
         TestUtil.testCall(db, "CALL apoc.es.put($host,$index,$type,$id,'refresh=true',$payload) yield value", params, r -> {
             Object updated = extractValueFromResponse(r, "$.result");
@@ -384,29 +382,29 @@ public class ElasticSearchTest {
 
         TestUtil.testCall(db, "CALL apoc.es.get($host,$index,$type,$id,null,null) yield value", params, r -> {
             Object tag = extractValueFromResponse(r, "$._source.tags[0]");
-            assertEquals(awesome, tag);
+            assertEquals("awesome", tag);
         });
     }
 
     @Test
     public void testPutUpdateDocumentWithAuthHeader() throws IOException{
-        String awesome = UUID.randomUUID().toString();
+        String tags = UUID.randomUUID().toString();
         
         Map<String, Object> doc = JsonUtil.OBJECT_MAPPER.readValue(DOCUMENT, Map.class);
-        doc.put("tags", Arrays.asList(awesome));
+        doc.put("tags", Arrays.asList(tags));
         Map<String, Object> params = addPayloadAndIdToParams(paramsWithBasicAuth, doc, ES_ID);
         TestUtil.testCall(db, "CALL apoc.es.put($host,$index,$type,$id,'refresh=true',$payload, {headers: $headers}) yield value", 
                 params, 
                 r -> {
-            Object updated = extractValueFromResponse(r, "$.result");
-            assertEquals("updated", updated);
+            Object result = extractValueFromResponse(r, "$.result");
+            assertEquals("updated", result);
         });
 
         TestUtil.testCall(db, "CALL apoc.es.get($host, $index, $type, $id, null, null, {headers: $headers}) yield value",
                 params,
                 r -> {
-            Object tag = extractValueFromResponse(r, "$._source.tags[0]");
-            assertEquals(awesome, tag);
+                    Object actualTags = extractValueFromResponse(r, "$._source.tags[0]");
+                    assertEquals(tags, actualTags);
         });
     }
 
@@ -417,7 +415,10 @@ public class ElasticSearchTest {
         String id = UUID.randomUUID().toString();
         Map payload = JsonUtil.OBJECT_MAPPER.readValue("{\"ajeje\":\"Brazorf\"}", Map.class);
         Map params = Util.map("host", HTTP_HOST_ADDRESS,
-                "index", index, "suffix", index, "type", type, /*"id", ES_ID, */"payload", payload,
+                "index", index,
+                "suffix", index,
+                "type", type,
+                "payload", payload,
                 "suffixDelete", index,
                 "suffixPost", index + "/" + type + "/" + id + "?refresh=true",
                 "id", id);
@@ -430,8 +431,8 @@ public class ElasticSearchTest {
         TestUtil.testCall(db, "CALL apoc.es.get($host, $index, $type, $id, null, null) yield value",
                 params,
                 r -> {
-                    Object tag = extractValueFromResponse(r, "$._source.ajeje");
-                    assertEquals("Brazorf", tag);
+                    Object response = extractValueFromResponse(r, "$._source.ajeje");
+                    assertEquals("Brazorf", response);
                 });
 
         // TODO: forced the apoc.es.postRaw's HTTP method to be a DELETE, to remove the document and ensure isolation of tests.
@@ -448,7 +449,9 @@ public class ElasticSearchTest {
         String type = UUID.randomUUID().toString();
         Map payload = JsonUtil.OBJECT_MAPPER.readValue("{\"ajeje\":\"Brazorf\"}", Map.class);
         Map params = Util.map("host", elastic.getHttpHostAddress(),
-                "index", index, "type", type, "payload", payload,
+                "index", index,
+                "type", type,
+                "payload", payload,
                 "suffix", index,
                 "headers", basicAuthHeader);
         
@@ -465,8 +468,8 @@ public class ElasticSearchTest {
         TestUtil.testCall(db, "CALL apoc.es.get($host, $index, $type, $id, null, null, {headers: $headers}) yield value",
                 params,
                 r -> {
-                    Object tag = extractValueFromResponse(r, "$._source.ajeje");
-                    assertEquals("Brazorf", tag);
+                    Object actual = extractValueFromResponse(r, "$._source.ajeje");
+                    assertEquals("Brazorf", actual);
                 });
 
         // TODO: forced the apoc.es.postRaw's HTTP method to be a DELETE, to remove the document and ensure isolation of tests.
