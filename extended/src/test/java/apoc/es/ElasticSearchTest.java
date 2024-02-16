@@ -184,9 +184,12 @@ public class ElasticSearchTest {
     public void testStats() throws Exception {
         TestUtil.testCall(db, "CALL apoc.es.stats($host)", defaultParams, 
                 commonEsStatsConsumer());
-        
-        // with header conf
-        TestUtil.testCall(db, "CALL apoc.es.stats($host, {headers: $headers})", paramsWithBasicAuth, 
+
+    }
+
+    @Test
+    public void testStatsWithAuthHeader() {
+        TestUtil.testCall(db, "CALL apoc.es.stats($host, {headers: $headers})", paramsWithBasicAuth,
                 commonEsStatsConsumer());
     }
 
@@ -209,8 +212,10 @@ public class ElasticSearchTest {
         
         TestUtil.testCall(db, "CALL apoc.es.get($url,$index,$type,$id,null,null) yield value", defaultParams, 
                 commonEsGetConsumer());
+    }
 
-        // with header conf
+    @Test
+    public void testProceduresWithUrlAndHeaders() {
         TestUtil.testCall(db, "CALL apoc.es.stats($url, {headers: $headers})", paramsWithBasicAuth,
                 commonEsStatsConsumer());
 
@@ -227,7 +232,7 @@ public class ElasticSearchTest {
     }
 
     @Test
-    public void testGetRowProcedureWithHeader() {
+    public void testGetRowProcedureWithAuthHeader() {
         Map<String, Object> params = Map.of("url", elastic.getHttpHostAddress(), 
                 "suffix", getRowProcsUrl(ES_ID),
                 "headers", basicAuthHeader);
@@ -343,8 +348,10 @@ public class ElasticSearchTest {
             Object name = extractValueFromResponse(r, "$.hits.hits[0]._source.name");
             assertEquals("Neo4j", name);
         });
-        
-        // -- with header
+    }
+    
+    @Test
+    public void testSearchWithQueryAsAStringAndHeader() throws Exception {
         TestUtil.testCall(db, "CALL apoc.es.query($host, $index, $type, 'q=name:Neo4j', null, {headers: $headers}) yield value", paramsWithBasicAuth, r -> {
             Object name = extractValueFromResponse(r, "$.hits.hits[0]._source.name");
             assertEquals("Neo4j", name);
@@ -398,7 +405,7 @@ public class ElasticSearchTest {
      */
     @Test
     public void testPutUpdateDocument() throws IOException{
-        String awesome = "awesome1";
+        String awesome = UUID.randomUUID().toString();
         
         Map<String, Object> doc = JsonUtil.OBJECT_MAPPER.readValue(DOCUMENT, Map.class);
         doc.put("tags", Arrays.asList(awesome));
@@ -415,9 +422,8 @@ public class ElasticSearchTest {
     }
     
     @Test
-    public void testPutUpdateDocumentWithHeader() throws IOException{
-        String awesome = "awesome4";
-        // todo - test common if works...
+    public void testPutUpdateDocumentWithAuthHeader() throws IOException{
+        String awesome = UUID.randomUUID().toString();
         
         Map<String, Object> doc = JsonUtil.OBJECT_MAPPER.readValue(DOCUMENT, Map.class);
         doc.put("tags", Arrays.asList(awesome));
