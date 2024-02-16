@@ -19,6 +19,7 @@ include::example$generated-documentation/apoc.es.getRaw.adoc[]
 include::example$generated-documentation/apoc.es.postRaw.adoc[]
 include::example$generated-documentation/apoc.es.post.adoc[]
 include::example$generated-documentation/apoc.es.put.adoc[]
+include::example$generated-documentation/apoc.es.delete.adoc[]
 |===
 // end::elasticsearch[]
 
@@ -42,6 +43,11 @@ call apoc.es.get("localhost","tweets","users","1",null,null)
 [source,cypher]
 ----
 call apoc.es.stats("localhost")
+----
+
+[source,cypher]
+----
+call apoc.es.delete("localhost","tweets","users","1")
 ----
 
 image::apoc.es.get.png[scaledwidth="100%"]

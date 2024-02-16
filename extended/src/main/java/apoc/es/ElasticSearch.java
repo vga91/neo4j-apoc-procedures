@@ -193,6 +193,23 @@ public class ElasticSearch {
         return loadJsonStream(getQueryUrl(hostOrKey, index, type, id, query), new ElasticSearchConfig(config, "PUT"), toPayload(payload));
     }
 
+    @Procedure
+    @Description("apoc.es.delete(host-or-port,index-or-null,type-or-null,id-or-null,query-or-null,$config) yield value - perform a DELETE operation on elastic search")
+    public Stream<MapResult> delete(@Name("host") String hostOrKey,
+                                 @Name("index") String index,
+                                 @Name("type") String type,
+                                 @Name("id") String id,
+                                 @Name(value = "query", defaultValue = "null") Object query,
+                                 @Name(value = "config", defaultValue = "{}") Map<String,Object> config) {
+        /* Conceptually payload should be null, but we have to put "" instead,
+           as the `apoc.util.Util.writePayload` method has an `if (payload == null) return;`
+           but we need to add the `con.setDoOutput(true);`, placed right after that condition.
+           Otherwise, an error `Cannot write to a URLConnection if doOutput=false - call setDoOutput(true)` will be thrown
+        */
+        String payload = "";
+        return loadJsonStream(getQueryUrl(hostOrKey, index, type, id, query), new ElasticSearchConfig(config, "DELETE"), payload);
+    }
+
     private Stream<MapResult> loadJsonStream(@Name("url") Object url, ElasticSearchConfig conf, @Name("payload") String payload) {
         return LoadJsonUtils.loadJsonStream(url, conf.getHeaders(), payload, "", true, null, null, null, urlAccessChecker);
     }

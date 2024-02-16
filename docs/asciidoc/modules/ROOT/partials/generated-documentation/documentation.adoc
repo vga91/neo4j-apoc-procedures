@@ -260,6 +260,10 @@ apoc.es.query(host-or-port,index-or-null,type-or-null,query-or-null,payload-or-n
 
 apoc.es.stats(host-url-Key,$config) - elastic search statistics
 |label:procedure[]
+|xref::overview/apoc.es/apoc.es.delete.adoc[apoc.es.delete icon:book[]]
+
+apoc.es.delete(host-or-port,index-or-null,type-or-null,id-or-null,query-or-null,$config) yield value - perform a DELETE operation on elastic search
+|label:procedure[]
 |===
 
 == xref::overview/apoc.export/index.adoc[]
