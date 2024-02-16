@@ -17,6 +17,7 @@ import org.testcontainers.elasticsearch.ElasticsearchContainer;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static apoc.ApocConfig.apocConfig;
@@ -49,7 +50,7 @@ public class ElasticSearchTest {
 
     private static Map<String, Object> defaultParams = Util.map("index", ES_INDEX, "type", ES_TYPE, "id", ES_ID);
     private static Map<String, Object> paramsWithBasicAuth;
-    private static Map<String, String> basicAuthHeader;
+    private static Map<String, Object> basicAuthHeader;
     
 
     // We need a reference to the class implementing the procedures
@@ -64,7 +65,6 @@ public class ElasticSearchTest {
         elastic.start();
 
         String httpHostAddress = elastic.getHttpHostAddress();
-        System.out.println("httpHostAddress = " + httpHostAddress);
         HTTP_HOST_ADDRESS = String.format("elastic:%s@%s", 
                 password,
                 httpHostAddress);
@@ -88,7 +88,7 @@ public class ElasticSearchTest {
         insertDocuments();
     }
 
-    private static String getRowProcsUrl(String id) {
+    private static String getRawProcedureUrl(String id) {
         return ES_INDEX + "/" + ES_TYPE + "/" + id + "?refresh=true";
     }
 
@@ -113,19 +113,11 @@ public class ElasticSearchTest {
         }
     }
     
-    
     private static Map<String, Object> addPayloadAndIdToParams(Map<String, Object> params, Object payload, String id) {
             return Util.merge(params, Util.map("payload", payload, "id", id));
     }
-
-    /**
-     * TODO: All put and putRaw procedures have to be entered here,
-     *  since there is no `apoc.es.remove` (there is an issue to add it), 
-     *  so by putting a post inside an `@Test`, the result of `apoc.es.stats` would change based on the order in which the tests were run.
-     *  Better to create `@Tests` with the post/postRaw procedures when the `apoc.es.remove` procedure is created
-     */
+    
     private static void insertDocuments() throws JsonProcessingException {
-        // -- post
         Map<String, Object> params = createDefaultProcedureParametersWithPayloadAndId("{\"procedurePackage\":\"es\",\"procedureName\":\"get\",\"procedureDescription\":\"perform a GET operation to ElasticSearch\"}", UUID.randomUUID().toString());
         TestUtil.testCall(db, "CALL apoc.es.put($host,$index,$type,$id,'refresh=true',$payload) yield value", params, r -> {
             Object created = extractValueFromResponse(r, "$.result");
@@ -142,31 +134,6 @@ public class ElasticSearchTest {
         TestUtil.testCall(db, "CALL apoc.es.put($host,$index,$type,$id,'refresh=true',$payload) yield value", params, r -> {
             Object created = extractValueFromResponse(r, "$.result");
             assertEquals("created", created);
-        });
-
-        // -- postRaw
-        params = Map.of("url", HTTP_URL_ADDRESS, "suffix", getRowProcsUrl(UUID.randomUUID().toString()), "payload", "{\"naruto\":\"Uzumaki\"}");
-        TestUtil.testCall(db, "CALL apoc.es.postRaw($url, $suffix, $payload) yield value", params, r -> {
-            Object updated = extractValueFromResponse(r, "$.result");
-            assertEquals("created", updated);
-        });
-        
-        // -- post with header
-        Map payloadMap = JsonUtil.OBJECT_MAPPER.readValue("{\"ajeje\":\"Brazorf\"}", Map.class);
-        params = addPayloadAndIdToParams(paramsWithBasicAuth, payloadMap, ES_ID);
-        TestUtil.testCall(db, "CALL apoc.es.post($host,$index,$type,'refresh=true', $payload, {headers: $headers}) yield value", params, r -> {
-            Object updated = extractValueFromResponse(r, "$.result");
-            assertEquals("created", updated);
-        });
-
-        // -- postRaw with header
-        params = Map.of("url", elastic.getHttpHostAddress(),
-                "headers", basicAuthHeader,
-                "suffix", getRowProcsUrl(UUID.randomUUID().toString()), 
-                "payload", "{\"pdor\":\"Son of Kmer\"}");
-        TestUtil.testCall(db, "CALL apoc.es.postRaw($url, $suffix, $payload, {headers: $headers}) yield value", params, r -> {
-            Object updated = extractValueFromResponse(r, "$.result");
-            assertEquals("created", updated);
         });
     }
 
@@ -225,7 +192,7 @@ public class ElasticSearchTest {
 
     @Test
     public void testGetRowProcedure() {
-        Map<String, Object> params = Map.of("url", HTTP_URL_ADDRESS, "suffix", getRowProcsUrl(ES_ID));
+        Map<String, Object> params = Map.of("url", HTTP_URL_ADDRESS, "suffix", getRawProcedureUrl(ES_ID));
 
         TestUtil.testCall(db, "CALL apoc.es.getRaw($url,$suffix, null)", params,
                 commonEsGetConsumer());
@@ -234,7 +201,7 @@ public class ElasticSearchTest {
     @Test
     public void testGetRowProcedureWithAuthHeader() {
         Map<String, Object> params = Map.of("url", elastic.getHttpHostAddress(), 
-                "suffix", getRowProcsUrl(ES_ID),
+                "suffix", getRawProcedureUrl(ES_ID),
                 "headers", basicAuthHeader);
 
         TestUtil.testCall(db, "CALL apoc.es.getRaw($url, $suffix, null, {headers: $headers})", params,
@@ -334,7 +301,7 @@ public class ElasticSearchTest {
     public void testSearchWithQueryNull() throws Exception {
         TestUtil.testCall(db, "CALL apoc.es.query($host,$index,$type,null,null) yield value", defaultParams, r -> {
             Object hits = extractValueFromResponse(r, "$.hits.hits");
-            assertEquals(6, ((List) hits).size());
+            assertEquals(3, ((List) hits).size());
         });
     }
 
@@ -420,7 +387,7 @@ public class ElasticSearchTest {
             assertEquals(awesome, tag);
         });
     }
-    
+
     @Test
     public void testPutUpdateDocumentWithAuthHeader() throws IOException{
         String awesome = UUID.randomUUID().toString();
@@ -440,6 +407,75 @@ public class ElasticSearchTest {
                 r -> {
             Object tag = extractValueFromResponse(r, "$._source.tags[0]");
             assertEquals(awesome, tag);
+        });
+    }
+
+    @Test
+    public void testPostRawCreateDocument() throws IOException {
+        String index = UUID.randomUUID().toString();
+        String type = UUID.randomUUID().toString();
+        String id = UUID.randomUUID().toString();
+        Map payload = JsonUtil.OBJECT_MAPPER.readValue("{\"ajeje\":\"Brazorf\"}", Map.class);
+        Map params = Util.map("host", HTTP_HOST_ADDRESS,
+                "index", index, "suffix", index, "type", type, /*"id", ES_ID, */"payload", payload,
+                "suffixDelete", index,
+                "suffixPost", index + "/" + type + "/" + id + "?refresh=true",
+                "id", id);
+
+        TestUtil.testCall(db, "CALL apoc.es.postRaw($host, $suffixPost, $payload) yield value", params, r -> {
+            Object result = extractValueFromResponse(r, "$.result");
+            assertEquals("created", result);
+        });
+
+        TestUtil.testCall(db, "CALL apoc.es.get($host, $index, $type, $id, null, null) yield value",
+                params,
+                r -> {
+                    Object tag = extractValueFromResponse(r, "$._source.ajeje");
+                    assertEquals("Brazorf", tag);
+                });
+
+        // TODO: forced the apoc.es.postRaw's HTTP method to be a DELETE, to remove the document and ensure isolation of tests.
+        //  Replace with `apoc.es.delete` when the issue https://github.com/neo4j-contrib/neo4j-apoc-procedures/issues/2999 is implemented
+        TestUtil.testCall(db, "CALL apoc.es.postRaw($host, $suffixDelete, '', {headers: {method: 'DELETE'}}) yield value", params, r -> {
+            Map expected = Util.map("acknowledged", true);
+            assertEquals(expected, r.get("value"));
+        });
+    }
+
+    @Test
+    public void testPostCreateDocumentWithAuthHeader() throws IOException {
+        String index = UUID.randomUUID().toString();
+        String type = UUID.randomUUID().toString();
+        Map payload = JsonUtil.OBJECT_MAPPER.readValue("{\"ajeje\":\"Brazorf\"}", Map.class);
+        Map params = Util.map("host", elastic.getHttpHostAddress(),
+                "index", index, "type", type, "payload", payload,
+                "suffix", index,
+                "headers", basicAuthHeader);
+        
+        AtomicReference<String> id = new AtomicReference<>();
+        TestUtil.testCall(db, "CALL apoc.es.post($host,$index,$type,'refresh=true', $payload, {headers: $headers}) yield value", params, r -> {
+            Object result = extractValueFromResponse(r, "$.result");
+            assertEquals("created", result);
+
+            id.set((String) ((Map) r.get("value")).get("_id"));
+        });
+
+        params.put("id", id.get());
+        
+        TestUtil.testCall(db, "CALL apoc.es.get($host, $index, $type, $id, null, null, {headers: $headers}) yield value",
+                params,
+                r -> {
+                    Object tag = extractValueFromResponse(r, "$._source.ajeje");
+                    assertEquals("Brazorf", tag);
+                });
+
+        // TODO: forced the apoc.es.postRaw's HTTP method to be a DELETE, to remove the document and ensure isolation of tests.
+        //  Replace with `apoc.es.delete` when the issue https://github.com/neo4j-contrib/neo4j-apoc-procedures/issues/2999 is implemented
+        Map<String, Object> deleteHeaders = Util.merge(basicAuthHeader, Util.map("method", "DELETE"));
+        params.put("headers", deleteHeaders);
+        TestUtil.testCall(db, "CALL apoc.es.postRaw($host, $suffix, '', {headers: $headers}) yield value", params, r -> {
+            Map expected = Util.map("acknowledged", true);
+            assertEquals(expected, r.get("value"));
         });
     }
 
@@ -481,7 +517,7 @@ public class ElasticSearchTest {
         String index = ES_INDEX;
         String type = ES_TYPE;
         String id = ES_TYPE;
- 
+
         String host = HOST;
         String hostUrl = es.getElasticSearchUrl(host);
         String queryUrl = hostUrl + String.format("/%s/%s/%s?%s", index == null ? "_all" : index,
@@ -511,7 +547,6 @@ public class ElasticSearchTest {
         assertNotEquals(queryUrl, es.getQueryUrl(host, index, type, id, new HashMap<String, String>()));
         assertTrue(!es.getQueryUrl(host, index, type, id, new HashMap<String, String>()).endsWith("?"));
     }
-    
 
     private static Consumer<Map<String, Object>> commonEsGetConsumer() {
         return r -> {
@@ -525,7 +560,7 @@ public class ElasticSearchTest {
             assertNotNull(r.get("value"));
 
             Object numOfDocs = extractValueFromResponse(r, "$._all.total.docs.count");
-            assertEquals(6, numOfDocs);
+            assertEquals(3, numOfDocs);
         };
     }
 }
