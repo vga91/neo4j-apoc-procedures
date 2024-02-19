@@ -134,6 +134,24 @@ public class LoadCsvTest {
         assertFalse(r.hasNext());
     }
 
+    @Test
+    public void testLoadCsvWithNoneSeparator() {
+        String url = "test.csv";
+        testResult(db, "CALL apoc.load.csv($url, {sep:'NONE'})", map("url",url), // 'file:test.csv'
+                r -> {
+                    Object actualList = r.next().get("list");
+                    assertEquals(List.of("Selma,8"), actualList);
+                    
+                    actualList = r.next().get("list");
+                    assertEquals(List.of("Rana,11"), actualList);
+                    
+                    actualList = r.next().get("list");
+                    assertEquals(List.of("Selina,18"), actualList);
+                    
+                    assertFalse(r.hasNext());
+                });
+    }
+
     /*
     WITH 'file:///test.csv' AS url
 CALL apoc.load.csv(url,) YIELD map AS m
