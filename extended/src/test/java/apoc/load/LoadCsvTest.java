@@ -115,6 +115,16 @@ public class LoadCsvTest {
                     assertFalse(r.hasNext());
                 });
     }
+    
+    @Test
+    public void testLoadCsvWithMultiCharSeparator(){
+        String url = "testMultiCharSep.csv";
+        Map<String, Object> conf = map("results", List.of("map","list","stringMap","strings"),
+                "sep", "SEP");
+        testResult(db, "CALL apoc.load.csv($url, $conf)", 
+                map("url",url, "conf", conf),
+                this::commonAssertionsLoadCsv);
+    }
 
 
     private void commonAssertionsLoadCsv(Result r) {
@@ -216,13 +226,6 @@ RETURN m.col_1,m.col_2,m.col_3
         final List<String> results = List.of("map", "list", "stringMap", "strings");
         testResult(db, "CALL apoc.load.csv($url, $config)",
                 map("url", url.toString(), "config", map("results", results)),
-                (r) -> {
-                    assertRow(r, 0L,"name", "Naruto", "surname","Uzumaki");
-                    assertRow(r, 1L,"name", "Minato", "surname","Namikaze");
-                    assertFalse(r.hasNext());
-                });
-        testResult(db, "CALL apoc.load.csv($url,$config)",
-                map("url", url.toString(), "config", map("results", results, "escapeChar", "NONE")),
                 (r) -> {
                     assertRow(r, 0L,"name", "Narut\\o", "surname","Uzu\\maki");
                     assertRow(r, 1L,"name", "Minat\\o", "surname","Nami\\kaze");
