@@ -85,6 +85,37 @@ public class LoadCsvTest {
                         "conf", map(COMPRESSION, CompressionAlgo.DEFLATE.name(), "results", List.of("map", "list", "stringMap", "strings"))),
                 this::commonAssertionsLoadCsv);
     }
+    
+    @Test
+    public void testLoadCsvWithQuote() {
+        String url = "testQuote.csv";
+        testResult(db, "CALL apoc.load.csv($url,{results:['map','list','stringMap','strings']})", map("url",url), // 'file:test.csv'
+                r -> {
+                    assertRow(r, 0L, "name", "Selma", "age", "8");
+                    assertRow(r, 1L, "name", "Rana", "age", "11");
+                    assertRow(r, 2L, "name", "Seli,na", "age", "18");
+                    assertFalse(r.hasNext());
+                });
+    }
+
+    @Test
+    public void testLoadCsvWithQuoteAndIgnoreQuotations() {
+        String url = "testQuote.csv";
+        testResult(db, "CALL apoc.load.csv($url,{ignoreQuotations: true, results:['list']})", map("url",url), // 'file:test.csv'
+                r -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals(List.of("Selma","8"), row.get("list"));
+
+                    row = r.next();
+                    assertEquals(List.of("Rana","11"), row.get("list"));
+                    
+                    row = r.next();
+                    assertEquals(List.of("Seli", "na", "18"), row.get("list"));
+                    
+                    assertFalse(r.hasNext());
+                });
+    }
+
 
     private void commonAssertionsLoadCsv(Result r) {
         assertRow(r, 0L, "name", "Selma", "age", "8");
