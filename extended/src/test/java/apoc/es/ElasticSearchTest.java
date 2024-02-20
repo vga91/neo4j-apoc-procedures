@@ -87,6 +87,10 @@ public class ElasticSearchTest {
         TestUtil.registerProcedure(db, ElasticSearch.class);
         insertDocuments();
     }
+    
+    /*
+    curl: (52) Empty reply from server
+$ curl -X GET --user elastic:myPassword "https://localhost:50111/_cluster/health"
 
     private static String getRawProcedureUrl(String id) {
         return ES_INDEX + "/" + ES_TYPE + "/" + id + "?refresh=true";
