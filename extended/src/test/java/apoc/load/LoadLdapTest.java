@@ -8,6 +8,8 @@ import com.novell.ldap.LDAPSearchResults;
 import com.unboundid.ldap.sdk.LDAPConnection;
 import com.unboundid.util.ssl.SSLUtil;
 import com.unboundid.util.ssl.TrustAllTrustManager;
+import org.apache.commons.net.util.SSLContextUtils;
+import org.apache.commons.net.util.SSLSocketUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -49,11 +51,34 @@ import static org.junit.Assert.fail;
 
 /**
  * $ docker run -p 389:389 -p 636:636 --name my-openldap-container --volume ./ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom --detach osixia/openldap:1.5.0  --copy-service
+ * docker cp 478ceb6c78c8e296d2a68d652828a4a75b9edec2201d8d8533762b2ae7f77f2e:/container/service/slapd/assets/certs .
+ * 
+ * 
+ * $ docker run -p 389:389 -p 636:636 --name my-openldap-container --volume ./ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom --env LDAP_TLS_VERIFY_CLIENT=try --detach osixia/openldap:1.5.0  --copy-service
+ * 
+ * 
+ * $ docker run -p 389:389 -p 636:636 --name my-openldap-container --volume ./path:/container/service/slapd/assets/certs --detach osixia/openldap:1.5.0  --copy-service
+ * 
+ * docker run -p 389:389 -p 636:636 --name my-openldap-container --hostname ldap.my-company.com --detach osixia/openldap:1.5.0 --copy-service
+ * 
+ * 
+ * 
+ *
+
+ ldapsearch -x -H ldaps://localhost:636 -b dc=example,dc=org -D "cn=admin,dc=example,dc=org" -w admin
+ ldapsearch -x -H ldap://localhost:389 -b dc=example,dc=org -D "cn=admin,dc=example,dc=org" -w admin
+
+
+ ——
+ https://docs.servicenow.com/bundle/washingtondc-platform-security/page/administer/general/task/t_GenerateAnLDAPClientCertificate.html
+ openssl s_client -connect localhost:636 -showcerts 
+ openssl s_client -connect localhost:636 -CAfile ./dhparam.pem 
  */
 public class LoadLdapTest {
     public static final String BIND_DSN = "uid=admin,cn=users,cn=accounts,dc=demo1,dc=freeipa";
     public static final String BIND_PWD = "testPwd";
     public static LDAPConnection ldapConnection;
+    
     public static Map<String, Object> connParams;
     public static Map<String, Object> searchParams;
 

@@ -9,7 +9,16 @@ import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+import java.io.FileInputStream;
 import java.io.UnsupportedEncodingException;
+import java.security.KeyStore;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -140,6 +149,7 @@ public class LoadLdap {
             // getting an ldap connection
             try {
                 lc = getConnection();
+                System.out.println("connected = " + lc);
                 // execute query
                 LDAPSearchConstraints cons = new LDAPSearchConstraints();
                 cons.setMaxResults(0); // no limit
@@ -174,15 +184,64 @@ public class LoadLdap {
 //        LDAPConnection.setSocketFactory(ssf);
 
 
-            LDAPConnection lc = new LDAPConnection();
-            lc.connect(ldapHost, ldapPort);
+            
+            // todo --> org.apache.commons.net.util.SSLContextUtils
 
-            // bind to the server
-            lc.bind(ldapVersion, loginDN, password.getBytes("UTF8"));
-            // tbd
-            // LDAPConnection pooling here?
-            //
-            return lc;
+            // nb: https://blogs.mulesoft.com/dev-guides/how-to-tutorials/connect-to-ldaps-using-java/
+            
+
+            try {
+//                KeyStore keyStore;
+//                keyStore = KeyStore.getInstance(config.getKeyStoreType());
+//                keyStore.load(new FileInputStream(config.getKeyStoreUrl()), config.getKeyStorePassword().toCharArray());
+//                TrustManagerFactory tmFactory = TrustManagerFactory.getInstance(config.getTrustManagerAlgorithm());
+//                tmFactory.init(keyStore);
+
+                SSLContext sslContext = SSLContext.getInstance("TLS");
+//                SSLContext sslContext = SSLContext.getInstance(config.getSecureProtocol());
+
+                TrustManager[] trustManagers = { new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] xcs, String string) {
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] xcs, String string) {
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return null;
+                    }
+                }};
+
+                sslContext.init(null, trustManagers, new SecureRandom()); // todo necessario SecureRandom() invece di null
+//                sslContext.init(null, tmFactory.getTrustManagers(), new SecureRandom()); // todo necessario SecureRandom() invece di null
+                SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
+
+//                HttpsURLConnection secureConnection = (HttpsURLConnection) src.openConnection ();
+//                secureConnection.setSSLSocketFactory(sslSocketFactory);
+//                return secureConnection;
+                
+                LDAPSocketFactory ldapSocketFactory = new LDAPJSSEStartTLSFactory(sslSocketFactory);
+                LDAPConnection lc = new LDAPConnection(ldapSocketFactory);
+                lc.connect(ldapHost, ldapPort);
+
+                System.out.println("lc.isConnected() = " + lc.isConnected());
+                
+                // todo - SSUTIL --> certificateToString
+    // TODO print... lc.getConnection().isConnected()
+                // bind to the server
+                lc.bind(ldapVersion, loginDN, password.getBytes("UTF8"));
+                // tbd
+                // LDAPConnection pooling here?
+                //
+                return lc;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+            
+            
         }
 
     }
