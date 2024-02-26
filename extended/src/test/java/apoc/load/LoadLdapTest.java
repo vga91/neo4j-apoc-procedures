@@ -209,8 +209,6 @@ public class LoadLdapTest {
         db = dbms.database(GraphDatabaseSettings.DEFAULT_DATABASE_NAME);
         TestUtil.registerProcedure(db, LoadLdap.class);
 
-
-
         ldapConnection = embeddedLdapRule.unsharedLdapConnection();
 //        Context context = embeddedLdapRule.context();
 
@@ -246,7 +244,7 @@ public class LoadLdapTest {
     }
 
     private static void extracted(int port) {
-        Map<String, String> conn = Map.of("ldapHost", "localhost:" + port,
+        Map<String, String> conn = Map.of("ldapHost", "ldap://localhost:" + port,
                 "loginDN", "cn=admin,dc=example,dc=org",
                 "loginPW", "admin");
 //        Map<String, Object> searchBase = Map.of("searchBase", "dc=example,dc=com",

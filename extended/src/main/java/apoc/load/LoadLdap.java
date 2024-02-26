@@ -108,8 +108,10 @@ public class LoadLdap {
 
             String sLdapHostPort = (String) connParms.get(LDAP_HOST_P);
             if (sLdapHostPort.indexOf(":") > -1) {
+                
+                // todo - provare a mettere direttamente il certificato...
                 this.ldapHost = sLdapHostPort.substring(0, sLdapHostPort.indexOf(":"));
-                this.ldapPort = Integer.parseInt(sLdapHostPort.substring(sLdapHostPort.indexOf(":") + 1));
+                this.ldapPort = 636;//Integer.parseInt(sLdapHostPort.substring(sLdapHostPort.indexOf(":") + 1));
             } else {
                 this.ldapHost = sLdapHostPort;
                 this.ldapPort = 389; // default
