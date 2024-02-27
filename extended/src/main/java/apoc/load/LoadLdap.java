@@ -2,6 +2,7 @@ package apoc.load;
 
 import apoc.Extended;
 //import com.novell.ldap.*;
+import apoc.util.Util;
 import com.unboundid.ldap.sdk.*;
 import com.unboundid.ldap.sdk.LDAPSearchException;
 import com.unboundid.ldap.sdk.ResultCode;
@@ -100,6 +101,7 @@ public class LoadLdap {
         private static final String LDAP_HOST_P = "ldapHost";
         private static final String LDAP_LOGIN_DN_P = "loginDN";
         private static final String LDAP_LOGIN_PW_P = "loginPW";
+        private static final String LDAP_SSL = "ssl";
         private static final String SEARCH_BASE_P = "searchBase";
         private static final String SEARCH_SCOPE_P = "searchScope";
         private static final String SEARCH_FILTER_P = "searchFilter";
@@ -114,6 +116,7 @@ public class LoadLdap {
         private String ldapHost;
         private String loginDN;
         private String password;
+        private boolean ssl;
         private LDAPConnection lc;
         private List<String> attributeList;
 
@@ -136,6 +139,7 @@ public class LoadLdap {
 
             this.loginDN = (String) connParms.get(LDAP_LOGIN_DN_P);
             this.password = (String) connParms.get(LDAP_LOGIN_PW_P);
+            this.ssl = Util.toBoolean(connParms.get(LDAP_SSL));
         }
 
         public Stream<LDAPResult> executeSearch(Map<String, Object> search) {
@@ -200,32 +204,9 @@ public class LoadLdap {
         }
 
         private LDAPConnection getConnection() throws LDAPException, UnsupportedEncodingException {
-//        LDAPSocketFactory ssf;
-//        Security.addProvider(new com.sun.net.ssl.internal.ssl.Provider());
-            // String path ="C:\\j2sdk1.4.2_09\\jre\\lib\\security\\cacerts";
-            //op("the trustStore: " + System.getProperty("javax.net.ssl.trustStore"));
-            // System.setProperty("javax.net.ssl.trustStore", path);
-//        op(" reading the strustStore: " + System.getProperty("javax.net.ssl.trustStore"));
-//        ssf = new LDAPJSSESecureSocketFactory();
-//        LDAPConnection.setSocketFactory(ssf);
-
-
-//            LDAPConnection lc = new LDAPConnection();
-
-
-//            KeyStore keyStore;
-//            keyStore = KeyStore.getInstance("jks");
-//            String file = getClass().getClassLoader().getResource("ca.crt").getFile();
-//            keyStore.load(new FileInputStream(file), "admin".toCharArray());
-//                keyStore.load(new FileInputStream(config.getKeyStoreUrl()), config.getKeyStorePassword().toCharArray());
-//            TrustManagerFactory tmFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-//                TrustManagerFactory tmFactory = TrustManagerFactory.getInstance(config.getTrustManagerAlgorithm());
-//            tmFactory.init(keyStore);
-
-            // todo --> SSLContextUtils.
 
             com.unboundid.ldap.sdk.LDAPConnection lc;
-            if (ldapPort == 636) {
+            if (ssl || ldapPort == 636) {
                 SSLContext sslContext = null;
                 try {
                     sslContext = SSLContext.getInstance("TLS");
