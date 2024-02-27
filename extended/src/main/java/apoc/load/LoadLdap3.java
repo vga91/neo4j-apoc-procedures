@@ -1,17 +1,20 @@
 package apoc.load;
 
 import apoc.Extended;
-//import com.novell.ldap.*;
-import com.unboundid.ldap.sdk.*;
+import com.novell.ldap.LDAPAttribute;
+import com.novell.ldap.LDAPConnection;
+import com.novell.ldap.LDAPEntry;
+import com.novell.ldap.LDAPException;
+import com.novell.ldap.LDAPJSSEStartTLSFactory;
+import com.novell.ldap.LDAPSearchConstraints;
+import com.novell.ldap.LDAPSearchResults;
+import com.novell.ldap.LDAPSocketFactory;
 import com.unboundid.ldap.sdk.LDAPSearchException;
 import com.unboundid.ldap.sdk.ResultCode;
-import com.unboundid.ldap.sdk.SearchRequest;
 import com.unboundid.ldap.sdk.SearchResult;
 import com.unboundid.ldap.sdk.SearchScope;
 import com.unboundid.util.ssl.SSLUtil;
 import com.unboundid.util.ssl.TrustAllTrustManager;
-import org.apache.commons.net.util.SSLContextUtils;
-import org.jetbrains.annotations.NotNull;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -22,24 +25,27 @@ import org.neo4j.procedure.Procedure;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
-import java.io.FileInputStream;
 import java.io.UnsupportedEncodingException;
-import java.security.GeneralSecurityException;
 import java.security.KeyManagementException;
-import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static apoc.ApocConfig.apocConfig;
 
 @Extended
-public class LoadLdap {
+public class LoadLdap3 {
 
     @Context
     public Log log;
@@ -110,7 +116,7 @@ public class LoadLdap {
         private static final String SCOPE_SUB = "SCOPE_SUB";
 
         private int ldapPort;
-//        private int ldapVersion = LDAPConnection.LDAP_V3;
+        private int ldapVersion = LDAPConnection.LDAP_V3;
         private String ldapHost;
         private String loginDN;
         private String password;
@@ -140,34 +146,28 @@ public class LoadLdap {
 
         public Stream<LDAPResult> executeSearch(Map<String, Object> search) {
             try {
-                return doSearch(search).getSearchEntries()
-                        .stream()
-                        .map(i -> getStringObjectMap(i, attributeList))
-                        .map(LDAPResult::new);
-                
-                
-//                Iterator<Map<String, Object>> supplier = new SearchResultsIterator(doSearch(search), attributeList);
-//                Spliterator<Map<String, Object>> spliterator = Spliterators.spliteratorUnknownSize(supplier, Spliterator.ORDERED);
-//                return StreamSupport.stream(spliterator, false).map(LDAPResult::new).onClose(() -> closeIt(lc));
+                Iterator<Map<String, Object>> supplier = new SearchResultsIterator(doSearch(search), attributeList);
+                Spliterator<Map<String, Object>> spliterator = Spliterators.spliteratorUnknownSize(supplier, Spliterator.ORDERED);
+                return StreamSupport.stream(spliterator, false).map(LDAPResult::new).onClose(() -> closeIt(lc));
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
         }
 
-        public SearchResult doSearch(Map<String, Object> search) {
+        public LDAPSearchResults doSearch(Map<String, Object> search) {
             // parse search parameters
             String searchBase = (String) search.get(SEARCH_BASE_P);
-            String searchFilter = (String) search.getOrDefault(SEARCH_FILTER_P, "(objectClass=*)");
+            String searchFilter = (String) search.get(SEARCH_FILTER_P);
             String sScope = (String) search.get(SEARCH_SCOPE_P);
             attributeList = (List<String>) search.get(SEARCH_ATTRIBUTES_P);
             if (attributeList == null) attributeList = new ArrayList<>();
-            int searchScope;// = LDAPConnection.SCOPE_SUB;
+            int searchScope = LDAPConnection.SCOPE_SUB;
             if (sScope.equals(SCOPE_BASE)) {
-                searchScope = SearchScope.BASE_INT_VALUE;
+                searchScope = LDAPConnection.SCOPE_BASE;
             } else if (sScope.equals(SCOPE_ONE)) {
-                searchScope = SearchScope.ONE_INT_VALUE;
+                searchScope = LDAPConnection.SCOPE_ONE;
             } else if (sScope.equals(SCOPE_SUB)) {
-                searchScope = SearchScope.SUB_INT_VALUE;
+                searchScope = LDAPConnection.SCOPE_SUB;
             } else {
                 throw new RuntimeException("Invalid scope:" + sScope + ". value scopes are SCOPE_BASE, SCOPE_ONE and SCOPE_SUB");
             }
@@ -175,14 +175,13 @@ public class LoadLdap {
             try {
                 lc = getConnection();
                 // execute query
-//                LDAPSearchConstraints cons = new LDAPSearchConstraints();
-//                cons.setMaxResults(0); // no limit
-                SearchResult searchResults = null;
-                SearchScope scope = SearchScope.valueOf(searchScope);
+                LDAPSearchConstraints cons = new LDAPSearchConstraints();
+                cons.setMaxResults(0); // no limit
+                LDAPSearchResults searchResults = null;
                 if (attributeList == null || attributeList.size() == 0) {
-                    searchResults = lc.search(searchBase, scope, searchFilter);//, null/*, false, cons*/);
+                    searchResults = lc.search(searchBase, searchScope, searchFilter, null, false, cons);
                 } else {
-                    searchResults = lc.search(searchBase, scope, searchFilter, attributeList.toArray(new String[0])/*, false, cons*/);
+                    searchResults = lc.search(searchBase, searchScope, searchFilter, attributeList.toArray(new String[0]), false, cons);
                 }
                 return searchResults;
             } catch (Exception e) {
@@ -192,8 +191,7 @@ public class LoadLdap {
 
         public static void closeIt(LDAPConnection lc) {
             try {
-//                lc.disconnect();
-                lc.close();
+                lc.disconnect();
             } catch (Exception e) {
                 // ignore
             }
@@ -223,39 +221,37 @@ public class LoadLdap {
 //            tmFactory.init(keyStore);
 
             // todo --> SSLContextUtils.
-
-            com.unboundid.ldap.sdk.LDAPConnection lc;
-            if (ldapPort == 636) {
-                SSLContext sslContext = null;
-                try {
-                    sslContext = SSLContext.getInstance("TLS");
-                } catch (NoSuchAlgorithmException e) {
-                    throw new RuntimeException(e);
-                }
+            
+            SSLContext sslContext = null;
+            try {
+                sslContext = SSLContext.getInstance("TLS");
+            } catch (NoSuchAlgorithmException e) {
+                throw new RuntimeException(e);
+            }
 //                SSLContext sslContext = SSLContext.getInstance(config.getSecureProtocol());
 
 //            TrustAllTrustManager
-
-                TrustManager[] trustManagers = {new X509TrustManager() {
-                    @Override
-                    public void checkClientTrusted(X509Certificate[] xcs, String string) {
-                    }
-
-                    @Override
-                    public void checkServerTrusted(X509Certificate[] xcs, String string) {
-                    }
-
-                    @Override
-                    public X509Certificate[] getAcceptedIssuers() {
-                        return null;
-                    }
-                }};
-
-                try {
-                    sslContext.init(null, trustManagers, new SecureRandom()); // todo necessario SecureRandom() invece di null
-                } catch (KeyManagementException e) {
-                    throw new RuntimeException(e);
+            
+            TrustManager[] trustManagers = { new X509TrustManager() {
+                @Override
+                public void checkClientTrusted(X509Certificate[] xcs, String string) {
                 }
+
+                @Override
+                public void checkServerTrusted(X509Certificate[] xcs, String string) {
+                }
+
+                @Override
+                public X509Certificate[] getAcceptedIssuers() {
+                    return null;
+                }
+            }};
+
+            try {
+                sslContext.init(null, trustManagers, new SecureRandom()); // todo necessario SecureRandom() invece di null
+            } catch (KeyManagementException e) {
+                throw new RuntimeException(e);
+            }
 //            sslContext.init(null, tmFactory.getTrustManagers(), new SecureRandom()); // todo necessario SecureRandom() invece di null
 //            SSLSocketFactory sslSocketFactory = sslContext.getSocketFactory();
 
@@ -263,13 +259,14 @@ public class LoadLdap {
 //                secureConnection.setSSLSocketFactory(sslSocketFactory);
 //                return secureConnection;
 
-                SSLUtil sslUtil = new SSLUtil(new TrustAllTrustManager());
-                SSLSocketFactory sslSocketFactory = null;
+            SSLUtil sslUtil = new SSLUtil(new TrustAllTrustManager());
+            SSLSocketFactory sslSocketFactory = null;
 //            try {
                 sslSocketFactory = sslContext.getSocketFactory();// sslUtil.createSSLSocketFactory();
 //            } catch (GeneralSecurityException e) {
 //                throw new RuntimeException(e);
 //            }
+            
             /*
             searchBase = "dc=example,dc=com"
 searchFilter = "(objectClass=*)"
@@ -277,12 +274,9 @@ sScope = "SCOPE_ONE"
              */
 
             
-//            com.unboundid.ldap.sdk.LDAPConnection conn1 = new com.unboundid.ldap.sdk.LDAPConnection();
-
-                lc = new com.unboundid.ldap.sdk.LDAPConnection(sslSocketFactory);
-            } else {
-                lc = new com.unboundid.ldap.sdk.LDAPConnection();
-            }
+            com.unboundid.ldap.sdk.LDAPConnection conn1 = new com.unboundid.ldap.sdk.LDAPConnection();
+            
+            com.unboundid.ldap.sdk.LDAPConnection conn = new com.unboundid.ldap.sdk.LDAPConnection(sslSocketFactory);
 
             /*
             LDAPConnection lc = new LDAPConnection();
@@ -296,31 +290,31 @@ lc.search("dc=example,dc=org", 1 , "(objectClass=*)", new String[] {}, false);
             
             
             try {
-                lc.connect(ldapHost, ldapPort);
+                conn.connect(ldapHost, ldapPort);
                 
-                lc.bind(loginDN, password);
+                conn.bind(loginDN, password);
             } catch (com.unboundid.ldap.sdk.LDAPException e) {
                 throw new RuntimeException(e);
             }
 
             SearchResult search = null;
-//            try {
-////                new SearchRequest()
-//                // todo - test con questo.. The presence filter “(objectClass=*)” is often used as a kind of catch-all to match any entry, because every entry must have at least one objectClass value.
-//                search = lc.search("dc=example,dc=org", SearchScope.BASE, "(objectClass=*)");
-////                search = conn.search("dc=example,dc=org", SearchScope.BASE, "1.1");
-//                ResultCode resultCode = search.getResultCode();
-//                System.out.println("resultCode = " + resultCode);
-//            } catch (LDAPSearchException e) {
-//                throw new RuntimeException(e);
-//            }
+            try {
+//                new SearchRequest()
+                // todo - test con questo.. The presence filter “(objectClass=*)” is often used as a kind of catch-all to match any entry, because every entry must have at least one objectClass value.
+                search = conn.search("dc=example,dc=org", SearchScope.BASE, "(objectClass=*)");
+//                search = conn.search("dc=example,dc=org", SearchScope.BASE, "1.1");
+                ResultCode resultCode = search.getResultCode();
+                System.out.println("resultCode = " + resultCode);
+            } catch (LDAPSearchException e) {
+                throw new RuntimeException(e);
+            }
             
 
-//            LDAPSocketFactory ldapSocketFactory = new LDAPJSSEStartTLSFactory(sslSocketFactory);
-//            LDAPConnection lc = new LDAPConnection(ldapSocketFactory);
-//            lc.connect(ldapHost, ldapPort);
+            LDAPSocketFactory ldapSocketFactory = new LDAPJSSEStartTLSFactory(sslSocketFactory);
+            LDAPConnection lc = new LDAPConnection(ldapSocketFactory);
+            lc.connect(ldapHost, ldapPort);
 
-//            System.out.println("lc.isConnected() = " + lc.isConnected());
+            System.out.println("lc.isConnected() = " + lc.isConnected());
 
             // todo - SSUTIL --> certificateToString
             // TODO print... lc.getConnection().isConnected()
@@ -332,10 +326,10 @@ lc.search("dc=example,dc=org", 1 , "(objectClass=*)", new String[] {}, false);
 //            return lc;
             
             
-//            lc.connect(ldapHost, ldapPort);
+            lc.connect(ldapHost, ldapPort);
 
             // bind to the server <-- todo  oooo 
-//            lc.bind(/*ldapVersion, */loginDN, password/*.getBytes("UTF8")*/);
+            lc.bind(ldapVersion, loginDN, password.getBytes("UTF8"));
             // tbd
             // LDAPConnection pooling here?
             //
@@ -343,96 +337,72 @@ lc.search("dc=example,dc=org", 1 , "(objectClass=*)", new String[] {}, false);
         }
 
     }
+    private static class SearchResultsIterator implements Iterator<Map<String, Object>> {
+        private final LDAPSearchResults lsr;
+        private final List<String> attributes;
+        private Map<String,Object> map;
+        public SearchResultsIterator(LDAPSearchResults lsr, List<String> attributes) {
+            this.lsr = lsr;
+            this.attributes = attributes;
+            this.map = get();
+        }
 
-    public static Map<String, Object> getStringObjectMap(SearchResultEntry en, List<String> attributes) {
-        Map<String, Object> entry = new LinkedHashMap<>(attributes.size() + 1);
-//            SearchResultEntry en = null;
-//            en = res.getSearchEntries().get(0);
-        entry.put("dn", en.getDN());
-        if (attributes != null && attributes.size() > 0) {
-            for (int col = 0; col < attributes.size(); col++) {
-                Object val = readValue( en.getAttribute(attributes.get(col)) );
-//                    Object val = readValue(en./*getAttributeSet().*/getAttribute(attributes.get(col)).getValues());
-                if (val != null) entry.put(attributes.get(col),val );
+        @Override
+        public boolean hasNext() {
+            return this.map != null;
+        }
+
+        @Override
+        public Map<String, Object> next() {
+            Map<String,Object> current = this.map;
+            this.map = get();
+            return current;
+        }
+
+        public Map<String, Object> get() {
+            if (handleEndOfResults()) return null;
+            try {
+                Map<String, Object> entry = new LinkedHashMap<>(attributes.size() + 1);
+                LDAPEntry en = null;
+                en = lsr.next();
+                entry.put("dn", en.getDN());
+                if (attributes != null && attributes.size() > 0) {
+                    for (int col = 0; col < attributes.size(); col++) {
+                        Object val = readValue(en.getAttributeSet().getAttribute(attributes.get(col)));
+                        if (val != null) entry.put(attributes.get(col),val );
+                    }
+                } else {
+                    // make it dynamic
+                    Iterator<LDAPAttribute> iter = en.getAttributeSet().iterator();
+                    while (iter.hasNext()) {
+                        LDAPAttribute attr = iter.next();
+                        Object val = readValue(attr);
+                        if (val != null) entry.put(attr.getName(), readValue(attr));
+                    }
+                }
+                return entry;
+
+            } catch (LDAPException e) {
+                throw new RuntimeException("Error getting next ldap entry " + e.getLDAPErrorMessage());
             }
-        } else {
-            en.getAttributes()
-                    .forEach(i -> entry.put(i.getName(), readValue(i)));
-
-            // make it dynamic
-//                Iterator<LDAPAttribute> iter = en.getAttributeSet().iterator();
-//                while (iter.hasNext()) {
-//                    LDAPAttribute attr = iter.next();
-//                    Object val = readValue(attr);
-//                    if (val != null) entry.put(attr.getName(), readValue(attr));
-//                }
         }
-        return entry;
-    }
 
-    private static Object readValue(Attribute att) {
-        if (att == null) return null;
-        if (att.size() == 1) {
-            // single value
-            // for now everything is string
-            return att.getValue();
-        } else {
-            return att.getValues();
+        private boolean handleEndOfResults()  {
+            if (!lsr.hasMore()) {
+                return true;
+            }
+            return false;
+        }
+        private Object readValue(LDAPAttribute att) {
+            if (att == null) return null;
+            if (att.size() == 1) {
+                // single value
+                // for now everything is string
+                return att.getStringValue();
+            } else {
+                return att.getStringValueArray();
+            }
         }
     }
-    
-    
-//    private static class SearchResultsIterator implements Iterator<Map<String, Object>> {
-//        private final SearchResult lsr;
-//        private final List<String> attributes;
-//        private Map<String,Object> map;
-//        public SearchResultsIterator(SearchResult lsr, List<String> attributes) {
-//            this.lsr = lsr;
-//            this.attributes = attributes;
-//            this.map = get();
-//        }
-//
-//        @Override
-//        public boolean hasNext() {
-//            return this.map != null;
-//        }
-//
-//        @Override
-//        public Map<String, Object> next() {
-//            Map<String,Object> current = this.map;
-//            this.map = get();
-//            return current;
-//        }
-//
-//        public Map<String, Object> get() {
-//            if (handleEndOfResults()) return null;
-//            try {
-//                return getStringObjectMap();
-//
-//            } catch (LDAPException e) {
-//                throw new RuntimeException("Error getting next ldap entry " + e.getLDAPErrorMessage());
-//            }
-//        }
-//
-//        
-//
-//
-//        private boolean handleEndOfResults()  {
-//            if (!lsr.hasMore()) {
-//                return true;
-//            }
-//            return false;
-//        }
-//        private Object readValue(LDAPAttribute att) {
-//            if (att == null) return null;
-//            if (att.size() == 1) {
-//                // single value
-//                // for now everything is string
-//                return att.getStringValue();
-//            } else {
-//                return att.getStringValueArray();
-//            }
-//        }
-//    }
 
 }

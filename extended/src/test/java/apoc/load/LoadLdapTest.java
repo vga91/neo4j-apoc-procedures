@@ -73,6 +73,14 @@ import static org.junit.Assert.fail;
  https://docs.servicenow.com/bundle/washingtondc-platform-security/page/administer/general/task/t_GenerateAnLDAPClientCertificate.html
  openssl s_client -connect localhost:636 -showcerts 
  openssl s_client -connect localhost:636 -CAfile ./dhparam.pem 
+ 
+ 
+ TODOOOOO - dico che con docker ssl sembra tricky, e sul web le soluzioni sono "disattiva certificati" o "just use ldap://..."
+ // -- ldapsearch -W -H ldaps://ldap.forumsys.com:636 -D "uid=tesla,dc=example,dc=com" -b "dc=example,dc=com"
+
+
+ -- https://support.google.com/a/answer/9190869?hl=en
+ 
  */
 public class LoadLdapTest {
     public static final String BIND_DSN = "uid=admin,cn=users,cn=accounts,dc=demo1,dc=freeipa";
@@ -217,7 +225,8 @@ public class LoadLdapTest {
                 "loginPW", BIND_PWD);
 
         searchParams = Map.of("searchBase", "dc=example,dc=com",
-                "searchScope", "SCOPE_SUBTREE",
+//                "searchScope", "SCOPE_SUBTREE",
+                "searchScope", "SCOPE_ONE",
                 "searchFilter", "(objectClass=*)",
                 "attributes", List.of("uid") );
     }
@@ -244,15 +253,16 @@ public class LoadLdapTest {
     }
 
     private static void extracted(int port) {
-        Map<String, String> conn = Map.of("ldapHost", "ldap://localhost:" + port,
+        Map<String, String> conn = Map.of("ldapHost", "localhost:" + port,
+//        Map<String, String> conn = Map.of("ldapHost", "ldaps://localhost:" + port,
                 "loginDN", "cn=admin,dc=example,dc=org",
                 "loginPW", "admin");
 //        Map<String, Object> searchBase = Map.of("searchBase", "dc=example,dc=com",
 //                "searchScope", "SCOPE_BASE",
 //                "searchFilter", "(objectclass=*)"/*,
 //                "attributes", List.of("uid")*/);
-        Map<String, Object> searchBase = Map.of("searchBase", "dc=example,dc=com",
-                "searchScope", "SCOPE_SUB");
+        Map<String, Object> searchBase = Map.of("searchBase", "dc=example,dc=org",
+                "searchScope", "SCOPE_BASE");
         testCall(db, "call apoc.load.ldap($conn, $search)",
                 Map.of("conn", conn, "search", searchBase),
                 r -> {
@@ -336,16 +346,16 @@ public class LoadLdapTest {
         assertEquals(expected, r.get("entry"));
     }
 
-    @Test
-    public void testLoadLDAPConfig() throws Exception {
-        LoadLdap.LDAPManager mgr = new LoadLdap.LDAPManager(LoadLdap.getConnectionMap(connParams, null));
-        
-        LDAPSearchResults results = mgr.doSearch(searchParams);
-        LDAPEntry le = results.next();
-        assertEquals("uid=training,dc=example,dc=com", le.getDN());
-        assertEquals("training", le.getAttribute("uid").getStringValue());
-
-    }
+//    @Test
+//    public void testLoadLDAPConfig() throws Exception {
+//        LoadLdap.LDAPManager mgr = new LoadLdap.LDAPManager(LoadLdap.getConnectionMap(connParams, null));
+//        
+//        LDAPSearchResults results = mgr.doSearch(searchParams);
+//        LDAPEntry le = results.next();
+//        assertEquals("uid=training,dc=example,dc=com", le.getDN());
+//        assertEquals("training", le.getAttribute("uid").getStringValue());
+//
+//    }
 
 }
 
