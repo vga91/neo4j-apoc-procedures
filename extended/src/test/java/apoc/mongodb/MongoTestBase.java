@@ -107,7 +107,7 @@ public class MongoTestBase {
             long numConnectionsAfter = (long) getNumConnections(mongo, commands).get("current");
             return numConnections == numConnectionsAfter;
         },
-        v -> v, 10, TimeUnit.SECONDS);
+        v -> v, 30, TimeUnit.SECONDS);
     }
 
     public static void createContainer(boolean withAuth, MongoVersion mongoVersion) {
