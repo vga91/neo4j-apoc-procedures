@@ -103,11 +103,6 @@ public class ElasticVersionSevenTest extends ElasticSearchTest {
                 commonEsGetConsumer());
     }
     
-    /**
-     * TODO: IN 8 --> _search seems needed!!
-     * curl --user elastic:myPassword -X GET "localhost:49192/_search?pretty" -H 'Content-Type: application/json' -d'{"_source": {"includes": [ "name"]}}'
-     */
-    
     @Test
     public void testGetWithQueryAsStringSingleParam() {
         TestUtil.testCall(db, "CALL apoc.es.get($host,$index,$type,$id,'_source_includes=name',null, {}) yield value", defaultParams,

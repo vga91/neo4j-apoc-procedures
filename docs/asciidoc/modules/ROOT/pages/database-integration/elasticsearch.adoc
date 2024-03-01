@@ -240,14 +240,29 @@ for example the `apoc.es.query`.
 By default, the `<index param>` and `<id param>` will be populated as `_all`, while the `<id param>`, if not present, will be removed from the endpoint 
 |  `<host>/<index param>/<type param>/<id param>_stats?<query param>`. Note that you only need to enter one of three values between `<index param>`,`<id param>` and `<type param>`, the others will eventually be excluded from the endpoint.
 
+The type param is usually an underscore string indicating the type of the API, e.g. `_doc` or `_update` (while previously indicated https://www.elastic.co/guide/en/elasticsearch/reference/6.1/removal-of-types.html[the mapping types]).
 This is to allow you to call, for example, https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html[this API]
 |===
 
 
-For example, by using the `apoc.es.query`, we can execute:
+For example, by using the `apoc.es.query`, we can execute a Search API:
 [source, cypher]
 ----
 CALL apoc.es.query(<$host>, <$index>, <$type>, 'q=name:Neo4j', null, { version: 'EIGHT' })
+----
+
+Updates a document in Elastic 8 via https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-update.html#docs-update[Update API]:
+
+[source, cypher]
+----
+CALL apoc.es.put($host,'<indexName>','_doc','<idName>','refresh=true',{name: 'foo'}, {version: 'EIGHT'})
+----
+
+Call a https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-create-index.html#indices-create-index[Create Index API] in elastic 8:
+
+[source, cypher]
+----
+CALL apoc.es.put($host,'<indexName>', null, null, null, null, { version: 'EIGHT' })
 ----
 
 

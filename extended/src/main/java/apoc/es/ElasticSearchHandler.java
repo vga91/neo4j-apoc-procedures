@@ -19,7 +19,7 @@ public abstract class ElasticSearchHandler {
      * With this pattern we can match both key:value params and key=value params
      */
     private final static Pattern KEY_VALUE = Pattern.compile("(.*)(:|=)(.*)");
-// todo - remove from here..
+
     protected String getElasticSearchUrl(String hostOrKey) {
         return new UrlResolver("http", "localhost", 9200).getUrl("es", hostOrKey);
     }
@@ -58,11 +58,9 @@ public abstract class ElasticSearchHandler {
         return getElasticSearchUrl(hostOrKey) + formatSearchQueryUrl(index, type, query);
     }
 
-//    protected abstract String getQueryUrl(String hostOrKey, String index, String type, String id, Object query);
-//
-//
-//    protected abstract String getSearchQueryUrl(String hostOrKey, String index, String type, Object query);
-
+    /**
+     * Format the Search API url template according to the parameters.
+     */
     protected abstract String formatSearchQueryUrl(String index, String type, Object query);
 
     /**
@@ -87,35 +85,19 @@ public abstract class ElasticSearchHandler {
 
     static class Eight extends ElasticSearchHandler {
 
-//        @Override
-//        protected String getQueryUrl(String hostOrKey, String index, String type, String id, Object query) {
-//            return null;
-//        }
-//
-//        @Override
-//        protected String getSearchQueryUrl(String hostOrKey, String index, String type, Object query) {
-//            return null;
-//        }
-
         @Override
         protected String formatSearchQueryUrl(String index, String type, Object query) {
-            // todo - _all è necessario in elastic 8??
             
             String queryUrl = String.format( "/%s/_search?%s",
                     index == null ? "_all" : index,
-//                    type == null ? "_all" : type,
                     toQueryParams(query));
             
             return removeTerminalQuote(queryUrl);
         }
-        
-        
 
         @Override
         protected String formatQueryUrl(String index, String type, String id, Object query) {
-//            type = Objects.requireNonNullElse(type, "_doc");
-            
-            // todo - stream.of() accetta null???
+
             String queryUrl = Arrays.asList(index, type, id)
                     .stream()
                     .filter(StringUtils::isNotBlank)
@@ -132,10 +114,8 @@ public abstract class ElasticSearchHandler {
 
     static class Default extends ElasticSearchHandler {
 
-        private final static String fullQueryTemplate = "/%s/%s/%s?%s";
-
-        // /{index}/{type}/_search?{query}
-        private final static String fullQuerySearchTemplate = "/%s/%s/_search?%s";
+        private final String fullQueryTemplate = "/%s/%s/%s?%s";
+        private final String fullQuerySearchTemplate = "/%s/%s/_search?%s";
         
         @Override
         protected String formatSearchQueryUrl(String index, String type, Object query) {
