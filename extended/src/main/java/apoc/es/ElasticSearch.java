@@ -134,44 +134,44 @@ public class ElasticSearch {
     }
 
     @Procedure
-    @Description("apoc.es.stats(host-url-Key,$config) - elastic search statistics")
-    public Stream<MapResult> stats(@Name("host") String hostOrKey, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+    @Description("apoc.es.stats(host-or-key,$config) - elastic search statistics")
+    public Stream<MapResult> stats(@Name("hostOrKey") String hostOrKey, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         String url = getElasticSearchUrl(hostOrKey);
         return loadJsonStream(url + "/_stats", new ElasticSearchConfig(config), null);
     }
 
     @Procedure
-    @Description("apoc.es.get(host-or-port,index-or-null,type-or-null,id-or-null,query-or-null,payload-or-null,$config) yield value - perform a GET operation on elastic search")
-    public Stream<MapResult> get(@Name("host") String hostOrKey, @Name("index") String index, @Name("type") String type, @Name("id") String id, @Name("query") Object query, @Name("payload") Object payload,
+    @Description("apoc.es.get(host-or-key,index-or-null,type-or-null,id-or-null,query-or-null,payload-or-null,$config) yield value - perform a GET operation on elastic search")
+    public Stream<MapResult> get(@Name("hostOrKey") String hostOrKey, @Name("index") String index, @Name("type") String type, @Name("id") String id, @Name("query") Object query, @Name("payload") Object payload,
                                  @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         return loadJsonStream(getQueryUrl(hostOrKey, index, type, id, query), new ElasticSearchConfig(config), toPayload(payload));
     }
 
     @Procedure
-    @Description("apoc.es.query(host-or-port,index-or-null,type-or-null,query-or-null,payload-or-null,$config) yield value - perform a SEARCH operation on elastic search")
-    public Stream<MapResult> query(@Name("host") String hostOrKey, @Name("index") String index, @Name("type") String type, @Name("query") Object query, @Name("payload") Object payload,
+    @Description("apoc.es.query(host-or-key,index-or-null,type-or-null,query-or-null,payload-or-null,$config) yield value - perform a SEARCH operation on elastic search")
+    public Stream<MapResult> query(@Name("hostOrKey") String hostOrKey, @Name("index") String index, @Name("type") String type, @Name("query") Object query, @Name("payload") Object payload,
                                    @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         return loadJsonStream(getSearchQueryUrl(hostOrKey, index, type, query), new ElasticSearchConfig(config), toPayload(payload));
     }
 
     @Procedure
-    @Description("apoc.es.getRaw(host-or-port,path,payload-or-null,$config) yield value - perform a raw GET operation on elastic search")
-    public Stream<MapResult> getRaw(@Name("host") String hostOrKey, @Name("path") String suffix, @Name("payload") Object payload,
+    @Description("apoc.es.getRaw(host-or-key,path,payload-or-null,$config) yield value - perform a raw GET operation on elastic search")
+    public Stream<MapResult> getRaw(@Name("hostOrKey") String hostOrKey, @Name("path") String suffix, @Name("payload") Object payload,
                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         String url = getElasticSearchUrl(hostOrKey);
         return loadJsonStream(url + "/" + suffix, new ElasticSearchConfig(config), toPayload(payload));
     }
 
     @Procedure
-    @Description("apoc.es.postRaw(host-or-port,path,payload-or-null,$config) yield value - perform a raw POST operation on elastic search")
-    public Stream<MapResult> postRaw(@Name("host") String hostOrKey, @Name("path") String suffix, @Name("payload") Object payload, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
+    @Description("apoc.es.postRaw(host-or-key,path,payload-or-null,$config) yield value - perform a raw POST operation on elastic search")
+    public Stream<MapResult> postRaw(@Name("hostOrKey") String hostOrKey, @Name("path") String suffix, @Name("payload") Object payload, @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         String url = getElasticSearchUrl(hostOrKey);
         return loadJsonStream(url + "/" + suffix, new ElasticSearchConfig(config, "POST"), toPayload(payload));
     }
 
     @Procedure
-    @Description("apoc.es.post(host-or-port,index-or-null,type-or-null,query-or-null,payload-or-null,$config) yield value - perform a POST operation on elastic search")
-    public Stream<MapResult> post(@Name("host") String hostOrKey, @Name("index") String index, @Name("type") String type, @Name("query") Object query,
+    @Description("apoc.es.post(host-or-key,index-or-null,type-or-null,query-or-null,payload-or-null,$config) yield value - perform a POST operation on elastic search")
+    public Stream<MapResult> post(@Name("hostOrKey") String hostOrKey, @Name("index") String index, @Name("type") String type, @Name("query") Object query,
                                   @Name(value = "payload", defaultValue = "{}") Map<String,Object> payload,
                                   @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         if (payload == null)
@@ -182,8 +182,8 @@ public class ElasticSearch {
     }
 
     @Procedure
-    @Description("apoc.es.put(host-or-port,index-or-null,type-or-null,id-or-null,query-or-null,payload-or-null,$config) yield value - perform a PUT operation on elastic search")
-    public Stream<MapResult> put(@Name("host") String hostOrKey, @Name("index") String index, @Name("type") String type, @Name("id") String id, @Name("query") Object query,
+    @Description("apoc.es.put(host-or-key,index-or-null,type-or-null,id-or-null,query-or-null,payload-or-null,$config) yield value - perform a PUT operation on elastic search")
+    public Stream<MapResult> put(@Name("hostOrKey") String hostOrKey, @Name("index") String index, @Name("type") String type, @Name("id") String id, @Name("query") Object query,
                                  @Name(value = "payload", defaultValue = "{}") Map<String,Object> payload,
                                  @Name(value = "config", defaultValue = "{}") Map<String, Object> config) {
         if (payload == null)
@@ -194,8 +194,8 @@ public class ElasticSearch {
     }
 
     @Procedure
-    @Description("apoc.es.delete(host-or-port,index-or-null,type-or-null,id-or-null,query-or-null,$config) yield value - perform a DELETE operation on elastic search")
-    public Stream<MapResult> delete(@Name("host") String hostOrKey,
+    @Description("apoc.es.delete(host-or-key,index-or-null,type-or-null,id-or-null,query-or-null,$config) yield value - perform a DELETE operation on elastic search")
+    public Stream<MapResult> delete(@Name("hostOrKey") String hostOrKey,
                                  @Name("index") String index,
                                  @Name("type") String type,
                                  @Name("id") String id,
