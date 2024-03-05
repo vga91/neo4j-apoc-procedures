@@ -94,7 +94,6 @@ public class LoadLdap {
         private static final String SCOPE_SUB = "SCOPE_SUB";
 
         private int ldapPort;
-//        private int ldapVersion = LDAPConnection.LDAP_V3;
         private String ldapHost;
         private String loginDN;
         private String password;
