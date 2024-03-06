@@ -123,11 +123,7 @@ public class ExtendedApocConfig extends LifecycleAdapter
     protected void loadConfiguration() {
         try {
 
-            URL resource = getClass().getClassLoader().getResource("apoc-config.xml");
-            log.info("loading apoc meta config from %s", resource.toString());
-            CombinedConfigurationBuilder builder = new CombinedConfigurationBuilder()
-                    .configure(new Parameters().fileBased().setURL(resource));
-            config = builder.getConfiguration();
+            config = setupConfigurations();
 
             // set config settings not explicitly set in apoc.conf to their default value
             configDefaultValues.forEach((k,v) -> {
@@ -142,6 +138,27 @@ public class ExtendedApocConfig extends LifecycleAdapter
         } catch ( ConfigurationException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private Configuration setupConfigurations() throws ConfigurationException {
+        String neo4jConfFolder = System.getenv().getOrDefault("NEO4J_CONF", determineNeo4jConfFolder());
+        java.io.File apocConfFile = new java.io.File(neo4jConfFolder + "/apoc.conf");
+        
+        org.apache.commons.configuration2.PropertiesConfiguration configFile = new org.apache.commons.configuration2.PropertiesConfiguration();
+        if (apocConfFile.exists()) {
+            final org.apache.commons.configuration2.io.FileHandler handler = new org.apache.commons.configuration2.io.FileHandler(configFile);
+            handler.setFile(apocConfFile);
+            handler.load();
+        }
+
+        // OverrideCombiner will evaluate keys in order, i.e. env before sys etc.
+        org.apache.commons.configuration2.CombinedConfiguration combined = new org.apache.commons.configuration2.CombinedConfiguration();
+        combined.setNodeCombiner(new org.apache.commons.configuration2.tree.OverrideCombiner());
+        combined.addConfiguration(new org.apache.commons.configuration2.EnvironmentConfiguration());
+        combined.addConfiguration(new org.apache.commons.configuration2.SystemConfiguration());
+        combined.addConfiguration(configFile);
+
+        return combined;
     }
 
     protected Configuration getConfig() {
