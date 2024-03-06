@@ -1,6 +1,7 @@
 package apoc.ml;
 
 import apoc.util.TestUtil;
+import apoc.util.collection.Iterators;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -8,12 +9,16 @@ import org.junit.Test;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static apoc.ml.OpenAI.MODEL_CONF_KEY;
 import static apoc.ml.OpenAITestResultUtils.*;
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testResult;
 import static java.util.Collections.emptyMap;
+import static org.junit.Assert.assertEquals;
 
 public class OpenAIIT {
 
@@ -66,6 +71,19 @@ public class OpenAIIT {
                 "dimensions", 256);
         testCall(db, EMBEDDING_QUERY, Map.of("apiKey", openaiKey, "conf", conf),
                 r -> assertEmbeddings(r, 256));
+    }
+
+    @Test
+    public void getEmbeddingNull() {
+        testResult(db, "CALL apoc.ml.openai.embedding([null, 'Some Text', null, 'Other Text'], $apiKey, $conf)", Map.of("apiKey",openaiKey, "conf", emptyMap()),
+                r -> {
+                    Set<String> actual = Iterators.asSet(r.columnAs("text"));
+
+                    Set<String> expected = new HashSet<>() {{
+                        add(null); add(null); add("Some Text"); add("Other Text");
+                    }};
+                    assertEquals(expected, actual);
+                });
     }
 
     @Test
