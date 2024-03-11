@@ -1,15 +1,16 @@
 package apoc.graph;
 
 import apoc.Extended;
+import apoc.result.GraphResult;
 import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
 import apoc.util.collection.Iterables;
-import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.Relationship;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
+import org.neo4j.procedure.Procedure;
 import org.neo4j.procedure.UserAggregationFunction;
 import org.neo4j.procedure.UserAggregationResult;
 import org.neo4j.procedure.UserAggregationUpdate;
@@ -19,7 +20,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Extended
 public class GraphsExtended {
@@ -50,73 +51,49 @@ and then go over the nodes and replace the ones that have one of the properties 
 
      */
 
+
+    @Procedure("apoc.virtual.graph")
+    @Description(
+            "CALL () YIELD nodes, relationships - returns a set of ")
+    public Stream<GraphResult> fromData(
+            @Name("value") Object value, @Name("propertiesToRemove") List<String> propertiesToRemove) {
+        VirtualGraphExtractor extractor = new VirtualGraphExtractor(propertiesToRemove);
+        extractor.extract(value);
+        GraphResult result = new GraphResult( extractor.nodes(), extractor.rels() );
+        return Stream.of(result);
+    }
     
-    @UserAggregationFunction("")
-    @Description("apoc.graph.filterProperties")
+    @UserAggregationFunction("apoc.graph.filterProperties")
+    @Description(
+            "apoc.graph.filterProperties")
     public GraphFunction filterProperties() {
         return new GraphFunction();
     }
 
-    // todo - forse potrei mettere il VirtualGraphExtractor qui nel costruttore, e fare una volta sola new VirtualGraphExtractor()..
     public static class GraphFunction {
         public static final String NODES = "nodes";
         public static final String RELATIONSHIPS = "relationships";
-
-//        private Map<String, Map<String, Entity>> graph = Map.of(NODES, new HashMap<>(),
-//                RELATIONSHIPS, new HashMap<>());
-        
-//        private Map<String, Node> nodesCache = new HashMap<>();
-//        private Map<String, Relationship> relationshipsCache = new HashMap<>();
-
-//        public GraphFunction() {
-//            new VirtualGraphExtractor();
-//        }
 
         private VirtualGraphExtractor virtualGraphExtractor;
 
         @UserAggregationUpdate
         public void filterProperties(@Name("value") Object value, @Name("propertiesToRemove") List<String> propertiesToRemove) {
-
             if (virtualGraphExtractor == null) {
                 virtualGraphExtractor = new VirtualGraphExtractor(propertiesToRemove);
             }
-            
             virtualGraphExtractor.extract(value);
-            
-//            nodesCache = virtualGraphExtractor.getNodes();
-//            relationshipsCache = virtualGraphExtractor.getRels();
-                    
-//            extract(value, nodesCache, relationshipsCache, propertiesToRemove);
         }
 
         @UserAggregationResult
         public Object result() {
-            Collection<Node> nodes = virtualGraphExtractor.getNodes().values();
-            Collection<Relationship> relationships = virtualGraphExtractor.getRels().values();
+            Collection<Node> nodes = virtualGraphExtractor.nodes();
+            Collection<Relationship> relationships = virtualGraphExtractor.rels();
             return Map.of(
                     NODES, nodes,
                     RELATIONSHIPS, relationships
             );
         }
     }
-        
-    
-    
-    /*
-    @Procedure("apoc.virtual.graph")
-    @Description(
-            "CALL () YIELD nodes, relationships - returns a set of ")
-    public Stream<GraphResult> fromData(
-            @Name("value") Object value, @Name("propertiesToRemove") List<String> propertiesToRemove) {
-        Set<Node> nodes = new HashSet<>(1000);
-        Set<Relationship> rels = new HashSet<>(10000);
-        extract(value, nodes, rels, propertiesToRemove);
-        return Stream.of(new GraphResult(List.copyOf(nodes), List.copyOf(rels)));
-    }
-
-    */
-    // todo -->     @UserFunction("apoc.create.virtual.fromNode")
-
 
     public static class VirtualGraphExtractor {
         private final Map<String, Node> nodes;
@@ -136,132 +113,73 @@ and then go over the nodes and replace the ones that have one of the properties 
         }
 
         public void extract(Object value) {
-//            boolean found = false;
-            if (value == null) return;// false;
+            if (value == null) {
+                return;
+            }
             if (value instanceof Node node) {
-
-
-                extracted(node);
-//                nodes.put((Node) value);
-//                return true;
+                addVirtualNode(node);
+                
             } else if (value instanceof Relationship rel) {
-                extracted(rel);
-//                rels.add((Relationship) value);
-//                return true;
+                addVirtualRel(rel);
                 
             } else if (value instanceof Path path) {
-                path.nodes().forEach(node -> {
-                    extracted(node);
-                });
+                path.nodes().forEach(this::addVirtualNode);
+                path.relationships().forEach(this::addVirtualRel);
                 
-                path.relationships().forEach(rel -> {
-                    extracted(rel);
-                });
-
-//                Iterables.addAll(nodes, ((Path) value).nodes());
-//                Iterables.addAll(rels, ((Path) value).relationships());
-//                return true;
             } else if (value instanceof Iterable) {
-                ((Iterable<?>) value).forEach(i -> extract(i));
+                ((Iterable<?>) value).forEach(this::extract);
                 
-//                for (Object o : (Iterable) value) found |= extract(o, nodes, rels);
-            } else if (value instanceof Map map) {
-                map.values().forEach(i -> extract(i));
+            } else if (value instanceof Map<?,?> map) {
+                map.values().forEach(this::extract);
                 
-                
-//                for (Object o : ((Map) value).values()) found |= extract(o, nodes, rels);
             } else if (value instanceof Iterator) {
-                ((Iterator<?>) value).forEachRemaining(i -> extract(i));
+                ((Iterator<?>) value).forEachRemaining(this::extract);
                 
-//                Iterator it = (Iterator) value;
-//                while (it.hasNext()) found |= extract(it.next(), nodes, rels);
             } else if (value instanceof Object[] array) {
                 for (Object i : array) {
                     extract(i);
                 }
-                
-//                for (Object o : (Object[]) value) found |= extract(o, nodes, rels);
             }
         }
 
-        private void extracted(Relationship rel) {
-//            Relationship virtualRel = createVirtualRel(rel);
+        /**
+         * We can use the elementId as a unique key for virtual nodes/relations, 
+         * as it is the same as the analogue for real nodes/relations.
+         */
+        private void addVirtualRel(Relationship rel) {
             rels.putIfAbsent(rel.getElementId(), createVirtualRel(rel));
         }
 
-        private void extracted(Node node) {
-//            Node virtualNode = createVirtualNode(node);
+        private void addVirtualNode(Node node) {
             nodes.putIfAbsent(node.getElementId(), createVirtualNode(node));
         }
 
-
-        private Node createVirtualNode(Node startNode/*, List<String> propertiesToRemove*/) {
-//        Map<String, Object> props = startNode.getAllProperties();
+        private Node createVirtualNode(Node startNode) {
             List<String> props = Iterables.asList(startNode.getPropertyKeys());
             props.removeAll(propertiesToRemove);
 
             return new VirtualNode(startNode, props);
         }
 
-        /*
-
-         */
-        private Relationship createVirtualRel(Relationship rel/*, List<String> propertiesToRemove*/) {
+        private Relationship createVirtualRel(Relationship rel) {
             Node startNode = rel.getStartNode();
             startNode = nodes.putIfAbsent(startNode.getElementId(), createVirtualNode(startNode));
 
             Node endNode = rel.getEndNode();
             endNode = nodes.putIfAbsent(endNode.getElementId(), createVirtualNode(endNode));
-
             
             Map<String, Object> props = rel.getAllProperties();
-//            List<String> props = Iterables.asList(rel.getPropertyKeys());
-            props.keySet().removeAll(propertiesToRemove);
+            propertiesToRemove.forEach(props.keySet()::remove);
 
             return new VirtualRelationship(startNode, endNode, rel.getType(), props);
         }
 
-        public Map<String, Node> getNodes() {
-            return nodes;
+        public List<Node> nodes() {
+            return List.copyOf(nodes.values());
         }
 
-        public Map<String, Relationship> getRels() {
-            return rels;
+        public List<Relationship> rels() {
+            return List.copyOf(rels.values());
         }
     }
-
-    // todo - dire che, a differenza dell'id, nei nodi virtuali l'elementId è univoco in base al nodo
-//    
-//    public boolean extract(Object value, Map<String, Entity> nodes, Map<String, Entity> rels, List<String> propertiesToRemove) {
-//        boolean found = false;
-//        if (value == null) return false;
-//        if (value instanceof Node) {
-//            
-//            
-//            nodes.add((Node) value);
-//            return true;
-//        } else if (value instanceof Relationship) {
-//            rels.add((Relationship) value);
-//            return true;
-//        } else if (value instanceof Path path) {
-//            path.nodes().forEach(node -> {
-//                Node virtualNode = createVirtualNode(node, propertiesToRemove);
-//                nodes.put(virtualNode.getElementId(), virtualNode);
-//            });
-//            
-//            Iterables.addAll(nodes, ((Path) value).nodes());
-//            Iterables.addAll(rels, ((Path) value).relationships());
-//            return true;
-//        } else if (value instanceof Iterable) {
-//            for (Object o : (Iterable) value) found |= extract(o, nodes, rels);
-//        } else if (value instanceof Map) {
-//            for (Object o : ((Map) value).values()) found |= extract(o, nodes, rels);
-//        } else if (value instanceof Iterator) {
-//            Iterator it = (Iterator) value;
-//            while (it.hasNext()) found |= extract(it.next(), nodes, rels);
-//        } else if (value instanceof Object[]) {
-//            for (Object o : (Object[]) value) found |= extract(o, nodes, rels);
-//        }
-//        return found;
-//    }
 }
