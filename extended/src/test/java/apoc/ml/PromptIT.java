@@ -19,6 +19,8 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.stream.Stream;
 
 import static apoc.util.TestUtil.testResult;
 
@@ -50,8 +52,8 @@ public class PromptIT {
                 CALL apoc.ml.query($query, {retries: $retries, apiKey: $apiKey})
                 """,
                 Map.of(
-                        "query", "What movies did Tom Hanks play in?",
-                        "retries", 2L,
+                        "query", "ghj",
+                        "retries", 5L,
                         "apiKey", OPENAI_KEY
                 ),
                 (r) -> {
@@ -63,6 +65,27 @@ public class PromptIT {
                                     .map(Object::toString)
                                     .map(String::trim))
                             .isNotEmpty();
+                });
+    }
+
+    @Test
+    public void testQueryWithRetry() {
+        testResult(db, """
+                CALL apoc.ml.query($query, {retries: $retries, apiKey: $apiKey})
+                """,
+                Map.of(
+                        "query", UUID.randomUUID().toString(),
+                        "retries", 5L,
+                        "apiKey", OPENAI_KEY
+                ),
+                (r) -> {
+                    List<String> queryRes = r.stream()
+                            .map(m -> m.get("query"))
+                            .filter(Objects::nonNull)
+                            .map(Object::toString)
+                            .map(String::trim)
+                            .toList();
+                    Assertions.assertThat(queryRes).isNotEmpty();
                 });
     }
 

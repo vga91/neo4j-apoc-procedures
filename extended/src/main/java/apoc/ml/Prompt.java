@@ -3,8 +3,12 @@ package apoc.ml;
 import apoc.ApocConfig;
 import apoc.Extended;
 import apoc.result.StringResult;
+import apoc.util.Util;
+import apoc.util.collection.Iterables;
+import apoc.util.collection.Iterators;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.jetbrains.annotations.NotNull;
+import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.security.URLAccessChecker;
@@ -29,6 +33,8 @@ public class Prompt {
 
     @Context
     public Transaction tx;
+    @Context
+    public GraphDatabaseService db;
     @Context
     public Log log;
     @Context
@@ -97,23 +103,51 @@ public class Prompt {
                 .outputFields()
                 .collect(Collectors.toSet())
                 .contains("query");
+        
+        List<Map<String,String>> otherPrompts = new ArrayList<>();
+
+//        Util.retryInTx(
+        
         do {
-            try {
-                QueryResult queryResult = tryQuery(question, conf, schema);
+            try(var transaction = db.beginTx()) {
+                QueryResult queryResult = tryQuery(question, conf, schema, otherPrompts);
                 query = queryResult.query;
                 // just let it fail so that retries can work if (queryResult.query.isBlank()) return Stream.empty();
                 /*
                 if (queryResult.hasError())
                     throw new QueryExecutionException(queryResult.error, null, queryResult.type);
                  */
-                return tx.execute(queryResult.query)
+                
+//                try(var transaction = db.beginTx()) {
+                List<Map<String, Object>> maps = Iterators.asList(transaction.execute(queryResult.query));
+                transaction.commit();
+                Stream<PromptMapResult> mapResultStream = maps
                         .stream()
                         .map(row -> containsField ? new PromptMapResult(row, queryResult.query) : new PromptMapResult(row));
+                return mapResultStream;
+//                }
+                
+                
+                // todo - ADD AS A CONFIG
+                
             } catch (QueryExecutionException quee) {
                 if (log.isDebugEnabled())
                     log.debug("Generated query for question %s\n%s\nfailed with %s".formatted(question, query, quee.getMessage()));
+
+                otherPrompts.addAll(
+                        List.of(
+                                Map.of("role", "user", 
+                                        "content", "The previous Cypher Statement throws the following error, consider it to return the correct statement: `%s`".formatted(quee.getMessage())),
+                                Map.of("role", "assistant", 
+                                        "content", "Cypher Statement (in backticks):")
+                        )
+                );
+                
+
                 retries--;
-                if (retries <= 0) throw quee;
+                if (retries <= 0) {
+                    throw quee;
+                };
             }
         } while (true);
     }
@@ -130,14 +164,14 @@ public class Prompt {
                                       @Name(value = "conf", defaultValue = "{}") Map<String, Object> conf) {
         String schema = loadSchema(tx, conf);
         long count = (long) conf.getOrDefault("count", 1L);
-        return LongStream.rangeClosed(1, count).mapToObj(i -> tryQuery(question, conf, schema));
+        return LongStream.rangeClosed(1, count).mapToObj(i -> tryQuery(question, conf, schema, List.of()));
     }
 
     @NotNull
-    private QueryResult tryQuery(String question, Map<String, Object> conf, String schema) {
+    private QueryResult tryQuery(String question, Map<String, Object> conf, String schema, List<Map<String,String>> otherPrompts) {
         String query = "";
         try {
-            query = prompt(question, SYSTEM_PROMPT, "Cypher Statement (in backticks):", schema, conf);
+            query = prompt(question, SYSTEM_PROMPT, "Cypher Statement (in backticks):", schema, conf, otherPrompts);
             // doesn't work right now, fails with security context error
             // tx.execute("EXPLAIN " + query).close(); // TODO query plan / estimated rows?
             return new QueryResult(query, null, null);
@@ -150,11 +184,19 @@ public class Prompt {
 
     @NotNull
     private String prompt(String userQuestion, String systemPrompt, String assistantPrompt, String schema, Map<String, Object> conf) throws JsonProcessingException, MalformedURLException {
+        return prompt(userQuestion, systemPrompt, assistantPrompt, schema, conf, List.of());
+    }
+    
+    private String prompt(String userQuestion, String systemPrompt, String assistantPrompt, String schema, Map<String, Object> conf, List<Map<String,String>> otherPrompts) throws JsonProcessingException, MalformedURLException {
         List<Map<String, String>> prompt = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) prompt.add(Map.of("role", "system", "content", systemPrompt));
         if (schema != null && !schema.isBlank()) prompt.add(Map.of("role", "system", "content", "The graph database schema consists of these elements\n" + schema));
         if (userQuestion != null && !userQuestion.isBlank()) prompt.add(Map.of("role", "user", "content", userQuestion));
         if (assistantPrompt != null && !assistantPrompt.isBlank()) prompt.add(Map.of("role", "assistant", "content", assistantPrompt));
+        // todo - maybe add something here?
+
+        prompt.addAll(otherPrompts);
+        
         String apiKey = (String) conf.get("apiKey");
         String model = (String) conf.getOrDefault("model", "gpt-3.5-turbo");
         String result = OpenAI.executeRequest(apiKey, Map.of(), "chat/completions",
