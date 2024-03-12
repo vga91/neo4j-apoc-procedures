@@ -6,14 +6,20 @@ import org.hamcrest.Matchers;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.neo4j.graphdb.Node;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
+import org.neo4j.values.storable.CoordinateReferenceSystem;
 import org.neo4j.values.storable.DurationValue;
+import org.neo4j.values.storable.PointValue;
+import org.neo4j.values.storable.Values;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 import static apoc.util.TestUtil.testCall;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
@@ -73,5 +79,47 @@ public class CollExtendedTest {
             String expected = "Can't coerce `Long(1)` to Duration";
             MatcherAssert.assertThat(e.getMessage(), Matchers.containsString(expected));
         }
+    }
+
+    @Test
+    public void testFillObject() {
+        testCall(db, "RETURN apoc.coll.fillObject('abc',2) as value",
+                (row) -> {
+                    assertEquals(List.of("abc", "abc"), row.get("value"));
+                });
+
+        testCall(db, "RETURN apoc.coll.fillObject(5,3) as value",
+                (row) -> assertEquals(List.of(5L,5L,5L), row.get("value")));
+
+        testCall(db, "RETURN apoc.coll.fillObject() as value",
+                (row) -> assertEquals(List.of(), row.get("value")));
+    }
+
+    @Test
+    public void testSetNodePropertiesUsingFillObject() {
+        testCall(db, """
+                CREATE (n:FillNode)
+                SET n.empty = apoc.coll.fillObject(),
+                    n.int = apoc.coll.fillObject(5, 2),
+                    n.double = apoc.coll.fillObject(5.2, 2),
+                    n.date = apoc.coll.fillObject(date('2020'), 2),
+                    n.point = apoc.coll.fillObject(point({x: 1, y: 1}), 3)
+                RETURN n""", r -> {
+            final Map<String, Object> props = ((Node) r.get("n")).getAllProperties();
+            
+            assertArrayEquals(new String[0], (Object[]) props.get("empty"));
+            assertArrayEquals(new long[] {5L, 5L}, (long[]) props.get("int"));
+            assertArrayEquals(new double[] {5.2D, 5.2D}, (double[]) props.get("double"), 0.1D);
+
+            LocalDate localDate = LocalDate.of(2020, 1, 1);
+            final Object[] expectedDate = { localDate, localDate };
+            assertArrayEquals(expectedDate, (Object[]) props.get("date"));
+
+            PointValue pointValue = Values.pointValue(CoordinateReferenceSystem.CARTESIAN, 1, 1);
+            final Object[] expectedPoint = { pointValue, pointValue, pointValue };
+            assertArrayEquals(expectedPoint, (Object[]) props.get("point"));
+        });
+
+        db.executeTransactionally("MATCH (n:FillNode) DELETE n");
     }
 }

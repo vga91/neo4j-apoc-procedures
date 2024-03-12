@@ -8,6 +8,7 @@ import org.neo4j.procedure.UserFunction;
 import org.neo4j.values.storable.DurationValue;
 
 import java.time.temporal.ChronoUnit;
+import java.util.Collections;
 import java.util.List;
 
 @Extended
@@ -34,5 +35,12 @@ public class CollExtended {
 
         return DurationValue.approximate(monthsRunningAvg, daysRunningAvg, secondsRunningAvg, nanosRunningAvg)
                 .normalize();
+    }
+
+    @UserFunction
+    @Description("apoc.coll.fillObject(item, count) - Returns a list with the given count of items")
+    public List<Object> fillObject(@Name(value = "item", defaultValue = "null") Object item, 
+                                   @Name(value = "count", defaultValue = "0") long count) {
+        return Collections.nCopies((int) count, item);
     }
 }
