@@ -23,7 +23,10 @@ public class ElasticVersionEightTest extends ElasticSearchTest {
                 "id", ES_ID, "type", ES_TYPE, "config", config);
         
         String tag = "8.12.1";
-        Map<String, String> envMap = Map.of("xpack.security.http.ssl.enabled", "false");
+        Map<String, String> envMap = Map.of(
+                "xpack.security.http.ssl.enabled", "false",
+                "cluster.routing.allocation.disk.threshold_enabled","false"
+        );
 
         getElasticContainer(tag, envMap, params);
     }
