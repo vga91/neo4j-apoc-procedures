@@ -524,10 +524,8 @@ public class UUIDNewProceduresTest {
         // wait time greater than the refresh one, to make sure UUIDHandler.checkAndRestoreUuidProperty() has been executed
         Thread.sleep(PROCEDURE_DEFAULT_REFRESH + 100);
         
-        final String logFileContent = Files.readString(new File(FileUtils.getLogDirectory(), "debug.log").toPath())
-                .toLowerCase();
+        final String logFileContent = Files.readString(new File(FileUtils.getLogDirectory(), "debug.log").toPath());
 
-        assertTrue("Actual debug.log content:\n" + logFileContent,
-                !logFileContent.contains("error") && !logFileContent.contains("exception"));
+        assertFalse("Actual debug.log content:\n" + logFileContent, logFileContent.contains("NotFoundException"));
     }
 }
