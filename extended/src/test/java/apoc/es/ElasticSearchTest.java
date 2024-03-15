@@ -434,9 +434,8 @@ public class ElasticSearchTest {
                     Object response = extractValueFromResponse(r, "$._source.ajeje");
                     assertEquals("Brazorf", response);
                 });
-        
-        params.put("port", ":" + elastic.getMappedPort(9200).toString());
-        TestUtil.testCall(db, "CALL apoc.es.delete($port, $index, $type, $id, 'refresh=true')", params, r -> {
+
+        TestUtil.testCall(db, "CALL apoc.es.delete($host, $index, $type, $id, 'refresh=true')", params, r -> {
             Object result = extractValueFromResponse(r, "$.result");
             assertEquals("deleted", result);
         });
