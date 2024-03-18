@@ -44,7 +44,7 @@ public class MultiStatsTest {
     // similar to https://community.neo4j.com/t/listing-the-community-size-of-different-community-detection-algorithms-already-calculated/42895
     @Test
     public void testMultiStatsComparedWithCypherMultiAggregation() {
-        List multiAggregationResult = db.executeTransactionally("""
+        String multiAggregationResult = db.executeTransactionally("""
                         MATCH (p:Person)
                         WITH p
                         CALL {
@@ -72,9 +72,24 @@ public class MultiStatsTest {
                             sumWcc, avgWcc, countWcc,
                             sumAnother, avgAnother, countAnother,
                             sumLpa, avgLpa, countLpa""", Map.of(),
-                Iterators::asList);
+                result -> result.resultAsString());
 
-        List multiStatsResult = db.executeTransactionally("""
+        /*
+        [ {key1: val1, key2: val2, key2: val3, <AGGR>} ] 
+         */
+        
+        
+        /*
+        - riga 1
+        - riga 2
+        
+        ----
+        
+        - 
+        
+         */
+        
+        String multiStatsResult = db.executeTransactionally("""
                 match (p:Person)
                 with apoc.agg.multiStats(p, ["lpa","wcc","louvain", "another"]) as data
                 match (p:Person)
@@ -91,8 +106,9 @@ public class MultiStatsTest {
                     data.wcc[toString(p.wcc)].sum AS sumWcc,
                     data.louvain[toString(p.louvain)].sum AS sumLouvain,
                     data.lpa[toString(p.lpa)].sum AS sumLpa
-                """, Map.of(), Iterators::asList);
+                """, Map.of(), r -> r.resultAsString());
 
+        System.out.println("multiStatsResult = \n" + multiStatsResult);
         assertEquals(multiAggregationResult, multiStatsResult);
         
     }
