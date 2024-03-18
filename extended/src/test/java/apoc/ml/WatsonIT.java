@@ -14,6 +14,8 @@ import java.util.Map;
 import static apoc.ExtendedApocConfig.APOC_ML_WATSON_URL;
 import static apoc.ExtendedApocConfig.APOC_ML_WATSON_PROJECT_ID;
 import static apoc.util.TestUtil.testCall;
+import static java.util.Collections.emptyMap;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -129,5 +131,22 @@ public class WatsonIT {
         assertTrue(generatedText.toLowerCase().contains(text));
         assertEquals(inputTokenCount, result.get("input_token_count"));
         assertEquals(stopReason, result.get("stop_reason"));
+    }
+
+    @Test
+    public void completionNull() {
+        testCall(db, "CALL apoc.ml.watson.completion(null, $apiKey, $conf)",
+                Map.of("apiKey", accessToken, "conf", emptyMap()),
+                (row) -> assertNull(row.get("value"))
+        );
+    }
+
+    @Test
+    public void chatCompletionNull() {
+        testCall(db,
+                "CALL apoc.ml.watson.chat(null, $apiKey, $conf)",
+                Map.of("apiKey", accessToken, "conf", emptyMap()),
+                (row) -> assertNull(row.get("value"))
+        );
     }
 }

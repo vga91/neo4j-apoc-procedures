@@ -27,8 +27,10 @@ import static apoc.ml.aws.BedrockTestUtil.*;
 import static apoc.ml.aws.BedrockUtil.*;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
+import static java.util.Collections.emptyMap;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNotNull;
@@ -290,5 +292,22 @@ public class BedrockIT {
     private static void assertionsTitanEmbed(Map value) {
         assertNotNull(value.get("inputTextTokenCount"));
         assertNotNull(value.get("embedding"));
+    }
+
+    @Test
+    public void completionNull() {
+        testCall(db, "CALL apoc.ml.bedrock.completion(null, $conf)",
+                Map.of("conf", emptyMap()),
+                (row) -> assertNull(row.get("value"))
+        );
+    }
+
+    @Test
+    public void chatCompletionNull() {
+        testCall(db,
+                "CALL apoc.ml.bedrock.chat(null, $conf)",
+                Map.of("conf", emptyMap()),
+                (row) -> assertNull(row.get("value"))
+        );
     }
 }

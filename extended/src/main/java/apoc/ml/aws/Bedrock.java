@@ -60,7 +60,9 @@ public class Bedrock {
     public Stream<MapResult> chatCompletion(
             @Name("messages") List<Map<String, Object>> messages,
             @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-
+        if (messages == null) {
+            return Stream.of(new MapResult(null));
+        }
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, ANTHROPIC_CLAUDE_V2);
 
@@ -94,7 +96,9 @@ public class Bedrock {
     @Description("apoc.ml.bedrock.completion(prompt, $conf) - prompts the completion API")
     public Stream<MapResult> completion(@Name("prompt") String prompt,
                                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-
+        if (prompt == null) {
+            return Stream.of(new MapResult(null));
+        }
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, JURASSIC_2_ULTRA);
         
@@ -109,6 +113,7 @@ public class Bedrock {
     @Description("apoc.ml.bedrock.embedding([texts], $configuration) - returns the embeddings for a given text")
     public Stream<Embedding> embedding(@Name(value = "texts") List<String> texts,
                                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
+        
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, TITAN_EMBED_TEXT);
 
