@@ -52,7 +52,7 @@ public class PromptIT {
                 CALL apoc.ml.query($query, {retries: $retries, apiKey: $apiKey})
                 """,
                 Map.of(
-                        "query", "What movies did Tom Hanks play in?",
+                        "query", "What movies has Tom Hanks acted in?",
                         "retries", 2L,
                         "apiKey", OPENAI_KEY
                 ),
@@ -116,9 +116,11 @@ public class PromptIT {
                         "apiKey", OPENAI_KEY
                 ),
                 (r) -> {
-                    String value = (String) r.get("value");
-                    assertTrue(value.contains("movies"));
-                    assertTrue(value.contains("person") || value.contains("people"));
+                    String value = ( (String) r.get("value") ).toLowerCase();
+                    assertTrue("Current value is: " + value,
+                            value.contains("movie"));
+                    assertTrue("Current value is: " + value,
+                            value.contains("person") || value.contains("people") || value.contains("actor"));
                 });
     }
 

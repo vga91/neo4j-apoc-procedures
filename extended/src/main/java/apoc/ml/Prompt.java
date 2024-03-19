@@ -58,8 +58,9 @@ public class Prompt {
     static final String FROM_CYPHER_PROMPT = """
             You are an expert in the Neo4j graph query language Cypher.
             Given a graph database schema of entities (nodes) with labels and attributes and
-            relationships with start- and end-node, relationship-type, direction and properties
-            you are able to develop graph database query that express a user question as a read only matching Cypher statements.
+            relationships with start- and end-node, relationship-type, direction and properties,
+            you are able to develop graph database query that express a user question as a read only matching Cypher statements,
+            providing useful details of each entity.
             """;
 
 
