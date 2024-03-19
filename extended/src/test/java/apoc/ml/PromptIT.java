@@ -52,8 +52,8 @@ public class PromptIT {
                 CALL apoc.ml.query($query, {retries: $retries, apiKey: $apiKey})
                 """,
                 Map.of(
-                        "query", "ghj",
-                        "retries", 5L,
+                        "query", "What movies did Tom Hanks play in?",
+                        "retries", 2L,
                         "apiKey", OPENAI_KEY
                 ),
                 (r) -> {
@@ -69,9 +69,9 @@ public class PromptIT {
     }
 
     @Test
-    public void testQueryWithRetry() {
+    public void testQueryUsingRetryWithError() {
         testResult(db, """
-                CALL apoc.ml.query($query, {retries: $retries, apiKey: $apiKey})
+                CALL apoc.ml.query($query, {retries: $retries, apiKey: $apiKey, retryWithError: true})
                 """,
                 Map.of(
                         "query", UUID.randomUUID().toString(),

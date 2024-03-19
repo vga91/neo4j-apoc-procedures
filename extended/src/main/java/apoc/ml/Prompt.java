@@ -4,7 +4,6 @@ import apoc.ApocConfig;
 import apoc.Extended;
 import apoc.result.StringResult;
 import apoc.util.Util;
-import apoc.util.collection.Iterables;
 import apoc.util.collection.Iterators;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.jetbrains.annotations.NotNull;
@@ -99,14 +98,13 @@ public class Prompt {
         String schema = loadSchema(tx, conf);
         String query = "";
         long retries = (long) conf.getOrDefault("retries", 3L);
+        boolean retryWithError = Util.toBoolean(conf.get("retryWithError"));
         boolean containsField = procedureCallContext
                 .outputFields()
                 .collect(Collectors.toSet())
                 .contains("query");
         
         List<Map<String,String>> otherPrompts = new ArrayList<>();
-
-//        Util.retryInTx(
         
         do {
             try(var transaction = db.beginTx()) {
@@ -117,37 +115,29 @@ public class Prompt {
                 if (queryResult.hasError())
                     throw new QueryExecutionException(queryResult.error, null, queryResult.type);
                  */
-                
-//                try(var transaction = db.beginTx()) {
                 List<Map<String, Object>> maps = Iterators.asList(transaction.execute(queryResult.query));
                 transaction.commit();
                 Stream<PromptMapResult> mapResultStream = maps
                         .stream()
                         .map(row -> containsField ? new PromptMapResult(row, queryResult.query) : new PromptMapResult(row));
                 return mapResultStream;
-//                }
-                
-                
-                // todo - ADD AS A CONFIG
-                
             } catch (QueryExecutionException quee) {
                 if (log.isDebugEnabled())
                     log.debug("Generated query for question %s\n%s\nfailed with %s".formatted(question, query, quee.getMessage()));
 
-                otherPrompts.addAll(
-                        List.of(
-                                Map.of("role", "user", 
-                                        "content", "The previous Cypher Statement throws the following error, consider it to return the correct statement: `%s`".formatted(quee.getMessage())),
-                                Map.of("role", "assistant", 
-                                        "content", "Cypher Statement (in backticks):")
-                        )
-                );
-                
+                if (retryWithError) {
+                    otherPrompts.addAll(
+                            List.of(
+                                    Map.of("role", "user",
+                                            "content", "The previous Cypher Statement throws the following error, consider it to return the correct statement: `%s`".formatted(quee.getMessage())),
+                                    Map.of("role", "assistant",
+                                            "content", "Cypher Statement (in backticks):")
+                            )
+                    );
+                }
 
                 retries--;
-                if (retries <= 0) {
-                    throw quee;
-                };
+                if (retries <= 0) throw quee;
             }
         } while (true);
     }
@@ -155,7 +145,7 @@ public class Prompt {
     @Procedure
     public Stream<StringResult> schema(@Name(value = "conf", defaultValue = "{}") Map<String, Object> conf) throws MalformedURLException, JsonProcessingException {
         String schemaExplanation = prompt("Please explain the graph database schema to me and relate it to well known concepts and domains.",
-                EXPLAIN_SCHEMA_PROMPT, "This database schema ", loadSchema(tx, conf), conf);
+                EXPLAIN_SCHEMA_PROMPT, "This database schema ", loadSchema(tx, conf), conf, List.of());
         return Stream.of(new StringResult(schemaExplanation));
     }
 
@@ -182,18 +172,12 @@ public class Prompt {
         }
     }
 
-    @NotNull
-    private String prompt(String userQuestion, String systemPrompt, String assistantPrompt, String schema, Map<String, Object> conf) throws JsonProcessingException, MalformedURLException {
-        return prompt(userQuestion, systemPrompt, assistantPrompt, schema, conf, List.of());
-    }
-    
     private String prompt(String userQuestion, String systemPrompt, String assistantPrompt, String schema, Map<String, Object> conf, List<Map<String,String>> otherPrompts) throws JsonProcessingException, MalformedURLException {
         List<Map<String, String>> prompt = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) prompt.add(Map.of("role", "system", "content", systemPrompt));
         if (schema != null && !schema.isBlank()) prompt.add(Map.of("role", "system", "content", "The graph database schema consists of these elements\n" + schema));
         if (userQuestion != null && !userQuestion.isBlank()) prompt.add(Map.of("role", "user", "content", userQuestion));
         if (assistantPrompt != null && !assistantPrompt.isBlank()) prompt.add(Map.of("role", "assistant", "content", assistantPrompt));
-        // todo - maybe add something here?
 
         prompt.addAll(otherPrompts);
         
