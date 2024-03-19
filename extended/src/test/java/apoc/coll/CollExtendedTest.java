@@ -84,15 +84,37 @@ public class CollExtendedTest {
     @Test
     public void testFillObject() {
         testCall(db, "RETURN apoc.coll.fillObject('abc',2) as value",
-                (row) -> {
-                    assertEquals(List.of("abc", "abc"), row.get("value"));
-                });
+                (row) -> assertEquals(List.of("abc", "abc"), row.get("value"))
+        );
 
         testCall(db, "RETURN apoc.coll.fillObject(5,3) as value",
-                (row) -> assertEquals(List.of(5L,5L,5L), row.get("value")));
+                (row) -> assertEquals(List.of(5L,5L,5L), row.get("value"))
+        );
+
+        testCall(db, "WITH {a:1, b:[2,3]} AS item RETURN apoc.coll.fillObject(item, 3) as value",
+                (row) -> {
+                    Map<String, Object> item = Map.of("a", 1L, "b", List.of(2L, 3L));
+                    assertEquals(List.of(item, item, item), row.get("value"));
+                }
+        );
+
+        testCall(db, "WITH [1,2,3] AS item RETURN apoc.coll.fillObject(item, 3) as value",
+                (row) -> {
+                    List<Long> item = List.of(1L, 2L, 3L);
+                    assertEquals(List.of(item, item, item), row.get("value"));
+                }
+        );
+
+        testCall(db, "CREATE (node:Node {a: 1}) RETURN node, apoc.coll.fillObject(node, 2) as value",
+                (row) -> {
+                    Object node = row.get("node");
+                    assertEquals(List.of(node, node), row.get("value"));
+                }
+        );
 
         testCall(db, "RETURN apoc.coll.fillObject() as value",
-                (row) -> assertEquals(List.of(), row.get("value")));
+                (row) -> assertEquals(List.of(), row.get("value"))
+        );
     }
 
     @Test
