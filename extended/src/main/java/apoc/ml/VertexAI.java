@@ -25,6 +25,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static apoc.ml.MLUtil.ERROR_NULL_INPUT;
+
 
 @Extended
 public class VertexAI {
@@ -170,7 +172,7 @@ docs https://cloud.google.com/vertex-ai/docs/generative-ai/text/test-text-prompt
 }
  */
         if (prompt == null) {
-            return Stream.of(new MapResult(null));
+            throw new RuntimeException(ERROR_NULL_INPUT);
         }
         
         Object input = List.of(Map.of("prompt",prompt));
@@ -213,7 +215,7 @@ docs https://cloud.google.com/vertex-ai/docs/generative-ai/text/test-text-prompt
                                             @Name(value = "examples", defaultValue = "[]") List<Map<String, Map<String,String>>> examples
                                             ) throws Exception {
         if (messages == null) {
-            return Stream.of(new MapResult(null));
+            throw new RuntimeException(ERROR_NULL_INPUT);
         }
         Object inputs = List.of(Map.of("context",context, "examples",examples, "messages", messages));
         var parameterKeys = List.of("temperature", "topK", "topP", "maxOutputTokens");

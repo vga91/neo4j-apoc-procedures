@@ -17,6 +17,7 @@ import java.util.Map;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.ExtendedApocConfig.APOC_AWS_KEY_ID;
 import static apoc.ExtendedApocConfig.APOC_AWS_SECRET_KEY;
+import static apoc.ml.MLTestUtil.assertNullInputFails;
 import static apoc.ml.aws.AWSConfig.KEY_ID;
 import static apoc.ml.aws.AWSConfig.METHOD_KEY;
 import static apoc.ml.aws.AWSConfig.SECRET_KEY;
@@ -296,18 +297,15 @@ public class BedrockIT {
 
     @Test
     public void completionNull() {
-        testCall(db, "CALL apoc.ml.bedrock.completion(null, $conf)",
-                Map.of("conf", emptyMap()),
-                (row) -> assertNull(row.get("value"))
+        assertNullInputFails(db, "CALL apoc.ml.bedrock.completion(null)",
+                emptyMap()
         );
     }
 
     @Test
     public void chatCompletionNull() {
-        testCall(db,
-                "CALL apoc.ml.bedrock.chat(null, $conf)",
-                Map.of("conf", emptyMap()),
-                (row) -> assertNull(row.get("value"))
+        assertNullInputFails(db, "CALL apoc.ml.bedrock.chat(null)",
+                emptyMap()
         );
     }
 }

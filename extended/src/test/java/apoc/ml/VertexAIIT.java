@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static apoc.ml.MLTestUtil.assertNullInputFails;
 import static apoc.ml.VertexAIHandler.ENDPOINT_CONF_KEY;
 import static apoc.ml.VertexAIHandler.MODEL_CONF_KEY;
 import static apoc.ml.VertexAIHandler.PREDICT_RESOURCE;
@@ -232,18 +233,15 @@ public class VertexAIIT {
     
     @Test
     public void completionNull() {
-        testCall(db, "CALL apoc.ml.vertexai.completion(null, $apiKey, $project)",
-                parameters,
-                (row) -> assertNull(row.get("value"))
+        assertNullInputFails(db, "CALL apoc.ml.vertexai.completion(null, $apiKey, $project)",
+                parameters
         );
     }
 
     @Test
     public void chatCompletionNull() {
-        testCall(db,
-                "CALL apoc.ml.vertexai.chat(null, $apiKey, $project)",
-                parameters,
-                (row) -> assertNull(row.get("value"))
+        assertNullInputFails(db, "CALL apoc.ml.vertexai.chat(null, $apiKey, $project)",
+                parameters
         );
     }
 }

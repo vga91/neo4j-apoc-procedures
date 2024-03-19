@@ -22,6 +22,7 @@ import java.util.stream.Stream;
 
 import static apoc.ExtendedApocConfig.APOC_ML_OPENAI_TYPE;
 import static apoc.ExtendedApocConfig.APOC_OPENAI_KEY;
+import static apoc.ml.MLUtil.ERROR_NULL_INPUT;
 
 
 @Extended
@@ -148,7 +149,7 @@ public class OpenAI {
     }
     */
         if (prompt == null) {
-            return Stream.of(new MapResult(null));
+            throw new RuntimeException(ERROR_NULL_INPUT);
         }
         return executeRequest(apiKey, configuration, "completions", "gpt-3.5-turbo-instruct", "prompt", prompt, "$", apocConfig, urlAccessChecker)
                 .map(v -> (Map<String,Object>)v).map(MapResult::new);
@@ -158,7 +159,7 @@ public class OpenAI {
     @Description("apoc.ml.openai.chat(messages, api_key, configuration]) - prompts the completion API")
     public Stream<MapResult> chatCompletion(@Name("messages") List<Map<String, Object>> messages, @Name("api_key") String apiKey, @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
         if (messages == null) {
-            return Stream.of(new MapResult(null));
+            throw new RuntimeException(ERROR_NULL_INPUT);
         }
         return executeRequest(apiKey, configuration, "chat/completions", "gpt-3.5-turbo", "messages", messages, "$", apocConfig, urlAccessChecker)
                 .map(v -> (Map<String,Object>)v).map(MapResult::new);

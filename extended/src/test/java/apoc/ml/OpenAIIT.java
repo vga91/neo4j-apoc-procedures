@@ -13,13 +13,13 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import static apoc.ml.MLTestUtil.assertNullInputFails;
 import static apoc.ml.OpenAI.MODEL_CONF_KEY;
 import static apoc.ml.OpenAITestResultUtils.*;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static java.util.Collections.emptyMap;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 
 public class OpenAIIT {
 
@@ -126,18 +126,15 @@ public class OpenAIIT {
 
     @Test
     public void completionNull() {
-        testCall(db, "CALL apoc.ml.openai.completion(null, $apiKey, $conf)",
-                Map.of("apiKey", openaiKey, "conf", emptyMap()),
-                (row) -> assertNull(row.get("value"))
+        assertNullInputFails(db, "CALL apoc.ml.openai.completion(null, $apiKey, $conf)",
+                Map.of("apiKey", openaiKey, "conf", emptyMap())
         );
     }
     
     @Test
     public void chatCompletionNull() {
-        testCall(db, 
-                "CALL apoc.ml.openai.chat(null, $apiKey, $conf)",
-                Map.of("apiKey", openaiKey, "conf", emptyMap()),
-                (row) -> assertNull(row.get("value"))
+        assertNullInputFails(db, "CALL apoc.ml.openai.chat(null, $apiKey, $conf)",
+                Map.of("apiKey", openaiKey, "conf", emptyMap())
         );
     }
 }

@@ -17,6 +17,7 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 import org.apache.commons.lang3.StringUtils;
 
+import static apoc.ml.MLUtil.ERROR_NULL_INPUT;
 import static apoc.ml.aws.AWSConfig.JSON_PATH;
 import static apoc.ml.aws.BedrockInvokeConfig.MODEL;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
@@ -61,7 +62,7 @@ public class Bedrock {
             @Name("messages") List<Map<String, Object>> messages,
             @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
         if (messages == null) {
-            return Stream.of(new MapResult(null));
+            throw new RuntimeException(ERROR_NULL_INPUT);
         }
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, ANTHROPIC_CLAUDE_V2);
@@ -97,7 +98,7 @@ public class Bedrock {
     public Stream<MapResult> completion(@Name("prompt") String prompt,
                                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
         if (prompt == null) {
-            return Stream.of(new MapResult(null));
+            throw new RuntimeException(ERROR_NULL_INPUT);
         }
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, JURASSIC_2_ULTRA);
