@@ -97,14 +97,17 @@ public class MongoTestBase {
 
     @Before
     public void before() {
-        numConnections = (long) getNumConnections(mongo, commands).get("current");
+        Map<String, Object> numConnectionsMap = getNumConnections(mongo, commands);
+        System.out.println("numConnectionsMap = " + numConnectionsMap);
+        numConnections = (long) numConnectionsMap.get("current");
     }
 
     @After
     public void after() {
         // the connections active before must be equal to the connections active after
         assertEventually(() -> {
-            long numConnectionsAfter = (long) getNumConnections(mongo, commands).get("current");
+            Map<String, Object> numConnectionsMap = getNumConnections(mongo, commands);
+            long numConnectionsAfter = (long) numConnectionsMap.get("current");
             return numConnections == numConnectionsAfter;
         },
         v -> v, 30, TimeUnit.SECONDS);
