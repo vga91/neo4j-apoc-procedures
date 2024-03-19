@@ -1,0 +1,49 @@
+= apoc.graph.filterProperties
+:description: This section contains reference documentation for the apoc.graph.filterProperties function.
+
+label:function[] label:apoc-extended[]
+
+[.emphasis]
+apoc.graph.filterProperties(<anyEntityObject>, [propertiesToRemove]) - aggregation function which returns an object {node: [virtual nodes], relationships: [virtual relationships]} without the properties defined in propertiesToRemove
+
+== Signature
+
+[source]
+----
+apoc.graph.filterProperties(value :: ANY?, type :: LIST OF STRING?) :: ANY
+----
+
+== Input parameters
+[.procedures, opts=header]
+|===
+| Name | Type | Default
+|value|ANY|null
+|predicate|STRING|null
+|===
+
+== Usage Examples
+
+Given the following dataset:
+[source,cypher]
+----
+CREATE (:Person {name: "foo", plotEmbedding: "11"})-[:REL {idRel: 1, posterEmbedding: "33"}]->(:Movie {name: "bar", plotEmbedding: "22"}),
+                 (:Person {name: "baz", plotEmbedding: "33"})-[:REL {idRel: 1, posterEmbedding: "66"}]->(:Movie {name: "ajeje", plotEmbedding: "44"})
+----
+
+we can execute: 
+
+[source,cypher]
+----
+MATCH path=(:Person)-[:REL]->(:Movie)
+WITH apoc.graph.filterProperties(path, ['plotEmbedding', 'posterEmbedding', 'plot', 'bio']) as graph
+RETURN graph.nodes AS nodes, graph.relationships AS relationships
+----
+
+.Results
+[opts="header",cols="2"]
+|===
+| nodes       | relationships                                                                                                                                                                                                                                                                                                                                               
+| [(:Person {name: "1"}), (:Movie {name: "bar"}), (:Movie {title: "1",tmdbId: "ajeje"}), (:Person {name: "baz"}), (:Person {name: "uno"}), (:Movie {name: "ajeje"}), (:Movie {title: "1",tmdbId: "due"}), (:Movie {title: "1",tmdbId: "ajeje"}), (:Person {name: "1"}), (:Movie {title: "1",tmdbId: "ajeje"}), (:Person {name: "foo"}), (:Person {name: "1"})] | [[:REL], [:REL {idRel: 1}], [:REL {idRel: 1}], [:REL], [:REL], [:REL]]│
+|===
+
+

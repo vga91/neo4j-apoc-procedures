@@ -1,0 +1,15 @@
+= apoc.graph
+:description: This section contains reference documentation for the apoc.graph procedures.
+
+[.procedures, opts=header, cols='5a,1a']
+|===
+| Qualified Name | Type
+|xref::overview/apoc.graph/apoc.virtual.graph.adoc[apoc.virtual.graph icon:book[]]
+
+CALL apoc.virtual.graph(<anyEntityObject>, [propertiesToRemove]) YIELD nodes, relationships - returns a set of virtual nodes and relationships without the properties defined in propertiesToRemove
+|label:procedure[]
+|xref::overview/apoc.graph/apoc.graph.filterProperties.adoc[apoc.graph.filterProperties icon:book[]]
+
+apoc.graph.filterProperties(<anyEntityObject>, [propertiesToRemove]) - aggregation function which returns an object {node: [virtual nodes], relationships: [virtual relationships]} without the properties defined in propertiesToRemove
+|label:function[]
+|===

@@ -24,37 +24,10 @@ import java.util.stream.Stream;
 
 @Extended
 public class GraphsExtended {
-    
-    /*
-    `apoc.virtual.graph([list-of-paths, nodes, rels], [properties to remove]) -> {nodes, rels}
-
-to exclude embeddings and large text properties
-we already have all the virutal graph methods but they actually just wrap existing nodes and rels
-call db.index.fulltext.queryNodes("movieFulltext","Forrest Gump", {limit:1}) yield node as n, score as s1
-call db.index.vector.queryNodes("moviePlotsEmbedding",5, n.plotEmbedding) yield node as movie, score
-match path = (person:Person)-[rp]->(movie)-[rg:IN_GENRE]->(genre)
-
-with collect(path) as paths
-call apoc.graph.fromPaths(paths,"results",{}) yield graph
-with graph.nodes as nodes, graph.relationships as rels
-with rels, apoc.map.fromPairs([n in nodes | [coalesce(n.tmdbId, n.name), apoc.create.vNode(labels(n),n {.*, plotEmbedding:null, posterEmbedding:null, plot:null, bio:null })]]) as nodes
-return nodes, [r in rels | apoc.create.vRelationship(nodes[coalesce(startNode(r).tmdbId,startNode(r).name)], type(r), properties(r), nodes[coalesce(endNode(r).tmdbId,endNode(r).name)])] as rels
-I want to replace the whole thing by an aggregation function like this:
-
-call db.index.fulltext.queryNodes("movieFulltext","Forrest Gump", {limit:1}) yield node as n, score as s1
-call db.index.vector.queryNodes("moviePlotsEmbedding",5, n.plotEmbedding) yield node as movie, score
-match path = (person:Person)-[rp]->(movie)-[rg:IN_GENRE]->(genre)
-return apoc.graph.filterProperties(path, ['plotEmbedding', 'posterEmbedding','plot', 'bio'])
-so basically we create the same graph object with the extract that we have for the virtual graph
-and then go over the nodes and replace the ones that have one of the properties with virtual ones that wrap the original nodes and leave off the properties
-
-
-     */
-
 
     @Procedure("apoc.virtual.graph")
     @Description(
-            "CALL () YIELD nodes, relationships - returns a set of ")
+            "CALL apoc.virtual.graph(<anyEntityObject>, [propertiesToRemove]) YIELD nodes, relationships - returns a set of virtual nodes and relationships without the properties defined in propertiesToRemove")
     public Stream<GraphResult> fromData(
             @Name("value") Object value, @Name("propertiesToRemove") List<String> propertiesToRemove) {
         VirtualGraphExtractor extractor = new VirtualGraphExtractor(propertiesToRemove);
@@ -65,7 +38,7 @@ and then go over the nodes and replace the ones that have one of the properties 
     
     @UserAggregationFunction("apoc.graph.filterProperties")
     @Description(
-            "apoc.graph.filterProperties")
+            "apoc.graph.filterProperties(<anyEntityObject>, [propertiesToRemove]) - aggregation function which returns an object {node: [virtual nodes], relationships: [virtual relationships]} without the properties defined in propertiesToRemove")
     public GraphFunction filterProperties() {
         return new GraphFunction();
     }
@@ -103,12 +76,6 @@ and then go over the nodes and replace the ones that have one of the properties 
         public VirtualGraphExtractor(List<String> propertiesToRemove) {
             this.nodes = new HashMap<>();
             this.rels = new HashMap<>();
-            this.propertiesToRemove = propertiesToRemove;
-        }
-        
-        public VirtualGraphExtractor(Map<String, Node> nodes, Map<String, Relationship> rels, List<String> propertiesToRemove) {
-            this.nodes = nodes;
-            this.rels = rels;
             this.propertiesToRemove = propertiesToRemove;
         }
 

@@ -54,17 +54,22 @@ public class GraphsExtendedTest {
                         "propsRel1", propsRel1,
                         "propsRel2", propsRel2));
 
-        db.executeTransactionally("CREATE (a:Foo {idNode: 11, remove: 1})-[r1:MY_REL {idRel: 11, remove: 1}]->(b:Bar {idNode: 22, remove: 1})-[r2:ANOTHER_REL {idRel: 22, remove: 1}]->(c:Baz {idNode: 33, remove: 1}) " +
-                                  "WITH b, c CREATE (b)-[:REL_TWO {idRel: 33, remove: 1}]->(c), (b)-[:REL_THREE {idRel: 44, remove: 1}]->(c), (b)-[:REL_FOUR {idRel: 55, remove: 1}]->(c)");
+        db.executeTransactionally(
+                """
+                        CREATE (a:Foo {idNode: 11, remove: 1})-[r1:MY_REL {idRel: 11, remove: 1}]->(b:Bar {idNode: 22, remove: 1})-[r2:ANOTHER_REL {idRel: 22, remove: 1}]->(c:Baz {idNode: 33, remove: 1})\s
+                        WITH b, c\s
+                        CREATE (b)-[:REL_TWO {idRel: 33, remove: 1}]->(c), (b)-[:REL_THREE {idRel: 44, remove: 1}]->(c), (b)-[:REL_FOUR {idRel: 55, remove: 1}]->(c)""");
 
-        db.executeTransactionally("CREATE (a:Foo {idNode: 44, remove: 1})-[r1:MY_REL {idRel: 66, remove: 1}]->(b:Bar {idNode: 55, remove: 1})-[r2:ANOTHER_REL {idRel: 77, remove: 1}]->(c:Baz {idNode: 66, remove: 1})");
+        db.executeTransactionally(
+                "CREATE (a:Foo {idNode: 44, remove: 1})-[r1:MY_REL {idRel: 66, remove: 1}]->(b:Bar {idNode: 55, remove: 1})-[r2:ANOTHER_REL {idRel: 77, remove: 1}]->(c:Baz {idNode: 66, remove: 1})");
 
-        db.executeTransactionally("CREATE (a:One {idNode: 77, remove: 1})-[r1:MY_REL {idRel: 88, remove: 1}]->(b:Two {idNode: 88, remove: 1}), " +
-                                  "(:Two {idNode: 100, remove: 1})-[r2:ANOTHER_REL {idRel: 99, remove: 1}]->(c:Three {idNode: 99, remove: 1})");
+        db.executeTransactionally(
+                "CREATE (a:One {idNode: 77, remove: 1})-[r1:MY_REL {idRel: 88, remove: 1}]->(b:Two {idNode: 88, remove: 1}), " +
+                "(:Two {idNode: 100, remove: 1})-[r2:ANOTHER_REL {idRel: 99, remove: 1}]->(c:Three {idNode: 99, remove: 1})");
     }
     
     @Test
-    public void testGraphFilterPropertiesIsConsistentWithManualFiltering() {
+    public void testFilterPropertiesConsistentWithManualFilteringAndDoesNotChangeOriginalEntities() {
         // check that the apoc.graph.filterProperties and the query used here: https://github.com/neo4j-contrib/neo4j-apoc-procedures/issues/3937
         // produce the same result
         testCall(db, """
@@ -90,7 +95,6 @@ public class GraphsExtendedTest {
             Map<String, Object> propsStart = path.startNode().getAllProperties();
             Map<String, Object> propsEnd = path.endNode().getAllProperties();
             Map<String, Object> propsRel = path.relationships().iterator().next().getAllProperties();
-            System.out.println("propsRel = " + propsRel);
             
             assertEquals(propsPerson1, propsStart);
             assertEquals(propsMovie1, propsEnd);
@@ -197,10 +201,16 @@ public class GraphsExtendedTest {
     }
 
     private void assertNodeAndRelIdProps(Map<String, Object> r, Set<Object> expectedIdNodes, Set<Object> expectedIdRels) {
-        Set<Object> actualIdNodes = ((List<Node>) r.get("nodes")).stream().map(i -> i.getProperty("idNode")).collect(Collectors.toSet());
+        Set<Object> actualIdNodes = ((List<Node>) r.get("nodes"))
+                .stream()
+                .map(i -> i.getProperty("idNode"))
+                .collect(Collectors.toSet());
         assertEquals(expectedIdNodes, actualIdNodes);
 
-        Set<Object> actualIdRels = ((List<Relationship>) r.get("relationships")).stream().map(i -> i.getProperty("idRel")).collect(Collectors.toSet());
+        Set<Object> actualIdRels = ((List<Relationship>) r.get("relationships"))
+                .stream()
+                .map(i -> i.getProperty("idRel"))
+                .collect(Collectors.toSet());
         assertEquals(expectedIdRels, actualIdRels);
     }
 }
