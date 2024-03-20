@@ -9,18 +9,13 @@ import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
 import org.junit.AfterClass;
 import org.junit.ClassRule;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -67,7 +62,6 @@ public abstract class ElasticSearchTest {
                 .withPassword(password)
                 .withEnv(envMap);
         elastic.start();
-        
 
         String httpHostAddress = elastic.getHttpHostAddress();
         HTTP_HOST_ADDRESS = String.format("elastic:%s@%s",
@@ -333,7 +327,7 @@ public abstract class ElasticSearchTest {
     @Test
     public void testPostRawCreateDocument() throws IOException {
         String index = UUID.randomUUID().toString();
-        String type = UUID.randomUUID().toString();
+        String type = getEsType();
         String id = UUID.randomUUID().toString();
         Map payload = JsonUtil.OBJECT_MAPPER.readValue("{\"ajeje\":\"Brazorf\"}", Map.class);
         Map params = Util.map("host", HTTP_HOST_ADDRESS,
@@ -392,7 +386,7 @@ public abstract class ElasticSearchTest {
                     assertEquals("Brazorf", actual);
                 });
         
-        TestUtil.testCall(db, "CALL apoc.es.delete($host, $index, $type, $id, 'refresh=true', {headers: $headers})", params, r -> {
+        TestUtil.testCall(db, "CALL apoc.es.delete($host, $index, $type, $id, 'refresh=true', $config)", params, r -> {
             Object result = extractValueFromResponse(r, "$.result");
             assertEquals("deleted", result);
         });

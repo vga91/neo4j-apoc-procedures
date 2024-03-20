@@ -1,12 +1,10 @@
 package apoc.es;
 
-import apoc.util.JsonUtil;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -118,41 +116,6 @@ public class ElasticVersionSevenTest extends ElasticSearchTest {
         TestUtil.testCall(db, "CALL apoc.es.query($host,$index,$type,'q=name:Neo4j',null) yield value", defaultParams, r -> {
             Object name = extractValueFromResponse(r, "$.hits.hits[0]._source.name");
             assertEquals("Neo4j", name);
-        });
-    }
-
-    @Test
-    public void testPostRawCreateDocument() throws IOException {
-        String index = UUID.randomUUID().toString();
-        String type = UUID.randomUUID().toString();
-        String id = UUID.randomUUID().toString();
-        Map payload = JsonUtil.OBJECT_MAPPER.readValue("{\"ajeje\":\"Brazorf\"}", Map.class);
-        Map params = Util.map("host", HTTP_HOST_ADDRESS,
-                "index", index,
-                "suffix", index,
-                "type", type,
-                "payload", payload,
-                "suffixDelete", index,
-                "suffixPost", index + "/" + type + "/" + id + "?refresh=true",
-                "id", id);
-
-        TestUtil.testCall(db, "CALL apoc.es.postRaw($host, $suffixPost, $payload) yield value", params, r -> {
-            Object result = extractValueFromResponse(r, "$.result");
-            assertEquals("created", result);
-        });
-
-        TestUtil.testCall(db, "CALL apoc.es.get($host, $index, $type, $id, null, null) yield value",
-                params,
-                r -> {
-                    Object response = extractValueFromResponse(r, "$._source.ajeje");
-                    assertEquals("Brazorf", response);
-                });
-
-        // TODO: forced the apoc.es.postRaw's HTTP method to be a DELETE, to remove the document and ensure isolation of tests.
-        //  Replace with `apoc.es.delete` when the issue https://github.com/neo4j-contrib/neo4j-apoc-procedures/issues/2999 is implemented
-        TestUtil.testCall(db, "CALL apoc.es.postRaw($host, $suffixDelete, '', {headers: {method: 'DELETE'}}) yield value", params, r -> {
-            Map expected = Util.map("acknowledged", true);
-            assertEquals(expected, r.get("value"));
         });
     }
 

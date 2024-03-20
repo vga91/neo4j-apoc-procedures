@@ -126,7 +126,7 @@ public class ElasticSearch {
         */
         String payload = "";
         ElasticSearchConfig conf = new ElasticSearchConfig(config, "DELETE");
-        String queryUrl = conf.getVersion().getQueryUrl(hostOrKey, index, type, id, query)
+        String queryUrl = conf.getVersion().getQueryUrl(hostOrKey, index, type, id, query);
         return loadJsonStream(queryUrl, conf, payload);
     }
 

@@ -57,13 +57,13 @@ public class ElasticVersionEightTest extends ElasticSearchTest {
     }
 
     @Test
-    public void testSearchWithQueryAsPayload() throws Exception {
+    public void testSearchWithQueryAsPayload() {
         TestUtil.testCall(db, "CALL apoc.es.query($host, $index, null, 'pretty', {`_source`: {includes: ['name']}}, $config) yield value", paramsWithBasicAuth,
                 this::searchQueryPayloadAssertions);
     }
 
     @Test
-    public void testSearchWithQueryAsPayloadAndWithoutIndex() throws Exception {
+    public void testSearchWithQueryAsPayloadAndWithoutIndex() {
         TestUtil.testCall(db, "CALL apoc.es.query($host, null, null, 'pretty', {`_source`: {includes: ['name']}}, $config) yield value", paramsWithBasicAuth,
                 this::searchQueryPayloadAssertions);
     }
