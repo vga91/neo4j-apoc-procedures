@@ -114,7 +114,9 @@ public class Bedrock {
     @Description("apoc.ml.bedrock.embedding([texts], $configuration) - returns the embeddings for a given text")
     public Stream<Embedding> embedding(@Name(value = "texts") List<String> texts,
                                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-        
+        if (texts == null) {
+            throw new RuntimeException(ERROR_NULL_INPUT);
+        }
         var config = new HashMap<>(configuration);
         config.putIfAbsent(MODEL, TITAN_EMBED_TEXT);
 
@@ -133,6 +135,9 @@ public class Bedrock {
     @Procedure("apoc.ml.bedrock.image")
     public Stream<Image> image(@Name(value = "body") Map<String, Object> body,
                                @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
+        if (body == null) {
+            throw new RuntimeException(ERROR_NULL_INPUT);
+        }
         configuration.putIfAbsent(MODEL, STABILITY_STABLE_DIFFUSION_XL);
         configuration.putIfAbsent(JSON_PATH, "$.artifacts[0]");
         

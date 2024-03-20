@@ -296,6 +296,13 @@ public class BedrockIT {
     }
 
     @Test
+    public void embeddingNull() {
+        assertNullInputFails(db, "CALL apoc.ml.bedrock.embedding(null)",
+                emptyMap()
+        );
+    }
+
+    @Test
     public void completionNull() {
         assertNullInputFails(db, "CALL apoc.ml.bedrock.completion(null)",
                 emptyMap()
@@ -305,6 +312,13 @@ public class BedrockIT {
     @Test
     public void chatCompletionNull() {
         assertNullInputFails(db, "CALL apoc.ml.bedrock.chat(null)",
+                emptyMap()
+        );
+    }
+
+    @Test
+    public void imageNull() {
+        assertNullInputFails(db, "CALL apoc.ml.bedrock.image(null)",
                 emptyMap()
         );
     }
