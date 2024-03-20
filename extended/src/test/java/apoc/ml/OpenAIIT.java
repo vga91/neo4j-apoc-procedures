@@ -125,6 +125,13 @@ public class OpenAIIT {
     }
 
     @Test
+    public void embeddingsNull() {
+        assertNullInputFails(db, "CALL apoc.ml.openai.embedding(null, $apiKey, $conf)",
+                Map.of("apiKey", openaiKey, "conf", emptyMap())
+        );
+    }
+
+    @Test
     public void completionNull() {
         assertNullInputFails(db, "CALL apoc.ml.openai.completion(null, $apiKey, $conf)",
                 Map.of("apiKey", openaiKey, "conf", emptyMap())

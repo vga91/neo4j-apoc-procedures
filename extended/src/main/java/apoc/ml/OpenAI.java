@@ -114,6 +114,10 @@ public class OpenAI {
       "model": "text-embedding-ada-002",
       "usage": { "prompt_tokens": 8, "total_tokens": 8 } }
     */
+        if (texts == null) {
+            throw new RuntimeException(ERROR_NULL_INPUT);
+        }
+        
         Map<Boolean, List<String>> collect = texts.stream()
                 .collect(Collectors.groupingBy(Objects::nonNull));
 

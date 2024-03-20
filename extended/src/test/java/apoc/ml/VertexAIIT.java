@@ -230,6 +230,13 @@ public class VertexAIIT {
         assertTrue(stringRow.toLowerCase().contains(expected),
                 "Actual result is: " + stringRow);
     }
+
+    @Test
+    public void embeddingsNull() {
+        assertNullInputFails(db, "CALL apoc.ml.vertexai.embedding(null, $apiKey, $project)",
+                parameters
+        );
+    }
     
     @Test
     public void completionNull() {

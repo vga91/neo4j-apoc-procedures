@@ -99,6 +99,10 @@ public class VertexAI {
 }
     */
 
+        if (texts == null) {
+            throw new RuntimeException(ERROR_NULL_INPUT);
+        }
+        
         Map<Boolean, List<String>> collect = texts.stream()
                 .collect(Collectors.groupingBy(Objects::nonNull));
 
