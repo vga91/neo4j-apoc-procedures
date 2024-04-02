@@ -1,0 +1,8 @@
+[[virtual-nodes-and-relationships]]
+= Virtual Nodes and Relationships
+
+
+This section includes:
+
+* xref::overview/apoc.graph/apoc.graph.filterPropertiesProcedure.adoc[apoc.graph.filterProperties (procedure)]
+* xref::overview/apoc.graph/apoc.graph.filterProperties.adoc[apoc.graph.filterProperties (aggregation function)]

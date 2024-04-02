@@ -84,7 +84,7 @@ public class GraphsExtendedTest {
         
         testCall(db, """
                 MATCH path=(:Person)-[:REL]->(:Movie)
-                WITH apoc.graph.filterProperties(path, ['plotEmbedding', 'posterEmbedding', 'plot', 'bio']) as graph
+                WITH apoc.graph.filterProperties(path, {_all: ['plotEmbedding', 'posterEmbedding', 'plot', 'bio']}) as graph
                 RETURN graph.nodes AS nodes, graph.relationships AS relationships""",
                 this::commonFilterPropertiesAssertions);
         
@@ -113,11 +113,19 @@ public class GraphsExtendedTest {
     }
 
     @Test
-    public void testVirtualGraph() {
+    public void testFilterPropertiesProcedure() {
         testCall(db, """
                 MATCH path=(:Person)-[:REL]->(:Movie)
                 WITH collect(path) AS paths
-                CALL apoc.virtual.graph(paths, ['plotEmbedding', 'posterEmbedding', 'plot', 'bio'])
+                CALL apoc.graph.filterProperties(paths, {_all: ['plotEmbedding', 'posterEmbedding', 'plot', 'bio']})
+                YIELD nodes, relationships
+                RETURN nodes, relationships""",
+                this::commonFilterPropertiesAssertions);
+        
+        testCall(db, """
+                MATCH path=(:Person)-[:REL]->(:Movie)
+                WITH collect(path) AS paths
+                CALL apoc.graph.filterProperties(paths, {Movie: ['posterEmbedding'], Person: ['posterEmbedding', 'plotEmbedding', 'plot', 'bio']})
                 YIELD nodes, relationships
                 RETURN nodes, relationships""",
                 this::commonFilterPropertiesAssertions);
@@ -161,14 +169,14 @@ public class GraphsExtendedTest {
         testCall(db, """
                 MATCH path=(:Foo)--(:Bar)--(:Baz)
                 WITH collect(path) AS paths
-                CALL apoc.virtual.graph(paths, ['remove'])
+                CALL apoc.graph.filterProperties(paths, {_all: ['remove']}, {_all: ['remove']})
                 YIELD nodes, relationships
                 RETURN nodes, relationships""", 
                 r -> assertNodeAndRelIdProps(r, expectedIdNodes, expectedIdRels));
         
         testCall(db, """
                 MATCH path=(:Foo)--(:Bar)--(:Baz)
-                WITH apoc.graph.filterProperties(path, ['remove']) as graph
+                WITH apoc.graph.filterProperties(path, {_all: ['remove']}, {_all: ['remove']}) as graph
                 RETURN graph.nodes AS nodes, graph.relationships AS relationships""",
                 r -> assertNodeAndRelIdProps(r, expectedIdNodes, expectedIdRels));
     }
@@ -180,21 +188,21 @@ public class GraphsExtendedTest {
         
         testCall(db, """
                 MATCH p1=(:One)--(:Two), p2=(:Two)--(:Three)
-                CALL apoc.virtual.graph([p1, p2], ['remove'])
+                CALL apoc.graph.filterProperties([p1, p2], {_all: ['remove']}, {_all: ['remove']})
                 YIELD nodes, relationships
                 RETURN nodes, relationships""",
                 r -> assertNodeAndRelIdProps(r, expectedIdNodes, expectedIdRels));
         
         testCall(db, """
                 MATCH p1=(:One)--(:Two), p2=(:Two)--(:Three)
-                CALL apoc.virtual.graph([{key1: p1, key2: [p1, p2]}], ['remove'])
+                CALL apoc.graph.filterProperties([{key1: p1, key2: [p1, p2]}], {_all: ['remove']}, {_all: ['remove']})
                 YIELD nodes, relationships
                 RETURN nodes, relationships""",
                 r -> assertNodeAndRelIdProps(r, expectedIdNodes, expectedIdRels));
         
         testCall(db, """
                 MATCH p1=(:One)--(:Two), p2=(:Two)--(:Three)
-                CALL apoc.virtual.graph([{key2: {subKey: [p1, p2]}}], ['remove'])
+                CALL apoc.graph.filterProperties([{key2: {subKey: [p1, p2]}}], {_all: ['remove']}, {_all: ['remove']})
                 YIELD nodes, relationships
                 RETURN nodes, relationships""",
                 r -> assertNodeAndRelIdProps(r, expectedIdNodes, expectedIdRels));
