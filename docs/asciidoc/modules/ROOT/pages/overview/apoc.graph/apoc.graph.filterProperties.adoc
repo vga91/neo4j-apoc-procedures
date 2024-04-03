@@ -4,7 +4,11 @@
 label:function[] label:apoc-extended[]
 
 [.emphasis]
-apoc.graph.filterProperties(anyEntityObject, nodePropertiesToRemove, relPropertiesToRemove) - aggregation function which returns an object {node: [virtual nodes], relationships: [virtual relationships]} without the properties defined in nodePropertiesToRemove and relPropertiesToRemove
+----
+apoc.graph.filterProperties(anyEntityObject, nodePropertiesToRemove, relPropertiesToRemove)
+
+Aggregation function which returns an object {node: [virtual nodes], relationships: [virtual relationships]} without the properties defined in nodePropertiesToRemove and relPropertiesToRemove
+----
 
 == Signature
 

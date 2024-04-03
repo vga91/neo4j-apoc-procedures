@@ -114,6 +114,7 @@ public class GraphsExtendedTest {
 
     @Test
     public void testFilterPropertiesProcedure() {
+        
         testCall(db, """
                 MATCH path=(:Person)-[:REL]->(:Movie)
                 WITH collect(path) AS paths
@@ -220,5 +221,52 @@ public class GraphsExtendedTest {
                 .map(i -> i.getProperty("idRel"))
                 .collect(Collectors.toSet());
         assertEquals(expectedIdRels, actualIdRels);
+    }
+
+    @Test
+    public void testFilterPropertiesWithEmptyNodeAndRelPropertiesToRemove() {
+        testCall(db, """
+                MATCH path=(:Person)-[:REL]->(:Movie)
+                WITH collect(path) AS paths
+                CALL apoc.graph.filterProperties(paths)
+                YIELD nodes, relationships
+                RETURN nodes, relationships""",
+                this::assertEmptyFilter);
+
+        testCall(db, """
+                MATCH path=(:Person)-[:REL]->(:Movie)
+                WITH apoc.graph.filterProperties(path) as graph
+                RETURN graph.nodes AS nodes, graph.relationships AS relationships""",
+                this::assertEmptyFilter);
+    }
+
+    private void assertEmptyFilter(Map<String, Object> r) {
+        List<Node> nodes = (List<Node>) r.get("nodes");
+        nodes.sort(Comparator.comparingLong(i -> (long) i.getProperty("idNode")));
+        assertEquals(4, nodes.size());
+
+        Node node = nodes.get(0);
+        assertEquals(List.of(Label.label("Person")), node.getLabels());
+        assertEquals(propsPerson1, node.getAllProperties());
+        node = nodes.get(1);
+        assertEquals(List.of(Label.label("Movie")), node.getLabels());
+        assertEquals(propsMovie1, node.getAllProperties());
+        node = nodes.get(2);
+        assertEquals(List.of(Label.label("Person")), node.getLabels());
+        assertEquals(propsPerson2, node.getAllProperties());
+        node = nodes.get(3);
+        assertEquals(List.of(Label.label("Movie")), node.getLabels());
+        assertEquals(propsMovie2, node.getAllProperties());
+
+        List<Relationship> relationships = (List<Relationship>) r.get("relationships");
+        relationships.sort(Comparator.comparingLong(i -> (long) i.getProperty("idRel")));
+        assertEquals(2, relationships.size());
+
+        Relationship rel = relationships.get(0);
+        assertEquals(RelationshipType.withName("REL"), rel.getType());
+        assertEquals(propsRel1, rel.getAllProperties());
+        rel = relationships.get(1);
+        assertEquals(RelationshipType.withName("REL"), rel.getType());
+        assertEquals(propsRel2, rel.getAllProperties());
     }
 }
