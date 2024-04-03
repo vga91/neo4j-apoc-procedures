@@ -4,7 +4,11 @@
 label:procedure[] label:apoc-extended[]
 
 [.emphasis]
-CALL apoc.graph.filterProperties(anyEntityObject, nodePropertiesToRemove, relPropertiesToRemove) YIELD nodes, relationships - returns a set of virtual nodes and relationships without the properties defined in nodePropertiesToRemove and relPropertiesToRemove
+----
+CALL apoc.graph.filterProperties(anyEntityObject, nodePropertiesToRemove, relPropertiesToRemove) YIELD nodes, relationships
+
+Returns a set of virtual nodes and relationships without the properties defined in nodePropertiesToRemove and relPropertiesToRemove
+----
 
 == Signature
 
