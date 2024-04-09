@@ -1,6 +1,12 @@
 package apoc.agg;
 
 import apoc.Extended;
+import apoc.util.Util;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.collections4.ComparatorUtils;
+import org.apache.commons.collections4.ListUtils;
+import org.apache.commons.lang3.compare.ComparableUtils;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.kernel.impl.util.ValueUtils;
 import org.neo4j.procedure.Description;
@@ -13,10 +19,14 @@ import org.neo4j.values.storable.NumberValue;
 import org.neo4j.values.utils.ValueMath;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 
 /*
@@ -46,6 +56,9 @@ ROLLUP ORACLE:
 
 @Extended
 public class Rollup {
+    public static final String NULL_ROLLUP = "NULL";
+    
+    // todo - come fare il cube? simile ad oracle?
     
     // TODO - CREO UN FILE CYPHER PER SEMPLICITÀ, CON UN DATASET SIMILE A MYSQL
 
@@ -56,18 +69,121 @@ public class Rollup {
     public RollupFunction rollup() {
         return new RollupFunction();
     }
+    
+    /*
+                for (List<String> groupKey : groupingSets) {
+                List<String> partialKey = new ArrayList<>();
+                for (String column : groupKey) {
+                    partialKey.add((String) row.get(column));
+                }
+                cubedData.put(partialKey, cubedData.getOrDefault(partialKey, 0) + (int) row.get("value"));
+            }
+
+
+            
+            with rollup:
+            for (int i = 0; i <= groupKey.size(); i++) {
+                List<String> partialKey = new ArrayList<>(groupKey.subList(0, i));
+                rolledUpData.put(partialKey, rolledUpData.getOrDefault(partialKey, 0) + (int)row.get("value"));
+            }
+            
+     */
 
     public static class RollupFunction {
-        private static final String NULL_ROLLUP = "NULL";
+        // Function to generate all combinations of a list with "TEST" as a placeholder
+        public static <T> List<List<T>> generateCombinationsWithPlaceholder(List<T> elements) {
+            List<List<T>> result = new ArrayList<>();
+            generateCombinationsWithPlaceholder(elements, 0, new ArrayList<>(), result);
+            return result;
+        }
+
+        // Helper function for generating combinations recursively
+        private static <T> void generateCombinationsWithPlaceholder(List<T> elements, int index, List<T> current, List<List<T>> result) {
+            if (index == elements.size()) {
+                result.add(new ArrayList<>(current));
+                return;
+            }
+
+            current.add(elements.get(index));
+            generateCombinationsWithPlaceholder(elements, index + 1, current, result);
+            current.remove(current.size() - 1);
+
+            // Add "NULL" as a combination placeholder
+            current.add((T) NULL_ROLLUP);
+            generateCombinationsWithPlaceholder(elements, index + 1, current, result);
+            current.remove(current.size() - 1);
+        }
+
+//
+//        // Function to generate all combinations of a list with "TEST" as a placeholder
+//        public static <T> List<List<T>> generateCombinationsWithPlaceholder(List<T> elements) {
+//            List<List<T>> result = new ArrayList<>();
+//            generateCombinationsWithPlaceholder(elements, 0, new ArrayList<>(), result);
+//            return result;
+//        }
+//
+//        // Helper function for generating combinations recursively
+//        private static <T> void generateCombinationsWithPlaceholder(List<T> elements, int index, List<T> current, List<List<T>> result) {
+//            if (index == elements.size()) {
+//                // Pad current combination with "TEST" if its size is less than the original list
+//                while (current.size() < elements.size()) {
+//                    current.add((T) "TEST");
+//                }
+//                result.add(new ArrayList<>(current));
+//                return;
+//            }
+//
+//            // Include the current element
+//            current.add(elements.get(index));
+//            generateCombinationsWithPlaceholder(elements, index + 1, current, result);
+//
+//            // Exclude the current element
+//            current.remove(current.size() - 1);
+//            generateCombinationsWithPlaceholder(elements, index + 1, current, result);
+//        }
+        
+        // Helper method to generate all possible combinations of grouping sets
+//        private static Set<List<String>> generateGroupingSets(List<String> columns) {
+//            Set<List<String>> groupingSets = new HashSet<>();
+//            for (int i = 0; i <= columns.size(); i++) {
+//                List<Set<String>> combinations = new ArrayList<>();
+//                generateCombinations(new ArrayList<>(columns), i, 0, new HashSet<>(), combinations);
+//                for (Set<String> combination : combinations) {
+//                    groupingSets.add(new ArrayList<>(combination));
+//                }
+//            }
+//            return groupingSets;
+//        }
+//
+//        private static void generateCombinations(List<String> columns, int length, int start, Set<String> currentCombination, List<Set<String>> combinations) {
+//            if (currentCombination.size() == length) {
+//                combinations.add(new HashSet<>(currentCombination));
+//                return;
+//            }
+//            for (int i = start; i < columns.size(); i++) {
+//                currentCombination.add(columns.get(i));
+//                generateCombinations(columns, length, i + 1, currentCombination, combinations);
+//                currentCombination.remove(columns.get(i));
+//            }
+//        }
+        
+        
         private final Map<String, Object> result = new HashMap<>();
 //        private final Map<String, Map<String, Map<String, NumberValue>>> result = new HashMap<>();
 
+        private final Map<List<Object>, Map<String, NumberValue>> rolledUpData = new HashMap<>();
+        private List<String> groupKeysRes = null;
+        
         @UserAggregationUpdate
         public void aggregate(
                 @Name("value") Object value,
                 // todo - rename to groupKeys
                 @Name(value = "groupKeys") List<String> groupKeys,
-                @Name(value = "aggKeys") List<String> aggKeys) {
+                @Name(value = "aggKeys") List<String> aggKeys,
+                @Name(value = "config", defaultValue = "{}")  Map<String, Object> config) {
+
+            boolean cube = Util.toBoolean(config.get("cube"));
+
             // todo - remove it
 //            String partialKey = aggKeys.get(0);
 
@@ -76,56 +192,191 @@ public class Rollup {
             if (groupKeys.isEmpty()) {
                 return;
             }
+            groupKeysRes = groupKeys;
+
+            if (cube) {
+                // todo - is this right?
+                List<List<String>> groupingSets = generateCombinationsWithPlaceholder(groupKeys);
+
+                // Simulate GROUP BY CUBE
+//                Map<List<String>, Integer> cubedData = new HashMap<>();
+//                for (Map<String, Object> row : data) {
+                    for (List<String> groupKey : groupingSets) {
+                        List<Object> partialKey = new ArrayList<>();
+                        for (String column : groupKey) {
+                            partialKey.add(((Entity) value).getProperty(column, NULL_ROLLUP));
+//                            partialKey.add((String) row.get(column));
+                        }
+                        if (!rolledUpData.containsKey(partialKey)) {
+                            rolledUpData.put(partialKey, new HashMap<>());
+                        }
+                        extracted(aggKeys, entity, partialKey);
+//                        cubedData.put(partialKey, cubedData.getOrDefault(partialKey, 0) + (int) row.get("value"));
+                    }
+//                }
+                return;
+            }
             
-//            if (entity.hasProperty(groupKey.get(0))) {
-//                return;
-//            }
+            
 
-
-            Map<List<Object>, Map<String, Integer>> rolledUpData = new HashMap<>();
-//            List<String> groupKey = new ArrayList<>();
             List<Object> groupKey = groupKeys.stream()
                     .map(i -> entity.getProperty(i, null))
                     .toList();
 
-//            groupKey.add((String) row.get("category"));
-//            groupKey.add((String) row.get("subcategory"));
-//            groupKey.add((String) row.get("type"));
-            
             for (int i = 0; i <= groupKey.size(); i++) {
-                List<Object> partialKey = new ArrayList<>(groupKey.subList(0, i));
+                // todo - add null to remaining elements
+                List<Object> partialKey = ListUtils.union(groupKey.subList(0, i), Collections.nCopies(groupKey.size() - i, NULL_ROLLUP));
                 if (!rolledUpData.containsKey(partialKey)) {
                     rolledUpData.put(partialKey, new HashMap<>());
                 }
-                Map<String, Integer> partialResult = rolledUpData.get(partialKey);
-                partialResult.put("SUM", partialResult.getOrDefault("SUM", 0) + (int) row.get("value"));
-                partialResult.put("COUNT", partialResult.getOrDefault("COUNT", 0) + 1);
+                extracted(aggKeys, entity, partialKey);
             }
-            
-            
-//            result.compute(groupKey.get(0), (i, v) -> {
-//                result.compute(groupKey.get(1), (i2, v2) -> {
-//                    
-//                });
-//            });
+        }
 
+        private void extracted(List<String> aggKeys, Entity entity, List<Object> partialKey) {
+            Map<String, NumberValue> partialResult = rolledUpData.get(partialKey);
+            for(var aggKey: aggKeys) {
+                if (entity.hasProperty(aggKey)) {
+                    Object property = entity.getProperty(aggKey);
+                    // todo - compute instead of put + getordefault?
+                    String countKey = "COUNT(%s)".formatted(aggKey);
+                    NumberValue count = partialResult.compute(countKey,
+                            ((subKey, subVal) -> {
+                                return (NumberValue) ValueUtils.asLongValue(subVal == null ? 1 : ((NumberValue) subVal).longValue() + 1);
+                            }));
 
-//            result.compute(NULL_ROLLUP, ()
+                    String sumKey = "SUM(%s)".formatted(aggKey);
+                    String avgKey = "AVG(%s)".formatted(aggKey);
+                    AnyValue neo4jValue = ValueUtils.of(property);
+
+                    if (neo4jValue instanceof NumberValue numberValue) {
+                        NumberValue sum = partialResult.compute(sumKey,
+                                ((subKey, subVal) -> subVal == null ? numberValue : ValueMath.overflowSafeAdd(subVal, numberValue)));
+
+                        partialResult.compute(avgKey,
+                                ((subKey, subVal) -> subVal == null ? ValueUtils.asDoubleValue(numberValue.doubleValue()) : sum.dividedBy(count.doubleValue())));
+                    }
+                }
+            }
+        }
+
+        /**
+         * Transform a Map.of(ListGroupKeys, MapOfAggResults) in a List of Map.of(AggResult + ListGroupKeyToMap)
+         */
+        @UserAggregationResult
+        public Object result() {
+            List<HashMap<String, Object>> list = rolledUpData.entrySet().stream()
+                    .map(e -> {
+                        HashMap<String, Object> map = new HashMap<>();
+                        for (int i = 0; i < groupKeysRes.size(); i++) {
+                            map.put(groupKeysRes.get(i), e.getKey().get(i));
+                        }
+                        map.putAll(e.getValue());
+                        return map;
+                    })
+                    .sorted((m1, m2) -> {
+                        for (String key : groupKeysRes) {
+                            Object value1 = m1.get(key);
+                            Object value2 = m2.get(key);
+                            System.out.println("m1 = " + m1);
+                            System.out.println("m2 = " + m2);
+                            int cmp = compareValues(value1, value2);
+                            if (cmp != 0) {
+                                return cmp;
+                            }
+                        }
+                        return 0;
+                    })
+                    .toList();
+
+//            Comparator.comparing(i -> 
+//            ComparatorUtils.chainedComparator(C
             
-            
-            // primo compute
-                    // inner compute
-                    // 
-            // secondo compute
-            // terzo compute
-            // `NULL`
+//            list.sort(
+            return list;
+//            return rolledUpData;
+        }
+
+// todo - used this instead of apoc.coll.sortMulti since 
+        private static int compareValues(Object value1, Object value2) {
+            if (value1 == null && value2 == null) {
+                return 0;
+            } else if (value1 == null) {
+                return 1;
+            } else if (value2 == null) {
+                return -1;
+            } else if (NULL_ROLLUP.equals(value1) && NULL_ROLLUP.equals(value2)) {
+                return 0;
+            } else if (NULL_ROLLUP.equals(value1)) {
+                return 1;
+            } else if (NULL_ROLLUP.equals(value2)) {
+                return -1;
+            } else if (value1 instanceof Comparable && value2 instanceof Comparable) {
+                try {
+                    System.out.println("value1 = " + value1);
+                    System.out.println("value2 = " + value2);
+                    return ((Comparable<Object>) value1).compareTo(value2);
+                } catch (Exception e) {
+                    System.out.println("e = " + e);
+                    // e.g. different data types, like int and strings
+                    return 0;
+                }
+
+            } else {
+                return 0;
+            }
         }
     }
     
     
     /*
-    import java.util.*;
-
+    
+INSERT INTO ProductsAltro VALUES(SupplierID: 1, CategoryID: 1, random_int: 1, Price: 18, randomNum: 0.3});
+INSERT INTO ProductsAltro VALUES(SupplierID: 1, CategoryID: 1, random_int: 0, Price: 19, randomNum: 0.5});
+INSERT INTO ProductsAltro VALUES(SupplierID: 1, CategoryID: 2, random_int: 1, Price: 10, randomNum: 0.6});
+INSERT INTO ProductsAltro VALUES(SupplierID: 4, CategoryID: 8, random_int: 0, Price: 31, randomNum: 0.6});
+INSERT INTO ProductsAltro VALUES(SupplierID: 5, CategoryID: 4, random_int: 1, Price: 21, randomNum: 0.2});
+INSERT INTO ProductsAltro VALUES(SupplierID: 6, CategoryID: 8, random_int: 1, Price: 6, randomNum: 0.5});
+INSERT INTO ProductsAltro VALUES(SupplierID: 6, CategoryID: 7, random_int: 1, Price: 23, randomNum: 0.6});
+INSERT INTO ProductsAltro VALUES(SupplierID: 7, CategoryID: 3, random_int: 1, Price: 17, randomNum: 0.7});
+INSERT INTO ProductsAltro VALUES(SupplierID: 7, CategoryID: 6, random_int: 1, Price: 39, randomNum: 0.8});
+INSERT INTO ProductsAltro VALUES(SupplierID: 7, CategoryID: 8, random_int: 1, Price: 63, randomNum: 0.9});
+INSERT INTO ProductsAltro VALUES(SupplierID: 8, CategoryID: 3, random_int: 0, Price: 9, randomNum: 0.2});
+INSERT INTO ProductsAltro VALUES(SupplierID: 8, CategoryID: 3, random_int: 1, Price: 81, randomNum: 0.5});
+INSERT INTO ProductsAltro VALUES(SupplierID: 9, CategoryID: 5, random_int: 0, Price: 9, randomNum: 0.9});
+INSERT INTO ProductsAltro VALUES(SupplierID: 10, CategoryID: 1, random_int: 1, Price: 5, randomNum: 0.2});
+INSERT INTO ProductsAltro VALUES(SupplierID: 11, CategoryID: 3, random_int: 1, Price: 14, randomNum: 0.1});
+INSERT INTO ProductsAltro VALUES(SupplierID: 11, CategoryID: 3, random_int: 0, Price: 31, randomNum: 0.2});
+INSERT INTO ProductsAltro VALUES(SupplierID: 11, CategoryID: 4, random_int: 0, Price: 44, randomNum: 0.7});
+INSERT INTO ProductsAltro VALUES(SupplierID: 1, CategoryID: NULL, random_int: 1, Price: 18, randomNum: 0.7});
+INSERT INTO ProductsAltro VALUES(SupplierID: NULL, CategoryID: NULL, random_int: 0, Price: 18, randomNum: 0.6});
+INSERT INTO ProductsAltro VALUES(SupplierID: NULL, CategoryID: 2, random_int: 0, Price: 199, randomNum: 0.8});  
+    
+    
+,1, 0.3
+,0, 0.5
+,1, 0.6
+,0, 0.6
+,1, 0.2
+,1, 0.5
+,1, 0.6
+,1, 0.7
+,1, 0.8
+,1, 0.9
+,0, 0.2
+,1, 0.5
+,0, 0.9
+,1, 0.2    
+,1, 0.1    
+,0, 0.2   
+,0, 0.7 
+,1, 0.7 
+,0, 0.6 
+,0, 0.8 
+ 
+ 
+ import java.util.*;
+0
 public class GroupByRollupWithAggregations {
 
     public static void main(String[] args) {

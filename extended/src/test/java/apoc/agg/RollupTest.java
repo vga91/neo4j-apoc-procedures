@@ -9,7 +9,21 @@ import org.junit.Test;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+
+import static apoc.agg.RollupTestUtil.ANOTHER_ID;
+import static apoc.agg.RollupTestUtil.CATEGORY_ID;
+import static apoc.agg.RollupTestUtil.SUPPLIER_ID;
+import static apoc.agg.RollupTestUtil.getCubeTripleGroupTwo;
+import static apoc.agg.RollupTestUtil.getRollupTripleGroup;
+import static apoc.agg.RollupTestUtil.getRollupTripleGroupTwo;
+import static apoc.util.ExtendedTestUtil.assertMapEquals;
+import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testResult;
+import static apoc.util.Util.map;
+import static org.junit.Assert.assertEquals;
 
 
 public class RollupTest {
@@ -108,20 +122,65 @@ public class RollupTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
 
+
+    /*
+     TODO - LASCIARE QUESTO SUL COMMIT COME ESEMPIO:
+      
+CREATE TABLE ProductsAltro1(
+    SupplierID anotherID,
+    CategoryID anotherID,
+    Price NUMERIC,
+    floatNum FLOAT,
+    anotherID anotherID
+);
+
+INSERT INTO ProductsAltro1 VALUES(1,  1,  1,  18,  0.3);
+INSERT INTO ProductsAltro1 VALUES(1,  1,  0,  19,  0.5);
+INSERT INTO ProductsAltro1 VALUES(1,  2,  1,  10,  0.6);
+INSERT INTO ProductsAltro1 VALUES(4,  8,  0,  31,  0.6);
+INSERT INTO ProductsAltro1 VALUES(5,  4,  1,  21,  0.2);
+INSERT INTO ProductsAltro1 VALUES(6,  8,  1,  6,  0.5);
+INSERT INTO ProductsAltro1 VALUES(6,  7,  1,  23,  0.6);
+INSERT INTO ProductsAltro1 VALUES(7,  3,  1,  17,  0.7);
+INSERT INTO ProductsAltro1 VALUES(7,  6,  1,  39,  0.8);
+INSERT INTO ProductsAltro1 VALUES(7,  8,  1,  63,  0.9);
+INSERT INTO ProductsAltro1 VALUES(8,  3,  0,  9,  0.2);
+INSERT INTO ProductsAltro1 VALUES(8,  3,  1,  81,  0.5);
+INSERT INTO ProductsAltro1 VALUES(9,  5,  0,  9,  0.9);
+INSERT INTO ProductsAltro1 VALUES(10,  1,  1,  5,  0.2);
+INSERT INTO ProductsAltro1 VALUES(11,  3,  1,  14,  0.1);
+INSERT INTO ProductsAltro1 VALUES(11,  3,  0,  31,  0.2);
+INSERT INTO ProductsAltro1 VALUES(11,  4,  0,  44,  0.7);
+INSERT INTO ProductsAltro1 VALUES(1,  NULL,  1,  18,  0.7);
+INSERT INTO ProductsAltro1 VALUES(NULL,  NULL,  0,  18,  0.6);
+INSERT INTO ProductsAltro1 VALUES(NULL,  2,  0,  199,  0.8); 
+     */
+
     @BeforeClass
     public static void setUp() {
         TestUtil.registerProcedure(db, Maps.class, Rollup.class);
 
         db.executeTransactionally("""
-                CREATE (:Person { louvain: 596, neo4jImportId: "18349390", wcc: 48, lpa: 598, name: "aaa", another: 548}),
-                    (:Person { louvain: 596, neo4jImportId: "18349390", wcc: 48, lpa: 598, name: "eee", another: 549}),
-                    (:Person { louvain: 596, neo4jImportId: "18349390", wcc: 48, lpa: 598, name: "eee", another: 549}),
-                    (:Person { louvain: 597, neo4jImportId: "18349391", wcc: 48, lpa: 598, name: "eee", another: 549}),
-                    (:Person { louvain: 597, neo4jImportId: "18349392", wcc: 47, lpa: 596, name: "iii", another: 549}),
-                    (:Person { louvain: 597, neo4jImportId: "18349393", wcc: 47, lpa: 596, name: "iii", another: 549}),
-                    (:Person { louvain: 597, neo4jImportId: "18349394", wcc: 47, lpa: 596, name: "iii", another: 549}),
-                    (:Person { louvain: 597, neo4jImportId: "18349393", wcc: 47, lpa: 596, name: "iii", another: 10}),
-                    (:Person { louvain: 597, neo4jImportId: "18349394", wcc: 47, lpa: 596, name: "iii", another: 10})""");
+                CREATE (:Product {SupplierID: 1, CategoryID: 1, anotherID: 1, Price: 18, floatNum: 0.3}),
+                       (:Product {SupplierID: 1, CategoryID: 1, anotherID: 0, Price: 19, floatNum: 0.5}),
+                       (:Product {SupplierID: 1, CategoryID: 2, anotherID: 1, Price: 10, floatNum: 0.6}),
+                       (:Product {SupplierID: 4, CategoryID: 8, anotherID: 0, Price: 31, floatNum: 0.6}),
+                       (:Product {SupplierID: 5, CategoryID: 4, anotherID: 1, Price: 21, floatNum: 0.2}),
+                       (:Product {SupplierID: 6, CategoryID: 8, anotherID: 1, Price: 6, floatNum: 0.5}),
+                       (:Product {SupplierID: 6, CategoryID: 7, anotherID: 1, Price: 23, floatNum: 0.6}),
+                       (:Product {SupplierID: 7, CategoryID: 3, anotherID: 1, Price: 17, floatNum: 0.7}),
+                       (:Product {SupplierID: 7, CategoryID: 6, anotherID: 1, Price: 39, floatNum: 0.8}),
+                       (:Product {SupplierID: 7, CategoryID: 8, anotherID: 1, Price: 63, floatNum: 0.9}),
+                       (:Product {SupplierID: 8, CategoryID: 3, anotherID: 0, Price: 9, floatNum: 0.2}),
+                       (:Product {SupplierID: 8, CategoryID: 3, anotherID: 1, Price: 81, floatNum: 0.5}),
+                       (:Product {SupplierID: 9, CategoryID: 5, anotherID: 0, Price: 9, floatNum: 0.9}),
+                       (:Product {SupplierID: 10, CategoryID: 1, anotherID: 1, Price: 5, floatNum: 0.2}),
+                       (:Product {SupplierID: 11, CategoryID: 3, anotherID: 1, Price: 14, floatNum: 0.1}),
+                       (:Product {SupplierID: 11, CategoryID: 3, anotherID: 0, Price: 31, floatNum: 0.2}),
+                       (:Product {SupplierID: 11, CategoryID: 4, anotherID: 0, Price: 44, floatNum: 0.7}),
+                       (:Product {SupplierID: 1, CategoryID: NULL, anotherID: 1, Price: 18, floatNum: 0.7}),
+                       (:Product {SupplierID: NULL, CategoryID: NULL, anotherID: 0, Price: 18, floatNum: 0.6}),
+                       (:Product {SupplierID: NULL, CategoryID: 2, anotherID: 0, Price: 199, floatNum: 0.8})""");
     }
 
     @AfterClass
@@ -129,76 +188,70 @@ public class RollupTest {
         db.shutdown();
     }
 
-    // similar to https://community.neo4j.com/t/listing-the-community-size-of-different-community-detection-algorithms-already-calculated/42895
+    // similar to https://docs.oracle.com/cd/F49540_01/DOC/server.815/a68003/rollup_c.htm and MySql `WITH ROLLUP` command
     @Test
-    public void testMultiStatsComparedWithCypherMultiAggregation() {
-        String multiAggregationResult = db.executeTransactionally("""
-                        MATCH (p:Person)
-                        WITH p
-                        CALL {
-                            WITH p
-                            MATCH (n:Person {louvain: p.louvain})
-                            RETURN sum(p.louvain) AS sumLouvain, avg(p.louvain) AS avgLouvain, count(p.louvain) AS countLouvain
-                        }
-                        CALL {
-                            WITH p
-                            MATCH (n:Person {wcc: p.wcc})
-                            RETURN sum(p.wcc) AS sumWcc, avg(p.wcc) AS avgWcc, count(p.wcc) AS countWcc
-                        }
-                        CALL {
-                            WITH p
-                            MATCH (n:Person {another: p.another})
-                            RETURN sum(p.another) AS sumAnother, avg(p.another) AS avgAnother, count(p.another) AS countAnother
-                        }
-                        CALL {
-                            WITH p
-                            MATCH (lpa:Person {lpa: p.lpa})
-                            RETURN sum(p.lpa) AS sumLpa, avg(p.lpa) AS avgLpa, count(p.lpa) AS countLpa
-                        }
-                        RETURN p.name,
-                            sumLouvain, avgLouvain, countLouvain,
-                            sumWcc, avgWcc, countWcc,
-                            sumAnother, avgAnother, countAnother,
-                            sumLpa, avgLpa, countLpa""", Map.of(),
-                result -> result.resultAsString());
+    public void testRollup() {
 
-        /*
-        [ {key1: val1, key2: val2, key2: val3, <AGGR>} ] 
-         */
-        
-        
-        /*
-        - riga 1
-        - riga 2
-        
-        ----
-        
-        - 
-        
-         */
-        
-        String multiStatsResult = db.executeTransactionally("""
-                match (p:Person)
-                with apoc.agg.rollup(p, ["lpa","wcc","louvain", "another"]) as data
-                match (p:Person)
-                return p.name,
-                    data.wcc[toString(p.wcc)].avg AS avgWcc,
-                    data.louvain[toString(p.louvain)].avg AS avgLouvain,
-                    data.lpa[toString(p.lpa)].avg AS avgLpa,
-                    data.another[toString(p.another)].avg AS avgAnother,
-                    data.another[toString(p.another)].count AS countAnother,
-                    data.wcc[toString(p.wcc)].count AS countWcc,
-                    data.louvain[toString(p.louvain)].count AS countLouvain,
-                    data.lpa[toString(p.lpa)].count AS countLpa,
-                    data.another[toString(p.another)].sum AS sumAnother,
-                    data.wcc[toString(p.wcc)].sum AS sumWcc,
-                    data.louvain[toString(p.louvain)].sum AS sumLouvain,
-                    data.lpa[toString(p.lpa)].sum AS sumLpa
-                """, Map.of(), r -> r.resultAsString());
-
-        System.out.println("multiStatsResult = \n" + multiStatsResult);
-        assertEquals(multiAggregationResult, multiStatsResult);
-        
+            List<Map> expected = getRollupTripleGroup();
+        testCall(db, """
+                MATCH (p:Product)
+                RETURN apoc.agg.rollup(p, $groupKeys, ["Price", "floatNum"]) as data
+                """,
+        map("groupKeys", List.of(SUPPLIER_ID, CATEGORY_ID, ANOTHER_ID)),
+        r -> {
+            extracted(expected, r);
+//            List<Map> data = (List<Map>) r.get("data");
+//            assertEquals(expected.size(), data.size());
+//            for (int i = 0; i < expected.size(); i++) {
+//                assertMapEquals("Maps at index %s are not equal. Actual: %s, Expected: %s".formatted(i, expected.get(i), data.get(i)),
+//                        expected.get(i),
+//                        data.get(i)
+//                );
+//            }
+        });
     }
-     
+
+    @Test
+    public void testRollup2() {
+        
+        // todo -- apoc.coll.sortMulti!!
+
+                    List<Map> expected = getRollupTripleGroupTwo();
+        testCall(db, """
+                MATCH (p:Product)
+                RETURN apoc.agg.rollup(p, $groupKeys, ["Price", "floatNum"]) as data
+                """,
+                map("groupKeys", List.of(CATEGORY_ID, SUPPLIER_ID, ANOTHER_ID)),
+                r -> {
+                    extracted(expected, r);
+                });
+    }
+
+    @Test
+    public void testCube() {
+
+                    List<Map> expected = getCubeTripleGroupTwo();
+        testCall(db, """
+                MATCH (p:Product)
+                RETURN apoc.agg.rollup(p, $groupKeys, ["Price", "floatNum"], {cube: true}) as data
+                
+                """,
+                map("groupKeys", List.of(CATEGORY_ID, SUPPLIER_ID, ANOTHER_ID)),
+                r -> {
+                    extracted(expected, r);
+                });
+    }
+
+    private void extracted(List<Map> expected, Map<String, Object> r) {
+        List<Map> data = (List<Map>) r.get("data");
+
+        System.out.println("data = \n\n" + data.stream().map(Object::toString).collect(Collectors.joining("\n")));
+
+        for (int i = 0; i < expected.size(); i++) {
+            assertMapEquals("Maps at index %s are not equal. Actual: %s, Expected: %s".formatted(i, expected.get(i), data.get(i)),
+                    expected.get(i),
+                    data.get(i)
+            );
+        }
+    }
 }
