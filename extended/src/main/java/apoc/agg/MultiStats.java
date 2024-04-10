@@ -1,6 +1,7 @@
 package apoc.agg;
 
 import apoc.Extended;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.kernel.impl.util.ValueUtils;
 import org.neo4j.procedure.Description;
@@ -28,7 +29,7 @@ public class MultiStats {
 
     public static class MultiStatsFunction {
 
-        private final Map<String, Map<String, Map<String, NumberValue>>> result = new HashMap<>();
+        private final Map<String, Map<String, Map<String, Number>>> result = new HashMap<>();
         
         @UserAggregationUpdate
         public void aggregate(
@@ -42,23 +43,27 @@ public class MultiStats {
                     Object property = entity.getProperty(key);
                     
                     result.compute(key, (ignored, v) -> {
-                        Map<String, Map<String, NumberValue>> map = Objects.requireNonNullElseGet(v, HashMap::new);
+                        Map<String, Map<String, Number>> map = Objects.requireNonNullElseGet(v, HashMap::new);
                         
                         map.compute(property.toString(), (propKey, propVal) -> {
 
-                            Map<String, NumberValue> propMap = Objects.requireNonNullElseGet(propVal, HashMap::new);
-                            
-                            NumberValue count = propMap.compute("count",
-                                    ((subKey, subVal) -> (NumberValue) ValueUtils.of(subVal == null ? 1 : subVal.longValue() + 1)) );
+                            Map<String, Number> propMap = Objects.requireNonNullElseGet(propVal, HashMap::new);
 
-                            AnyValue neo4jValue = ValueUtils.of(property);
+                            Number count = propMap.compute("count",
+                                    ((subKey, subVal) -> subVal == null ? 1 : subVal.longValue() + 1) );
 
-                            if (neo4jValue instanceof NumberValue numberValue) {
-                                NumberValue sum = propMap.compute("sum",
-                                        ((subKey, subVal) -> subVal == null ? numberValue : ValueMath.overflowSafeAdd(subVal, numberValue)));
+                            if (property instanceof Number numberProp) {
+                                Number sum = propMap.compute("sum",
+                                        ((subKey, subVal) -> {
+                                            if (subVal == null) return numberProp;
+                                            if (subVal instanceof Long long1 && numberProp instanceof Long long2) {
+                                                return long1 + long2;
+                                            }
+                                            return subVal.doubleValue() + numberProp.doubleValue();
+                                        }));
                                 
                                 propMap.compute("avg",
-                                        ((subKey, subVal) -> subVal == null ? ValueUtils.asDoubleValue(numberValue.doubleValue()) : sum.dividedBy(count.doubleValue())  ));
+                                        ((subKey, subVal) -> subVal == null ? numberProp.doubleValue() : sum.doubleValue() / count.doubleValue()  ));
                             }
 
                             return propMap;
@@ -73,7 +78,7 @@ public class MultiStats {
 
         @UserAggregationResult
         // apoc.agg.multiStats([key1,key2,key3]) -> Map<Key,Map<agg="sum,count,avg", number>>
-        public Map<String, Map<String, Map<String, NumberValue>>> result() {
+        public Map<String, Map<String, Map<String, Number>>> result() {
             return result;
         }
     }
