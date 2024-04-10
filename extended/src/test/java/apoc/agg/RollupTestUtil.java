@@ -12,14 +12,13 @@ public class RollupTestUtil {
     public static final String SUPPLIER_ID = "SupplierID";
     public static final String ANOTHER_ID = "anotherID";
     
-    private static final String sumFloat = "SUM(floatNum)";
-    private static final String countFloat = "COUNT(floatNum)";
-    private static final String avgFloat = "AVG(floatNum)";
+    public static final String sumFloat = "SUM(otherNum)";
+    public static final String countFloat = "COUNT(otherNum)";
+    public static final String avgFloat = "AVG(otherNum)";
     
-    private static final String sumPrice = "SUM(Price)";
-    private static final String countPrice = "COUNT(Price)";
-    private static final String avgPrice = "AVG(Price)";
-    
+    public static final String sumPrice = "SUM(Price)";
+    public static final String countPrice = "COUNT(Price)";
+    public static final String avgPrice = "AVG(Price)";
 
     static List<Map> getRollupTripleGroup() {
         

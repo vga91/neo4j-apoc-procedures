@@ -58,37 +58,13 @@ ROLLUP ORACLE:
 public class Rollup {
     public static final String NULL_ROLLUP = "NULL";
     
-    // todo - come fare il cube? simile ad oracle?
-    
-    // TODO - CREO UN FILE CYPHER PER SEMPLICITÀ, CON UN DATASET SIMILE A MYSQL
-
-    
-    // apoc.agg.rollup(<ANY>, [groupKeys], [aggKeys]) --> aggKeys are the one like sum(Profit)
+    // TODO - description --> apoc.agg.rollup(<ANY>, [groupKeys], [aggKeys]) --> aggKeys are the one like sum(Profit)
     @UserAggregationFunction("apoc.agg.rollup")
     @Description("Return a multi-dimensional aggregation")
     public RollupFunction rollup() {
         return new RollupFunction();
     }
     
-    /*
-                for (List<String> groupKey : groupingSets) {
-                List<String> partialKey = new ArrayList<>();
-                for (String column : groupKey) {
-                    partialKey.add((String) row.get(column));
-                }
-                cubedData.put(partialKey, cubedData.getOrDefault(partialKey, 0) + (int) row.get("value"));
-            }
-
-
-            
-            with rollup:
-            for (int i = 0; i <= groupKey.size(); i++) {
-                List<String> partialKey = new ArrayList<>(groupKey.subList(0, i));
-                rolledUpData.put(partialKey, rolledUpData.getOrDefault(partialKey, 0) + (int)row.get("value"));
-            }
-            
-     */
-
     public static class RollupFunction {
         // Function to generate all combinations of a list with "TEST" as a placeholder
         public static <T> List<List<T>> generateCombinationsWithPlaceholder(List<T> elements) {
@@ -113,65 +89,10 @@ public class Rollup {
             generateCombinationsWithPlaceholder(elements, index + 1, current, result);
             current.remove(current.size() - 1);
         }
-
-//
-//        // Function to generate all combinations of a list with "TEST" as a placeholder
-//        public static <T> List<List<T>> generateCombinationsWithPlaceholder(List<T> elements) {
-//            List<List<T>> result = new ArrayList<>();
-//            generateCombinationsWithPlaceholder(elements, 0, new ArrayList<>(), result);
-//            return result;
-//        }
-//
-//        // Helper function for generating combinations recursively
-//        private static <T> void generateCombinationsWithPlaceholder(List<T> elements, int index, List<T> current, List<List<T>> result) {
-//            if (index == elements.size()) {
-//                // Pad current combination with "TEST" if its size is less than the original list
-//                while (current.size() < elements.size()) {
-//                    current.add((T) "TEST");
-//                }
-//                result.add(new ArrayList<>(current));
-//                return;
-//            }
-//
-//            // Include the current element
-//            current.add(elements.get(index));
-//            generateCombinationsWithPlaceholder(elements, index + 1, current, result);
-//
-//            // Exclude the current element
-//            current.remove(current.size() - 1);
-//            generateCombinationsWithPlaceholder(elements, index + 1, current, result);
-//        }
-        
-        // Helper method to generate all possible combinations of grouping sets
-//        private static Set<List<String>> generateGroupingSets(List<String> columns) {
-//            Set<List<String>> groupingSets = new HashSet<>();
-//            for (int i = 0; i <= columns.size(); i++) {
-//                List<Set<String>> combinations = new ArrayList<>();
-//                generateCombinations(new ArrayList<>(columns), i, 0, new HashSet<>(), combinations);
-//                for (Set<String> combination : combinations) {
-//                    groupingSets.add(new ArrayList<>(combination));
-//                }
-//            }
-//            return groupingSets;
-//        }
-//
-//        private static void generateCombinations(List<String> columns, int length, int start, Set<String> currentCombination, List<Set<String>> combinations) {
-//            if (currentCombination.size() == length) {
-//                combinations.add(new HashSet<>(currentCombination));
-//                return;
-//            }
-//            for (int i = start; i < columns.size(); i++) {
-//                currentCombination.add(columns.get(i));
-//                generateCombinations(columns, length, i + 1, currentCombination, combinations);
-//                currentCombination.remove(columns.get(i));
-//            }
-//        }
-        
         
         private final Map<String, Object> result = new HashMap<>();
-//        private final Map<String, Map<String, Map<String, NumberValue>>> result = new HashMap<>();
 
-        private final Map<List<Object>, Map<String, NumberValue>> rolledUpData = new HashMap<>();
+        private final Map<List<Object>, Map<String, Number>> rolledUpData = new HashMap<>();
         private List<String> groupKeysRes = null;
         
         @UserAggregationUpdate
@@ -183,10 +104,7 @@ public class Rollup {
                 @Name(value = "config", defaultValue = "{}")  Map<String, Object> config) {
 
             boolean cube = Util.toBoolean(config.get("cube"));
-
-            // todo - remove it
-//            String partialKey = aggKeys.get(0);
-
+            
             Entity entity = (Entity) value;
             
             if (groupKeys.isEmpty()) {
@@ -198,20 +116,15 @@ public class Rollup {
                 // todo - is this right?
                 List<List<String>> groupingSets = generateCombinationsWithPlaceholder(groupKeys);
 
-                // Simulate GROUP BY CUBE
-//                Map<List<String>, Integer> cubedData = new HashMap<>();
-//                for (Map<String, Object> row : data) {
                     for (List<String> groupKey : groupingSets) {
                         List<Object> partialKey = new ArrayList<>();
                         for (String column : groupKey) {
                             partialKey.add(((Entity) value).getProperty(column, NULL_ROLLUP));
-//                            partialKey.add((String) row.get(column));
                         }
                         if (!rolledUpData.containsKey(partialKey)) {
                             rolledUpData.put(partialKey, new HashMap<>());
                         }
                         extracted(aggKeys, entity, partialKey);
-//                        cubedData.put(partialKey, cubedData.getOrDefault(partialKey, 0) + (int) row.get("value"));
                     }
 //                }
                 return;
@@ -234,27 +147,50 @@ public class Rollup {
         }
 
         private void extracted(List<String> aggKeys, Entity entity, List<Object> partialKey) {
-            Map<String, NumberValue> partialResult = rolledUpData.get(partialKey);
+            Map<String, Number> partialResult = rolledUpData.get(partialKey);
             for(var aggKey: aggKeys) {
                 if (entity.hasProperty(aggKey)) {
                     Object property = entity.getProperty(aggKey);
-                    // todo - compute instead of put + getordefault?
+                    
                     String countKey = "COUNT(%s)".formatted(aggKey);
-                    NumberValue count = partialResult.compute(countKey,
+                    Number count = partialResult.compute(countKey,
                             ((subKey, subVal) -> {
-                                return (NumberValue) ValueUtils.asLongValue(subVal == null ? 1 : ((NumberValue) subVal).longValue() + 1);
+                                return subVal == null ? 1 : subVal.longValue() + 1;
                             }));
 
                     String sumKey = "SUM(%s)".formatted(aggKey);
                     String avgKey = "AVG(%s)".formatted(aggKey);
-                    AnyValue neo4jValue = ValueUtils.of(property);
 
-                    if (neo4jValue instanceof NumberValue numberValue) {
-                        NumberValue sum = partialResult.compute(sumKey,
-                                ((subKey, subVal) -> subVal == null ? numberValue : ValueMath.overflowSafeAdd(subVal, numberValue)));
-
+                    if (property instanceof Number numberProp) {
+                        Number sum = partialResult.compute(sumKey,
+                                ((subKey, subVal) -> {
+                                    if (subVal == null) {
+                                        if (numberProp instanceof Long longProp) {
+                                            return longProp;
+                                        }
+                                        return numberProp.doubleValue();
+                                    }
+                                    if (subVal instanceof Long long1
+                                        && numberProp instanceof Long long2) {
+                                        return long1 + long2;
+                                    }
+                                    return subVal.doubleValue() + numberProp.doubleValue();
+                                }));
+                        
                         partialResult.compute(avgKey,
-                                ((subKey, subVal) -> subVal == null ? ValueUtils.asDoubleValue(numberValue.doubleValue()) : sum.dividedBy(count.doubleValue())));
+                                ((subKey, subVal) -> {
+                                    if (subVal == null) {
+                                        if (numberProp instanceof Long longProp) {
+                                            return longProp;
+                                        }
+                                        return numberProp.doubleValue();
+                                    }
+                                    if (sum instanceof Long longSum
+                                        && count instanceof Long longCount) {
+                                        return longSum / longCount;
+                                    }
+                                    return sum.doubleValue() + count.doubleValue();
+                                }));
                     }
                 }
             }
@@ -278,8 +214,6 @@ public class Rollup {
                         for (String key : groupKeysRes) {
                             Object value1 = m1.get(key);
                             Object value2 = m2.get(key);
-                            System.out.println("m1 = " + m1);
-                            System.out.println("m2 = " + m2);
                             int cmp = compareValues(value1, value2);
                             if (cmp != 0) {
                                 return cmp;
@@ -313,11 +247,8 @@ public class Rollup {
                 return -1;
             } else if (value1 instanceof Comparable && value2 instanceof Comparable) {
                 try {
-                    System.out.println("value1 = " + value1);
-                    System.out.println("value2 = " + value2);
                     return ((Comparable<Object>) value1).compareTo(value2);
                 } catch (Exception e) {
-                    System.out.println("e = " + e);
                     // e.g. different data types, like int and strings
                     return 0;
                 }
