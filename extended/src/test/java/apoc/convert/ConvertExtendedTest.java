@@ -16,9 +16,6 @@ import static apoc.util.TestUtil.testCall;
 import static org.junit.Assert.assertEquals;
 
 public class ConvertExtendedTest {
-
-    // todo - mettere questo nel docs: https://www.javadoc.io/doc/com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/latest/com/fasterxml/jackson/dataformat/yaml/YAMLGenerator.Feature.html#WRITE_DOC_START_MARKER
-    
     
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
@@ -259,11 +256,10 @@ public class ConvertExtendedTest {
 
     @Test
     public void testToYamlMapOfPath() {
-        testCall(db,
-                """
-                          CREATE p=(n1:Test {foo: 7})-[r1:TEST]->(n2:Baa:Baz {a:'b'}), q=(n3:Omega {alpha: 'beta'})<-[r2:TEST_2 {aa:'bb'}]-(n4:Bar {one:'www'})
-                          RETURN apoc.convert.toYaml({one: p, two: q}) AS value,
-                            elementId(n1) AS idN1, elementId(n2) AS idN2, elementId(n3) AS idN3, elementId(n4) AS idN4, elementId(r1) AS idR1, elementId(r2) AS idR2""",
+        testCall(db, """
+                  CREATE p=(n1:Test {foo: 7})-[r1:TEST]->(n2:Baa:Baz {a:'b'}), q=(n3:Omega {alpha: 'beta'})<-[r2:TEST_2 {aa:'bb'}]-(n4:Bar {one:'www'})
+                  RETURN apoc.convert.toYaml({one: p, two: q}) AS value,
+                    elementId(n1) AS idN1, elementId(n2) AS idN2, elementId(n3) AS idN3, elementId(n4) AS idN4, elementId(r1) AS idR1, elementId(r2) AS idR2""",
                 (row) -> {
                     String expected = getExpectedYamlMapOfPaths()
                             .formatted(
