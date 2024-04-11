@@ -118,8 +118,6 @@ dependencies {
     }
 
     compileOnly group: 'com.fasterxml.jackson.dataformat', name: 'jackson-dataformat-yaml', version: '2.16.1'
-
-
     compileOnly group: 'org.apache.arrow', name: 'arrow-vector', version: '13.0.0'
     compileOnly group: 'org.apache.arrow', name: 'arrow-memory-netty', version: '13.0.0'
 
