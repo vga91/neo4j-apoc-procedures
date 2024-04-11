@@ -1,0 +1,28 @@
+[32mINFO[0m:     [11-04-2024 14:31:10] Set chroma_server_nofile to 65535
+[32mINFO[0m:     [11-04-2024 14:31:10] Anonymized telemetry enabled. See                     https://docs.trychroma.com/telemetry for more information.
+[36mDEBUG[0m:    [11-04-2024 14:31:10] Starting component System
+[36mDEBUG[0m:    [11-04-2024 14:31:10] Starting component OpenTelemetryClient
+[36mDEBUG[0m:    [11-04-2024 14:31:10] Starting component SimpleAssignmentPolicy
+[36mDEBUG[0m:    [11-04-2024 14:31:10] Starting component SqliteDB
+[36mDEBUG[0m:    [11-04-2024 14:31:10] Starting component QuotaEnforcer
+[36mDEBUG[0m:    [11-04-2024 14:31:10] Starting component Posthog
+[36mDEBUG[0m:    [11-04-2024 14:31:10] Starting component LocalSegmentManager
+[36mDEBUG[0m:    [11-04-2024 14:31:10] Starting component SegmentAPI
+[32mINFO[0m:     [11-04-2024 14:31:10] Started server process [[36m4363[0m]
+[32mINFO[0m:     [11-04-2024 14:31:10] Waiting for application startup.
+[32mINFO[0m:     [11-04-2024 14:31:10] Application startup complete.
+[32mINFO[0m:     [11-04-2024 14:31:10] Uvicorn running on [1mhttp://localhost:8000[0m (Press CTRL+C to quit)
+[32mINFO[0m:     [11-04-2024 14:31:20] ::1:52873 - "GET /docs HTTP/1.1" 200
+[32mINFO[0m:     [11-04-2024 14:31:20] ::1:52873 - "GET /openapi.json HTTP/1.1" 200
+[32mINFO[0m:     [11-04-2024 14:40:14] Shutting down
+[32mINFO[0m:     [11-04-2024 14:40:14] Waiting for application shutdown.
+[36mDEBUG[0m:    [11-04-2024 14:40:14] Stopping component System
+[36mDEBUG[0m:    [11-04-2024 14:40:14] Stopping component SegmentAPI
+[36mDEBUG[0m:    [11-04-2024 14:40:14] Stopping component LocalSegmentManager
+[36mDEBUG[0m:    [11-04-2024 14:40:14] Stopping component Posthog
+[36mDEBUG[0m:    [11-04-2024 14:40:14] Stopping component QuotaEnforcer
+[36mDEBUG[0m:    [11-04-2024 14:40:14] Stopping component SqliteDB
+[36mDEBUG[0m:    [11-04-2024 14:40:14] Stopping component SimpleAssignmentPolicy
+[36mDEBUG[0m:    [11-04-2024 14:40:14] Stopping component OpenTelemetryClient
+[32mINFO[0m:     [11-04-2024 14:40:14] Application shutdown complete.
+[32mINFO[0m:     [11-04-2024 14:40:14] Finished server process [[36m4363[0m]
