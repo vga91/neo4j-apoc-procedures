@@ -19,6 +19,10 @@ public class RestAPIConfig {
     private final String jsonPath;
 
     public RestAPIConfig(Map<String, Object> config) {
+        this(config, Map.of(), Map.of());
+    }
+    
+    public RestAPIConfig(Map<String, Object> config, Map<String, Object> additionalHeaders, Map<String, Object> additionalBodies) {
         if (config == null) {
             config = Collections.emptyMap();
         }
@@ -27,15 +31,32 @@ public class RestAPIConfig {
         Map<String, Object> headerConf = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, new HashMap<>());
         headerConf.putIfAbsent("content-type", "application/json");
         headerConf.putIfAbsent(METHOD_KEY, httpMethod);
+        additionalHeaders.forEach( (k,v)-> headerConf.putIfAbsent(k,v) );
+//        headerConf.putAll(additionalHeaders);
+        
         
         this.headers = headerConf;
 
-        this.endpoint = (String) config.getOrDefault(ENDPOINT_KEY, getDefaultEndpoint());
+        this.endpoint = getEndpoint(config);//.getOrDefault(ENDPOINT_KEY, getDefaultEndpoint());
 
         this.jsonPath = (String) config.get(JSON_PATH);
-        this.body = (Map<String, Object>) config.getOrDefault(BODY_KEY, new HashMap<>());
+        Map<String, Object> bodyConf = (Map<String, Object>) config.getOrDefault(BODY_KEY, new HashMap<>());
+        additionalBodies.forEach( (k,v)-> bodyConf.putIfAbsent(k,v) );
+        this.body = bodyConf;
     }
 
+//    public Map<String, Object> getAdditionalHeaders() {
+//        return Map.of();
+//    }
+
+    private String getEndpoint(Map<String, Object> config) {
+        String endpointConfig = (String) config.get(ENDPOINT_KEY);
+        if (endpointConfig == null) {
+            return getDefaultEndpoint();
+        }
+        return endpointConfig;
+    }
+    
     public String getDefaultEndpoint() {
         throw new RuntimeException("todo - error, endpoint must be specified");
     }

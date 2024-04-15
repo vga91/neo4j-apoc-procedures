@@ -13,11 +13,13 @@ import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
+import javax.ws.rs.HEAD;
 import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import static apoc.ApocConfig.apocConfig;
@@ -25,7 +27,9 @@ import static apoc.ExtendedApocConfig.APOC_AWS_KEY_ID;
 import static apoc.ExtendedApocConfig.APOC_ML_OPENAI_TYPE;
 import static apoc.ExtendedApocConfig.APOC_OPENAI_KEY;
 import static apoc.ExtendedApocConfig.APOC_PINECONE_KEY;
+import static apoc.ml.RestAPIConfig.BODY_KEY;
 import static apoc.ml.RestAPIConfig.ENDPOINT_KEY;
+import static apoc.ml.RestAPIConfig.METHOD_KEY;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
 
 
@@ -47,66 +51,108 @@ public class Pinecone {
         
 //        private final String apiKey;
 
-        public static PineconeConfig from(Map<String, Object> config, String apiKey) {
-            apiKey = apiKey == null ? apocConfig().getString(APOC_PINECONE_KEY, null) : apiKey;
+        public static PineconeConfig from(Map<String, Object> config/*, String apiKey*/) {
+            String apiKey = (String) config.getOrDefault(APIKEY_CONF_KEY, 
+                    apocConfig().getString(APOC_PINECONE_KEY, null)
+            );
+
+//            apiKey = apiKey == null ? apocConfig().getString(APOC_PINECONE_KEY, null) : apiKey;
             if (StringUtils.isBlank(apiKey)) {
-                throw new IllegalArgumentException("API Key must not be empty");
+                throw new IllegalArgumentException("Pinecone API Key must not be empty");
             }
-            
-            config.putIfAbsent("Api-Key", apiKey);
-            return new PineconeConfig(config);
+
+//            Map headers = (Map) config.getOrDefault(HEADERS_KEY, new HashMap<>());
+//            headers.putIfAbsent("Api-Key", apiKey);
+
+            return new PineconeConfig(config, Map.of("Api-Key", apiKey));
         }
         
-        
-        protected PineconeConfig(Map<String, Object> config) {
-            super(config);
+        private PineconeConfig(Map<String, Object> config, Map<String, Object> additionalHeaders) {
+            super(config, additionalHeaders, Map.of());
 //            this.getHeaders().putIfAbsent() 
 //            this.apiKey = key;
         }
 
-        @Override
-        public String getEndpoint() {
-            return super.getEndpoint();
-        }
+//        @Override
+//        public String getEndpoint() {
+//            return super.getEndpoint();
+//        }
 
-//        public String getApiKey() {
+//        @Override
+//        public Map<String, Object> getAdditionalHeaders() {
+//            return Map.of("Api-Key", apiKey);
+//        }
+
+        //        public String getApiKey() {
 //            return apiKey;
 //        }
     }
+
+
+//    @Procedure("apoc.vectordb.pinecone.query")
+//    @Description("apoc.vectordb.pinecone.query() - todo")
+//    public Stream<VectorDb.EmbeddingResult> query(@Name("indexHost") String indexHost,
+////                                                @Name("query") String query,
+////                                                         @Name("apiKey") String apiKey,
+//                                                @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+//        var config = new HashMap<>(configuration);
+//        config.putIfAbsent(ENDPOINT_KEY, "https://%s/query");
+//        Map body = (Map) config.getOrDefault(BODY_KEY, new HashMap<>());
+//        body.putIfAbsent("topK", 40);
+//        body.putIfAbsent("includeValues", true);
+//        body.putIfAbsent("includeMetadata", true);
+//
+//        PineconeConfig apiConfig = PineconeConfig.from(config);
+//        Stream<Object> resultStream = executeRequest(/*apiKey, */apiConfig);
+//        return resultStream
+//                .flatMap(v -> ((List<Map<String, Object>>) v).stream())
+//                .map(m -> {
+//                    System.out.println("m = " + m);
+//                    return new VectorDb.EmbeddingResult(0, (List<Double>) m.get("embedding"), 0.2);
+//                });
+//    }
     
+    // todo - commentare e dire che per il momento non può andare
     @Procedure("apoc.vectordb.pinecone.get")
-    @Description("apoc.vectordb.pinecone.get()")
-    public Stream<VectorDb.EmbeddingResult> getEmbedding(@Name("indexHost") String indexHost,
-                                                         @Name("apiKey") String apiKey,
-                                                         @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-    /*
-    { "object": "list",
-      "data": [
-        {
-          "object": "embedding",
-          "embedding": [ 0.0023064255, -0.009327292, .... (1536 floats total for ada-002) -0.0028842222 ],
-          "index": 0
-        }
-      ],
-      "model": "text-embedding-ada-002",
-      "usage": { "prompt_tokens": 8, "total_tokens": 8 } }
-    */
+//    @Description("apoc.vectordb.pinecone.get()")
+//    public Stream<VectorDb.EmbeddingResult> get(@Name("indexHost") String indexHost,
+//                                                         @Name("filter") String filter,
+////                                                         @Name("apiKey") String apiKey,
+//                                                         @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+//    /*
+//    { "object": "list",
+//      "data": [
+//        {
+//          "object": "embedding",
+//          "embedding": [ 0.0023064255, -0.009327292, .... (1536 floats total for ada-002) -0.0028842222 ],
+//          "index": 0
+//        }
+//      ],
+//      "model": "text-embedding-ada-002",
+//      "usage": { "prompt_tokens": 8, "total_tokens": 8 } }
+//    */
+//
+//        var config = new HashMap<>(configuration);
+//        config.putIfAbsent(ENDPOINT_KEY, "https://%s/vectors/fetch?%s".formatted(indexHost, filter));
+//        /*
+//            TODO: this should be put in 
+//            Somehow it gets an 200OK, but with no results 
+//            config.putIfAbsent(METHOD_KEY, "GET");
+//         */
+//        config.putIfAbsent(BODY_KEY, null);
+//        PineconeConfig apiConfig = PineconeConfig.from(config);
+//
+//        Stream<Object> resultStream = executeRequest(/*apiKey, */apiConfig);
+////        Stream<Object> resultStream = executeRequest(apiKey, configuration, "embeddings", "text-embedding-ada-002", "input", texts, "$.data", apocConfig, urlAccessChecker);
+//        return resultStream
+//                .flatMap(v -> ((List<Map<String, Object>>) v).stream())
+//                .map(m -> {
+//                    System.out.println("m = " + m);
+//                    return new VectorDb.EmbeddingResult(0, (List<Double>) m.get("embedding"), 0.2);
+//                });
+//    }
 
-        var config = new HashMap<>(configuration);
-        config.putIfAbsent(ENDPOINT_KEY, "https://%s/query".formatted(indexHost));
-        RestAPIConfig apiConfig = new PineconeConfig(config);
-
-        Stream<Object> resultStream = executeRequest(apiKey, apiConfig);
-//        Stream<Object> resultStream = executeRequest(apiKey, configuration, "embeddings", "text-embedding-ada-002", "input", texts, "$.data", apocConfig, urlAccessChecker);
-        return resultStream
-                .flatMap(v -> ((List<Map<String, Object>>) v).stream())
-                .map(m -> {
-                    System.out.println("m = " + m);
-                    return new VectorDb.EmbeddingResult(0, (List<Double>) m.get("embedding"), 0.2);
-                });
-    }
-
-    private Stream<Object> executeRequest(String apiKey, RestAPIConfig apiConfig/*, String path, String model, String key, Object inputs, String jsonPath, ApocConfig apocConfig, URLAccessChecker urlAccessChecker*/) throws JsonProcessingException, MalformedURLException {
+    private Stream<Object> executeRequest(/*String apiKey, */PineconeConfig apiConfig/*, String path, String model, String key, Object inputs, String jsonPath, ApocConfig apocConfig, URLAccessChecker urlAccessChecker*/) throws JsonProcessingException, MalformedURLException {
 
         
         
@@ -143,12 +189,23 @@ public class Pinecone {
 //        String payload = JsonUtil.OBJECT_MAPPER.writeValueAsString(config);
 
 //        String bodyString = OBJECT_MAPPER.writeValueAsString(apiConfig.getBody());
-        String bodyString = OBJECT_MAPPER.writeValueAsString(apiConfig.getBody());
+        String bodyString = apiConfig.getBody() == null
+                ? null
+                : OBJECT_MAPPER.writeValueAsString(apiConfig.getBody());
+//                .map(v -> OBJECT_MAPPER.writeValueAsString(v))
+//                .orElse("");
 
         Map<String, Object> headers = new HashMap<>(apiConfig.getHeaders());
-        headers.putIfAbsent("Api-Key", apiKey);
-        return JsonUtil.loadJson(apiConfig.getEndpoint(), headers, bodyString, apiConfig.getJsonPath(), true, List.of(), urlAccessChecker);
+
+        List<Object> objects = JsonUtil.loadJson(apiConfig.getEndpoint(), headers, "", apiConfig.getJsonPath(), true, List.of(), urlAccessChecker).toList();
+
+//        headers.putIfAbsent("Api-Key", apiConfig.get);
+        return JsonUtil.loadJson(apiConfig.getEndpoint(), headers, "", apiConfig.getJsonPath(), true, List.of(), urlAccessChecker);
     }
+    // todo ---> http.setChunkedStreamingMode(1024 * 1024); QUESTO??? 
+    
+    // TODO - QUESTO VAAA --> JsonUtil.loadJson(apiConfig.getEndpoint(), Map.of( /*"method", "GET", */"Api-Key", "b12ac269-b092-4328-b554-2e74b94064e9"), null, "vectors", true, List.of(), urlAccessChecker).toList()
+    //        
 
     // todo - in common class
 //    private static Stream<Object> getObjectStream(RestAPIConfig apiConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException {

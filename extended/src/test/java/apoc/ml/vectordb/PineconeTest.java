@@ -1,5 +1,6 @@
 package apoc.ml.vectordb;
 
+import apoc.ExtendedApocConfig;
 import apoc.util.TestUtil;
 import org.junit.Assume;
 import org.junit.Before;
@@ -10,6 +11,7 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.util.Map;
 
+import static apoc.ApocConfig.apocConfig;
 import static apoc.util.TestUtil.testCall;
 import static java.util.Collections.emptyMap;
 
@@ -27,13 +29,18 @@ public class PineconeTest {
         
         host = System.getenv("PINECONE_HOST");
         Assume.assumeNotNull("No PINECONE_HOST environment configured", host);
+        
+        apocConfig().setProperty(ExtendedApocConfig.APOC_PINECONE_KEY, apiKey); 
         TestUtil.registerProcedure(db, Pinecone.class);
     }
 
     @Test
     public void getEmbedding() {
-        testCall(db, "CALL apoc.ml.vectordb.pinecone.get($host, $apiKey, $conf)", 
-                Map.of("host", host, "apiKey", apiKey, "conf", emptyMap()),
+        String filter = System.getenv("PINECONE_FILTER");
+        Assume.assumeNotNull("No PINECONE_FILTER environment configured", host);
+        
+        testCall(db, "CALL apoc.vectordb.pinecone.query($host, $filter, $conf)", 
+                Map.of("host", host, "filter", filter, "conf", emptyMap()),
                 r -> {
                     System.out.println("r = " + r);
                 });

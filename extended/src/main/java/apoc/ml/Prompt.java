@@ -113,6 +113,7 @@ public class Prompt {
         return Stream.of(new StringResult(schemaExplanation));
     }
     
+    
 
     @Procedure(mode = Mode.READ)
     public Stream<PromptMapResult> query(@Name("question") String question,
