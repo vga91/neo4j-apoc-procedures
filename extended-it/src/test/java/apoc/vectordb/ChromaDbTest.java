@@ -1,4 +1,4 @@
-package apoc.ml.vectordb;
+package apoc.vectordb;
 
 import apoc.util.TestUtil;
 import apoc.util.collection.Iterables;
@@ -16,38 +16,34 @@ import org.neo4j.graphdb.schema.IndexDefinition;
 import org.neo4j.graphdb.schema.IndexType;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
-import org.testcontainers.qdrant.QdrantContainer;
+import org.testcontainers.chromadb.ChromaDBContainer;
+
+import java.util.List;
+import java.util.Map;
 
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
-import static apoc.ml.vectordb.VectorDb.VectorEmbeddingConfig.MAPPING_KEY;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
+import static apoc.vectordb.VectorEmbeddingConfig.MAPPING_KEY;
 import static java.util.Collections.emptyMap;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import java.util.List;
-import java.util.Map;
-
-
-public class QdrantDbTest {
-/*
-todo - create collection procs with 
-                                name collection 
-                              "size": 4,
-                              "distance": "Cosine" 
- */
+public class ChromaDbTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
-
-    private static QdrantContainer qdrant = new QdrantContainer("qdrant/qdrant:v1.7.4");
+    
+    private static ChromaDBContainer qdrant = new ChromaDBContainer("qdrant/qdrant:v1.7.4");
+    public static String HOST;
 
     @BeforeClass
     public static void setUp() throws Exception {
         qdrant.start();
+
+        HOST = "localhost:" + qdrant.getMappedPort(6333);
         TestUtil.registerProcedure(db, VectorDb.class, Qdrant.class);
 
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
@@ -61,7 +57,7 @@ todo - create collection procs with
                               size: 4,
                               distance: "Cosine"
                             }
-                        }, method: 'PUT'})""", 
+                        }, method: 'PUT'})""",
                 Map.of("endpoint", "http://localhost:" + qdrant.getMappedPort(6333) + "/collections/test_collection"),
                 r -> {
                     Map value = (Map) r.get("value");
@@ -91,7 +87,7 @@ todo - create collection procs with
                 });
 
     }
-    
+
     @Before
     public void after() {
         try (Transaction tx = db.beginTx()) {
@@ -101,6 +97,14 @@ todo - create collection procs with
         }
     }
 
+    @Test
+    public void getEmbeddings() {
+        testResult(db, "CALL apoc.vectordb.qdrant.get($host, 'test_collection', [1]) ",
+                Map.of("host", HOST),
+                r -> {
+                    System.out.println("r = " + r.next());
+                });
+    }
 
     @Test
     public void getEmbedding() {
@@ -108,20 +112,20 @@ todo - create collection procs with
 //        Assume.assumeNotNull("No PINECONE_FILTER environment configured", host);
 // todo ->   nResults: 10, ovvero limit, come parametro opzionale
         testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5)",
-                Map.of("host", "localhost:" + qdrant.getMappedPort(6333), /*"filter", filter, */"conf", emptyMap()),
+                Map.of("host", HOST, /*"filter", filter, */"conf", emptyMap()),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
                 });
     }
-    
+
     @Test
     public void getEmbeddingWithYield() {
 //        String filter = System.getenv("PINECONE_FILTER");
 //        Assume.assumeNotNull("No PINECONE_FILTER environment configured", host);
 // todo ->   nResults: 10, ovvero limit, come parametro opzionale
         testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5) YIELD metadata, id",
-                Map.of("host", "localhost:" + qdrant.getMappedPort(6333), /*"filter", filter, */"conf", emptyMap()),
+                Map.of("host", HOST, /*"filter", filter, */"conf", emptyMap()),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
@@ -131,13 +135,13 @@ todo - create collection procs with
     @Test
     public void getEmbeddingWithCreateIndex() {
 
-        Map<String, Object> conf = Map.of(MAPPING_KEY, Map.of("embeddingProp", "vect", 
-                "label", "Test", 
-                "prop", "myId", 
+        Map<String, Object> conf = Map.of(MAPPING_KEY, Map.of("embeddingProp", "vect",
+                "label", "Test",
+                "prop", "myId",
                 "id", "foo",
                 "create", true));
         testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
-                Map.of("host", "localhost:" + qdrant.getMappedPort(6333), "conf", conf),
+                Map.of("host", HOST, "conf", conf),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
@@ -158,7 +162,7 @@ todo - create collection procs with
         }
 
         testResult(db, "MATCH (n:Test) RETURN properties(n) AS props ORDER BY n.myId",
-                QdrantDbTest::vectorEntityAssertions);
+                ChromaDbTest::vectorEntityAssertions);
     }
 
     @Test
@@ -171,7 +175,7 @@ todo - create collection procs with
                 "prop", "myId",
                 "id", "foo"));
         testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
-                Map.of("host", "localhost:" + qdrant.getMappedPort(6333), "conf", conf),
+                Map.of("host", HOST, "conf", conf),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
@@ -192,21 +196,21 @@ todo - create collection procs with
         }
 
         testResult(db, "MATCH (n:Test) RETURN properties(n) AS props ORDER BY n.myId",
-                QdrantDbTest::vectorEntityAssertions);
+                ChromaDbTest::vectorEntityAssertions);
     }
 
     @Test
     public void getEmbeddingWithCreateRelIndex() {
 
         db.executeTransactionally("CREATE (:Start)-[:TEST {myId: 'one'}]->(:End), (:Start)-[:TEST {myId: 'two'}]->(:End)");
-        
+
         Map<String, Object> conf = Map.of(MAPPING_KEY, Map.of("embeddingProp", "vect",
                 "type", "TEST",
                 "prop", "myId",
                 "id", "foo",
                 "create", true));
         testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
-                Map.of("host", "localhost:" + qdrant.getMappedPort(6333), "conf", conf),
+                Map.of("host", HOST, "conf", conf),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
@@ -226,8 +230,8 @@ todo - create collection procs with
             assertEquals(List.of("myId"), constraints.get(0).getPropertyKeys());
         }
 
-        testResult(db, "MATCH (:Start)-[r:TEST]->(:End) RETURN properties(r) AS props ORDER BY r.myId", 
-                QdrantDbTest::vectorEntityAssertions);
+        testResult(db, "MATCH (:Start)-[r:TEST]->(:End) RETURN properties(r) AS props ORDER BY r.myId",
+                ChromaDbTest::vectorEntityAssertions);
     }
 
     private static void vectorEntityAssertions(Result r) {
@@ -243,5 +247,4 @@ todo - create collection procs with
 
         assertFalse(props.hasNext());
     }
-
 }

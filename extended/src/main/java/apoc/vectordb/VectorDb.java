@@ -1,4 +1,4 @@
-package apoc.ml.vectordb;
+package apoc.vectordb;
 
 import apoc.ml.RestAPIConfig;
 import apoc.result.MapResult;
@@ -29,149 +29,15 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static apoc.ml.RestAPIConfig.JSON_PATH;
-import static apoc.ml.vectordb.VectorDb.VectorEmbeddingConfig.EMBEDDING_KEY;
-import static apoc.ml.vectordb.VectorDb.VectorEmbeddingConfig.METADATA_KEY;
+import static apoc.vectordb.VectorEmbeddingConfig.*;
 import static apoc.util.ExtendedUtil.setProperties;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
+import static apoc.vectordb.VectorDbUtil.*;
 
 /**
  * Base class
  */
 public class VectorDb {
-    
-//    public interface Type {
-//        public VectorEmbeddingConfig from(Map<String, Object> config, URLAccessChecker urlAccessChecker);
-//    }
-    
-    public static class QdrantType /*implements Type*/ {
-
-//        @Override
-        public static VectorEmbeddingConfig from(Map<String, Object> config, ProcedureCallContext procedureCallContext,
-                                                 List<Double> vector, Map<String, Object> filter, long limit) {
-            List<String> fields = procedureCallContext.outputFields().toList();
-
-//            Map<String, Object> body = conf.getBody();
-//            config.putIfAbsent("metadata", 
-            
-            // "with_payload": true,
-            // "with_vectors": true
-            Map additionalBodies = Map.of("with_payload", fields.contains("metadata"),
-                    "with_vectors", fields.contains("embedding"),
-                    "vector", vector,
-                    "filter", filter,
-                    "limit", limit);
-            
-            config.putIfAbsent(EMBEDDING_KEY, "vector");
-            config.putIfAbsent(METADATA_KEY, "payload");
-            config.putIfAbsent(JSON_PATH, "result");
-            
-            // TODO - check it..
-            VectorEmbeddingConfig conf = new VectorEmbeddingConfig(config, Map.of(), additionalBodies);
-
-                    // todo - if fields.contains('metadata' -->  "with_payload": true,
-            return conf;
-        }
-    }
-    
-    private static class VectorMappingConfig {
-        private final Object id;
-        private final String prop;
-
-        private final String label;
-        private final String type;
-        private final String embeddingProp;
-        private final String similarity;
-        
-        private final boolean create;
-        
-        public VectorMappingConfig(Map<String, Object> mapping) {
-            if (mapping == null) {
-                mapping = Collections.emptyMap();
-            }
-            this.id = mapping.get("id");
-            this.prop = (String) mapping.get("prop");
-
-            this.label = (String) mapping.get("label");
-            this.type = (String) mapping.get("type");
-            this.embeddingProp = (String) mapping.get("embeddingProp");
-            
-            this.similarity = (String) mapping.getOrDefault("similarity", "cosine");
-            
-            this.create = Util.toBoolean(mapping.get("create"));
-        }
-
-        public Object getId() {
-            return id;
-        }
-
-        public String getProp() {
-            return prop;
-        }
-
-        public String getLabel() {
-            return label;
-        }
-
-        public String getType() {
-            return type;
-        }
-
-        public String getEmbeddingProp() {
-            return embeddingProp;
-        }
-
-        public boolean isCreate() {
-            return create;
-        }
-
-        public String getSimilarity() {
-            return similarity;
-        }
-    }
-    
-    public static class VectorEmbeddingConfig extends RestAPIConfig {
-        public static final String EMBEDDING_KEY = "embeddingKey";
-        public static final String METADATA_KEY = "metadataKey";
-        public static final String SCORE_KEY = "scoreKey";
-        public static final String ID_KEY = "idKey";
-        public static final String MAPPING_KEY = "mapping";
-        
-        private final String idKey;
-        private final String embeddingKey;
-        private final String metadataKey;
-        private final String scoreKey;
-        
-        private final VectorMappingConfig mapping;
-
-        public VectorEmbeddingConfig(Map<String, Object> config, Map<String, Object> additionalHeaders, Map<String, Object> additionalBodies) {
-            super(config, additionalHeaders, additionalBodies);
-            this.embeddingKey = (String) config.getOrDefault(EMBEDDING_KEY, "embedding");
-            this.metadataKey = (String) config.getOrDefault(METADATA_KEY, "metadata");
-            this.scoreKey = (String) config.getOrDefault(SCORE_KEY, "score");
-            this.idKey = (String) config.getOrDefault(ID_KEY, "id");
-            this.mapping = new VectorMappingConfig((Map<String, Object>) config.getOrDefault(MAPPING_KEY, Map.of()));//.getOrDefault(MAPPING_KEY, Map.of());
-        }
-
-        public String getIdKey() {
-            return idKey;
-        }
-
-        public String getEmbeddingKey() {
-            return embeddingKey;
-        }
-
-        public String getMetadataKey() {
-            return metadataKey;
-        }
-
-        public String getScoreKey() {
-            return scoreKey;
-        }
-
-        public VectorMappingConfig getMapping() {
-            return mapping;
-        }
-    }
 
     @Context
     public URLAccessChecker urlAccessChecker;
@@ -188,9 +54,8 @@ public class VectorDb {
     @Procedure(value = "apoc.vectordb.custom.get", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.custom.get() - todo")
     public Stream<EmbeddingResult> get(@Name("hostOrKey") String hostOrKey,
-                                                @Name("collection") String collection,
-                                                @Name(value = "id", defaultValue = "") String id,
-//                                                         @Name("apiKey") String apiKey,
+                                       //   @Name("collection") String collection,
+                                       //  @Name(value = "id", defaultValue = "") String id,
                                                 @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
 
         VectorEmbeddingConfig restAPIConfig = new VectorEmbeddingConfig(configuration, Map.of(), Map.of());
@@ -199,7 +64,6 @@ public class VectorDb {
     
     public static Stream<EmbeddingResult> getEmbeddingResultStream(VectorEmbeddingConfig conf, ProcedureCallContext procedureCallContext, URLAccessChecker urlAccessChecker, GraphDatabaseService db, Transaction tx) throws Exception {
         List<String> fields = procedureCallContext.outputFields().toList();
-//        fields.contains(
 
         boolean hasEmbedding = fields.contains("embedding");
         boolean hasMetadata = fields.contains("metadata");
@@ -214,11 +78,12 @@ public class VectorDb {
                     long id = (long) m.get(conf.getIdKey());
                     List<Double> embedding = hasEmbedding ? (List<Double>) m.get(conf.getEmbeddingKey()) : null;
                     Map<String, Object> metadata = hasMetadata ? (Map<String, Object>) m.get(conf.getMetadataKey()) : null;
-                    double o = (double) m.get(conf.getScoreKey());
+                    // in case of get operation, e.g. http://localhost:52798/collections/{coll_name}/points with Qdrant db,
+                    // score is not present
+                    Double score = (Double) m.getOrDefault(conf.getScoreKey(), null);
 
                     handleMapping(tx, db, mapping, metadata, embedding);
-                    // todo - mapping handling..
-                    return new VectorDb.EmbeddingResult(id, o, embedding, metadata);
+                    return new EmbeddingResult(id, score, embedding, metadata);
                 });
     }
 
@@ -230,9 +95,9 @@ public class VectorDb {
             throw new RuntimeException("To use mapping config, the metadata should not be empty. Make sure you execute `YIELD metadata` on the procedure");
         }
         if (mapping.getLabel() != null) {
-            handleMappingNode(tx, db, mapping, metadata, embedding);//, id, prop, label, embeddingProp);
+            handleMappingNode(tx, db, mapping, metadata, embedding);
         } else if (mapping.getType() != null) {
-            handleMappingRel(tx, db, mapping, metadata, embedding);//, id, prop, type, embeddingProp);
+            handleMappingRel(tx, db, mapping, metadata, embedding);
         } else {
             throw new RuntimeException("Mapping conf has to contain either label or type key");
         }
@@ -295,7 +160,6 @@ public class VectorDb {
 
             db.executeTransactionally("CALL db.create.setRelationshipVectorProperty($rel, $key, $vector)",
                     Map.of("rel", Util.rebind(tx, rel), "key", mapping.getEmbeddingProp(), "vector", embedding));
-//            }
 
         } catch (MultipleFoundException e) {
             throw new RuntimeException("Multiple relationships found");
@@ -311,22 +175,6 @@ public class VectorDb {
             throw new RuntimeException("The embedding value is null. Make sure you execute `YIELD embedding` on the procedure");
         }
         return false;
-    }
-
-    public static class EmbeddingResult {
-        public final long id;
-        public final double score;
-        public final List<Double> embedding;
-        public final Map<String, Object> metadata;
-
-        public EmbeddingResult(long id, double score, List<Double> embedding, Map<String, Object> metadata) {
-            // todo - check it...
-            this.id = id;
-//            this.text = text;
-            this.embedding = embedding;
-            this.score = score;
-            this.metadata = metadata;
-        }
     }
 
 
@@ -347,41 +195,6 @@ public class VectorDb {
         String body = OBJECT_MAPPER.writeValueAsString(apiConfig.getBody());
         return JsonUtil.loadJson(apiConfig.getEndpoint(), headers, body, apiConfig.getJsonPath(), true, List.of(), urlAccessChecker);
     }
-    
-    
-//    public static class VectorDbConfig {
-//        public static final String HEADERS_KEY = "headers";
-//        public static final String BODY_KEY = "body";
-//        
-//        private final Map<String, Object> headers;
-//        private final Map<String, Object> body;
-//        private final String endpoint;
-//        private final String jsonPath;
-//        
-//        protected VectorDbConfig(Map<String, Object> config) {
-//            if (config == null) {
-//                config = Map.of();
-//            }
-//
-//            this.headers = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, new HashMap<>());
-//            this.body = (Map<String, Object>) config.getOrDefault(BODY_KEY, new HashMap<>());
-//            this.endpoint = getEndpoint(config, getDefaultEndpoint(config));
-//        }
-//
-//        public Map<String, Object> getHeaders() {
-//            return headers;
-//        }
-//
-//        public Map<String, Object> getBody() {
-//            return body;
-//        }
-//    }
-    
-    
-        /*
-        todo - FARE ANCHE UNA PROCEDURA CUSTOM, 
-        e testare con chroma (e qdrant) 
-     */
     
     /*
     API QDRANT:

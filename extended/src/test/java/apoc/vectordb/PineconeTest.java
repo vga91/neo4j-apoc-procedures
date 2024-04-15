@@ -1,7 +1,8 @@
-package apoc.ml.vectordb;
+package apoc.vectordb;
 
 import apoc.ExtendedApocConfig;
 import apoc.util.TestUtil;
+import apoc.vectordb.Pinecone;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;

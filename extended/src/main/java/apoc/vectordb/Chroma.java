@@ -1,4 +1,4 @@
-package apoc.ml.vectordb;
+package apoc.vectordb;
 
 public class Chroma {
     /*
