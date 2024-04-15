@@ -4,10 +4,13 @@ import apoc.ml.RestAPIConfig;
 import apoc.util.JsonUtil;
 import apoc.util.UrlResolver;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.security.URLAccessChecker;
 import org.neo4j.internal.kernel.api.procs.ProcedureCallContext;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
+import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
@@ -30,6 +33,14 @@ public class Qdrant {
     }
     @Context
     public URLAccessChecker urlAccessChecker;
+
+    @Procedure("apoc.vectordb.qdrant.create")
+    @Description("apoc.vectordb.qdrant.create()")
+    public Stream<VectorDb.EmbeddingResult> create() {
+        // todo - create collection
+        return null;
+    }
+    
 
 //    @Procedure("apoc.vectordb.qdrant.query")
 //    @Description("apoc.vectordb.qdrant.query()")
@@ -56,9 +67,15 @@ public class Qdrant {
     
     @Context
     public ProcedureCallContext procedureCallContext;
+
+    @Context
+    public Transaction tx;
+    
+    @Context
+    public GraphDatabaseService db;
     
     // todo - richiamare la base procs
-    @Procedure("apoc.vectordb.qdrant.query")
+    @Procedure(value = "apoc.vectordb.qdrant.query", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.qdrant.query()")
     public Stream<VectorDb.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                 @Name("collection") String collection,
@@ -67,6 +84,8 @@ public class Qdrant {
                                                 @Name(value = "limit", defaultValue = "10") long limit,
 //                                                         @Name("apiKey") String apiKey,
                                                 @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+        
+        
         var config = new HashMap<>(configuration);
         
         String qdrantUrl = getQdrantUrl(hostOrKey);
@@ -78,7 +97,7 @@ public class Qdrant {
 //        fields.contains("")
         
         VectorDb.VectorEmbeddingConfig apiConfig = VectorDb.QdrantType.from(config, procedureCallContext, vector, filter, limit);
-        return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker);
+        return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, db, tx);
         
 //        Stream<Object> resultStream = executeRequest(/*apiKey, */apiConfig);
 //        return resultStream

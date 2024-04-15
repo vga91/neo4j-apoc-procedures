@@ -270,4 +270,11 @@ public class ExtendedUtil
             retryRunnable(maxRetries, retry, consumer);
         }
     }
+
+    public static void setProperties(Entity entity, Map<String, Object> props) {
+        for (var entry: props.entrySet()) {
+            entity.setProperty(entry.getKey(), entry.getValue());
+        }
+    }
+            
 }

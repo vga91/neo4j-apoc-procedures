@@ -1,40 +1,36 @@
 package apoc.ml.vectordb;
 
-import apoc.es.ElasticSearch;
 import apoc.util.TestUtil;
-import io.qdrant.client.grpc.Points;
-import org.junit.Assume;
+import apoc.util.collection.Iterables;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.neo4j.graphdb.Label;
+import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.ResourceIterator;
 import org.neo4j.graphdb.Result;
+import org.neo4j.graphdb.Transaction;
+import org.neo4j.graphdb.schema.ConstraintDefinition;
+import org.neo4j.graphdb.schema.IndexDefinition;
+import org.neo4j.graphdb.schema.IndexType;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 import org.testcontainers.qdrant.QdrantContainer;
 
-import io.qdrant.client.grpc.Collections.Distance;
-import io.qdrant.client.grpc.Collections.VectorParams;
-import io.qdrant.client.QdrantClient;
-import io.qdrant.client.QdrantGrpcClient;
-
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
+import static apoc.ml.vectordb.VectorDb.VectorEmbeddingConfig.MAPPING_KEY;
 import static apoc.util.TestUtil.testCall;
-import static io.qdrant.client.PointIdFactory.id;
-import static io.qdrant.client.ValueFactory.value;
-import static io.qdrant.client.VectorsFactory.vectors;
+import static apoc.util.TestUtil.testResult;
 import static java.util.Collections.emptyMap;
-
-import io.qdrant.client.grpc.Points.PointStruct;
-import io.qdrant.client.grpc.Points.UpdateResult;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 import java.util.Map;
-
-// todo - inizialmente popolo il db tramite questo https://qdrant.tech/documentation/quick-start/#add-vectors
-//  con testImplementation
-//  poi vedo se fare nuove procedure, oppure una custom..
 
 
 public class QdrantDbTest {
@@ -57,15 +53,7 @@ todo - create collection procs with
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, true);
 
-        // -- todo - do these via procedures
-        
-// The Java client uses Qdrant's GRPC interface
-//        QdrantClient client = new QdrantClient(
-//                QdrantGrpcClient.newBuilder("localhost", qdrant.getMappedPort(6333), false).build());
-//        client.createCollectionAsync("test_collection",
-//                VectorParams.newBuilder().setDistance(Distance.Dot).setSize(4).build()).get();
-
-        String endpoint = db.executeTransactionally("""
+        testCall(db, """
                         CALL apoc.vectordb.custom({
                         endpoint: $endpoint,
                         body: {
@@ -73,10 +61,14 @@ todo - create collection procs with
                               size: 4,
                               distance: "Cosine"
                             }
-                        }, method: 'PUT'})""", Map.of("endpoint", "http://localhost:" + qdrant.getMappedPort(6333) + "/collections/test_collection"),
-                Result::resultAsString);
+                        }, method: 'PUT'})""", 
+                Map.of("endpoint", "http://localhost:" + qdrant.getMappedPort(6333) + "/collections/test_collection"),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertEquals("ok", value.get("status"));
+                });
 
-        String endpoint1 = db.executeTransactionally("""
+        testCall(db, """
                         CALL apoc.vectordb.custom({
                         endpoint: $endpoint,
                         body: {
@@ -84,42 +76,29 @@ todo - create collection procs with
                                 {
                                   id: 1,
                                   vector: [0.05, 0.61, 0.76, 0.74],
-                                  payload: {city: "Berlin"}
+                                  payload: {city: "Berlin", foo: "one"}
                                 },
                                 {
                                   id: 2,
                                   vector: [0.19, 0.81, 0.75, 0.11],
-                                  payload: {city: "London"}
+                                  payload: {city: "London", foo: "two"}
                                 }
                             ]
                         }, method: 'PUT'})""", Map.of("endpoint", "http://localhost:" + qdrant.getMappedPort(6333) + "/collections/test_collection/points"),
-                Result::resultAsString);
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertEquals("ok", value.get("status"));
+                });
 
-        System.out.println("endpoint1 = " + endpoint1);
-
-//        UpdateResult operationInfo =
-//                client.upsertAsync(
-//                            "test_collection",
-//                            List.of(
-//                                    PointStruct.newBuilder()
-//                                            .setId(id(1))
-//                                            .setVectors(vectors(0.05f, 0.61f, 0.76f, 0.74f))
-//                                            .putAllPayload(Map.of("city", value("Berlin")))
-//                                            .build(),
-//                                    PointStruct.newBuilder()
-//                                            .setId(id(2))
-//                                            .setVectors(vectors(0.19f, 0.81f, 0.75f, 0.11f))
-//                                            .putAllPayload(Map.of("city", value("London")))
-//                                            .build(),
-//                                    PointStruct.newBuilder()
-//                                            .setId(id(3))
-//                                            .setVectors(vectors(0.36f, 0.55f, 0.47f, 0.94f))
-//                                            .putAllPayload(Map.of("city", value("Moscow")))
-//                                            .build()))
-//                    // Truncated
-//                    .get();
-        // -- todo - do these via procedures
-        
+    }
+    
+    @Before
+    public void after() {
+        try (Transaction tx = db.beginTx()) {
+            tx.schema().getConstraints().forEach(ConstraintDefinition::drop);
+            tx.schema().getIndexes().forEach(IndexDefinition::drop);
+            tx.commit();
+        }
     }
 
 
@@ -128,10 +107,11 @@ todo - create collection procs with
 //        String filter = System.getenv("PINECONE_FILTER");
 //        Assume.assumeNotNull("No PINECONE_FILTER environment configured", host);
 // todo ->   nResults: 10, ovvero limit, come parametro opzionale
-        testCall(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5)",
+        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5)",
                 Map.of("host", "localhost:" + qdrant.getMappedPort(6333), /*"filter", filter, */"conf", emptyMap()),
                 r -> {
-                    System.out.println("r = " + r);
+                    System.out.println("r = " + r.next());
+                    System.out.println("r = " + r.next());
                 });
     }
     
@@ -140,11 +120,128 @@ todo - create collection procs with
 //        String filter = System.getenv("PINECONE_FILTER");
 //        Assume.assumeNotNull("No PINECONE_FILTER environment configured", host);
 // todo ->   nResults: 10, ovvero limit, come parametro opzionale
-        testCall(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5) YIELD metadata, id",
+        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5) YIELD metadata, id",
                 Map.of("host", "localhost:" + qdrant.getMappedPort(6333), /*"filter", filter, */"conf", emptyMap()),
                 r -> {
-                    System.out.println("r = " + r);
+                    System.out.println("r = " + r.next());
+                    System.out.println("r = " + r.next());
                 });
     }
-    
+
+    @Test
+    public void getEmbeddingWithCreateIndex() {
+
+        Map<String, Object> conf = Map.of(MAPPING_KEY, Map.of("embeddingProp", "vect", 
+                "label", "Test", 
+                "prop", "myId", 
+                "id", "foo",
+                "create", true));
+        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
+                Map.of("host", "localhost:" + qdrant.getMappedPort(6333), "conf", conf),
+                r -> {
+                    System.out.println("r = " + r.next());
+                    System.out.println("r = " + r.next());
+                });
+
+        try (Transaction tx = db.beginTx()) {
+            List<IndexDefinition> indexes = Iterables.stream(tx.schema().getIndexes())
+                    .filter(i -> i.getIndexType().equals(IndexType.VECTOR))
+                    .toList();
+            assertEquals(1, indexes.size());
+            assertEquals(List.of(Label.label("Test")), indexes.get(0).getLabels());
+            assertEquals(List.of("vect"), indexes.get(0).getPropertyKeys());
+
+            List<ConstraintDefinition> constraints = Iterables.asList(tx.schema().getConstraints());
+            assertEquals(1, constraints.size());
+            assertEquals(Label.label("Test"), constraints.get(0).getLabel());
+            assertEquals(List.of("myId"), constraints.get(0).getPropertyKeys());
+        }
+
+        testResult(db, "MATCH (n:Test) RETURN properties(n) AS props ORDER BY n.myId",
+                QdrantDbTest::vectorEntityAssertions);
+    }
+
+    @Test
+    public void getEmbeddingWithCreateExistingNode() {
+
+        db.executeTransactionally("CREATE (:Test {myId: 'one'}), (:Test {myId: 'two'})");
+
+        Map<String, Object> conf = Map.of(MAPPING_KEY, Map.of("embeddingProp", "vect",
+                "label", "Test",
+                "prop", "myId",
+                "id", "foo"));
+        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
+                Map.of("host", "localhost:" + qdrant.getMappedPort(6333), "conf", conf),
+                r -> {
+                    System.out.println("r = " + r.next());
+                    System.out.println("r = " + r.next());
+                });
+
+        try (Transaction tx = db.beginTx()) {
+            List<IndexDefinition> indexes = Iterables.stream(tx.schema().getIndexes())
+                    .filter(i -> i.getIndexType().equals(IndexType.VECTOR))
+                    .toList();
+            assertEquals(1, indexes.size());
+            assertEquals(List.of(Label.label("Test")), indexes.get(0).getLabels());
+            assertEquals(List.of("vect"), indexes.get(0).getPropertyKeys());
+
+            List<ConstraintDefinition> constraints = Iterables.asList(tx.schema().getConstraints());
+            assertEquals(1, constraints.size());
+            assertEquals(Label.label("Test"), constraints.get(0).getLabel());
+            assertEquals(List.of("myId"), constraints.get(0).getPropertyKeys());
+        }
+
+        testResult(db, "MATCH (n:Test) RETURN properties(n) AS props ORDER BY n.myId",
+                QdrantDbTest::vectorEntityAssertions);
+    }
+
+    @Test
+    public void getEmbeddingWithCreateRelIndex() {
+
+        db.executeTransactionally("CREATE (:Start)-[:TEST {myId: 'one'}]->(:End), (:Start)-[:TEST {myId: 'two'}]->(:End)");
+        
+        Map<String, Object> conf = Map.of(MAPPING_KEY, Map.of("embeddingProp", "vect",
+                "type", "TEST",
+                "prop", "myId",
+                "id", "foo",
+                "create", true));
+        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
+                Map.of("host", "localhost:" + qdrant.getMappedPort(6333), "conf", conf),
+                r -> {
+                    System.out.println("r = " + r.next());
+                    System.out.println("r = " + r.next());
+                });
+
+        try (Transaction tx = db.beginTx()) {
+            List<IndexDefinition> indexes = Iterables.stream(tx.schema().getIndexes())
+                    .filter(i -> i.getIndexType().equals(IndexType.VECTOR))
+                    .toList();
+            assertEquals(1, indexes.size());
+            assertEquals(List.of(RelationshipType.withName("TEST")), indexes.get(0).getRelationshipTypes());
+            assertEquals(List.of("vect"), indexes.get(0).getPropertyKeys());
+
+            List<ConstraintDefinition> constraints = Iterables.asList(tx.schema().getConstraints());
+            assertEquals(1, constraints.size());
+            assertEquals(RelationshipType.withName("TEST"), constraints.get(0).getRelationshipType());
+            assertEquals(List.of("myId"), constraints.get(0).getPropertyKeys());
+        }
+
+        testResult(db, "MATCH (:Start)-[r:TEST]->(:End) RETURN properties(r) AS props ORDER BY r.myId", 
+                QdrantDbTest::vectorEntityAssertions);
+    }
+
+    private static void vectorEntityAssertions(Result r) {
+        ResourceIterator<Map> props = r.columnAs("props");
+        Map next = props.next();
+        assertEquals("Berlin", next.get("city"));
+        assertEquals("one", next.get("myId"));
+        assertTrue(next.get("vect") instanceof float[]);
+        next = props.next();
+        assertEquals("London", next.get("city"));
+        assertEquals("two", next.get("myId"));
+        assertTrue(next.get("vect") instanceof float[]);
+
+        assertFalse(props.hasNext());
+    }
+
 }
