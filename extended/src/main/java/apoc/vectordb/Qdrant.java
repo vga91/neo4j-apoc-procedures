@@ -45,12 +45,10 @@ public class Qdrant {
     //  e.g.  ChromaType.from()
     public static class QdrantEmbeddingType {
 
-        public static VectorEmbeddingConfig fromGet(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<Long> ids) {
+        public static VectorEmbeddingConfig fromGet(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<Object> ids) {
             List<String> fields = procedureCallContext.outputFields().toList();
             config.putIfAbsent(METHOD_KEY, "POST");
-
-            // "with_payload": <boolean> and "with_vectors": <boolean> return the metadata and vector, if true
-            // therefore is the RestAPI itself that doesn't return the data if `YIELD ` has not metadata/embedding  
+            
             Map<String, Object> additionalBodies = map("ids", ids);
 
             return getVectorEmbeddingConfig(config, fields, additionalBodies);
@@ -60,8 +58,6 @@ public class Qdrant {
                                                  List<Double> vector, Map<String, Object> filter, long limit) {
             List<String> fields = procedureCallContext.outputFields().toList();
 
-            // "with_payload": <boolean> and "with_vectors": <boolean> return the metadata and vector, if true
-            // therefore is the RestAPI itself that doesn't return the data if `YIELD ` has not metadata/embedding  
             Map<String, Object> additionalBodies = map("vector", vector,
                     "filter", filter,
                     "limit", limit);
@@ -69,6 +65,8 @@ public class Qdrant {
             return getVectorEmbeddingConfig(config, fields, additionalBodies);
         }
 
+        // "with_payload": <boolean> and "with_vectors": <boolean> return the metadata and vector, if true
+        // therefore is the RestAPI itself that doesn't return the data if `YIELD ` has not metadata/embedding  
         private static VectorEmbeddingConfig getVectorEmbeddingConfig(Map<String, Object> config, List<String> fields, Map<String, Object> additionalBodies) {
             additionalBodies.put("with_payload", fields.contains("metadata"));
             additionalBodies.put("with_vectors", fields.contains("embedding"));
@@ -113,7 +111,7 @@ public class Qdrant {
     @Description("apoc.vectordb.qdrant.get()")
     public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
-                                                      @Name("ids") List<Long> ids,
+                                                      @Name("ids") List<Object> ids,
                                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
         var config = new HashMap<>(configuration);
 

@@ -8,10 +8,18 @@ public class VectorEmbeddingConfig extends RestAPIConfig {
     public static final String EMBEDDING_KEY = "embeddingKey";
     public static final String METADATA_KEY = "metadataKey";
     public static final String SCORE_KEY = "scoreKey";
+    public static final String TEXT_KEY = "textKey";
     public static final String ID_KEY = "idKey";
     public static final String MAPPING_KEY = "mapping";
+    
+    public static final String DEFAULT_ID = "id";
+    public static final String DEFAULT_TEXT = "text";
+    public static final String DEFAULT_EMBEDDING = "embedding";
+    public static final String DEFAULT_METADATA = "metadata";
+    public static final String DEFAULT_SCORE = "score";
 
     private final String idKey;
+    private final String textKey;
     private final String embeddingKey;
     private final String metadataKey;
     private final String scoreKey;
@@ -20,10 +28,11 @@ public class VectorEmbeddingConfig extends RestAPIConfig {
 
     public VectorEmbeddingConfig(Map<String, Object> config, Map<String, Object> additionalHeaders, Map<String, Object> additionalBodies) {
         super(config, additionalHeaders, additionalBodies);
-        this.embeddingKey = (String) config.getOrDefault(EMBEDDING_KEY, "embedding");
-        this.metadataKey = (String) config.getOrDefault(METADATA_KEY, "metadata");
-        this.scoreKey = (String) config.getOrDefault(SCORE_KEY, "score");
-        this.idKey = (String) config.getOrDefault(ID_KEY, "id");
+        this.embeddingKey = (String) config.getOrDefault(EMBEDDING_KEY, DEFAULT_EMBEDDING);
+        this.metadataKey = (String) config.getOrDefault(METADATA_KEY, DEFAULT_METADATA);
+        this.scoreKey = (String) config.getOrDefault(SCORE_KEY, DEFAULT_SCORE);
+        this.idKey = (String) config.getOrDefault(ID_KEY, DEFAULT_ID);
+        this.textKey = (String) config.getOrDefault(TEXT_KEY, DEFAULT_TEXT);
         this.mapping = new VectorMappingConfig((Map<String, Object>) config.getOrDefault(MAPPING_KEY, Map.of()));//.getOrDefault(MAPPING_KEY, Map.of());
     }
 
@@ -41,6 +50,10 @@ public class VectorEmbeddingConfig extends RestAPIConfig {
 
     public String getScoreKey() {
         return scoreKey;
+    }
+
+    public String getTextKey() {
+        return textKey;
     }
 
     public VectorMappingConfig getMapping() {

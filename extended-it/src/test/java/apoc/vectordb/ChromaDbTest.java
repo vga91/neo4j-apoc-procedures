@@ -37,19 +37,20 @@ public class ChromaDbTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
     
-    private static ChromaDBContainer qdrant = new ChromaDBContainer("chromadb/chroma:0.4.25.dev137");
+    private static ChromaDBContainer chroma = new ChromaDBContainer("chromadb/chroma:0.4.25.dev137");
     public static String HOST;
+    private static AtomicReference<String> collId = new AtomicReference<>();
 
     @BeforeClass
     public static void setUp() throws Exception {
-        qdrant.start();
+        chroma.start();
 
-        HOST = "localhost:" + qdrant.getMappedPort(8000);
-        TestUtil.registerProcedure(db, VectorDb.class, Qdrant.class);
+        HOST = "localhost:" + chroma.getMappedPort(8000);
+        TestUtil.registerProcedure(db, VectorDb.class, ChromaDb.class);
 
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, true);
-        AtomicReference<String> id = new AtomicReference<>();
+        
         testCall(db, """
                         CALL apoc.vectordb.custom({
                         endpoint: $endpoint,
@@ -63,7 +64,7 @@ public class ChromaDbTest {
                 Map.of("endpoint", "http://" + HOST + "/api/v1/collections"),
                 r -> {
                     Map value = (Map) r.get("value");
-                    id.set((String) value.get("id"));
+                    collId.set((String) value.get("id"));
                 });
 
         testCall(db, """
@@ -85,7 +86,7 @@ public class ChromaDbTest {
                                   payload: {city: "London", foo: "two"}
                                 }
                             ]*/
-                        }, method: 'POST'})""", Map.of("endpoint", "http://" + HOST + "/api/v1/collections/%s/add".formatted(id.get())),
+                        }, method: 'POST'})""", Map.of("endpoint", "http://" + HOST + "/api/v1/collections/%s/add".formatted(collId.get())),
                 r -> {
                     assertEquals(true, r.get("value"));
                 });
@@ -103,8 +104,8 @@ public class ChromaDbTest {
 
     @Test
     public void getEmbeddings() {
-        testResult(db, "CALL apoc.vectordb.qdrant.get($host, 'test_collection', [1]) ",
-                Map.of("host", HOST),
+        testResult(db, "CALL apoc.vectordb.chroma.get($host, $collection, [1]) ",
+                Map.of("host", HOST, "collection", collId.get()),
                 r -> {
                     System.out.println("r = " + r.next());
                 });
@@ -115,8 +116,8 @@ public class ChromaDbTest {
 //        String filter = System.getenv("PINECONE_FILTER");
 //        Assume.assumeNotNull("No PINECONE_FILTER environment configured", host);
 // todo ->   nResults: 10, ovvero limit, come parametro opzionale
-        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5)",
-                Map.of("host", HOST, /*"filter", filter, */"conf", emptyMap()),
+        testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5)",
+                Map.of("host", HOST, "collection", collId.get(), /*"filter", filter, */"conf", emptyMap()),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
@@ -128,8 +129,8 @@ public class ChromaDbTest {
 //        String filter = System.getenv("PINECONE_FILTER");
 //        Assume.assumeNotNull("No PINECONE_FILTER environment configured", host);
 // todo ->   nResults: 10, ovvero limit, come parametro opzionale
-        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5) YIELD metadata, id",
-                Map.of("host", HOST, /*"filter", filter, */"conf", emptyMap()),
+        testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5) YIELD metadata, id",
+                Map.of("host", HOST, "collection", collId.get(), /*"filter", filter, */"conf", emptyMap()),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
@@ -144,8 +145,8 @@ public class ChromaDbTest {
                 "prop", "myId",
                 "id", "foo",
                 "create", true));
-        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
-                Map.of("host", HOST, "conf", conf),
+        testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
+                Map.of("host", HOST, "collection", collId.get(), "conf", conf),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
@@ -178,8 +179,8 @@ public class ChromaDbTest {
                 "label", "Test",
                 "prop", "myId",
                 "id", "foo"));
-        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
-                Map.of("host", HOST, "conf", conf),
+        testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
+                Map.of("host", HOST, "collection", collId.get(), "conf", conf),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());
@@ -213,8 +214,8 @@ public class ChromaDbTest {
                 "prop", "myId",
                 "id", "foo",
                 "create", true));
-        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
-                Map.of("host", HOST, "conf", conf),
+        testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
+                Map.of("host", HOST, "collection", collId.get(), "conf", conf),
                 r -> {
                     System.out.println("r = " + r.next());
                     System.out.println("r = " + r.next());

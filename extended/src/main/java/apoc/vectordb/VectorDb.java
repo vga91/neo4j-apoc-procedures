@@ -27,6 +27,7 @@ import java.net.MalformedURLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static apoc.ml.RestAPIConfig.JSON_PATH;
@@ -55,15 +56,26 @@ public class VectorDb {
     @Procedure(value = "apoc.vectordb.custom.get", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.custom.get() - todo")
     public Stream<EmbeddingResult> get(@Name("hostOrKey") String hostOrKey,
-                                       //   @Name("collection") String collection,
-                                       //  @Name(value = "id", defaultValue = "") String id,
-                                                @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
 
         VectorEmbeddingConfig restAPIConfig = new VectorEmbeddingConfig(configuration, Map.of(), Map.of());
         return getEmbeddingResultStream(restAPIConfig, procedureCallContext, urlAccessChecker, db, tx);
     }
+
+    public static Stream<EmbeddingResult> getEmbeddingResultStream(VectorEmbeddingConfig conf,
+                                                                   ProcedureCallContext procedureCallContext,
+                                                                   URLAccessChecker urlAccessChecker,
+                                                                   GraphDatabaseService db,
+                                                                   Transaction tx) throws Exception {
+        return getEmbeddingResultStream(conf, procedureCallContext, urlAccessChecker, db, tx, v -> ((List<Map>) v).stream());
+    }
     
-    public static Stream<EmbeddingResult> getEmbeddingResultStream(VectorEmbeddingConfig conf, ProcedureCallContext procedureCallContext, URLAccessChecker urlAccessChecker, GraphDatabaseService db, Transaction tx) throws Exception {
+    public static Stream<EmbeddingResult> getEmbeddingResultStream(VectorEmbeddingConfig conf,
+                                                                   ProcedureCallContext procedureCallContext,
+                                                                   URLAccessChecker urlAccessChecker,
+                                                                   GraphDatabaseService db,
+                                                                   Transaction tx,
+                                                                   Function<Object, Stream<Map>> objectMapper) throws Exception {
         List<String> fields = procedureCallContext.outputFields().toList();
 
         boolean hasEmbedding = fields.contains("embedding");
@@ -73,10 +85,10 @@ public class VectorDb {
         VectorMappingConfig mapping = conf.getMapping();
 
         return resultStream
-                .flatMap(v -> ((List<Map<String, Object>>) v).stream())
+                .flatMap(objectMapper)
                 .map(m -> {
                     // 
-                    long id = (long) m.get(conf.getIdKey());
+                    Object id = m.get(conf.getIdKey());
                     List<Double> embedding = hasEmbedding ? (List<Double>) m.get(conf.getEmbeddingKey()) : null;
                     Map<String, Object> metadata = hasMetadata ? (Map<String, Object>) m.get(conf.getMetadataKey()) : null;
                     // in case of get operation, e.g. http://localhost:52798/collections/{coll_name}/points with Qdrant db,
