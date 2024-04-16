@@ -5,6 +5,7 @@ import apoc.result.MapResult;
 import apoc.util.JsonUtil;
 import apoc.util.UrlResolver;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.security.URLAccessChecker;
@@ -23,6 +24,7 @@ import java.util.stream.Stream;
 import static apoc.ml.RestAPIConfig.ENDPOINT_KEY;
 import static apoc.ml.RestAPIConfig.JSON_PATH;
 import static apoc.ml.RestAPIConfig.METHOD_KEY;
+import static apoc.util.MapUtil.map;
 import static apoc.vectordb.VectorDb.getEmbeddingResultStream;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
 import static apoc.vectordb.VectorEmbeddingConfig.EMBEDDING_KEY;
@@ -45,33 +47,31 @@ public class Qdrant {
 
         public static VectorEmbeddingConfig fromGet(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<Long> ids) {
             List<String> fields = procedureCallContext.outputFields().toList();
+            config.putIfAbsent(METHOD_KEY, "POST");
 
             // "with_payload": <boolean> and "with_vectors": <boolean> return the metadata and vector, if true
             // therefore is the RestAPI itself that doesn't return the data if `YIELD ` has not metadata/embedding  
-            Map additionalBodies = Map.of("with_payload", fields.contains("metadata"),
-                    "with_vectors", fields.contains("embedding"),
-                    "ids", ids);
+            Map<String, Object> additionalBodies = map("ids", ids);
 
-            config.putIfAbsent(EMBEDDING_KEY, "vector");
-            config.putIfAbsent(METADATA_KEY, "payload");
-            config.putIfAbsent(JSON_PATH, "result");
-            
-            config.putIfAbsent(METHOD_KEY, "POST");
-
-            return new VectorEmbeddingConfig(config, Map.of(), additionalBodies);
+            return getVectorEmbeddingConfig(config, fields, additionalBodies);
         }
-
+        
         public static VectorEmbeddingConfig fromQuery(Map<String, Object> config, ProcedureCallContext procedureCallContext,
                                                  List<Double> vector, Map<String, Object> filter, long limit) {
             List<String> fields = procedureCallContext.outputFields().toList();
 
             // "with_payload": <boolean> and "with_vectors": <boolean> return the metadata and vector, if true
             // therefore is the RestAPI itself that doesn't return the data if `YIELD ` has not metadata/embedding  
-            Map additionalBodies = Map.of("with_payload", fields.contains("metadata"),
-                    "with_vectors", fields.contains("embedding"),
-                    "vector", vector,
+            Map<String, Object> additionalBodies = map("vector", vector,
                     "filter", filter,
                     "limit", limit);
+
+            return getVectorEmbeddingConfig(config, fields, additionalBodies);
+        }
+
+        private static VectorEmbeddingConfig getVectorEmbeddingConfig(Map<String, Object> config, List<String> fields, Map<String, Object> additionalBodies) {
+            additionalBodies.put("with_payload", fields.contains("metadata"));
+            additionalBodies.put("with_vectors", fields.contains("embedding"));
 
             config.putIfAbsent(EMBEDDING_KEY, "vector");
             config.putIfAbsent(METADATA_KEY, "payload");
@@ -108,28 +108,6 @@ public class Qdrant {
         // todo - upsert vectors
         return null;
     }
-    
-
-//    @Procedure("apoc.vectordb.qdrant.query")
-//    @Description("apoc.vectordb.qdrant.query()")
-//    public Stream<VectorDb.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
-//                                                @Name("query") String filter,
-////                                                         @Name("apiKey") String apiKey,
-//                                                @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-//        var config = new HashMap<>(configuration);
-//           String endpoint = "%s/collections/%s/points/%s".formatted(qdrantUrl, collection, id);
-//        config.putIfAbsent(ENDPOINT_KEY, getQdrantUrl(hostOrKey));// + "test_collection/points/search");
-//
-//        QdrantConfig apiConfig = new QdrantConfig(config);
-//        Stream<Object> resultStream = executeRequest(/*apiKey, */apiConfig);
-//        return resultStream
-//                .flatMap(v -> ((List<Map<String, Object>>) v).stream())
-//                .map(m -> {
-//                    System.out.println("m = " + m);
-//                    return new VectorDb.EmbeddingResult(0, (List<Double>) m.get("embedding"), 0.2);
-//                });
-//    }
-    
 
     @Procedure(value = "apoc.vectordb.qdrant.get", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.qdrant.get()")
@@ -147,7 +125,6 @@ public class Qdrant {
         return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, db, tx);
     }
     
-    // todo - richiamare la base procs
     @Procedure(value = "apoc.vectordb.qdrant.query", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.qdrant.query()")
     public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,

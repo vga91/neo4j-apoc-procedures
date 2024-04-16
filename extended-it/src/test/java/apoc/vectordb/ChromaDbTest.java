@@ -20,6 +20,7 @@ import org.testcontainers.chromadb.ChromaDBContainer;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static apoc.ApocConfig.APOC_EXPORT_FILE_ENABLED;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
@@ -36,39 +37,43 @@ public class ChromaDbTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
     
-    private static ChromaDBContainer qdrant = new ChromaDBContainer("qdrant/qdrant:v1.7.4");
+    private static ChromaDBContainer qdrant = new ChromaDBContainer("chromadb/chroma:0.4.25.dev137");
     public static String HOST;
 
     @BeforeClass
     public static void setUp() throws Exception {
         qdrant.start();
 
-        HOST = "localhost:" + qdrant.getMappedPort(6333);
+        HOST = "localhost:" + qdrant.getMappedPort(8000);
         TestUtil.registerProcedure(db, VectorDb.class, Qdrant.class);
 
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, true);
-
+        AtomicReference<String> id = new AtomicReference<>();
         testCall(db, """
                         CALL apoc.vectordb.custom({
                         endpoint: $endpoint,
                         body: {
-                            vectors: {
-                              size: 4,
-                              distance: "Cosine"
+                            name: "test_collection",
+                            metadata: {
+                              // size: 4,
+                              `hnsw:space`: "cosine"
                             }
-                        }, method: 'PUT'})""",
-                Map.of("endpoint", "http://localhost:" + qdrant.getMappedPort(6333) + "/collections/test_collection"),
+                        }, method: 'POST'})""",
+                Map.of("endpoint", "http://" + HOST + "/api/v1/collections"),
                 r -> {
                     Map value = (Map) r.get("value");
-                    assertEquals("ok", value.get("status"));
+                    id.set((String) value.get("id"));
                 });
 
         testCall(db, """
                         CALL apoc.vectordb.custom({
                         endpoint: $endpoint,
                         body: {
-                              points: [
+                              ids: ["1","2"],
+                              embeddings: [[0.05, 0.61, 0.76, 0.74], [0.19, 0.81, 0.75, 0.11]],
+                              metadatas: [{city: "Berlin", foo: "one"}, {city: "London", foo: "two"}]
+                              /*embeddings: [
                                 {
                                   id: 1,
                                   vector: [0.05, 0.61, 0.76, 0.74],
@@ -79,11 +84,10 @@ public class ChromaDbTest {
                                   vector: [0.19, 0.81, 0.75, 0.11],
                                   payload: {city: "London", foo: "two"}
                                 }
-                            ]
-                        }, method: 'PUT'})""", Map.of("endpoint", "http://localhost:" + qdrant.getMappedPort(6333) + "/collections/test_collection/points"),
+                            ]*/
+                        }, method: 'POST'})""", Map.of("endpoint", "http://" + HOST + "/api/v1/collections/%s/add".formatted(id.get())),
                 r -> {
-                    Map value = (Map) r.get("value");
-                    assertEquals("ok", value.get("status"));
+                    assertEquals(true, r.get("value"));
                 });
 
     }

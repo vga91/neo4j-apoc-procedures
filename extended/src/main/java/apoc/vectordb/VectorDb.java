@@ -2,6 +2,7 @@ package apoc.vectordb;
 
 import apoc.ml.RestAPIConfig;
 import apoc.result.MapResult;
+import apoc.result.ObjectResult;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -182,12 +183,12 @@ public class VectorDb {
     //  --> todo: maybe we can change it with a more generic naming, e.g. `apoc.restapi.custom(<conf>)`
     @Procedure("apoc.vectordb.custom")
     @Description("apoc.vectordb.custom() - todo")
-    public Stream<MapResult> custom(@Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+    public Stream<ObjectResult> custom(@Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
         // todo
         RestAPIConfig restAPIConfig = new RestAPIConfig(configuration);
         return executeRequest(restAPIConfig, urlAccessChecker)
-                .map(i -> (Map<String, Object>) i)
-                .map(MapResult::new);
+//                .map(i -> (Map<String, Object>) i)
+                .map(ObjectResult::new);
     }
 
     private static Stream<Object> executeRequest(RestAPIConfig apiConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
