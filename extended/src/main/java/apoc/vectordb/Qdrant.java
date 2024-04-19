@@ -2,10 +2,7 @@ package apoc.vectordb;
 
 import apoc.ml.RestAPIConfig;
 import apoc.result.MapResult;
-import apoc.util.JsonUtil;
 import apoc.util.UrlResolver;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.security.URLAccessChecker;
@@ -22,13 +19,12 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 import static apoc.ml.RestAPIConfig.ENDPOINT_KEY;
-import static apoc.ml.RestAPIConfig.JSON_PATH;
 import static apoc.ml.RestAPIConfig.METHOD_KEY;
-import static apoc.util.MapUtil.map;
+import static apoc.vectordb.VectorDb.executeRequest;
 import static apoc.vectordb.VectorDb.getEmbeddingResultStream;
-import static apoc.util.JsonUtil.OBJECT_MAPPER;
+import static apoc.vectordb.VectorDbUtil.getEndpoint;
+import static apoc.vectordb.VectorEmbedding.Type.QDRANT;
 import static apoc.vectordb.VectorEmbeddingConfig.EMBEDDING_KEY;
-import static apoc.vectordb.VectorEmbeddingConfig.METADATA_KEY;
 
 public class Qdrant {
 
@@ -41,70 +37,103 @@ public class Qdrant {
     @Context
     public GraphDatabaseService db;
     
-    // todo - create an enum Factory in case of others VectorDbs
-    //  e.g.  ChromaType.from()
-    public static class QdrantEmbeddingType {
-
-        public static VectorEmbeddingConfig fromGet(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<Object> ids) {
-            List<String> fields = procedureCallContext.outputFields().toList();
-            config.putIfAbsent(METHOD_KEY, "POST");
-            
-            Map<String, Object> additionalBodies = map("ids", ids);
-
-            return getVectorEmbeddingConfig(config, fields, additionalBodies);
-        }
-        
-        public static VectorEmbeddingConfig fromQuery(Map<String, Object> config, ProcedureCallContext procedureCallContext,
-                                                 List<Double> vector, Map<String, Object> filter, long limit) {
-            List<String> fields = procedureCallContext.outputFields().toList();
-
-            Map<String, Object> additionalBodies = map("vector", vector,
-                    "filter", filter,
-                    "limit", limit);
-
-            return getVectorEmbeddingConfig(config, fields, additionalBodies);
-        }
-
-        // "with_payload": <boolean> and "with_vectors": <boolean> return the metadata and vector, if true
-        // therefore is the RestAPI itself that doesn't return the data if `YIELD ` has not metadata/embedding  
-        private static VectorEmbeddingConfig getVectorEmbeddingConfig(Map<String, Object> config, List<String> fields, Map<String, Object> additionalBodies) {
-            additionalBodies.put("with_payload", fields.contains("metadata"));
-            additionalBodies.put("with_vectors", fields.contains("embedding"));
-
-            config.putIfAbsent(EMBEDDING_KEY, "vector");
-            config.putIfAbsent(METADATA_KEY, "payload");
-            config.putIfAbsent(JSON_PATH, "result");
-
-            return new VectorEmbeddingConfig(config, Map.of(), additionalBodies);
-        }
-    }
-    
     @Context
     public URLAccessChecker urlAccessChecker;
 
-    @Procedure("apoc.vectordb.qdrant.create")
-    @Description("apoc.vectordb.qdrant.create")
-    public Stream<MapResult> create(@Name("hostOrKey") String hostOrKey,
-                                    @Name("name") String name,
+    @Procedure("apoc.vectordb.qdrant.createCollection")
+    @Description("apoc.vectordb.qdrant.createCollection")
+    public Stream<MapResult> createCollection(@Name("hostOrKey") String hostOrKey,
+                                    @Name("collection") String collection,
                                     @Name("similarity") String similarity,
-                                    @Name("size") String size,
-                                    @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-        // todo - create collection
-        return null;
+                                    @Name("size") Long size,
+                                    @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+        var config = new HashMap<>(configuration);
+
+        String qdrantUrl = getQdrantUrl(hostOrKey);
+        String endpoint = "%s/collections/%s".formatted(qdrantUrl, collection);
+        getEndpoint(config, endpoint);
+        config.putIfAbsent(METHOD_KEY, "PUT");
+
+        Map<String, Object> additionalBodies = Map.of("vectors", Map.of(
+                "size", size,
+                "distance", similarity
+        ));
+        RestAPIConfig restAPIConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
+        return executeRequest(restAPIConfig, urlAccessChecker)
+                .map(v -> (Map<String,Object>)v)
+                .map(MapResult::new);
     }
     
-    @Procedure("apoc.vectordb.qdrant.delete")
-    @Description("apoc.vectordb.qdrant.delete")
-    public Stream<MapResult> delete(@Name("hostOrKey") String hostOrKey, @Name("name") String name, @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-        // todo - delete collection
-        return null;
+    @Procedure("apoc.vectordb.qdrant.deleteCollection")
+    @Description("apoc.vectordb.qdrant.deleteCollection")
+    public Stream<MapResult> deleteCollection(
+            @Name("hostOrKey") String hostOrKey,
+            @Name("collection") String collection,
+            @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+
+        var config = new HashMap<>(configuration);
+
+        String qdrantUrl = getQdrantUrl(hostOrKey);
+        String endpoint = "%s/collections/%s".formatted(qdrantUrl, collection);
+        getEndpoint(config, endpoint);
+        config.putIfAbsent(METHOD_KEY, "DELETE");
+
+        RestAPIConfig restAPIConfig = new RestAPIConfig(config);
+        return executeRequest(restAPIConfig, urlAccessChecker)
+                .map(v -> (Map<String,Object>)v)
+                .map(MapResult::new);
     }
     
     @Procedure("apoc.vectordb.qdrant.upsert")
     @Description("apoc.vectordb.qdrant.upsert")
-    public Stream<MapResult> upsert(@Name("hostOrKey") String hostOrKey, @Name("vectors") List<Map<String, Object>> vectors, @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
-        // todo - upsert vectors
-        return null;
+    public Stream<MapResult> upsert(
+            @Name("hostOrKey") String hostOrKey,
+            @Name("collection") String collection,
+            @Name("vectors") List<Map<String, Object>> vectors,
+            @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+
+        var config = new HashMap<>(configuration);
+
+        String qdrantUrl = getQdrantUrl(hostOrKey);
+        String endpoint = "%s/collections/%s/points".formatted(qdrantUrl, collection);
+        getEndpoint(config, endpoint);
+        config.putIfAbsent(METHOD_KEY, "PUT");
+
+        List<Map<String, Object>> point = vectors.stream()
+                .map(i -> {
+                    Map<String, Object> map = new HashMap<>(i);
+                    map.putIfAbsent("vector", map.remove("embedding"));
+                    map.putIfAbsent("payload", map.remove("metadata"));
+                    return map;
+                })
+                .toList();
+        Map<String, Object> additionalBodies = Map.of("points", point);
+        RestAPIConfig restAPIConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
+        return executeRequest(restAPIConfig, urlAccessChecker)
+                .map(v -> (Map<String,Object>)v)
+                .map(MapResult::new);
+    }
+    
+    @Procedure("apoc.vectordb.qdrant.delete")
+    @Description("apoc.vectordb.qdrant.delete")
+    public Stream<MapResult> delete(
+            @Name("hostOrKey") String hostOrKey,
+            @Name("collection") String collection,
+            @Name("vectors") List<Object> ids,
+            @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+
+        var config = new HashMap<>(configuration);
+
+        String qdrantUrl = getQdrantUrl(hostOrKey);
+        String endpoint = "%s/collections/%s/points/delete".formatted(qdrantUrl, collection);
+        getEndpoint(config, endpoint);
+        config.putIfAbsent(METHOD_KEY, "POST");
+
+        Map<String, Object> additionalBodies = Map.of("points", ids);
+        RestAPIConfig apiConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
+        return executeRequest(apiConfig, urlAccessChecker)
+                .map(v -> (Map<String,Object>)v)
+                .map(MapResult::new);
     }
 
     @Procedure(value = "apoc.vectordb.qdrant.get", mode = Mode.SCHEMA)
@@ -114,15 +143,15 @@ public class Qdrant {
                                                       @Name("ids") List<Object> ids,
                                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
         var config = new HashMap<>(configuration);
-
+        
         String qdrantUrl = getQdrantUrl(hostOrKey);
         String endpoint = "%s/collections/%s/points".formatted(qdrantUrl, collection);
-        config.putIfAbsent(ENDPOINT_KEY, endpoint);
+        getEndpoint(config, endpoint);
 
-        VectorEmbeddingConfig apiConfig = QdrantEmbeddingType.fromGet(config, procedureCallContext, ids);
+        VectorEmbeddingConfig apiConfig = QDRANT.get().fromGet(config, procedureCallContext, ids);
         return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, db, tx);
     }
-    
+
     @Procedure(value = "apoc.vectordb.qdrant.query", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.qdrant.query()")
     public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
@@ -137,9 +166,9 @@ public class Qdrant {
         
         String qdrantUrl = getQdrantUrl(hostOrKey);
         String endpoint = "%s/collections/%s/points/search".formatted(qdrantUrl, collection);
-        config.putIfAbsent(ENDPOINT_KEY, endpoint);
-        
-        VectorEmbeddingConfig apiConfig = QdrantEmbeddingType.fromQuery(config, procedureCallContext, vector, filter, limit);
+        getEndpoint(config, endpoint);
+
+        VectorEmbeddingConfig apiConfig = QDRANT.get().fromQuery(config, procedureCallContext, vector, filter, limit);
         return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, db, tx);
     }
 

@@ -3,19 +3,18 @@ package apoc.vectordb;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.ml.RestAPIConfig.ENDPOINT_KEY;
+
 public class VectorDbUtil {
     
-    public static class EmbeddingResult {
-        public final Object id;
-        public final Double score;
-        public final List<Double> embedding;
-        public final Map<String, Object> metadata;
-
-        public EmbeddingResult(Object id, Double score, List<Double> embedding, Map<String, Object> metadata) {
-            this.id = id;
-            this.embedding = embedding;
-            this.score = score;
-            this.metadata = metadata;
-        }
+    /**
+     * we can configure the endpoint via config map or via hostOrKey parameter,
+     * to handle potential endpoint changes.
+     * For example, in Qdrant `BASE_URL/collections/COLLECTION_NAME/points` could change in the future.
+     */
+    public static void getEndpoint(Map<String, Object> config, String endpoint) {
+        config.putIfAbsent(ENDPOINT_KEY, endpoint);
     }
+
+    public record EmbeddingResult(Object id, Double score, List<Double> embedding, Map<String, Object> metadata) {}
 }

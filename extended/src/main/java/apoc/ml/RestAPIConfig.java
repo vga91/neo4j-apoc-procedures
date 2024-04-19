@@ -10,7 +10,7 @@ public class RestAPIConfig {
     public static final String HEADERS_KEY = "headers";
     public static final String METHOD_KEY = "method";
     public static final String ENDPOINT_KEY = "endpoint";
-    public static final String JSON_PATH = "jsonPath";
+    public static final String JSON_PATH_KEY = "jsonPath";
     public static final String BODY_KEY = "body";
     
     private final Map<String, Object> headers;
@@ -22,43 +22,36 @@ public class RestAPIConfig {
         this(config, Map.of(), Map.of());
     }
     
-    public RestAPIConfig(Map<String, Object> config, Map<String, Object> additionalHeaders, Map<String, Object> additionalBodies) {
+    public RestAPIConfig(Map<String, Object> config, Map additionalHeaders, Map additionalBodies) {
         if (config == null) {
             config = Collections.emptyMap();
         }
 
         String httpMethod = (String) config.getOrDefault(METHOD_KEY, "POST");
-        Map<String, Object> headerConf = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, new HashMap<>());
+        Map headerConf = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, new HashMap<>());
         headerConf.putIfAbsent("content-type", "application/json");
         headerConf.putIfAbsent(METHOD_KEY, httpMethod);
         additionalHeaders.forEach( (k,v)-> headerConf.putIfAbsent(k,v) );
-//        headerConf.putAll(additionalHeaders);
-        
         
         this.headers = headerConf;
 
-        this.endpoint = getEndpoint(config);//.getOrDefault(ENDPOINT_KEY, getDefaultEndpoint());
+        this.endpoint = getEndpoint(config);
 
-        this.jsonPath = (String) config.get(JSON_PATH);
-        Map<String, Object> bodyConf = (Map<String, Object>) config.getOrDefault(BODY_KEY, new HashMap<>());
+        this.jsonPath = (String) config.get(JSON_PATH_KEY);
+        Map bodyConf = (Map<String, Object>) config.getOrDefault(BODY_KEY, new HashMap<>());
         additionalBodies.forEach( (k,v)-> bodyConf.putIfAbsent(k,v) );
         this.body = bodyConf;
     }
-
-//    public Map<String, Object> getAdditionalHeaders() {
-//        return Map.of();
-//    }
-
+    
+    /**
+     * we can configure the endpoint v
+     */
     private String getEndpoint(Map<String, Object> config) {
         String endpointConfig = (String) config.get(ENDPOINT_KEY);
         if (endpointConfig == null) {
-            return getDefaultEndpoint();
+            throw new RuntimeException("todo - error, endpoint must be specified");
         }
         return endpointConfig;
-    }
-    
-    public String getDefaultEndpoint() {
-        throw new RuntimeException("todo - error, endpoint must be specified");
     }
 
     public Map<String, Object> getHeaders() {

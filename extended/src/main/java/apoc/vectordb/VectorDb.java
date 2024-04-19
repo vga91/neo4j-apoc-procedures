@@ -1,7 +1,6 @@
 package apoc.vectordb;
 
 import apoc.ml.RestAPIConfig;
-import apoc.result.MapResult;
 import apoc.result.ObjectResult;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
@@ -24,14 +23,13 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.net.MalformedURLException;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import static apoc.ml.RestAPIConfig.JSON_PATH;
-import static apoc.vectordb.VectorEmbeddingConfig.*;
+import static apoc.ml.RestAPIConfig.ENDPOINT_KEY;
 import static apoc.util.ExtendedUtil.setProperties;
 import static apoc.util.JsonUtil.OBJECT_MAPPER;
 import static apoc.vectordb.VectorDbUtil.*;
@@ -52,12 +50,31 @@ public class VectorDb {
     
     @Context
     public ProcedureCallContext procedureCallContext;
-    
+
+    /**
+     * We can use this procedure with every API that return something like this:
+     * ```
+     *   [
+     *      "idKey": "vec2",
+     *      "scoreKey": 1,
+     *      "embeddingKey": [ ]
+     *      "metadataKey": { .. }
+     *   ],
+     *   [
+     *      ...
+     *   ]
+     * ```
+     * 
+     * Otherwise, if the result is different (e.g. the Chroma result), we have to leverage the apoc.vectordb.custom,
+     * which retrurn an Object, but we can't use it to filter result via `ProcedureCallContext procedureCallContext` 
+     * and mapping data to auto-create neo4j vector indexes and properties
+     */
     @Procedure(value = "apoc.vectordb.custom.get", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.custom.get() - todo")
     public Stream<EmbeddingResult> get(@Name("hostOrKey") String hostOrKey,
                                        @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
 
+        getEndpoint(configuration, hostOrKey);
         VectorEmbeddingConfig restAPIConfig = new VectorEmbeddingConfig(configuration, Map.of(), Map.of());
         return getEmbeddingResultStream(restAPIConfig, procedureCallContext, urlAccessChecker, db, tx);
     }
@@ -93,7 +110,7 @@ public class VectorDb {
                     Map<String, Object> metadata = hasMetadata ? (Map<String, Object>) m.get(conf.getMetadataKey()) : null;
                     // in case of get operation, e.g. http://localhost:52798/collections/{coll_name}/points with Qdrant db,
                     // score is not present
-                    Double score = (Double) m.getOrDefault(conf.getScoreKey(), null);
+                    Double score = Util.toDouble(m.get(conf.getScoreKey()));
 
                     handleMapping(tx, db, mapping, metadata, embedding);
                     return new EmbeddingResult(id, score, embedding, metadata);
@@ -107,16 +124,17 @@ public class VectorDb {
         if (MapUtils.isEmpty(metadata)) {
             throw new RuntimeException("To use mapping config, the metadata should not be empty. Make sure you execute `YIELD metadata` on the procedure");
         }
+        Map<String, Object> metaProps = new HashMap<>(metadata);
         if (mapping.getLabel() != null) {
-            handleMappingNode(tx, db, mapping, metadata, embedding);
+            handleMappingNode(tx, db, mapping, metaProps, embedding);
         } else if (mapping.getType() != null) {
-            handleMappingRel(tx, db, mapping, metadata, embedding);
+            handleMappingRel(tx, db, mapping, metaProps, embedding);
         } else {
             throw new RuntimeException("Mapping conf has to contain either label or type key");
         }
     }
 
-    private static void handleMappingNode(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, Map<String, Object> metadata, List<Double> embedding) {//, Object id, String prop, String label, String embeddingProp) {
+    private static void handleMappingNode(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, Map<String, Object> metaProps, List<Double> embedding) {
         String query = "CREATE CONSTRAINT IF NOT EXISTS FOR (n:%s) REQUIRE n.%s IS UNIQUE"
                 .formatted(mapping.getLabel(), mapping.getProp());
         db.executeTransactionally(query);
@@ -124,31 +142,27 @@ public class VectorDb {
         try {
             Node node;
             try (Transaction transaction = db.beginTx()) {
-                Object propValue = metadata.remove(mapping.getId());
+                Object propValue = metaProps.remove(mapping.getId());
                 node = transaction.findNode(Label.label(mapping.getLabel()), mapping.getProp(), propValue);
                 if (node == null && mapping.isCreate()) {
                     node = transaction.createNode(Label.label(mapping.getLabel()));
                 }
                 if (node != null) {
-                    setProperties(node, metadata);
+                    setProperties(node, metaProps);
                 }
                 transaction.commit();
             }
 
-            if (checkEmbeddingProp(mapping, embedding, node)) return;
-
-            String vectorIndex = "CREATE VECTOR INDEX IF NOT EXISTS FOR (n:%s) ON (n.%s) OPTIONS {indexConfig: {`vector.dimensions`: %s, `vector.similarity_function`: '%s'}}"
-                    .formatted(mapping.getLabel(), mapping.getEmbeddingProp(), embedding.size(), mapping.getSimilarity());
-            db.executeTransactionally(vectorIndex);
-            db.executeTransactionally("CALL db.create.setNodeVectorProperty($node, $key, $vector)",
-                    Map.of("node", Util.rebind(tx, node), "key", mapping.getEmbeddingProp(), "vector", embedding));
+            String s = "CREATE VECTOR INDEX IF NOT EXISTS FOR (n:%s) ON (n.%s) OPTIONS {indexConfig: {`vector.dimensions`: %s, `vector.similarity_function`: '%s'}}";
+            String query1 = "CALL db.create.setNodeVectorProperty($entity, $key, $vector)";
+            setVectorProp(tx, db, mapping, embedding, node, s, query1);
 
         } catch (MultipleFoundException e) {
             throw new RuntimeException("Multiple nodes found");
         }
     }
 
-    private static void handleMappingRel(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, Map<String, Object> metadata, List<Double> embedding) {//, Object id, String prop, String type, String embeddingProp) {
+    private static void handleMappingRel(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, Map<String, Object> metaProps, List<Double> embedding) {
         try {
             String query = "CREATE CONSTRAINT IF NOT EXISTS FOR ()-[r:%s]-() REQUIRE (r.%s) IS UNIQUE"
                     .formatted(mapping.getType(), mapping.getProp());
@@ -157,97 +171,57 @@ public class VectorDb {
             // in this case we cannot auto-create the rel, since we should have to define start and end node as well
             Relationship rel;
             try (Transaction transaction = db.beginTx()) {
-                Object propValue = metadata.remove(mapping.getId());
+                Object propValue = metaProps.remove(mapping.getId());
                 rel = transaction.findRelationship(RelationshipType.withName(mapping.getType()), mapping.getProp(), propValue);
                 if (rel != null) {
-                    setProperties(rel, metadata);
+                    setProperties(rel, metaProps);
                 }
                 transaction.commit();
             }
-            
-            if (checkEmbeddingProp(mapping, embedding, rel)) return;
-            
-            String vectorIndex ="CREATE VECTOR INDEX IF NOT EXISTS FOR ()-[r:%s]-() ON (r.%s) OPTIONS {indexConfig: {`vector.dimensions`: %s, `vector.similarity_function`: '%s'}}"
-                    .formatted(mapping.getType(), mapping.getEmbeddingProp(), embedding.size(), mapping.getSimilarity());
-            db.executeTransactionally(vectorIndex);
 
-            db.executeTransactionally("CALL db.create.setRelationshipVectorProperty($rel, $key, $vector)",
-                    Map.of("rel", Util.rebind(tx, rel), "key", mapping.getEmbeddingProp(), "vector", embedding));
+            String s ="CREATE VECTOR INDEX IF NOT EXISTS FOR ()-[r:%s]-() ON (r.%s) OPTIONS {indexConfig: {`vector.dimensions`: %s, `vector.similarity_function`: '%s'}}";
+            String query1 = "CALL db.create.setRelationshipVectorProperty($entity, $key, $vector)";
+            setVectorProp(tx, db, mapping, embedding, rel, s, query1);
 
         } catch (MultipleFoundException e) {
             throw new RuntimeException("Multiple relationships found");
         }
     }
 
-    private static boolean checkEmbeddingProp(VectorMappingConfig mapping, List<Double> embedding, Entity entity) {
+    private static <T extends Entity> void setVectorProp(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, List<Double> embedding, T entity, String s, String query1) {
         if (entity == null || mapping.getEmbeddingProp() == null) {
-            return true;
+            return;
         }
 
         if (embedding == null) {
             throw new RuntimeException("The embedding value is null. Make sure you execute `YIELD embedding` on the procedure");
         }
-        return false;
+
+        String labelOrType = entity instanceof Node
+                ? mapping.getLabel()
+                : mapping.getType();
+        String vectorIndex = s
+                .formatted(labelOrType, mapping.getEmbeddingProp(), embedding.size(), mapping.getSimilarity());
+        db.executeTransactionally(vectorIndex);
+        db.executeTransactionally(query1,
+                Map.of("entity", Util.rebind(tx, entity), "key", mapping.getEmbeddingProp(), "vector", embedding));
     }
-
-
-    // todo - write on pr: quite similar to apoc.load.jsonParams, but leverage the RestAPIConfig
-    //  --> todo: maybe we can change it with a more generic naming, e.g. `apoc.restapi.custom(<conf>)`
+    
+    // TODO - evaluate. It could be renamed e.g. to `apoc.util.restapi.custom` or `apoc.restapi.custom`,
+    //      since it can potentially be used as a generic method to call any RestAPI 
     @Procedure("apoc.vectordb.custom")
     @Description("apoc.vectordb.custom() - todo")
-    public Stream<ObjectResult> custom(@Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-        // todo
+    public Stream<ObjectResult> custom(@Name("hostOrKey") String hostOrKey, @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+
+        getEndpoint(configuration, hostOrKey);
         RestAPIConfig restAPIConfig = new RestAPIConfig(configuration);
         return executeRequest(restAPIConfig, urlAccessChecker)
-//                .map(i -> (Map<String, Object>) i)
                 .map(ObjectResult::new);
     }
 
-    private static Stream<Object> executeRequest(RestAPIConfig apiConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
+    public static Stream<Object> executeRequest(RestAPIConfig apiConfig, URLAccessChecker urlAccessChecker) throws Exception {
         Map<String, Object> headers = apiConfig.getHeaders();
         String body = OBJECT_MAPPER.writeValueAsString(apiConfig.getBody());
         return JsonUtil.loadJson(apiConfig.getEndpoint(), headers, body, apiConfig.getJsonPath(), true, List.of(), urlAccessChecker);
     }
-    
-    /*
-    API QDRANT:
-    - farle simili a pinecone
-     */
-    
-    /*
-    API CHROMA:
-    - add
-    - update
-    - get
-    - query
-    - delete
-     */
-    
-    /*
-    API PINECONE:
-    -query
-    -fetch
-    -upsert
-    -delete
-    -get index
-    -custom
-     */
-    
-    /* - TODO :procedure da fare      
-        - query
-        - filter
-        -     
-    */
-
-
-
-    // todo - try it
-//    @Context
-//    public ProcedureCallContext procedureCallContext;
-    
-
-    
-    // metadata --> contrassegno id e faccio sottobanco match node ... <-- configurabile però
-    
-    // altra cosa configurabile --> auto creazione di vector index
 }

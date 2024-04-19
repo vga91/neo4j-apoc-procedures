@@ -19,13 +19,17 @@ import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.TemporalAccessor;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
@@ -275,6 +279,38 @@ public class ExtendedUtil
         for (var entry: props.entrySet()) {
             entity.setProperty(entry.getKey(), entry.getValue());
         }
+    }
+
+    public static Map<Object, List> listOfMapToMapOfLists(Map mapKeys, List<Map<String, Object>> vectors) {
+        Map<Object, List> additionalBodies = new HashMap();
+        for (var vector: vectors) {
+            mapKeys.forEach((from, to) -> {
+                mapEntryToList(additionalBodies, vector, from, to);
+            });
+        }
+        return additionalBodies;
+    }
+
+    private static void mapEntryToList(Map<Object, List> map, Map<String, Object> vector, Object keyFrom, Object keyTo) {
+        Object item = vector.get(keyFrom);
+        if (item == null) {
+            return;
+        }
+//        Object itemManipulated = itemManipulator.apply(keyFrom);
+//        Function<Object, Object> function = (i) -> "";
+        map.compute(keyTo, (k, v) -> {
+//            if ("id".equals(keyFrom)) {
+//                item.toString();
+//            }
+            if (v == null) {
+                List<Object> list = new ArrayList<>();
+                list.add(item);
+                return list;
+            }
+            List list = (List) v;
+            list.add(item);
+            return list;
+        });
     }
             
 }
