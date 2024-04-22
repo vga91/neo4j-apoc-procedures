@@ -74,11 +74,11 @@ public class PineconeTest {
                         assertNotNull(i.get("score"));
                         assertNotNull(i.get("metadata"));
                         assertNotNull(i.get("id"));
-                        assertNotNull(i.get("embedding"));
+                        assertNotNull(i.get("vector"));
                     });
                 });
     }
-    
+
     @Test
     public void callQueryEndpointViaCustomProc() {
         testCall(db, "CALL apoc.vectordb.custom($host, $conf)",

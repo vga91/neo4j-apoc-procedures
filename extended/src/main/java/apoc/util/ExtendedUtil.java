@@ -281,6 +281,12 @@ public class ExtendedUtil
         }
     }
 
+    /**
+     * Transform a list like: [ {key1: valueFoo1, key2: valueFoo2}, {key1: valueBar1, key2: valueBar2} ]
+     * to a map like: { keyNew1: [valueFoo1, valueBar1], keyNew2: [valueFoo2, valueBar2] },
+     * 
+     * where mapKeys is e.g. {key1: keyNew1, key2: keyNew2}
+     */
     public static Map<Object, List> listOfMapToMapOfLists(Map mapKeys, List<Map<String, Object>> vectors) {
         Map<Object, List> additionalBodies = new HashMap();
         for (var vector: vectors) {
@@ -296,12 +302,8 @@ public class ExtendedUtil
         if (item == null) {
             return;
         }
-//        Object itemManipulated = itemManipulator.apply(keyFrom);
-//        Function<Object, Object> function = (i) -> "";
+        
         map.compute(keyTo, (k, v) -> {
-//            if ("id".equals(keyFrom)) {
-//                item.toString();
-//            }
             if (v == null) {
                 List<Object> list = new ArrayList<>();
                 list.add(item);

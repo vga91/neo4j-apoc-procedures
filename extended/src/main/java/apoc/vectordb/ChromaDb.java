@@ -3,7 +3,6 @@ package apoc.vectordb;
 import apoc.ml.RestAPIConfig;
 import apoc.result.ListResult;
 import apoc.result.MapResult;
-import apoc.result.ObjectResult;
 import apoc.util.UrlResolver;
 import org.apache.commons.collections4.CollectionUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
@@ -98,25 +97,24 @@ public class ChromaDb {
         String qdrantUrl = getChromaUrl(hostOrKey);
         String endpoint = "%s/api/v1/collections/%s/upsert".formatted(qdrantUrl, collection);
         getEndpoint(config, endpoint);
-
-        // [{id: 1}, {id: 2}] --> {ids: []}
         
         Map<String, String> mapKeys = Map.of("id", "ids",
-                "embedding", "embeddings",
-                "metadata", "metadatas");
+                "vector", "embeddings",
+                "metadata", "metadatas",
+                "text", "documents");
 
+        // transform to format digestible by RestAPI,
+        // that is from [{id: <id1>, vector: <vector1>,,,}, {id: <id2>, vector: <vector2>,,,}] 
+        // to {ids: [<id1>, <id2>], vectors: [<vector1>, <vector2>]}
         Map<Object, List> additionalBodies = listOfMapToMapOfLists(mapKeys, vectors);
-        additionalBodies.compute("ids", 
-                (k,v) -> getStringIds(v)
-        );
+        additionalBodies.compute( "ids", (k,v) -> getStringIds(v) );
 
         RestAPIConfig restAPIConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
         return executeRequest(restAPIConfig, urlAccessChecker)
                 .map(v -> (Map<String,Object>)v)
                 .map(MapResult::new);
     }
-
-    // todo - if I delete, i should remove node in neo4j
+    
     @Procedure(value = "apoc.vectordb.chroma.delete", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.chroma.delete()")
     public Stream<ListResult> delete(@Name("hostOrKey") String hostOrKey,
@@ -220,7 +218,7 @@ public class ChromaDb {
                 map.put(DEFAULT_TEXT, documents.get(i));
             }
             if (CollectionUtils.isNotEmpty(embeddings)) {
-                map.put(DEFAULT_EMBEDDING, embeddings.get(i));
+                map.put(DEFAULT_VECTOR, embeddings.get(i));
             }
             result.add(map);
         }
