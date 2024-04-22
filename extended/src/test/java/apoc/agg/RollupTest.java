@@ -11,7 +11,6 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static apoc.agg.RollupTestUtil.*;
 import static apoc.util.ExtendedTestUtil.assertMapEquals;
@@ -24,20 +23,17 @@ public class RollupTest {
     public static DbmsRule db = new ImpermanentDbmsRule();
 
 
-
-
     @BeforeClass
     public static void setUp() {
         TestUtil.registerProcedure(db, Maps.class, Rollup.class);
 
-        /*
-        TODO --> EXAMPLES: https://www.ibm.com/docs/en/ias?topic=clause-examples-grouping-sets-cube-rollup#r0059215__exc1
-         
+        /*         
         
         Similar to CREATE TABLE Products(SupplierID NUMBER(5,2), CategoryID NUMBER(5,2), Price NUMBER(5,2), otherNum FLOAT(5), anotherID NUMBER(5,2));
 
         INSERT INTO Products VALUES(1, 1, 1, 18, 0.3);
         INSERT INTO Products VALUES(1, 1, 0, 19, 0.5);
+        ...
          */
         db.executeTransactionally("""
                 CREATE (:Product {SupplierID: 1, CategoryID: 1, anotherID: 1, Price: 18, otherNum: 0.3}),
@@ -54,8 +50,8 @@ public class RollupTest {
                        (:Product {SupplierID: 8, CategoryID: 3, anotherID: 1, Price: 81, otherNum: 0.5}),
                        (:Product {SupplierID: 9, CategoryID: 5, anotherID: 0, Price: 9, otherNum: 0.9}),
                        (:Product {SupplierID: 10, CategoryID: 1, anotherID: 1, Price: 5, otherNum: 0.2}),
-                       (:Product {SupplierID: 11, CategoryID: 3, anotherID: 1, Price: 14, otherNum: 0.1}),
-                       (:Product {SupplierID: 11, CategoryID: 3, anotherID: 0, Price: 31, otherNum: 2}),
+                       (:Product {SupplierID: 11, CategoryID: 3, anotherID: 1, Price: 14.0, otherNum: 0.1}),
+                       (:Product {SupplierID: 11, CategoryID: 3, anotherID: 0, Price: 31.0, otherNum: 2}),
                        (:Product {SupplierID: 11, CategoryID: 4, anotherID: 0, Price: 44, otherNum: 0.7}),
                        (:Product {SupplierID: 1, CategoryID: NULL, anotherID: 1, Price: 18, otherNum: 0.7}),
                        (:Product {SupplierID: NULL, CategoryID: NULL, anotherID: 0, Price: 18, otherNum: 0.6}),
@@ -67,11 +63,12 @@ public class RollupTest {
         db.shutdown();
     }
 
-    // similar to https://docs.oracle.com/cd/F49540_01/DOC/server.815/a68003/rollup_c.htm and MySql `WITH ROLLUP` command
+    // similar to https://docs.oracle.com/cd/F49540_01/DOC/server.815/a68003/rollup_c.htm#32084 
+    // and MySql `WITH ROLLUP` command
     @Test
-    public void testRollup() {
+    public void testRollupRespectivelySupplierIDCategoryIDAndAnotherID() {
 
-            List<Map> expected = getRollupTripleGroup();
+        List<Map> expected = getRollupTripleGroup();
         testCall(db, """
                 MATCH (p:Product)
                 RETURN apoc.agg.rollup(p, $groupKeys, ["Price", "otherNum"]) as data
@@ -79,23 +76,13 @@ public class RollupTest {
         map("groupKeys", List.of(SUPPLIER_ID, CATEGORY_ID, ANOTHER_ID)),
         r -> {
             assertRollupCommon(expected, r);
-//            List<Map> data = (List<Map>) r.get("data");
-//            assertEquals(expected.size(), data.size());
-//            for (int i = 0; i < expected.size(); i++) {
-//                assertMapEquals("Maps at index %s are not equal. Actual: %s, Expected: %s".formatted(i, expected.get(i), data.get(i)),
-//                        expected.get(i),
-//                        data.get(i)
-//                );
-//            }
         });
     }
 
     @Test
-    public void testRollup2() {
-        
-        // todo -- apoc.coll.sortMulti!!
+    public void testRollupRespectivelyCategoryIDSupplierIDAndAnotherID() {
 
-                    List<Map> expected = getRollupTripleGroupTwo();
+        List<Map> expected = getRollupTripleGroupTwo();
         testCall(db, """
                 MATCH (p:Product)
                 RETURN apoc.agg.rollup(p, $groupKeys, ["Price", "otherNum"]) as data
@@ -107,34 +94,35 @@ public class RollupTest {
     }
 
     @Test
-    public void testCube() {
+    public void testRollupWithSingleAggregationKey() {
 
-                    List<Map> expected = getCubeTripleGroupTwo();
+        List<Map> expected = getRollupTripleGroupTwo()
+                .stream()
+                .peek(i -> {
+                    i.remove(sumOtherNum);
+                    i.remove(countOtherNum);
+                    i.remove(avgOtherNum);
+                })
+                .toList();
         testCall(db, """
                 MATCH (p:Product)
-                RETURN apoc.agg.rollup(p, $groupKeys, ["Price", "otherNum"], {cube: true}) as data
-                
+                RETURN apoc.agg.rollup(p, $groupKeys, ["Price"]) as data
                 """,
                 map("groupKeys", List.of(CATEGORY_ID, SUPPLIER_ID, ANOTHER_ID)),
                 r -> {
                     assertRollupCommon(expected, r);
                 });
     }
-
+    
+    // similar to https://docs.oracle.com/cd/F49540_01/DOC/server.815/a68003/rollup_c.htm#32311
     @Test
-    public void testRollup22() {
+    public void testCubeRespectivelySupplierIDCategoryIDAndAnotherID() {
 
-        List<Map> expected = getRollupTripleGroupTwo()
-                .stream()
-                .peek(i -> {
-                    i.remove(sumFloat);
-                    i.remove(countFloat);
-                    i.remove(avgFloat);
-                })
-                .toList();
+        List<Map> expected = getCubeTripleGroupTwo();
         testCall(db, """
                 MATCH (p:Product)
-                RETURN apoc.agg.rollup(p, $groupKeys, ["Price"]) as data
+                RETURN apoc.agg.rollup(p, $groupKeys, ["Price", "otherNum"], {cube: true}) as data
+                
                 """,
                 map("groupKeys", List.of(CATEGORY_ID, SUPPLIER_ID, ANOTHER_ID)),
                 r -> {
@@ -148,15 +136,15 @@ public class RollupTest {
         List<Map> expected = getCubeTripleGroupTwo()
                 .stream()
                 .peek(i -> {
-                    i.remove(sumFloat);
-                    i.remove(countFloat);
-                    i.remove(avgFloat);
+                    i.remove(sumOtherNum);
+                    i.remove(countOtherNum);
+                    i.remove(avgOtherNum);
                 })
                 .toList();
         testCall(db, """
                 MATCH (p:Product)
                 RETURN apoc.agg.rollup(p, $groupKeys, ["Price"], {cube: true}) as data
-                
+
                 """,
                 map("groupKeys", List.of(CATEGORY_ID, SUPPLIER_ID, ANOTHER_ID)),
                 r -> {
@@ -167,10 +155,8 @@ public class RollupTest {
     private void assertRollupCommon(List<Map> expected, Map<String, Object> r) {
         List<Map> data = (List<Map>) r.get("data");
 
-        System.out.println("data = \n\n" + data.stream().map(Object::toString).collect(Collectors.joining("\n")));
-
         for (int i = 0; i < expected.size(); i++) {
-            assertMapEquals("Maps at index %s are not equal. Actual: %s, Expected: %s".formatted(i, expected.get(i), data.get(i)),
+            assertMapEquals("Maps at index %s are not equal. \n Expected: %s, \n Actual: %s\n".formatted(i, expected.get(i), data.get(i)),
                     expected.get(i),
                     data.get(i)
             );
