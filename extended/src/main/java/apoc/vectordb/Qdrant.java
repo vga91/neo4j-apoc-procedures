@@ -41,7 +41,7 @@ public class Qdrant {
     public URLAccessChecker urlAccessChecker;
 
     @Procedure("apoc.vectordb.qdrant.createCollection")
-    @Description("apoc.vectordb.qdrant.createCollection")
+    @Description("apoc.vectordb.qdrant.createCollection(hostOrKey, collection, similarity, size, $config)")
     public Stream<MapResult> createCollection(@Name("hostOrKey") String hostOrKey,
                                     @Name("collection") String collection,
                                     @Name("similarity") String similarity,
@@ -65,7 +65,7 @@ public class Qdrant {
     }
     
     @Procedure("apoc.vectordb.qdrant.deleteCollection")
-    @Description("apoc.vectordb.qdrant.deleteCollection")
+    @Description("apoc.vectordb.qdrant.deleteCollection(hostOrKey, collection, $config)")
     public Stream<MapResult> deleteCollection(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
@@ -85,7 +85,7 @@ public class Qdrant {
     }
     
     @Procedure("apoc.vectordb.qdrant.upsert")
-    @Description("apoc.vectordb.qdrant.upsert")
+    @Description("apoc.vectordb.qdrant.upsert(hostOrKey, collection, vectors, $config)")
     public Stream<MapResult> upsert(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
@@ -102,7 +102,7 @@ public class Qdrant {
         List<Map<String, Object>> point = vectors.stream()
                 .map(i -> {
                     Map<String, Object> map = new HashMap<>(i);
-                    map.putIfAbsent("vector", map.remove("embedding"));
+                    map.putIfAbsent("vector", map.remove("vector"));
                     map.putIfAbsent("payload", map.remove("metadata"));
                     return map;
                 })
@@ -115,7 +115,7 @@ public class Qdrant {
     }
     
     @Procedure("apoc.vectordb.qdrant.delete")
-    @Description("apoc.vectordb.qdrant.delete")
+    @Description("apoc.vectordb.qdrant.delete(hostOrKey, collection, ids, $config)")
     public Stream<MapResult> delete(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
@@ -137,7 +137,7 @@ public class Qdrant {
     }
 
     @Procedure(value = "apoc.vectordb.qdrant.get", mode = Mode.SCHEMA)
-    @Description("apoc.vectordb.qdrant.get()")
+    @Description("apoc.vectordb.qdrant.get(hostOrKey, collection, ids, $config)")
     public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name("ids") List<Object> ids,
@@ -153,14 +153,13 @@ public class Qdrant {
     }
 
     @Procedure(value = "apoc.vectordb.qdrant.query", mode = Mode.SCHEMA)
-    @Description("apoc.vectordb.qdrant.query()")
+    @Description("apoc.vectordb.qdrant.query(hostOrKey, collection, vector, filter, limit, $config)")
     public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name(value = "vector", defaultValue = "[]") List<Double> vector,
                                                       @Name(value = "filter", defaultValue = "{}") Map<String, Object> filter,
                                                       @Name(value = "limit", defaultValue = "10") long limit,
                                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-        
         
         var config = new HashMap<>(configuration);
         
@@ -171,7 +170,6 @@ public class Qdrant {
         VectorEmbeddingConfig apiConfig = QDRANT.get().fromQuery(config, procedureCallContext, vector, filter, limit);
         return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, db, tx);
     }
-
 
     protected String getQdrantUrl(String hostOrKey) {
         return new UrlResolver("http", "localhost", 6333).getUrl("qdrant", hostOrKey);

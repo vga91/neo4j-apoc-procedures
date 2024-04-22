@@ -43,13 +43,10 @@ public class RestAPIConfig {
         this.body = bodyConf;
     }
     
-    /**
-     * we can configure the endpoint v
-     */
     private String getEndpoint(Map<String, Object> config) {
         String endpointConfig = (String) config.get(ENDPOINT_KEY);
         if (endpointConfig == null) {
-            throw new RuntimeException("todo - error, endpoint must be specified");
+            throw new RuntimeException("Endpoint must be specified");
         }
         return endpointConfig;
     }

@@ -71,7 +71,7 @@ public interface VectorEmbedding {
         // therefore is the RestAPI itself that doesn't return the data if `YIELD ` has not metadata/embedding  
         private static VectorEmbeddingConfig getVectorEmbeddingConfig(Map<String, Object> config, List<String> fields, Map<String, Object> additionalBodies) {
             additionalBodies.put("with_payload", fields.contains("metadata"));
-            additionalBodies.put("with_vectors", fields.contains("embedding"));
+            additionalBodies.put("with_vectors", fields.contains("vector"));
 
             config.putIfAbsent(EMBEDDING_KEY, "vector");
             config.putIfAbsent(METADATA_KEY, "payload");
@@ -111,6 +111,8 @@ public interface VectorEmbedding {
             return getVectorEmbeddingConfig(config, fields, additionalBodies);
         }
 
+        // "include": [metadatas, embeddings, ...] return the metadata/embeddings/... if included in the list
+        // therefore is the RestAPI itself that doesn't return the data if `YIELD ` has not metadata/embedding  
         private static VectorEmbeddingConfig getVectorEmbeddingConfig(Map<String, Object> config,
                                                                       List<String> fields,
                                                                       Map<String, Object> additionalBodies) {
@@ -121,7 +123,7 @@ public interface VectorEmbedding {
             if (fields.contains("text")) {
                 include.add("documents");
             }
-            if (fields.contains("embedding")) {
+            if (fields.contains("vector")) {
                 include.add("embeddings");
             }
             if (fields.contains("score")) {

@@ -16,5 +16,8 @@ public class VectorDbUtil {
         config.putIfAbsent(ENDPOINT_KEY, endpoint);
     }
 
-    public record EmbeddingResult(Object id, Double score, List<Double> embedding, Map<String, Object> metadata) {}
+    /**
+     * Result of `apoc.vectordb.*.get` and `apoc.vectordb.*.query` procedures
+     */
+    public record EmbeddingResult(Object id, Double score, List<Double> vector, Map<String, Object> metadata, String text) {}
 }
