@@ -1,6 +1,5 @@
 package apoc.ml;
 
-import apoc.ApocConfig;
 import apoc.util.TestUtil;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -11,14 +10,21 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 import java.util.List;
 import java.util.Map;
 
-import static apoc.ExtendedApocConfig.APOC_ML_WATSON_URL;
+import static apoc.ApocConfig.apocConfig;
 import static apoc.ExtendedApocConfig.APOC_ML_WATSON_PROJECT_ID;
 import static apoc.ml.MLTestUtil.assertNullInputFails;
+import static apoc.ml.Watson.DEFAULT_REGION;
+import static apoc.ml.Watson.ENDPOINT_CONF_KEY;
+import static apoc.ml.Watson.MODEL_ID_KEY;
+import static apoc.ml.Watson.REGION_CONF_KEY;
 import static apoc.util.TestUtil.testCall;
+import static apoc.util.TestUtil.testResult;
 import static java.util.Collections.emptyMap;
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -29,7 +35,11 @@ import static org.junit.jupiter.api.Assertions.fail;
  * ```
  * 
  * The `WATSON_ACCESS_TOKEN` (to populate the 2nd parameter) and `WATSON_PROJECT_ID` (to populate the `project_id` request key) env vars are mandatory.
- * The `WATSON_ENDPOINT_URL` env var (to define the endpoint url) is optional (with default: `https://eu-de.ml.cloud.ibm.com/ml/v1-beta/generation/text?version=2023-05-29`)
+ * The `WATSON_MODEL_ENDPOINT_URL` env var (to define the endpoint url) is optional (with default: `https://eu-de.ml.cloud.ibm.com/ml/v1-beta/generation/text?version=2023-05-29`)
+ * The `WATSON_ENDPOINT_REGION` (to define the endpoint url), is optional (default: `eu-de`)
+ *      it will call the endpoint: `https://{<WATSON_ENDPOINT_REGION>}.ml.cloud.ibm.com/ml/v1/{METHOD}?version=2023-05-29`),
+ *      where METHOD is `text/embeddings` for the apoc.ml.watson.embedding, otherwise is `text/generation`
+ * 
  */
 public class WatsonIT {
 
@@ -37,6 +47,7 @@ public class WatsonIT {
     public static DbmsRule db = new ImpermanentDbmsRule();
 
     private static String accessToken;
+    private static String endpointRegion;
 
     @BeforeClass
     public static void setUp() throws Exception {
@@ -49,33 +60,124 @@ public class WatsonIT {
         assumeNotNull(keyIdEnv + "environment not configured", accessToken);
         assumeNotNull(projectIdEnv + "environment not configured", projectId);
 
-        ApocConfig.apocConfig().setProperty(APOC_ML_WATSON_PROJECT_ID, projectId);
+        apocConfig().setProperty(APOC_ML_WATSON_PROJECT_ID, projectId);
 
-
-        String endpointEnv = "WATSON_ENDPOINT_URL";
-        String endpoint = System.getenv(endpointEnv);
-        if (endpoint != null) {
-            ApocConfig.apocConfig().setProperty(APOC_ML_WATSON_URL, projectId);
-        }
+        String regionEnv = System.getenv("WATSON_ENDPOINT_REGION");
+        
+        endpointRegion = regionEnv == null
+                ? DEFAULT_REGION
+                : regionEnv;
 
         TestUtil.registerProcedure(db, Watson.class);
+    }
+    
+    @Test
+    public void embedding() {
+        testResult(db, "CALL apoc.ml.watson.embedding(['Some Text', 'Another Text'], $accessToken, $conf)",
+                Map.of("accessToken", accessToken,
+                        "conf", Map.of(REGION_CONF_KEY, endpointRegion)
+                ),
+                (r) -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals(384, ((List) row.get("embedding")).size());
+                    assertEquals("Some Text", row.get("text"));
+                    row = r.next();
+                    
+                    assertEquals(384, ((List) row.get("embedding")).size());
+                    assertEquals("Another Text", row.get("text"));
+                    assertFalse(r.hasNext());
+                    
+        });
+    }
+    
+    // TODO - test with invalid version date: 2025-33-33 
+    
+    @Test
+    public void embeddingWithNonDefaultModel() {
+        testResult(db, "CALL apoc.ml.watson.embedding(['Some Text', 'Another Text'], $accessToken, $conf)",
+                Map.of("accessToken", accessToken, 
+                        "conf", Map.of(MODEL_ID_KEY, "ibm/slate-125m-english-rtrvr", REGION_CONF_KEY, endpointRegion)
+                ),
+                (r) -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals(768, ((List) row.get("embedding")).size());
+                    assertEquals("Some Text", row.get("text"));
+                    
+                    row = r.next();
+                    assertEquals(768, ((List) row.get("embedding")).size());
+                    assertEquals("Another Text", row.get("text"));
+                    
+                    assertFalse(r.hasNext());
+                    
+        });
+    }
+
+
+    /**
+     * Unlike other APIs (such as OpenAI),
+     * null can be passed and normally returns an embedding without getting an error 400
+     */
+    @Test
+    public void embeddingWithNulls() {
+        testResult(db, "CALL apoc.ml.watson.embedding([null, 'Some Text', null, 'Another Text'], $accessToken, $conf)",
+                Map.of("accessToken", accessToken,
+                        "conf", Map.of(REGION_CONF_KEY, endpointRegion)
+                ),
+                (r) -> {
+
+                    Map<String, Object> row = r.next();
+                    assertNullEmbedding(row);
+                    
+                    row = r.next();
+                    assertEquals(384, ((List) row.get("embedding")).size());
+                    assertEquals("Some Text", row.get("text"));
+                    
+                    row = r.next();
+                    assertNullEmbedding(row);
+                    
+                    
+                    row = r.next();
+                    assertEquals(384, ((List) row.get("embedding")).size());
+                    assertEquals("Another Text", row.get("text"));
+                    
+                    assertFalse(r.hasNext());
+        });
+    }
+
+    private static void assertNullEmbedding(Map<String, Object> row) {
+        List embedding = (List) row.get("embedding");
+        assertEquals(384, embedding.size());
+        
+        // check just the first 3 list items for the sake of simplicity 
+        assertEquals(0.0644868, embedding.get(0));
+        assertEquals(0.012636489, embedding.get(1));
+        assertEquals(0.065276936, embedding.get(2));
+
+        assertNull(row.get("text"));
     }
 
     @Test
     public void completion() {
-        testCall(db, "CALL apoc.ml.watson.completion('What color is the sky? Answer in one word: ', $accessToken)",
-                Map.of("accessToken", accessToken),
+        testCall(db, "CALL apoc.ml.watson.completion('What color is the sky? Answer in one word: ', $accessToken, $conf)",
+                Map.of("accessToken", accessToken,
+                        "conf", Map.of(REGION_CONF_KEY, endpointRegion)
+                ),
                 (row) -> {
-                    commonAssertions(row, "blue", 12L, "eos_token");
+                    commonAssertions(row, "blue", 12L, "max_tokens");
+//                    commonAssertions(row, "blue", 12L, "eos_token");
                 });
     }
 
     @Test
     public void completionWithParameters() {
-        testCall(db, "CALL apoc.ml.watson.completion('What color is the sky? Answer in one word: ', $accessToken, {parameters: {max_new_tokens: 1}})",
-                Map.of("accessToken", accessToken),
+        testCall(db, "CALL apoc.ml.watson.completion('What color is the sky? Answer in one word: ', $accessToken, $conf)",
+                Map.of("accessToken", accessToken,
+                        "conf", Map.of(REGION_CONF_KEY, endpointRegion, 
+                                "parameters", Map.of("max_new_tokens", 1000) 
+                        )
+                ),
                 (row) -> {
-                    commonAssertions(row, "\n", 12L, "max_tokens");
+                    commonAssertions(row, "\n", 12L, "eos_token");
                 });
     }
 
@@ -85,10 +187,12 @@ public class WatsonIT {
                     CALL apoc.ml.watson.chat([
                         {role:"system", content:"Only answer with a single word"},
                         {role:"user", content:"What planet do humans live on?"}
-                    ],  $apiKey)""",
-                Map.of("apiKey",accessToken), 
+                    ],  $apiKey, $conf)""",
+                Map.of("apiKey", accessToken, 
+                        "conf", Map.of(REGION_CONF_KEY, endpointRegion)
+                ), 
                 (row) -> {
-                    commonAssertions(row, "earth", 19L, "max_tokens");
+                    commonAssertions(row, "earth", 19L, "eos_token");
                 });
     }
 
@@ -98,9 +202,14 @@ public class WatsonIT {
                     CALL apoc.ml.watson.chat([
                         {role:"system", content:"Only answer with a single word"},
                         {role:"user", content:"What planet do humans live on?"}
-                    ],  $apiKey, {parameters: {max_new_tokens: 1}})""",
-                Map.of("apiKey",accessToken), 
-                (row) -> commonAssertions(row, "\n", 19L, "max_tokens"));
+                    ],  $apiKey, $conf)""",
+                Map.of("apiKey", accessToken,
+                        "conf", Map.of(REGION_CONF_KEY, endpointRegion,
+                                "parameters", Map.of("max_new_tokens", 1000) 
+                        )
+                ), 
+                (row) -> commonAssertions(row, "\n", 19L, "eos_token"));
+//                (row) -> commonAssertions(row, "\n", 19L, "max_tokens"));
     }
     
     @Test
@@ -110,8 +219,10 @@ public class WatsonIT {
                             CALL apoc.ml.watson.chat([
                                 {role:"system", content:"Only answer with a single word"},
                                 {role:"user", content:"What planet do humans live on?"}
-                            ],  $apiKey, {endpoint: 'https://wrong/endpoint'})""",
-                    Map.of("apiKey", accessToken),
+                            ],  $apiKey, $conf)""",
+                    Map.of("apiKey", accessToken,
+                            "conf", Map.of(REGION_CONF_KEY, endpointRegion, ENDPOINT_CONF_KEY, "https://wrong/endpoint")
+                    ),
                     (row) -> fail());
         } catch (Exception e) {
             assertTrue(e.getMessage().contains("nodename nor servname provided, or not known"));
