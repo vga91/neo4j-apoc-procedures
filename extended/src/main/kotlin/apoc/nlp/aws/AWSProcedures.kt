@@ -41,8 +41,9 @@ class AWSProcedures {
         verifySource(source)
         val nodeProperty = getNodeProperty(config)
         verifyNodeProperty(source, nodeProperty)
-        verifyKey(config, "key")
-        verifyKey(config, "secret")
+        // todo - if neither configs or env vars or etc are not present, throws an error 
+//        verifyKey(config, "key")
+//        verifyKey(config, "secret")
 
         val client: AWSClient = awsClient(config)
 
@@ -60,8 +61,8 @@ class AWSProcedures {
         verifySource(source)
         val nodeProperty = getNodeProperty(config)
         verifyNodeProperty(source, nodeProperty)
-        verifyKey(config, "key")
-        verifyKey(config, "secret")
+//        verifyKey(config, "key")
+//        verifyKey(config, "secret")
 
         val client = awsClient(config)
         val relationshipType = NLPHelperFunctions.entityRelationshipType(config)
@@ -85,8 +86,8 @@ class AWSProcedures {
         verifySource(source)
         val nodeProperty = getNodeProperty(config)
         verifyNodeProperty(source, nodeProperty)
-        verifyKey(config, "key")
-        verifyKey(config, "secret")
+//        verifyKey(config, "key")
+//        verifyKey(config, "secret")
 
         val client: AWSClient = awsClient(config)
 
@@ -106,8 +107,8 @@ class AWSProcedures {
         verifySource(source)
         val nodeProperty = getNodeProperty(config)
         verifyNodeProperty(source, nodeProperty)
-        verifyKey(config, "key")
-        verifyKey(config, "secret")
+//        verifyKey(config, "key")
+//        verifyKey(config, "secret")
 
         val client = awsClient(config)
         val relationshipType = keyPhraseRelationshipType(config)
@@ -131,8 +132,8 @@ class AWSProcedures {
         verifySource(source)
         val nodeProperty = getNodeProperty(config)
         verifyNodeProperty(source, nodeProperty)
-        verifyKey(config, "key")
-        verifyKey(config, "secret")
+//        verifyKey(config, "key")
+//        verifyKey(config, "secret")
 
         val client: AWSClient = awsClient(config)
 
@@ -152,8 +153,8 @@ class AWSProcedures {
         verifySource(source)
         val nodeProperty = getNodeProperty(config)
         verifyNodeProperty(source, nodeProperty)
-        verifyKey(config, "key")
-        verifyKey(config, "secret")
+//        verifyKey(config, "key")
+//        verifyKey(config, "secret")
 
         val client = awsClient(config)
         val storeGraph: Boolean = config.getOrDefault("write", false) as Boolean
