@@ -28,6 +28,25 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
+
+/*
+todo
+    usare questa prompt
+    query = f"""Use the below article on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found, write "I don't know."
+
+    example:
+    Which athletes won the gold medal in mixed double curling at the 2022 Winter Olympics?
+    ChatGPT
+    At the 2022 Winter Olympics, the gold medal in mixed doubles curling was won by the Swiss pair of Jenny Perret and Martin Rios.
+    
+    --> incorrect, won Stefania Costantini...
+        TODO --> METTERE SCREENSHOT `Screenshot 2024-04-29 at 15.50.11` DI CHATGPT E MOSTRARE CHE È SBAGLIATO..
+
+
+
+
+ */
+
 @Extended
 public class Prompt {
 
