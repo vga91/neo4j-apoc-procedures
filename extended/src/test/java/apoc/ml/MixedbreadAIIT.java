@@ -1,6 +1,5 @@
 package apoc.ml;
 
-import apoc.ml.mixedbread.MixedbreadAI;
 import apoc.util.TestUtil;
 import org.junit.Assume;
 import org.junit.BeforeClass;
@@ -13,7 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import static apoc.ml.mixedbread.MixedbreadHandler.*;
+import static apoc.ml.MixedbreadAI.*;
+import static apoc.ml.OpenAI.MODEL_CONF_KEY;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.map;
@@ -132,7 +132,7 @@ public class MixedbreadAIIT {
     @Test
     public void getEmbeddingWithOtherModel() {
         testResult(db, "CALL apoc.ml.mixedbread.embedding(['Some Text', 'Other Text'], $apiKey, $conf)",
-                map("apiKey", apiKey, "conf", map(MODEL_ID_KEY, "mxbai-embed-2d-large-v1")),
+                map("apiKey", apiKey, "conf", map(MODEL_CONF_KEY, "mxbai-embed-2d-large-v1")),
                 r -> {
                     Map<String, Object> row = r.next();
                     assertEmbedding(row, 0L, "Some Text", 1024);
@@ -149,7 +149,7 @@ public class MixedbreadAIIT {
         try {
             testCall(db, "CALL apoc.ml.mixedbread.embedding(['Some Text', 'Other Text'], $apiKey, $conf)",
                     map("apiKey", apiKey, 
-                            "conf", map(MODEL_ID_KEY, "wrong-id")
+                            "conf", map(MODEL_CONF_KEY, "wrong-id")
                     ),
                     r -> fail("Should fail due to wrong model id"));
         } catch (Exception e) {
@@ -173,8 +173,8 @@ public class MixedbreadAIIT {
                 "The Harry Potter series, which consists of seven fantasy novels written by British author J.K. Rowling, is among the most popular and critically acclaimed books of the modern era.",
                 "The Great Gatsby, a novel written by American author F. Scott Fitzgerald, was published in 1925. The story is set in the Jazz Age and follows the life of millionaire Jay Gatsby and his pursuit of Daisy Buchanan."
         );
-        Map<String, Object> conf = map(ENDPOINT_CONF_KEY, MIXEDBREAD_BASE_URL + "reranking",
-                MODEL_ID_KEY, "mixedbread-ai/mxbai-rerank-large-v1", 
+        Map<String, Object> conf = map(ENDPOINT_CONF_KEY, MIXEDBREAD_BASE_URL + "/reranking",
+                MODEL_CONF_KEY, "mixedbread-ai/mxbai-rerank-large-v1", 
                 "query", "Who is the author of To Kill a Mockingbird?",
                 "top_k", 3,
                 "input", input
@@ -214,13 +214,13 @@ public class MixedbreadAIIT {
         try {
             testCall(db, "CALL apoc.ml.mixedbread.custom($apiKey, $conf)",
                     map("apiKey", apiKey,
-                            "conf", map("foo", "bar")
+                            "conf", map(MODEL_CONF_KEY, "aModelId")
                     ),
                     r -> fail("Should fail due to missing endpoint"));
         } catch (Exception e) {
             String errMsg = e.getMessage();
             assertTrue("Actual error message is: " + errMsg, 
-                    errMsg.contains(CustomHandler.ERROR_MSG_MISSING_ENDPOINT)
+                    errMsg.contains(ERROR_MSG_MISSING_ENDPOINT)
             );
         }
     }
@@ -230,14 +230,14 @@ public class MixedbreadAIIT {
         try {
             testCall(db, "CALL apoc.ml.mixedbread.custom($apiKey, $conf)",
                     map("apiKey", apiKey,
-                            "conf", map(ENDPOINT_CONF_KEY, MIXEDBREAD_BASE_URL + "reranking",
+                            "conf", map(ENDPOINT_CONF_KEY, MIXEDBREAD_BASE_URL + "/reranking",
                                     "foo", "bar")
                     ),
                     r -> fail("Should fail due to missing model"));
         } catch (Exception e) {
             String errMsg = e.getMessage();
             assertTrue("Actual error message is: " + errMsg,
-                    errMsg.contains(CustomHandler.ERROR_MSG_MISSING_MODELID)
+                    errMsg.contains(ERROR_MSG_MISSING_MODELID)
             );
         }
     }

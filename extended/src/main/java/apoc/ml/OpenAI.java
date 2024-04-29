@@ -5,6 +5,7 @@ import apoc.Extended;
 import apoc.result.MapResult;
 import apoc.util.JsonUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.security.URLAccessChecker;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -43,6 +44,11 @@ public class OpenAI {
 
     public static final String APOC_ML_OPENAI_URL = "apoc.ml.openai.url";
 
+    /**
+     * embedding is an Object instead of List<Double>, as with a Mixedbread request having `"encoding_format": [<multipleFormat>]`,
+     * the result can be e.g. {... "embedding": { "float": [<floatEmbedding>], "base": <base64Embedding>,   } ...}
+     * instead of e.g. {... "embedding": [<floatEmbedding>] ...}
+     */
     public static class EmbeddingResult {
         public final long index;
         public final String text;
@@ -70,6 +76,9 @@ public class OpenAI {
         Stream.of(ENDPOINT_CONF_KEY, API_TYPE_CONF_KEY, API_VERSION_CONF_KEY, APIKEY_CONF_KEY).forEach(config::remove);
         
         switch (type) {
+            case MIXEDBREAD_CUSTOM -> {
+                // no payload manipulation, taken from the configuration as-is
+            }
             case HUGGINGFACE -> {
                 config.putIfAbsent("inputs", inputs);
                 jsonPath = "$[0]";
@@ -114,6 +123,10 @@ public class OpenAI {
       "model": "text-embedding-ada-002",
       "usage": { "prompt_tokens": 8, "total_tokens": 8 } }
     */
+        return getEmbeddingResult(texts, apiKey, configuration, apocConfig, urlAccessChecker);
+    }
+
+    static Stream<EmbeddingResult> getEmbeddingResult(List<String> texts, String apiKey, Map<String, Object> configuration, ApocConfig apocConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
         if (texts == null) {
             throw new RuntimeException(ERROR_NULL_INPUT);
         }
@@ -128,7 +141,7 @@ public class OpenAI {
                 .flatMap(v -> ((List<Map<String, Object>>) v).stream())
                 .map(m -> {
                     Long index = (Long) m.get("index");
-                    return new EmbeddingResult(index, nonNullTexts.get(index.intValue()), (List<Double>) m.get("embedding"));
+                    return new EmbeddingResult(index, nonNullTexts.get(index.intValue()), m.get("embedding"));
                 });
 
         List<String> nullTexts = collect.getOrDefault(false, List.of());
