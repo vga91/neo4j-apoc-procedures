@@ -42,6 +42,7 @@ public class ExtendedApocConfig extends LifecycleAdapter
     public static final String APOC_ML_VERTEXAI_URL = "apoc.ml.vertexai.url";
     public static final String APOC_ML_WATSON_PROJECT_ID = "apoc.ml.watson.project.id";
     public static final String APOC_ML_WATSON_URL = "apoc.ml.watson.url";
+    public static final String APOC_ML_MIXEDBREAD_URL = "apoc.ml.mixedbread.url";
     public static final String APOC_AWS_KEY_ID = "apoc.aws.key.id";
     public static final String APOC_AWS_SECRET_KEY = "apoc.aws.secret.key";
     public enum UuidFormatType { hex, base64 }
