@@ -41,6 +41,7 @@ abstract class OpenAIRequestHandler {
     enum Type {
         AZURE(new Azure(null)),
         HUGGINGFACE(new OpenAi(null)),
+        MIXEDBREAD(new OpenAi("TODO")),
         OPENAI(new OpenAi("https://api.openai.com/v1"));
 
         private final OpenAIRequestHandler handler;

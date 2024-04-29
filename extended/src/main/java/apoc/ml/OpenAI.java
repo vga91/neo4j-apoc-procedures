@@ -46,9 +46,9 @@ public class OpenAI {
     public static class EmbeddingResult {
         public final long index;
         public final String text;
-        public final List<Double> embedding;
+        public final Object embedding;
 
-        public EmbeddingResult(long index, String text, List<Double> embedding) {
+        public EmbeddingResult(long index, String text, Object embedding) {
             this.index = index;
             this.text = text;
             this.embedding = embedding;
