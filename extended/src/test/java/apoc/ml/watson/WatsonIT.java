@@ -1,4 +1,4 @@
-package apoc.ml;
+package apoc.ml.watson;
 
 import apoc.util.TestUtil;
 import org.junit.BeforeClass;
@@ -13,10 +13,8 @@ import java.util.Map;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.ExtendedApocConfig.APOC_ML_WATSON_PROJECT_ID;
 import static apoc.ml.MLTestUtil.assertNullInputFails;
-import static apoc.ml.Watson.DEFAULT_REGION;
-import static apoc.ml.Watson.ENDPOINT_CONF_KEY;
-import static apoc.ml.Watson.MODEL_ID_KEY;
-import static apoc.ml.Watson.REGION_CONF_KEY;
+import static apoc.ml.MLUtil.*;
+import static apoc.ml.watson.Watson.DEFAULT_REGION;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
 import static java.util.Collections.emptyMap;
@@ -90,21 +88,32 @@ public class WatsonIT {
         });
     }
     
-    // TODO - test with invalid version date: 2025-33-33 
+    @Test
+    public void embeddingWithWrongDate() {
+        try {
+            testCall(db, "CALL apoc.ml.watson.embedding(['Some Text', 'Another Text'], $accessToken, $conf)",
+                    Map.of("accessToken", accessToken,
+                            "conf", Map.of(REGION_CONF_KEY, endpointRegion, API_VERSION_CONF_KEY, "2025-33-33 ")
+                    ),
+                    (row) -> fail());
+        } catch (Exception e) {
+            assertTrue(e.getMessage().contains("Server returned HTTP response code: 400"));
+        }
+    }
     
     @Test
     public void embeddingWithNonDefaultModel() {
         testResult(db, "CALL apoc.ml.watson.embedding(['Some Text', 'Another Text'], $accessToken, $conf)",
                 Map.of("accessToken", accessToken, 
-                        "conf", Map.of(MODEL_ID_KEY, "ibm/slate-125m-english-rtrvr", REGION_CONF_KEY, endpointRegion)
+                        "conf", Map.of(MODEL_CONF_KEY, "ibm/slate-125m-english-rtrvr", REGION_CONF_KEY, endpointRegion)
                 ),
                 (r) -> {
                     Map<String, Object> row = r.next();
-                    assertEquals(768, ((List) row.get("embedding")).size());
+                    assertEquals(384, ((List) row.get("embedding")).size());
                     assertEquals("Some Text", row.get("text"));
                     
                     row = r.next();
-                    assertEquals(768, ((List) row.get("embedding")).size());
+                    assertEquals(384, ((List) row.get("embedding")).size());
                     assertEquals("Another Text", row.get("text"));
                     
                     assertFalse(r.hasNext());
@@ -164,7 +173,6 @@ public class WatsonIT {
                 ),
                 (row) -> {
                     commonAssertions(row, "blue", 12L, "max_tokens");
-//                    commonAssertions(row, "blue", 12L, "eos_token");
                 });
     }
 
@@ -209,7 +217,6 @@ public class WatsonIT {
                         )
                 ), 
                 (row) -> commonAssertions(row, "\n", 19L, "eos_token"));
-//                (row) -> commonAssertions(row, "\n", 19L, "max_tokens"));
     }
     
     @Test

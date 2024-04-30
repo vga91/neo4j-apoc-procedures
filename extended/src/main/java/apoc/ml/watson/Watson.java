@@ -1,4 +1,4 @@
-package apoc.ml;
+package apoc.ml.watson;
 
 import apoc.ApocConfig;
 import apoc.Extended;
@@ -11,34 +11,28 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static apoc.ApocConfig.apocConfig;
-import static apoc.ExtendedApocConfig.APOC_ML_WATSON_URL;
 import static apoc.ExtendedApocConfig.APOC_ML_WATSON_PROJECT_ID;
 import static apoc.ml.MLUtil.ERROR_NULL_INPUT;
 
 @Extended
 public class Watson {
-    private static final String PROJECT_ID_KEY = "project_id";
-    private static final String SPACE_ID_KEY = "space_id";
-    public static final String MODEL_ID_KEY = "model_id";
-    private static final String WML_INSTANCE_CRN_KEY = "wml_instance_crn";
-    private static final String DEFAULT_COMPLETION_MODEL_ID = "ibm/granite-13b-chat-v2";
-    private static final String DEFAULT_EMBEDDING_MODEL_ID = "ibm/slate-30m-english-rtrvr";
-    public static final String ENDPOINT_CONF_KEY = "endpoint";
-    public static final String VERSION_CONF_KEY = "version";
-    public static final String REGION_CONF_KEY = "region";
-    
+    static final String PROJECT_ID_KEY = "project_id";
+    static final String SPACE_ID_KEY = "space_id";
+    static final String MODEL_ID_KEY = "model_id";
+    static final String WML_INSTANCE_CRN_KEY = "wml_instance_crn";
+    static final String DEFAULT_COMPLETION_MODEL_ID = "ibm/granite-13b-chat-v2";
+    static final String DEFAULT_EMBEDDING_MODEL_ID = "ibm/slate-30m-english-rtrvr";
+
+
     // The version date currently used in IBM Prompt Lab endpoints (apr 2024) 2024-04-04
-    public static final String DEFAULT_VERSION_DATE = "2023-05-29";
-    public static final String DEFAULT_REGION = "eu-de";
+    static final String DEFAULT_VERSION_DATE = "2023-05-29";
+    static final String DEFAULT_REGION = "eu-de";
 
     @Context
     public ApocConfig apocConfig;
@@ -49,92 +43,10 @@ public class Watson {
 
     public record EmbeddingResult(long index, String text, List<Double> embedding) {}
 
-    interface WatsonHandler {
-        
-        enum Type {
-            EMBEDDING(new EmbeddingHandler()),
-            COMPLETION(new CompletionHandler());
-
-            private final WatsonHandler handler;
-
-            Type(WatsonHandler handler) {
-                this.handler = handler;
-            }
-
-            public WatsonHandler get() {
-                return handler;
-            }
-        }
-
-        // -- interface methods
-        
-        String getDefaultMethod();
-        Map<String, Object> getPayload(Map<String, Object> configuration, Object input);
-        
-        default String getEndpoint(Map<String, Object> config) {
-            var endpoint = config.remove(ENDPOINT_CONF_KEY);
-            if (endpoint != null) {
-                return (String) endpoint;
-            }
-
-//            var version = config.remove(VERSION_CONF_KEY);
-            var version = Objects.requireNonNullElse(
-                    config.remove(VERSION_CONF_KEY),
-                    DEFAULT_VERSION_DATE
-            );
-            
-//            var region = config.remove(REGION_CONF_KEY);
-            var region = Objects.requireNonNullElse(
-                    config.remove(REGION_CONF_KEY),
-                    REGION_CONF_KEY
-            );
-
-            String url = "https://%s.ml.cloud.ibm.com/ml/v1/%s?version=%s".formatted(
-                    region, getDefaultMethod(), version
-            );
-            
-            return apocConfig().getString(APOC_ML_WATSON_URL, url);
-        }
-
-
-        // -- concrete implementations
-        
-        class EmbeddingHandler implements WatsonHandler {
-            @Override
-            public String getDefaultMethod() {
-                    return "text/embeddings";
-                }
-
-            @Override
-            public Map<String, Object> getPayload(Map<String, Object> configuration, Object input) {
-                var config = new HashMap<>(configuration);
-                config.putIfAbsent(MODEL_ID_KEY, DEFAULT_EMBEDDING_MODEL_ID);
-                config.put("inputs", input);
-                return config;
-            }
-
-        }
-        
-        class CompletionHandler implements WatsonHandler {
-            @Override
-            public String getDefaultMethod() {
-                return "text/generation";
-            }
-
-            @Override
-            public Map<String, Object> getPayload(Map<String, Object> configuration, Object input) {
-                var config = new HashMap<>(configuration);
-                config.putIfAbsent(MODEL_ID_KEY, DEFAULT_COMPLETION_MODEL_ID);
-                config.put("input", input);
-                return config;
-            }
-        }
-        
-    }
 
     
     @Procedure("apoc.ml.watson.embedding")
-    @Description("apoc.ml.bedrock.embedding([texts], $configuration) - returns the embeddings for a given text")
+    @Description("apoc.ml.watson.embedding([texts], $configuration) - returns the embeddings for a given text")
     public Stream<EmbeddingResult> embedding(@Name(value = "texts") List<String> texts,
                                              @Name("accessToken") String accessToken,
                                              @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) {
