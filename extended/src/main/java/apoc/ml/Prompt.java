@@ -271,40 +271,19 @@ public class Prompt {
                 "sample", conf.getOrDefault("sample", 1000L),
                 "queries", queries
         );
-//        params.put("sample", conf.getOrDefault("sample", 1000));
-        String collect = tx.execute(GRAPH_QUERY, params)
+
+        return tx.execute(GRAPH_QUERY, params)
                 .stream()
                 .map(m -> SCHEMA_PROMPT.formatted(m.get("nodes"), m.get("relationships"), m.get("patterns")))
                 .collect(Collectors.joining("\n"));
-        return collect;
     }
-    
+
     private String loadSchema(Transaction tx, Map<String, Object> conf) {
         Map<String, Object> params = new HashMap<>();
         params.put("sample", conf.get("sample"));
-
-        /*
-            nodes:
-            :Person {name: STRING}
-            relationships:
-            :FOLLOWS {}
-        :REVIEWED {summary: STRING, rating: INTEGER}
-            patterns:
-            (:Person)-[:FOLLOWS]->(:Person)
-        (:Person)-[:REVIEWED]->(:Movie)
-
-         */
-        List<String> strings = tx.execute(SCHEMA_QUERY, params)
-                .stream()
-                .map(m -> SCHEMA_PROMPT.formatted(m.get("nodes"), m.get("relationships"), m.get("patterns")))
-                .toList();
-
-        String collect = tx.execute(SCHEMA_QUERY, params)
+        return tx.execute(SCHEMA_QUERY, params)
                 .stream()
                 .map(m -> SCHEMA_PROMPT.formatted(m.get("nodes"), m.get("relationships"), m.get("patterns")))
                 .collect(Collectors.joining("\n"));
-        return collect;
     }
-    
-    // todo - test this e.g. --> call apoc.meta.data.of("MATCH p=(n)-[r]->() RETURN 1")
 }

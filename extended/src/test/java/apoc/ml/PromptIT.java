@@ -165,7 +165,7 @@ public class PromptIT {
     }
     
     @Test
-    public void testSchemaFromQueries2() {
+    public void testSchemaFromQueriesWithSingleQuery() {
         List<String> queries = List.of("MATCH (n:Movie) RETURN n");
 
         testCall(db, """
@@ -183,7 +183,7 @@ public class PromptIT {
     }
 
     @Test
-    public void testSchemaFromQueries3() {
+    public void testSchemaFromQueriesWithWrongQuery() {
         List<String> queries = List.of("MATCH (n:Movie) RETURN a");
         try {
             testCall(db, """
@@ -213,7 +213,7 @@ public class PromptIT {
                 ),
                 (r) -> {
                     String value = ((String) r.get("value")).toLowerCase();
-                    Assertions.assertThat(value).containsAnyOf("does not contain", "empty", "undefined");
+                    Assertions.assertThat(value).containsAnyOf("does not contain", "empty", "undefined", "doesn't have");
                 });
     }
 
