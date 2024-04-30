@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -44,17 +46,12 @@ public class OpenAI {
 
     public static final String APOC_ML_OPENAI_URL = "apoc.ml.openai.url";
 
-    /**
-     * embedding is an Object instead of List<Double>, as with a Mixedbread request having `"encoding_format": [<multipleFormat>]`,
-     * the result can be e.g. {... "embedding": { "float": [<floatEmbedding>], "base": <base64Embedding>,   } ...}
-     * instead of e.g. {... "embedding": [<floatEmbedding>] ...}
-     */
     public static class EmbeddingResult {
         public final long index;
         public final String text;
-        public final Object embedding;
+        public final List<Double> embedding;
 
-        public EmbeddingResult(long index, String text, Object embedding) {
+        public EmbeddingResult(long index, String text, List<Double> embedding) {
             this.index = index;
             this.text = text;
             this.embedding = embedding;
@@ -123,10 +120,17 @@ public class OpenAI {
       "model": "text-embedding-ada-002",
       "usage": { "prompt_tokens": 8, "total_tokens": 8 } }
     */
-        return getEmbeddingResult(texts, apiKey, configuration, apocConfig, urlAccessChecker);
+        return getEmbeddingResult(texts, apiKey, configuration, apocConfig, urlAccessChecker,
+                (map, text) -> {
+                    Long index = (Long) map.get("index");
+                    return new EmbeddingResult(index, text, (List<Double>) map.get("embedding"));
+                }, 
+                m -> new EmbeddingResult(-1, m, List.of())
+        );
     }
 
-    static Stream<EmbeddingResult> getEmbeddingResult(List<String> texts, String apiKey, Map<String, Object> configuration, ApocConfig apocConfig, URLAccessChecker urlAccessChecker) throws JsonProcessingException, MalformedURLException {
+    static <T> Stream<T> getEmbeddingResult(List<String> texts, String apiKey, Map<String, Object> configuration, ApocConfig apocConfig, URLAccessChecker urlAccessChecker,
+                                            BiFunction<Map, String, T> embeddingMapping, Function<String, T> nullMapping) throws JsonProcessingException, MalformedURLException {
         if (texts == null) {
             throw new RuntimeException(ERROR_NULL_INPUT);
         }
@@ -137,19 +141,25 @@ public class OpenAI {
         List<String> nonNullTexts = collect.get(true);
 
         Stream<Object> resultStream = executeRequest(apiKey, configuration, "embeddings", "text-embedding-ada-002", "input", nonNullTexts, "$.data", apocConfig, urlAccessChecker);
-        Stream<EmbeddingResult> embeddingResultStream = resultStream
+//        Function<Map<String, Object>, R> mapRFunction = m -> {
+//            Long index = (Long) m.get("index");
+//            return new EmbeddingResult(index, nonNullTexts.get(index.intValue()), m.get("embedding"));
+//        };
+        Stream<T> embeddingResultStream = resultStream
                 .flatMap(v -> ((List<Map<String, Object>>) v).stream())
                 .map(m -> {
                     Long index = (Long) m.get("index");
-                    return new EmbeddingResult(index, nonNullTexts.get(index.intValue()), m.get("embedding"));
+                    String text = nonNullTexts.get(index.intValue());
+                    return embeddingMapping.apply(m, text);
                 });
 
         List<String> nullTexts = collect.getOrDefault(false, List.of());
-        Stream<EmbeddingResult> nullResultStream = nullTexts.stream()
-                .map(i -> {
-                    // null text return index -1 to indicate that are not coming from `/embeddings` RestAPI
-                    return new EmbeddingResult(-1, i, List.of());
-                });
+//        Function<String, R> stringRFunction = i -> {
+//            // null text return index -1 to indicate that are not coming from `/embeddings` RestAPI
+//            return new EmbeddingResult(-1, i, List.of());
+//        };
+        Stream<T> nullResultStream = nullTexts.stream()
+                .map(nullMapping);
         return Stream.concat(embeddingResultStream, nullResultStream);
     }
 

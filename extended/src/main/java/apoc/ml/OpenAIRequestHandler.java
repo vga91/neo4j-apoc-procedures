@@ -8,7 +8,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static apoc.ExtendedApocConfig.APOC_ML_MIXEDBREAD_URL;
 import static apoc.ExtendedApocConfig.APOC_ML_OPENAI_AZURE_VERSION;
 import static apoc.ExtendedApocConfig.APOC_ML_OPENAI_URL;
 import static apoc.ml.MixedbreadAI.ERROR_MSG_MISSING_ENDPOINT;
