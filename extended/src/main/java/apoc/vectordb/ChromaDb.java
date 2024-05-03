@@ -46,7 +46,7 @@ public class ChromaDb {
     public URLAccessChecker urlAccessChecker;
 
     @Procedure("apoc.vectordb.chroma.createCollection")
-    @Description("apoc.vectordb.chroma.createCollection")
+    @Description("apoc.vectordb.chroma.createCollection(hostOrKey, collection, similarity, size, $config)")
     public Stream<MapResult> createCollection(@Name("hostOrKey") String hostOrKey,
                                     @Name("collection") String collection,
                                     @Name("similarity") String similarity,
@@ -167,7 +167,7 @@ public class ChromaDb {
         String endpoint = "%s/api/v1/collections/%s/query".formatted(qdrantUrl, collection);
         getEndpoint(config, endpoint);
 
-        VectorEmbeddingConfig apiConfig = CHROMA.get().fromQuery(config, procedureCallContext, vector, filter, limit);
+        VectorEmbeddingConfig apiConfig = CHROMA.get().fromQuery(config, procedureCallContext, vector, filter, limit, collection);
         return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, db, tx,
                 v -> listOfListsToMap((Map) v).stream());
     }

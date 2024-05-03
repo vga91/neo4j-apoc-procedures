@@ -6,6 +6,7 @@ import apoc.result.ObjectResult;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import org.apache.commons.collections4.MapUtils;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
@@ -103,18 +104,20 @@ public class VectorDb {
 
         return resultStream
                 .flatMap(objectMapper)
-                .map(m -> {
-                    Object id = m.get(conf.getIdKey());
-                    List<Double> embedding = hasEmbedding ? (List<Double>) m.get(conf.getVectorKey()) : null;
-                    Map<String, Object> metadata = hasMetadata ? (Map<String, Object>) m.get(conf.getMetadataKey()) : null;
-                    // in case of get operation, e.g. http://localhost:52798/collections/{coll_name}/points with Qdrant db,
-                    // score is not present
-                    Double score = Util.toDouble(m.get(conf.getScoreKey()));
-                    String text = (String) m.get(conf.getTextKey());
+                .map(m -> getEmbeddingResult(conf, db, tx, hasEmbedding, hasMetadata, mapping, m));
+    }
 
-                    handleMapping(tx, db, mapping, metadata, embedding);
-                    return new EmbeddingResult(id, score, embedding, metadata, text);
-                });
+    public static EmbeddingResult getEmbeddingResult(VectorEmbeddingConfig conf, GraphDatabaseService db, Transaction tx, boolean hasEmbedding, boolean hasMetadata, VectorMappingConfig mapping, Map m) {
+        Object id = m.get(conf.getIdKey());
+        List<Double> embedding = hasEmbedding ? (List<Double>) m.get(conf.getVectorKey()) : null;
+        Map<String, Object> metadata = hasMetadata ? (Map<String, Object>) m.get(conf.getMetadataKey()) : null;
+        // in case of get operation, e.g. http://localhost:52798/collections/{coll_name}/points with Qdrant db,
+        // score is not present
+        Double score = Util.toDouble(m.get(conf.getScoreKey()));
+        String text = (String) m.get(conf.getTextKey());
+
+        handleMapping(tx, db, mapping, metadata, embedding);
+        return new EmbeddingResult(id, score, embedding, metadata, text);
     }
 
     private static void handleMapping(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, Map<String, Object> metadata, List<Double> embedding) {
@@ -221,7 +224,19 @@ public class VectorDb {
 
     public static Stream<Object> executeRequest(RestAPIConfig apiConfig, URLAccessChecker urlAccessChecker) throws Exception {
         Map<String, Object> headers = apiConfig.getHeaders();
-        String body = OBJECT_MAPPER.writeValueAsString(apiConfig.getBody());
-        return JsonUtil.loadJson(apiConfig.getEndpoint(), headers, body, apiConfig.getJsonPath(), true, List.of(), urlAccessChecker);
+        Map<String, Object> configBody = apiConfig.getBody();
+        String body = configBody == null
+                ? null
+                : OBJECT_MAPPER.writeValueAsString(configBody);
+        
+        String endpoint = apiConfig.getEndpoint();
+        if (endpoint == null) {
+            throw new RuntimeException("Endpoint must be specified");
+        }
+        return JsonUtil.loadJson(endpoint, headers, body, apiConfig.getJsonPath(), true, List.of(), urlAccessChecker);
+        
+        // //headers.remove("content-type");
+        ////headers.remove("method");
+        //JsonUtil.loadJson(endpoint, Util.map("content-type", "application/json", "method", null), null, apiConfig.getJsonPath(), true, List.of(), urlAccessChecker).toList()
     }
 }

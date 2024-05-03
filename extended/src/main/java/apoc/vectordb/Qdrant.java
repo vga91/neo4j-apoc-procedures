@@ -60,7 +60,7 @@ public class Qdrant {
         ));
         RestAPIConfig restAPIConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
         return executeRequest(restAPIConfig, urlAccessChecker)
-                .map(v -> (Map<String,Object>)v)
+                .map(v -> (Map<String,Object>) v)
                 .map(MapResult::new);
     }
     
@@ -80,7 +80,7 @@ public class Qdrant {
 
         RestAPIConfig restAPIConfig = new RestAPIConfig(config);
         return executeRequest(restAPIConfig, urlAccessChecker)
-                .map(v -> (Map<String,Object>)v)
+                .map(v -> (Map<String,Object>) v)
                 .map(MapResult::new);
     }
     
@@ -110,7 +110,7 @@ public class Qdrant {
         Map<String, Object> additionalBodies = Map.of("points", point);
         RestAPIConfig restAPIConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
         return executeRequest(restAPIConfig, urlAccessChecker)
-                .map(v -> (Map<String,Object>)v)
+                .map(v -> (Map<String,Object>) v)
                 .map(MapResult::new);
     }
     
@@ -132,7 +132,7 @@ public class Qdrant {
         Map<String, Object> additionalBodies = Map.of("points", ids);
         RestAPIConfig apiConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
         return executeRequest(apiConfig, urlAccessChecker)
-                .map(v -> (Map<String,Object>)v)
+                .map(v -> (Map<String,Object>) v)
                 .map(MapResult::new);
     }
 
@@ -167,7 +167,7 @@ public class Qdrant {
         String endpoint = "%s/collections/%s/points/search".formatted(qdrantUrl, collection);
         getEndpoint(config, endpoint);
 
-        VectorEmbeddingConfig apiConfig = QDRANT.get().fromQuery(config, procedureCallContext, vector, filter, limit);
+        VectorEmbeddingConfig apiConfig = QDRANT.get().fromQuery(config, procedureCallContext, vector, filter, limit, collection);
         return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, db, tx);
     }
 

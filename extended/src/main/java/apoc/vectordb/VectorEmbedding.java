@@ -1,11 +1,14 @@
 package apoc.vectordb;
 
 import org.neo4j.internal.kernel.api.procs.ProcedureCallContext;
+import org.stringtemplate.v4.ST;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
+import static apoc.ml.RestAPIConfig.BODY_KEY;
 import static apoc.ml.RestAPIConfig.JSON_PATH_KEY;
 import static apoc.ml.RestAPIConfig.METHOD_KEY;
 import static apoc.util.MapUtil.map;
@@ -16,7 +19,8 @@ public interface VectorEmbedding {
 
     enum Type {
         CHROMA(new ChromaEmbeddingType()),
-        QDRANT(new QdrantEmbeddingType());
+        QDRANT(new QdrantEmbeddingType()),
+        WEAVIATE(new WeaviateEmbeddingType());
 
         private final VectorEmbedding embedding;
 
@@ -29,21 +33,22 @@ public interface VectorEmbedding {
         }
     }
 
-    public <T> VectorEmbeddingConfig fromGet(Map<String, Object> config,
+    <T> VectorEmbeddingConfig fromGet(Map<String, Object> config,
                                          ProcedureCallContext procedureCallContext,
                                          List<T> ids);
 
-    public VectorEmbeddingConfig fromQuery(Map<String, Object> config,
+    VectorEmbeddingConfig fromQuery(Map<String, Object> config,
                                            ProcedureCallContext procedureCallContext,
                                            List<Double> vector,
-                                           Map<String, Object> filter,
-                                           long limit);
+                                           Object filter,
+                                           long limit,
+                                    String collection);
     
     //
     // -- implementations
     //
     
-    public static class QdrantEmbeddingType implements VectorEmbedding {
+    class QdrantEmbeddingType implements VectorEmbedding {
 
         @Override
         public <T> VectorEmbeddingConfig fromGet(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<T> ids) {
@@ -57,7 +62,8 @@ public interface VectorEmbedding {
 
         @Override
         public VectorEmbeddingConfig fromQuery(Map<String, Object> config, ProcedureCallContext procedureCallContext,
-                                                      List<Double> vector, Map<String, Object> filter, long limit) {
+                                                      List<Double> vector, Object filter, long limit,
+                                               String collection) {
             List<String> fields = procedureCallContext.outputFields().toList();
 
             Map<String, Object> additionalBodies = map("vector", vector,
@@ -81,7 +87,7 @@ public interface VectorEmbedding {
         }
     }
     
-    public static class ChromaEmbeddingType implements VectorEmbedding {
+    class ChromaEmbeddingType implements VectorEmbedding {
 
         @Override
         public <T> VectorEmbeddingConfig fromGet(Map<String, Object> config,
@@ -99,8 +105,9 @@ public interface VectorEmbedding {
         public VectorEmbeddingConfig fromQuery(Map<String, Object> config,
                                                ProcedureCallContext procedureCallContext,
                                                List<Double> vector,
-                                               Map<String, Object> filter,
-                                               long limit) {
+                                               Object filter,
+                                               long limit,
+                                               String collection) {
 
             List<String> fields = procedureCallContext.outputFields().toList();
 
@@ -132,6 +139,74 @@ public interface VectorEmbedding {
 
             additionalBodies.put("include", include);
 
+            return new VectorEmbeddingConfig(config, Map.of(), additionalBodies);
+        }
+    }
+
+    class WeaviateEmbeddingType implements VectorEmbedding {
+
+        @Override
+        public <T> VectorEmbeddingConfig fromGet(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<T> ids) {
+            List<String> fields = procedureCallContext.outputFields().toList();
+            config.putIfAbsent(BODY_KEY, null);
+            return getVectorEmbeddingConfig(config, fields, Map.of());
+        }
+
+        /* TODO - EXAMPLE FILTER
+        {
+                      path: ["wordCount"],    # Path to the property that should be used
+                      operator: GreaterThan,  # operator
+                      valueInt: 1000          # value (which is always = to the type of the path property)
+                    }
+         */
+        @Override
+        public VectorEmbeddingConfig fromQuery(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<Double> vector, Object filter, long limit, String collection) {
+            List<String> fields = procedureCallContext.outputFields().toList();
+            config.putIfAbsent(METHOD_KEY, "POST");
+            
+            // todo - include arrays
+            List list = (List) config.get("fields");
+            if (list == null) {
+                throw new RuntimeException("You have to define `field` list of parameter to be returned");
+            }
+            Object fieldList = String.join("\n", list);
+            
+//            String filterParam = filter.isEmpty() 
+//                    ? "" 
+//                    : ", where: " + filter.entrySet()
+//                    .stream()
+//                    .map(i -> "%s:%s".formatted(i.getKey(), i.getValue()))
+//                    .collect(Collectors.joining("\n"));
+            filter = filter == null 
+                    ? "" 
+                    : ", where: " + filter;
+
+            String includeVector = fields.contains("vector") ? ",vector" : "";
+            String additional = "_additional {id, distance " + includeVector  + "}";
+            String query = """
+                  {
+                      Get {
+                        %s(limit: %s, nearVector: {vector: %s } %s) {%s  %s}
+                      }
+                  }
+                    """.formatted(
+                          collection, limit, vector, filter, fieldList, additional
+            );
+
+            Map<String, Object> additionalBodies = map("query", query);
+
+            return getVectorEmbeddingConfig(config, fields, additionalBodies);
+        }
+
+        private static VectorEmbeddingConfig getVectorEmbeddingConfig(Map<String, Object> config,
+                                                                      List<String> fields,
+                                                                      Map<String, Object> additionalBodies) {
+            // todo - handle fields!!
+
+            config.putIfAbsent(EMBEDDING_KEY, "vector");
+            config.putIfAbsent(METADATA_KEY, "properties");
+//            config.putIfAbsent(JSON_PATH_KEY, "result");
+            
             return new VectorEmbeddingConfig(config, Map.of(), additionalBodies);
         }
     }

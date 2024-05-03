@@ -1,6 +1,9 @@
 package apoc.ml;
 
 
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,10 +16,10 @@ public class RestAPIConfig {
     public static final String JSON_PATH_KEY = "jsonPath";
     public static final String BODY_KEY = "body";
     
-    private final Map<String, Object> headers;
-    private final Map<String, Object> body;
-    private final String endpoint;
-    private final String jsonPath;
+    private Map<String, Object> headers;
+    private Map body;
+    private String endpoint;
+    private String jsonPath;
 
     public RestAPIConfig(Map<String, Object> config) {
         this(config, Map.of(), Map.of());
@@ -28,28 +31,42 @@ public class RestAPIConfig {
         }
 
         String httpMethod = (String) config.getOrDefault(METHOD_KEY, "POST");
+
+        this.headers = populateHeaders(config, additionalHeaders, httpMethod);
+
+        this.endpoint = (String) config.get(ENDPOINT_KEY);// getEndpoint(config);
+
+        this.jsonPath = (String) config.get(JSON_PATH_KEY);
+        this.body = populateBody(config, additionalBodies);
+    }
+
+    
+    private static Map<String, Object> populateHeaders(Map<String, Object> config, Map additionalHeaders, String httpMethod) {
         Map headerConf = (Map<String, Object>) config.getOrDefault(HEADERS_KEY, new HashMap<>());
         headerConf.putIfAbsent("content-type", "application/json");
         headerConf.putIfAbsent(METHOD_KEY, httpMethod);
-        additionalHeaders.forEach( (k,v)-> headerConf.putIfAbsent(k,v) );
-        
-        this.headers = headerConf;
+        additionalHeaders.forEach(headerConf::putIfAbsent);
+        return headerConf;
+    }
 
-        this.endpoint = getEndpoint(config);
-
-        this.jsonPath = (String) config.get(JSON_PATH_KEY);
+    private static Map populateBody(Map<String, Object> config, Map additionalBodies) {
         Map bodyConf = (Map<String, Object>) config.getOrDefault(BODY_KEY, new HashMap<>());
-        additionalBodies.forEach( (k,v)-> bodyConf.putIfAbsent(k,v) );
-        this.body = bodyConf;
-    }
-    
-    private String getEndpoint(Map<String, Object> config) {
-        String endpointConfig = (String) config.get(ENDPOINT_KEY);
-        if (endpointConfig == null) {
-            throw new RuntimeException("Endpoint must be specified");
+
+        // if we force body to be null, e.g. with Http GET operations that doesn't allow payloads,
+        // we skip additional body addition 
+        if (bodyConf != null) {
+            additionalBodies.forEach(bodyConf::putIfAbsent);
         }
-        return endpointConfig;
+        return bodyConf;
     }
+
+//    private String getEndpoint(Map<String, Object> config) {
+//        String endpointConfig = (String) config.get(ENDPOINT_KEY);
+//        if (endpointConfig == null) {
+//            throw new RuntimeException("Endpoint must be specified");
+//        }
+//        return endpointConfig;
+//    }
 
     public Map<String, Object> getHeaders() {
         return headers;
@@ -65,5 +82,21 @@ public class RestAPIConfig {
 
     public String getJsonPath() {
         return jsonPath;
+    }
+
+    public void setHeaders(Map<String, Object> headers) {
+        this.headers = headers;
+    }
+
+    public void setBody(Map<String, Object> body) {
+        this.body = body;
+    }
+
+    public void setEndpoint(String endpoint) {
+        this.endpoint = endpoint;
+    }
+
+    public void setJsonPath(String jsonPath) {
+        this.jsonPath = jsonPath;
     }
 }
