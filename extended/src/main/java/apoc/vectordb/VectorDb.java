@@ -156,9 +156,8 @@ public class VectorDb {
                 transaction.commit();
             }
 
-            String indexQuery = "CREATE VECTOR INDEX IF NOT EXISTS FOR (n:%s) ON (n.%s) OPTIONS {indexConfig: {`vector.dimensions`: %s, `vector.similarity_function`: '%s'}}";
             String setVectorQuery = "CALL db.create.setNodeVectorProperty($entity, $key, $vector)";
-            setVectorProp(tx, db, mapping, embedding, node, indexQuery, setVectorQuery);
+            setVectorProp(tx, db, mapping, embedding, node, setVectorQuery);
 
         } catch (MultipleFoundException e) {
             throw new RuntimeException("Multiple nodes found");
@@ -182,16 +181,15 @@ public class VectorDb {
                 transaction.commit();
             }
 
-            String indexQuery ="CREATE VECTOR INDEX IF NOT EXISTS FOR ()-[r:%s]-() ON (r.%s) OPTIONS {indexConfig: {`vector.dimensions`: %s, `vector.similarity_function`: '%s'}}";
             String setVectorQuery = "CALL db.create.setRelationshipVectorProperty($entity, $key, $vector)";
-            setVectorProp(tx, db, mapping, embedding, rel, indexQuery, setVectorQuery);
+            setVectorProp(tx, db, mapping, embedding, rel, setVectorQuery);
 
         } catch (MultipleFoundException e) {
             throw new RuntimeException("Multiple relationships found");
         }
     }
 
-    private static <T extends Entity> void setVectorProp(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, List<Double> embedding, T entity, String indexQuery, String setVectorQuery) {
+    private static <T extends Entity> void setVectorProp(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, List<Double> embedding, T entity, String setVectorQuery) {
         if (entity == null || mapping.getEmbeddingProp() == null) {
             return;
         }
@@ -200,12 +198,6 @@ public class VectorDb {
             throw new RuntimeException("The embedding value is null. Make sure you execute `YIELD embedding` on the procedure");
         }
 
-        String labelOrType = entity instanceof Node
-                ? mapping.getLabel()
-                : mapping.getType();
-        String vectorIndex = indexQuery
-                .formatted(labelOrType, mapping.getEmbeddingProp(), embedding.size(), mapping.getSimilarity());
-        db.executeTransactionally(vectorIndex);
         db.executeTransactionally(setVectorQuery,
                 Map.of("entity", Util.rebind(tx, entity), "key", mapping.getEmbeddingProp(), "vector", embedding));
     }
@@ -234,9 +226,5 @@ public class VectorDb {
             throw new RuntimeException("Endpoint must be specified");
         }
         return JsonUtil.loadJson(endpoint, headers, body, apiConfig.getJsonPath(), true, List.of(), urlAccessChecker);
-        
-        // //headers.remove("content-type");
-        ////headers.remove("method");
-        //JsonUtil.loadJson(endpoint, Util.map("content-type", "application/json", "method", null), null, apiConfig.getJsonPath(), true, List.of(), urlAccessChecker).toList()
     }
 }

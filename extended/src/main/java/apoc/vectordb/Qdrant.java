@@ -22,7 +22,7 @@ import java.util.stream.Stream;
 import static apoc.ml.RestAPIConfig.METHOD_KEY;
 import static apoc.vectordb.VectorDb.executeRequest;
 import static apoc.vectordb.VectorDb.getEmbeddingResultStream;
-import static apoc.vectordb.VectorDbUtil.getEndpoint;
+import static apoc.vectordb.VectorDbUtil.*;
 import static apoc.vectordb.VectorEmbedding.Type.QDRANT;
 
 @Extended
@@ -138,7 +138,7 @@ public class Qdrant {
 
     @Procedure(value = "apoc.vectordb.qdrant.get", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.qdrant.get(hostOrKey, collection, ids, $config)")
-    public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
+    public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name("ids") List<Object> ids,
                                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
@@ -154,7 +154,7 @@ public class Qdrant {
 
     @Procedure(value = "apoc.vectordb.qdrant.query", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.qdrant.query(hostOrKey, collection, vector, filter, limit, $config)")
-    public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
+    public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name(value = "vector", defaultValue = "[]") List<Double> vector,
                                                       @Name(value = "filter", defaultValue = "{}") Map<String, Object> filter,

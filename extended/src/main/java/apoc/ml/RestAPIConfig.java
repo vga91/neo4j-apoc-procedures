@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-// TODO - maybe move to `apoc.util` package?
+// TODO - could be moved to `apoc.util` package?
 public class RestAPIConfig {
     public static final String HEADERS_KEY = "headers";
     public static final String METHOD_KEY = "method";
@@ -59,14 +59,6 @@ public class RestAPIConfig {
         }
         return bodyConf;
     }
-
-//    private String getEndpoint(Map<String, Object> config) {
-//        String endpointConfig = (String) config.get(ENDPOINT_KEY);
-//        if (endpointConfig == null) {
-//            throw new RuntimeException("Endpoint must be specified");
-//        }
-//        return endpointConfig;
-//    }
 
     public Map<String, Object> getHeaders() {
         return headers;

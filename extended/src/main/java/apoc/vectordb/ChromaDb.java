@@ -26,7 +26,7 @@ import static apoc.util.ExtendedUtil.listOfMapToMapOfLists;
 import static apoc.util.MapUtil.map;
 import static apoc.vectordb.VectorDb.executeRequest;
 import static apoc.vectordb.VectorDb.getEmbeddingResultStream;
-import static apoc.vectordb.VectorDbUtil.getEndpoint;
+import static apoc.vectordb.VectorDbUtil.*;
 import static apoc.vectordb.VectorEmbedding.Type.CHROMA;
 import static apoc.vectordb.VectorEmbeddingConfig.*;
 
@@ -137,7 +137,7 @@ public class ChromaDb {
 
     @Procedure(value = "apoc.vectordb.chroma.get", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.chroma.get()")
-    public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
+    public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name("ids") List<Object> ids,
                                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
@@ -154,7 +154,7 @@ public class ChromaDb {
 
     @Procedure(value = "apoc.vectordb.chroma.query", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.chroma.query()")
-    public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
+    public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name(value = "vector", defaultValue = "[]") List<Double> vector,
                                                       @Name(value = "filter", defaultValue = "{}") Map<String, Object> filter,

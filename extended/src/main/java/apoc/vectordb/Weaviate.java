@@ -26,7 +26,7 @@ import static apoc.util.Util.map;
 import static apoc.vectordb.VectorDb.executeRequest;
 import static apoc.vectordb.VectorDb.getEmbeddingResult;
 import static apoc.vectordb.VectorDb.getEmbeddingResultStream;
-import static apoc.vectordb.VectorDbUtil.getEndpoint;
+import static apoc.vectordb.VectorDbUtil.*;
 import static apoc.vectordb.VectorEmbedding.Type.WEAVIATE;
 
 @Extended
@@ -127,8 +127,6 @@ public class Weaviate {
                 .map(MapResult::new);
 
     }
-    
-
 
     @Procedure(value = "apoc.vectordb.weaviate.delete", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.weaviate.delete()")
@@ -159,11 +157,9 @@ public class Weaviate {
         return Stream.of(new ListResult(objects));
     }
 
-
-
     @Procedure(value = "apoc.vectordb.weaviate.get", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.weaviate.get()")
-    public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
+    public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name("ids") List<Object> ids,
                                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
@@ -184,8 +180,7 @@ public class Weaviate {
         VectorEmbeddingConfig conf = WEAVIATE.get().fromGet(config, procedureCallContext, ids);
         VectorMappingConfig mapping = conf.getMapping();
         
-        String withVector = hasEmbedding ? "&include=vector" : "";
-        String suffix = "?class=" + collection + withVector;
+        String suffix = hasEmbedding ? "?include=vector" : "";
         
         return ids.stream()
                 .flatMap(id -> {
@@ -193,10 +188,7 @@ public class Weaviate {
                     conf.setEndpoint(endpoint);
                     try {
                         return executeRequest(conf, urlAccessChecker)
-                                .map(v -> {
-                                    Map v1 = (Map) v;
-                                    return v1;
-                                })
+                                .map(v -> (Map) v)
                                 .map(m -> getEmbeddingResult(conf, db, tx, hasEmbedding, hasMetadata, mapping, m));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
@@ -207,7 +199,7 @@ public class Weaviate {
 
     @Procedure(value = "apoc.vectordb.weaviate.query", mode = Mode.SCHEMA)
     @Description("apoc.vectordb.weaviate.query()")
-    public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
+    public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name(value = "vector", defaultValue = "[]") List<Double> vector,
                                                       @Name(value = "filter", defaultValue = "null") Object filter,

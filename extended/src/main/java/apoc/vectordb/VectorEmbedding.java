@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static apoc.ml.RestAPIConfig.BODY_KEY;
 import static apoc.ml.RestAPIConfig.JSON_PATH_KEY;
 import static apoc.ml.RestAPIConfig.METHOD_KEY;
 import static apoc.util.MapUtil.map;
@@ -31,14 +32,14 @@ public interface VectorEmbedding {
     }
 
     <T> VectorEmbeddingConfig fromGet(Map<String, Object> config,
-                                         ProcedureCallContext procedureCallContext,
-                                         List<T> ids);
+                                      ProcedureCallContext procedureCallContext,
+                                      List<T> ids);
 
     VectorEmbeddingConfig fromQuery(Map<String, Object> config,
-                                           ProcedureCallContext procedureCallContext,
-                                           List<Double> vector,
-                                           Object filter,
-                                           long limit,
+                                    ProcedureCallContext procedureCallContext,
+                                    List<Double> vector,
+                                    Object filter,
+                                    long limit,
                                     String collection);
     
     //
@@ -144,16 +145,10 @@ public interface VectorEmbedding {
 
         @Override
         public <T> VectorEmbeddingConfig fromGet(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<T> ids) {
+            config.putIfAbsent(BODY_KEY, null);
             return getVectorEmbeddingConfig(config, Map.of());
         }
-
-        /* TODO - EXAMPLE FILTER
-        {
-                      path: ["wordCount"],    # Path to the property that should be used
-                      operator: GreaterThan,  # operator
-                      valueInt: 1000          # value (which is always = to the type of the path property)
-                    }
-         */
+        
         @Override
         public VectorEmbeddingConfig fromQuery(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<Double> vector, Object filter, long limit, String collection) {
             List<String> fields = procedureCallContext.outputFields().toList();
