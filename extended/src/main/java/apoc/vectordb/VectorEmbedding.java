@@ -1,18 +1,15 @@
 package apoc.vectordb;
 
 import org.neo4j.internal.kernel.api.procs.ProcedureCallContext;
-import org.stringtemplate.v4.ST;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
-import static apoc.ml.RestAPIConfig.BODY_KEY;
 import static apoc.ml.RestAPIConfig.JSON_PATH_KEY;
 import static apoc.ml.RestAPIConfig.METHOD_KEY;
 import static apoc.util.MapUtil.map;
-import static apoc.vectordb.VectorEmbeddingConfig.EMBEDDING_KEY;
+import static apoc.vectordb.VectorEmbeddingConfig.VECTOR_KEY;
 import static apoc.vectordb.VectorEmbeddingConfig.METADATA_KEY;
 
 public interface VectorEmbedding {
@@ -79,7 +76,7 @@ public interface VectorEmbedding {
             additionalBodies.put("with_payload", fields.contains("metadata"));
             additionalBodies.put("with_vectors", fields.contains("vector"));
 
-            config.putIfAbsent(EMBEDDING_KEY, "vector");
+            config.putIfAbsent(VECTOR_KEY, "vector");
             config.putIfAbsent(METADATA_KEY, "payload");
             config.putIfAbsent(JSON_PATH_KEY, "result");
 
@@ -147,9 +144,7 @@ public interface VectorEmbedding {
 
         @Override
         public <T> VectorEmbeddingConfig fromGet(Map<String, Object> config, ProcedureCallContext procedureCallContext, List<T> ids) {
-            List<String> fields = procedureCallContext.outputFields().toList();
-            config.putIfAbsent(BODY_KEY, null);
-            return getVectorEmbeddingConfig(config, fields, Map.of());
+            return getVectorEmbeddingConfig(config, Map.of());
         }
 
         /* TODO - EXAMPLE FILTER
@@ -164,19 +159,12 @@ public interface VectorEmbedding {
             List<String> fields = procedureCallContext.outputFields().toList();
             config.putIfAbsent(METHOD_KEY, "POST");
             
-            // todo - include arrays
             List list = (List) config.get("fields");
             if (list == null) {
                 throw new RuntimeException("You have to define `field` list of parameter to be returned");
             }
             Object fieldList = String.join("\n", list);
-            
-//            String filterParam = filter.isEmpty() 
-//                    ? "" 
-//                    : ", where: " + filter.entrySet()
-//                    .stream()
-//                    .map(i -> "%s:%s".formatted(i.getKey(), i.getValue()))
-//                    .collect(Collectors.joining("\n"));
+
             filter = filter == null 
                     ? "" 
                     : ", where: " + filter;
@@ -195,17 +183,13 @@ public interface VectorEmbedding {
 
             Map<String, Object> additionalBodies = map("query", query);
 
-            return getVectorEmbeddingConfig(config, fields, additionalBodies);
+            return getVectorEmbeddingConfig(config, additionalBodies);
         }
 
         private static VectorEmbeddingConfig getVectorEmbeddingConfig(Map<String, Object> config,
-                                                                      List<String> fields,
                                                                       Map<String, Object> additionalBodies) {
-            // todo - handle fields!!
-
-            config.putIfAbsent(EMBEDDING_KEY, "vector");
+            config.putIfAbsent(VECTOR_KEY, "vector");
             config.putIfAbsent(METADATA_KEY, "properties");
-//            config.putIfAbsent(JSON_PATH_KEY, "result");
             
             return new VectorEmbeddingConfig(config, Map.of(), additionalBodies);
         }

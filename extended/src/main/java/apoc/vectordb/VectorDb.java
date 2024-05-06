@@ -57,7 +57,7 @@ public class VectorDb {
      *   [
      *      "idKey": "idValue",
      *      "scoreKey": 1,
-     *      "embeddingKey": [ ]
+     *      "vectorKey": [ ]
      *      "metadataKey": { .. },
      *      "textKey": "..."
      *   ],

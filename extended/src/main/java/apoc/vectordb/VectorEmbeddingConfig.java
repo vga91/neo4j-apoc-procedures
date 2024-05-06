@@ -5,7 +5,7 @@ import apoc.ml.RestAPIConfig;
 import java.util.Map;
 
 public class VectorEmbeddingConfig extends RestAPIConfig {
-    public static final String EMBEDDING_KEY = "embeddingKey";
+    public static final String VECTOR_KEY = "vectorKey";
     public static final String METADATA_KEY = "metadataKey";
     public static final String SCORE_KEY = "scoreKey";
     public static final String TEXT_KEY = "textKey";
@@ -28,7 +28,7 @@ public class VectorEmbeddingConfig extends RestAPIConfig {
 
     public VectorEmbeddingConfig(Map<String, Object> config, Map<String, Object> additionalHeaders, Map<String, Object> additionalBodies) {
         super(config, additionalHeaders, additionalBodies);
-        this.vectorKey = (String) config.getOrDefault(EMBEDDING_KEY, DEFAULT_VECTOR);
+        this.vectorKey = (String) config.getOrDefault(VECTOR_KEY, DEFAULT_VECTOR);
         this.metadataKey = (String) config.getOrDefault(METADATA_KEY, DEFAULT_METADATA);
         this.scoreKey = (String) config.getOrDefault(SCORE_KEY, DEFAULT_SCORE);
         this.idKey = (String) config.getOrDefault(ID_KEY, DEFAULT_ID);

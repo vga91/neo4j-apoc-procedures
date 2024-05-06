@@ -81,7 +81,7 @@ public class ChromaDbTest {
     }
 
     @Test
-    public void getEmbeddings() {
+    public void getVectors() {
         testResult(db, "CALL apoc.vectordb.chroma.get($host, $collection, ['1']) ",
                 Map.of("host", HOST, "collection", collId.get()),
                 r -> {
@@ -124,7 +124,7 @@ public class ChromaDbTest {
     }
 
     @Test
-    public void getEmbedding() {
+    public void queryVectors() {
         testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5)",
                 Map.of("host", HOST, "collection", collId.get(), "conf", emptyMap()),
                 r -> {
@@ -141,7 +141,7 @@ public class ChromaDbTest {
     }
 
     @Test
-    public void getEmbeddingWithYield() {
+    public void queryVectorsWithYield() {
         testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5) YIELD metadata, id",
                 Map.of("host", HOST, "collection", collId.get(), "conf", emptyMap()),
                 r -> {
@@ -151,7 +151,7 @@ public class ChromaDbTest {
     }
 
     @Test
-    public void getEmbeddingWithFilter() {
+    public void queryVectorsWithFilter() {
         testResult(db, """
                         CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {city: 'London'}, 5) YIELD metadata, id""",
                 Map.of("host", HOST, "collection", collId.get(), "conf", emptyMap()),
@@ -161,7 +161,7 @@ public class ChromaDbTest {
     }
 
     @Test
-    public void getEmbeddingWithLimit() {
+    public void queryVectorsWithLimit() {
         testResult(db, """
                         CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 1) YIELD metadata, id""",
                 Map.of("host", HOST, "collection", collId.get(), "conf", emptyMap()),
@@ -171,7 +171,7 @@ public class ChromaDbTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateIndex() {
+    public void queryVectorsWithCreateIndex() {
         Map<String, Object> conf = Map.of(MAPPING_KEY, Map.of("embeddingProp", "vect",
                 "label", "Test",
                 "prop", "myId",
@@ -214,7 +214,7 @@ public class ChromaDbTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateIndexUsingExistingNode() {
+    public void queryVectorsWithCreateIndexUsingExistingNode() {
 
         db.executeTransactionally("CREATE (:Test {myId: 'one'}), (:Test {myId: 'two'})");
 
@@ -240,7 +240,7 @@ public class ChromaDbTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateRelIndex() {
+    public void queryVectorsWithCreateRelIndex() {
 
         db.executeTransactionally("CREATE (:Start)-[:TEST {myId: 'one'}]->(:End), (:Start)-[:TEST {myId: 'two'}]->(:End)");
 

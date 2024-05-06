@@ -32,26 +32,9 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
 
-/**
- * TODO:
- * i vettori non hanno dimensione impostabile. Prende il primo che trova.
- * 
- */
 public class WeaviateTest {
     public static final List<String> FIELDS = List.of("city", "foo");
     
-    /*
-    TODO
-        echo '{"query": "{Get{TestClass(nearVector: {vector: [0.1] } ){alfa\\n_additional {distance}}}}"}' | curl \
-        -X POST \
-        -H 'Content-Type: application/json' \
-        -H "Authorization: Bearer WsXomuFc9gEPTkDv1sEwnas7Um7r1wXtFZqs" \
-        -d @- \
-        https://test-apoc-sandbox-o66lj1p9.weaviate.network/v1/graphql
-
-     */
-    
-    private static String API_KEY;
     private static String HOST;
 
     private static final WeaviateContainer weaviate = new WeaviateContainer("semitechnologies/weaviate:1.24.5");
@@ -65,10 +48,7 @@ public class WeaviateTest {
     @BeforeClass
     public static void setUp() throws Exception {
         weaviate.start();
-        HOST = weaviate.getHttpHostAddress();// "localhost:" + weaviate.getMappedPort(8080);
-        
-//        API_KEY = checkEnvVar("WEAVIATE_KEY");
-//        HOST = checkEnvVar("WEAVIATE_HOST");
+        HOST = weaviate.getHttpHostAddress();
 
         TestUtil.registerProcedure(db, Weaviate.class);
 
@@ -109,7 +89,7 @@ public class WeaviateTest {
 
 
     @Test
-    public void getEmbeddings() {
+    public void getVectors() {
         testResult(db, "CALL apoc.vectordb.weaviate.get($host, 'TestCollection', [$id1])",
                 Map.of("host", HOST, "id1", id1),
                 r -> {
@@ -146,7 +126,7 @@ public class WeaviateTest {
     }
 
     @Test
-    public void getEmbedding() {
+    public void queryEmbedding() {
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
                        " YIELD metadata, id, score, vector RETURN * ORDER BY id",
                 Map.of("host", HOST, "conf", map("fields", FIELDS)),
@@ -164,7 +144,7 @@ public class WeaviateTest {
     }
 
     @Test
-    public void getEmbeddingWithYield() {
+    public void queryVectorsWithYield() {
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
                        "YIELD metadata, id RETURN * ORDER BY id",
                 Map.of("host", HOST, "conf", map("fields", FIELDS)),
@@ -173,9 +153,9 @@ public class WeaviateTest {
                     assertLondonVector(r.next(), id2);
                 });
     }
-// where: {operator: Equal, valueString: \"beta1\", path: [\"alfa\"]}
+
     @Test
-    public void getEmbeddingWithFilter() {
+    public void queryVectorsWithFilter() {
         testResult(db, """
                         CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7],
                         '{operator: Equal, valueString: "London", path: ["city"]}',
@@ -187,7 +167,7 @@ public class WeaviateTest {
     }
 
     @Test
-    public void getEmbeddingWithLimit() {
+    public void queryVectorsWithLimit() {
         testResult(db, """
                         CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 1, $conf) YIELD metadata, id RETURN * ORDER BY id""",
                 Map.of("host", HOST, "conf", map("fields", FIELDS)),
@@ -197,7 +177,7 @@ public class WeaviateTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateIndex() {
+    public void queryVectorsWithCreateIndex() {
 
         Map<String, Object> conf = Map.of("fields", FIELDS,
                 MAPPING_KEY, Map.of("embeddingProp", "vect",
@@ -244,7 +224,7 @@ public class WeaviateTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateIndexUsingExistingNode() {
+    public void queryVectorsWithCreateIndexUsingExistingNode() {
 
         db.executeTransactionally("CREATE (:Test {myId: 'one'}), (:Test {myId: 'two'})");
 
@@ -272,7 +252,7 @@ public class WeaviateTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateRelIndex() {
+    public void queryVectorsWithCreateRelIndex() {
 
         db.executeTransactionally("CREATE (:Start)-[:TEST {myId: 'one'}]->(:End), (:Start)-[:TEST {myId: 'two'}]->(:End)");
 

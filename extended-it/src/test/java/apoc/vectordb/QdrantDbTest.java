@@ -80,7 +80,7 @@ public class QdrantDbTest {
     }
 
     @Test
-    public void getEmbeddings() {
+    public void getVectors() {
         testResult(db, "CALL apoc.vectordb.qdrant.get($host, 'test_collection', [1]) ",
                 Map.of("host", HOST),
                 r -> {
@@ -114,7 +114,7 @@ public class QdrantDbTest {
     }
 
     @Test
-    public void getEmbedding() {
+    public void queryVectors() {
         testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5)",
                 Map.of("host", HOST, "conf", emptyMap()),
                 r -> {
@@ -131,7 +131,7 @@ public class QdrantDbTest {
     }
 
     @Test
-    public void getEmbeddingWithYield() {
+    public void queryVectorsWithYield() {
         testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5) YIELD metadata, id",
                 Map.of("host", HOST, "conf", emptyMap()),
                 r -> {
@@ -141,7 +141,7 @@ public class QdrantDbTest {
     }
 
     @Test
-    public void getEmbeddingWithFilter() {
+    public void queryVectorsWithFilter() {
         testResult(db, """
                         CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], 
                         { must: 
@@ -155,7 +155,7 @@ public class QdrantDbTest {
     }
 
     @Test
-    public void getEmbeddingWithLimit() {
+    public void queryVectorsWithLimit() {
         testResult(db, """
                         CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 1) YIELD metadata, id""",
                 Map.of("host", HOST, "conf", emptyMap()),
@@ -165,7 +165,7 @@ public class QdrantDbTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateIndex() {
+    public void queryVectorsWithCreateIndex() {
 
         Map<String, Object> conf = Map.of(MAPPING_KEY, Map.of("embeddingProp", "vect", 
                 "label", "Test", 
@@ -209,7 +209,7 @@ public class QdrantDbTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateIndexUsingExistingNode() {
+    public void queryVectorsWithCreateIndexUsingExistingNode() {
 
         db.executeTransactionally("CREATE (:Test {myId: 'one'}), (:Test {myId: 'two'})");
 
@@ -235,7 +235,7 @@ public class QdrantDbTest {
     }
 
     @Test
-    public void getEmbeddingWithCreateRelIndex() {
+    public void queryVectorsWithCreateRelIndex() {
 
         db.executeTransactionally("CREATE (:Start)-[:TEST {myId: 'one'}]->(:End), (:Start)-[:TEST {myId: 'two'}]->(:End)");
         

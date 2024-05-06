@@ -27,16 +27,7 @@ import static apoc.vectordb.VectorDb.executeRequest;
 import static apoc.vectordb.VectorDb.getEmbeddingResult;
 import static apoc.vectordb.VectorDb.getEmbeddingResultStream;
 import static apoc.vectordb.VectorDbUtil.getEndpoint;
-import static apoc.vectordb.VectorEmbedding.Type.CHROMA;
-import static apoc.vectordb.VectorEmbedding.Type.QDRANT;
 import static apoc.vectordb.VectorEmbedding.Type.WEAVIATE;
-import static apoc.vectordb.VectorEmbeddingConfig.DEFAULT_ID;
-import static apoc.vectordb.VectorEmbeddingConfig.DEFAULT_METADATA;
-import static apoc.vectordb.VectorEmbeddingConfig.DEFAULT_SCORE;
-import static apoc.vectordb.VectorEmbeddingConfig.DEFAULT_VECTOR;
-import static apoc.vectordb.VectorEmbeddingConfig.ID_KEY;
-import static apoc.vectordb.VectorEmbeddingConfig.METADATA_KEY;
-import static apoc.vectordb.VectorEmbeddingConfig.SCORE_KEY;
 
 @Extended
 public class Weaviate {
@@ -53,15 +44,6 @@ public class Weaviate {
     @Context
     public URLAccessChecker urlAccessChecker;
 
-    /*
-        {
-            "class": "TestClass123",
-            "vectorIndexConfig": {
-                "distance": "cosine",
-                "size": 20
-            }
-        }
-     */
     @Procedure("apoc.vectordb.weaviate.createCollection")
     @Description("apoc.vectordb.weaviate.createCollection(hostOrKey, collection, similarity, size, $config)")
     public Stream<MapResult> createCollection(@Name("hostOrKey") String hostOrKey,
@@ -141,30 +123,9 @@ public class Weaviate {
                         throw new RuntimeException(e);
                     }
                 })
-                .map(v -> {
-                    return (Map<String, Object>) v;
-                })
+                .map(v -> (Map<String, Object>) v)
                 .map(MapResult::new);
-            
-        
-        
-        
-//        return Stream.empty();
-        
-        
-    /*
-        {
-          "class": "TestClass1234",
-          "properties": {
-                "alfa": "beta12"
-            },
-          "id": "750e8400-e29b-41d4-a716-446655440002",
-          "vector": [1.0,1.0,0.1,0.001],
-          "additional": {
-                "ajeje": "brazorf1"
-            }
-        }
-     */
+
     }
     
 
@@ -196,11 +157,6 @@ public class Weaviate {
                 })
                 .toList();
         return Stream.of(new ListResult(objects));
-        
-        /*
-        curl --request DELETE \
-            --url http://localhost:8080/v1/objects/__CLASSNAME__/__ID__
-         */
     }
 
 
@@ -222,8 +178,6 @@ public class Weaviate {
          */
         config.putIfAbsent(METHOD_KEY, null);
 
-//        RestAPIConfig restAPIConfig = new RestAPIConfig(config, map(), map());
-
         List<String> fields = procedureCallContext.outputFields().toList();
         boolean hasEmbedding = fields.contains("vector");
         boolean hasMetadata = fields.contains("metadata");
@@ -244,13 +198,10 @@ public class Weaviate {
                                     return v1;
                                 })
                                 .map(m -> getEmbeddingResult(conf, db, tx, hasEmbedding, hasMetadata, mapping, m));
-//                        List<Object> objects1 = objectStream.toList();
-//                        System.out.println("objects1 = " + objects1);
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 });
-//                .toList();
     }
 
 
@@ -284,32 +235,8 @@ public class Weaviate {
                                 map.put(conf.getVectorKey(), additional.get("vector"));
                                 return map;
                             });
-//                    return ((List<Map>) v).stream();
                 }
         );
-        
-        /*
-        {
-          <Function> {
-              <Collection> {
-                <property>
-                _<underscore-property>
-              }
-          }
-        }
-        
-        {
-          Get {
-            Article(where: {
-              path: ["wordCount"],    # Path to the property that should be used
-              operator: GreaterThan,  # operator
-              valueInt: 1000          # value (which is always = to the type of the path property)
-            }) {
-              title
-            }
-          }
-        }
-         */
     }
 
 
