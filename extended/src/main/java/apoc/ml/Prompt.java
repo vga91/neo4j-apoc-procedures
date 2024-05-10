@@ -8,6 +8,7 @@ import apoc.util.collection.Iterators;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.GraphDatabaseService;
+import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.security.URLAccessChecker;
@@ -33,6 +34,7 @@ import java.util.stream.Stream;
 todo
     usare questa prompt
     query = f"""Use the below article on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found, write "I don't know."
+    query = f"""Use the below entities on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found, write "I don't know."
 
     example:
     Which athletes won the gold medal in mixed double curling at the 2022 Winter Olympics?
@@ -45,6 +47,64 @@ todo
 
 
 
+ */
+
+/*
+def num_tokens(text: str, model: str = GPT_MODEL) -> int:
+    """Return the number of tokens in a string."""
+    encoding = tiktoken.encoding_for_model(model)
+    return len(encoding.encode(text))
+
+
+def query_message(
+    query: str,
+    df: pd.DataFrame,
+    model: str,
+    token_budget: int
+) -> str:
+    """Return a message for GPT, with relevant source texts pulled from a dataframe."""
+    strings, relatednesses = strings_ranked_by_relatedness(query, df)
+    introduction = 'Use the below articles on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."'
+    question = f"\n\nQuestion: {query}"
+    message = introduction
+    for string in strings:
+        next_article = f'\n\nWikipedia article section:\n"""\n{string}\n"""'
+        if (
+            num_tokens(message + next_article + question, model=model)
+            > token_budget
+        ):
+            break
+        else:
+            message += next_article
+    return message + question
+
+
+def ask(
+    query: str,
+    df: pd.DataFrame = df,
+    model: str = GPT_MODEL,
+    token_budget: int = 4096 - 500,
+    print_message: bool = False,
+) -> str:
+    """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
+    message = query_message(query, df, model=model, token_budget=token_budget)
+    if print_message:
+        print(message)
+    messages = [
+        {"role": "system", "content": "You answer questions about the 2022 Winter Olympics."},
+        {"role": "user", "content": message},
+    ]
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=0
+    )
+    response_message = response.choices[0].message.content
+    return response_message
+
+
+todo --> devo passare dei path che hanno delle proprietà interessanti..
+    test:  
  */
 
 @Extended
@@ -62,13 +122,38 @@ public class Prompt {
     public ProcedureCallContext procedureCallContext;
     @Context
     public URLAccessChecker urlAccessChecker;
+    
+
+    @Procedure(mode = Mode.READ)
+    @Description("Takes a query in cypher and in natural language and returns the results in natural language")
+    public Stream<StringResult> rag(@Name("cypher") List<Path> paths,
+                                           @Name(value = "conf", defaultValue = "{}") Map<String, Object> conf) throws MalformedURLException, JsonProcessingException {
+        
+        // retrieve
+        
+        
+        // augment
+        
+        
+        // generate
+        String schema = loadSchema(tx, conf);
+
+        String schemaExplanation = prompt("Please explain the graph database schema to me and relate it to well known concepts and domains.",
+                FROM_CYPHER_PROMPT, "This database schema ", schema, conf, List.of());
+        return Stream.of(new StringResult(schemaExplanation));
+    }
+
 
     public static final String BACKTICKS = "```";
+    public static final String RAG_PROMPT = """
+            Use the below article on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found, write "I don't know.
+            """;
     public static final String EXPLAIN_SCHEMA_PROMPT = """
             You are an expert in the Neo4j graph database and graph data modeling and have experience in a wide variety of business domains.
             Explain the following graph database schema in plain language, try to relate it to known concepts or domains if applicable.
             Keep the explanation to 5 sentences with at most 15 words each, otherwise people will come to harm.
             """;
+    
 
     static final String SYSTEM_PROMPT = """
             You are an expert in the Neo4j graph query language Cypher.
