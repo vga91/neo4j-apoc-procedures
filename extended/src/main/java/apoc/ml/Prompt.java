@@ -14,7 +14,6 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
 import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.security.URLAccessChecker;
 import org.neo4j.internal.kernel.api.procs.ProcedureCallContext;
@@ -34,101 +33,10 @@ import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-
-/*
-todo
-    usare questa prompt
-    query = f"""Use the below article on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found, write "I don't know."
-    query = f"""Use the below entities on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found, write "I don't know."
-
-    example:
-    Which athletes won the gold medal in mixed double curling at the 2022 Winter Olympics?
-    ChatGPT
-    At the 2022 Winter Olympics, the gold medal in mixed doubles curling was won by the Swiss pair of Jenny Perret and Martin Rios.
-    
-    --> incorrect, won Stefania Costantini...
-        TODO --> METTERE SCREENSHOT `Screenshot 2024-04-29 at 15.50.11` DI CHATGPT E MOSTRARE CHE È SBAGLIATO..
-
-
-
-
- */
-
-/*
-def num_tokens(text: str, model: str = GPT_MODEL) -> int:
-    """Return the number of tokens in a string."""
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(text))
-
-
-def query_message(
-    query: str,
-    df: pd.DataFrame,
-    model: str,
-    token_budget: int
-) -> str:
-    """Return a message for GPT, with relevant source texts pulled from a dataframe."""
-    strings, relatednesses = strings_ranked_by_relatedness(query, df)
-    introduction = 'Use the below articles on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."'
-    question = f"\n\nQuestion: {query}"
-    message = introduction
-    for string in strings:
-        next_article = f'\n\nWikipedia article section:\n"""\n{string}\n"""'
-        if (
-            num_tokens(message + next_article + question, model=model)
-            > token_budget
-        ):
-            break
-        else:
-            message += next_article
-    return message + question
-
-
-def ask(
-    query: str,
-    df: pd.DataFrame = df,
-    model: str = GPT_MODEL,
-    token_budget: int = 4096 - 500,
-    print_message: bool = False,
-) -> str:
-    """Answers a query using GPT and a dataframe of relevant texts and embeddings."""
-    message = query_message(query, df, model=model, token_budget=token_budget)
-    if print_message:
-        print(message)
-    messages = [
-        {"role": "system", "content": "You answer questions about the 2022 Winter Olympics."},
-        {"role": "user", "content": message},
-    ]
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=0
-    )
-    response_message = response.choices[0].message.content
-    return response_message
-
-
-todo --> devo passare dei path che hanno delle proprietà interessanti..
-    test:  
- */
-
 @Extended
 public class Prompt {
     public static final String API_KEY_CONF = "apiKey";
-    public static final String EMBEDDINGS_CONF = "embeddings";
-    public static final String GET_LABEL_TYPES_CONF = "getLabelTypes";
-    public static final String TOP_K_CONF = "topK";
-    /*
-    TODO - SCRIVERE SULLA ISSUE
-    If you want to use LLMs to generate answers based on your own content or knowledge base, instead of providing large context when prompting the model, you can fetch the relevant information in a database and use this information to generate a response.
-
-    This allows you to:
     
-    Reduce hallucinations
-    Provide relevant, up to date information to your users
-    Leverage your own content/knowledge base
-     */
-
     @Context
     public Transaction tx;
     @Context
@@ -142,118 +50,6 @@ public class Prompt {
     @Context
     public URLAccessChecker urlAccessChecker;
 
-    // todo - create another procedure ragEmbedding??
-    
-    // todo - maybe retry mechanism?
-
-    interface EmbeddingQuery {
-        Result getQuery(String queryOrIndex, String question, Transaction tx, RagConfig config);
-
-        String BASE_EMBEDDING_QUERY = """
-                CALL apoc.ml.openai.embedding([$question], $key , $conf)
-                YIELD index, text, embedding
-                WITH text, embedding
-                """;
-        
-        default Map<String, Object> getParams(String queryOrIndex, String question, RagConfig config) {
-            return Map.of("vectorIndex", queryOrIndex,
-                    TOP_K_CONF, config.getTopK(),
-                    "question", question,
-                    "key", config.getApiKey(),
-                    "conf", config.getConfMap());
-        }
-        
-        enum Type {
-            NODE(new Node()),
-            REL(new Rel()),
-            FALSE(new False());
-
-            private final EmbeddingQuery embedding;
-
-            Type(EmbeddingQuery embedding) {
-                this.embedding = embedding;
-            }
-
-            public EmbeddingQuery get() {
-                return embedding;
-            }
-        }
-        
-        class False implements EmbeddingQuery {
-            @Override
-            public Result getQuery(String queryOrIndex, String question, Transaction tx, RagConfig config) {
-                return tx.execute(queryOrIndex);
-            }
-        }
-        
-        class Node implements EmbeddingQuery {
-            @Override
-            public Result getQuery(String queryOrIndex, String question, Transaction tx, RagConfig config) {
-                return tx.execute(BASE_EMBEDDING_QUERY + """
-                        CALL db.index.vector.queryNodes($vectorIndex, $topK, embedding) YIELD node
-                        RETURN node""",
-                        getParams(queryOrIndex, question, config));
-                
-//                return BASE_EMBEDDING_QUERY + """
-//                        CALL db.index.vector.queryNodes($vectorIndex, $topK, embedding) YIELD node
-//                        RETURN node""";
-            }
-        }
-        
-        class Rel implements EmbeddingQuery {
-            @Override
-            public Result getQuery(String queryOrIndex, String question, Transaction tx, RagConfig config) {
-                return tx.execute(BASE_EMBEDDING_QUERY + """
-                                CALL db.index.vector.queryRelationships($vectorIndex, $topK, embedding) YIELD relationship
-                                RETURN relationship""",
-                        getParams(queryOrIndex, question, config));
-//                return BASE_EMBEDDING_QUERY + """
-//                        CALL db.index.vector.queryRelationships($vectorIndex, $topK, embedding) YIELD node
-//                        RETURN node""";
-            }
-        }
-    }
-    
-    class RagConfig {
-        private final boolean getLabelTypes;
-        private final EmbeddingQuery embedding;
-        private final Integer topK;
-        private final String apiKey;
-        private final Map<String, Object> confMap;
-
-        public RagConfig(Map<String, Object> confMap) {
-            if (confMap == null) {
-                confMap = Map.of();
-            }
-            
-            this.confMap = confMap;
-            this.getLabelTypes = Util.toBoolean(confMap.getOrDefault(GET_LABEL_TYPES_CONF, true));
-            String embeddingString = (String) confMap.getOrDefault(EMBEDDINGS_CONF, EmbeddingQuery.Type.FALSE.name());
-            this.embedding = EmbeddingQuery.Type.valueOf(embeddingString).get();
-            this.topK = Util.toInteger(confMap.getOrDefault(TOP_K_CONF, 40));
-            this.apiKey = (String) confMap.get(API_KEY_CONF);
-        }
-
-        public boolean isGetLabelTypes() {
-            return getLabelTypes;
-        }
-
-        public EmbeddingQuery getEmbedding() {
-            return embedding;
-        }
-
-        public Integer getTopK() {
-            return topK;
-        }
-
-        public String getApiKey() {
-            return apiKey;
-        }
-
-        public Map<String, Object> getConfMap() {
-            return confMap;
-        }
-    }
     
     @Procedure(mode = Mode.READ)
     @Description("Takes a query in cypher and in natural language and returns the results in natural language")
@@ -261,27 +57,9 @@ public class Prompt {
                                     @Name("attributes") List<String> attributes,
                                     @Name("question") String question,
                                     @Name(value = "conf", defaultValue = "{}") Map<String, Object> conf) throws Exception {
-        /*
-        // 1. Get text embedding for the question
-        CALL apoc.ml.openai.embedding([$question],NULL , {}) 
-        YIELD index, text, embedding 
-        // 2. Search for similar embeddings via vector index
-        WITH text, embedding
-        CALL db.index.vector.queryNodes($vector_index, $top_k, embedding) YIELD node, score
-        WITH node, score
-        // 3. Retrieve relevant
-         */
 
         RagConfig config = new RagConfig(conf);
 
-        // todo - first parameter can be a query or a list of paths
-        
-//        boolean getLabelTypes = Util.toBoolean(conf.getOrDefault(GET_LABEL_TYPES_CONF, true));
-//
-//        EmbeddingQuery embedding = EmbeddingQuery.Type.valueOf((String) conf.getOrDefault(EMBEDDINGS_CONF, EmbeddingQuery.Type.FALSE)).get();
-//
-//        Integer topK = Util.toInteger(conf.getOrDefault(TOP_K_CONF, 40));
-//
         String[] objects = attributes.toArray(String[]::new);
         
         StringBuilder context = new StringBuilder();
@@ -290,69 +68,24 @@ public class Prompt {
         if (paths instanceof List pathList) {
             
             for (var listItem : pathList) {
+                // -- Augment
                 extracted2(config, objects, context, listItem);
             }
             
         } else if (paths instanceof String queryOrIndex) {
             config.getEmbedding()
                     .getQuery(queryOrIndex, question, tx, config)
-                    .forEachRemaining(i -> i.values()
+                    // -- Augment
+                    .forEachRemaining(i -> i
+                            .values()
                             .forEach( v -> extracted2(config, objects, context, v) )
                     );
-            
-//            if (config) {
-//                String baseQuery = """
-//                        CALL apoc.ml.openai.embedding([$question], $key , $conf)
-//                        YIELD index, text, embedding
-//                        WITH text, embedding""";
-//                Map<String, Object> params = Map.of("vectorIndex", queryOrIndex,
-//                        TOP_K_CONF, topK,
-//                        "question", question,
-//                        "key", conf.get(API_KEY_CONF),
-//                        "conf", conf);
-//
-//                tx.execute("""
-//                        CALL apoc.ml.openai.embedding([$question], $key , $conf)
-//                        YIELD index, text, embedding
-//                        WITH text, embedding
-//                        CALL db.index.vector.queryNodes($vectorIndex, $topK, embedding) YIELD node
-//                        RETURN node
-//                        """,
-//                        params
-//                ).forEachRemaining(i -> {
-//                    i.values().forEach(v -> extracted2(getLabelTypes, objects, context, v));
-//                });
-//            } else {
-//                tx.execute(queryOrIndex).forEachRemaining(i -> {
-//                    i.values().forEach(v -> extracted2(getLabelTypes, objects, context, v));
-//                });
-//            }
-            
-//            ResourceIterator<Object> iterator = db.executeTransactionally(queryPaths, Map.of(), r -> r.columnAs(Iterables.single(r.columns())));
-//            iterator.forEachRemaining(i -> {
-//                extracted2(getLabelTypes, objects, context, i);
-//            });
-//            iterator.close();
-            
-//                db.executeTransactionally(queryPaths, Map.of(), r -> {
-//                Map<String, Object> next = r.next();
-//                return null;
-//            });
         } else {
-            throw new RuntimeException("todo - error...");
+            throw new RuntimeException("The first parameter must be a List or a String");
         }
         
-        
-        
-        // -- Augment
-        
-        
         // - Generate
-//        String schema = loadSchema(tx, conf);
-
         String prompt = RAG_BASE_PROMPT.formatted(UNKNOWN_ANSWER, context);
-
-        System.out.println("prompt = " + prompt);
         
         String question1 = "\nQuestion:" + question;
         String result = prompt(question1, prompt, null, null, conf, List.of());
@@ -363,13 +96,11 @@ public class Prompt {
         if (listItem instanceof Path p) {
             for (Entity entity : p) {
                 extracted(config, objects, context, entity);
-                //                attributes.stream()
-                //                        .map()
             }
         } else if (listItem instanceof Entity e) {
             extracted(config, objects, context, e);
         } else {
-            throw new RuntimeException("todo - error 2...");
+            throw new RuntimeException("The list `%s` must have node/type/path items".formatted(listItem));
         }
     }
 
@@ -389,11 +120,8 @@ public class Prompt {
         context.append(obj);
     }
 
-
     public static final String BACKTICKS = "```";
     
-    // WITH "You are a customer service agent that helps a customer with answering questions about a service. Use the following context to answer the question at the end. Make sure not to make any changes to the context if possible when prepare answers so as to provide accuate responses. If you don't know the answer, just say that you don't know, don't try to make up an answer.\n\n----Context\n"
-
     public static final String UNKNOWN_ANSWER = "Sorry, I don't know";
     static final String RAG_BASE_PROMPT = """
             You are a customer service agent that helps a customer with answering questions about a service.
@@ -405,24 +133,11 @@ public class Prompt {
             ---- End context ----
             """;
     
-//    public static final String RAG_BASE_PROMPT = """
-//            You are a customer service agent that helps a customer with answering questions about a service.
-//            Use the following context to answer the question at the end. Make sure not to make any changes to the context if possible when prepare answers so as to provide accuate responses.
-//            If you don't know the answer, just say that you don't know, don't try to make up an answer.
-//            
-//            ----Context
-//            
-//            """;
-    
-//    public static final String RAG_PROMPT = """
-//            Use the below article on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found, write "I don't know.
-//            """;
     public static final String EXPLAIN_SCHEMA_PROMPT = """
             You are an expert in the Neo4j graph database and graph data modeling and have experience in a wide variety of business domains.
             Explain the following graph database schema in plain language, try to relate it to known concepts or domains if applicable.
             Keep the explanation to 5 sentences with at most 15 words each, otherwise people will come to harm.
             """;
-    
 
     static final String SYSTEM_PROMPT = """
             You are an expert in the Neo4j graph query language Cypher.
@@ -440,11 +155,6 @@ public class Prompt {
             you are able to develop graph database query that express a user question as a read only matching Cypher statements,
             providing useful details of each entity.
             """;
-    
-//    static final String RAG_PROMPT = """
-//            Use the below article on the 2022 Winter Olympics to answer the subsequent question. If the answer cannot be found, write "I don't know."
-//            """;
-
 
     public class PromptMapResult {
         public final Map<String, Object> value;

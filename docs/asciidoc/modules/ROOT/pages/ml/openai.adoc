@@ -510,3 +510,45 @@ overall, this graph database schema provides a simple yet powerful representatio
 | name | description
 | value | the description of the dataset
 |===
+
+== Query with natural language
+
+This procedure `apoc.ml.rag` takes a natural language question and transforms it into a number of requested cypher queries.
+
+TODO:
+
+It uses the `chat/completions` API which is https://platform.openai.com/docs/api-reference/chat/create[documented here^].
+
+
+
+.Input Parameters
+[%autowidth, opts=header]
+|===
+| name | description | mandatory
+| cypher | The question in the natural language | yes
+| conf | An optional configuration map, please check the next section | no
+|===
+
+.Configuration map
+[%autowidth, opts=header]
+|===
+| name | description | mandatory
+| retries | The number of retries in case of API call failures | no, default `3`
+| apiKey | OpenAI API key | in case `apoc.openai.key` is not defined
+| model | The Open AI model | no, default `gpt-3.5-turbo`
+| sample | The number of nodes to skip, e.g. a sample of 1000 will read every 1000th node. It's used as a parameter to `apoc.meta.data` procedure that computes the schema | no, default is a random number
+|===
+
+.Query call
+[source,cypher]
+----
+CALL apoc.ml.query("What movies did Tom Hanks play in?") yield value, query
+RETURN *
+----
+
+.Example response
+[opts="header"]
+|===
+| value
+| TODO
+|===
