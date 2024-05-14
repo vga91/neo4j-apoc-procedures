@@ -60,7 +60,7 @@ public class Prompt {
 
         RagConfig config = new RagConfig(conf);
 
-        String[] objects = attributes.toArray(String[]::new);
+        String[] arrayAttrs = attributes.toArray(String[]::new);
         
         StringBuilder context = new StringBuilder();
 
@@ -69,16 +69,16 @@ public class Prompt {
             
             for (var listItem : pathList) {
                 // -- Augment
-                extracted2(config, objects, context, listItem);
+                augment(config, arrayAttrs, context, listItem);
             }
             
         } else if (paths instanceof String queryOrIndex) {
-            config.getEmbedding()
+            config.getEmbeddings()
                     .getQuery(queryOrIndex, question, tx, config)
-                    // -- Augment
-                    .forEachRemaining(i -> i
+                    .forEachRemaining(row -> row
                             .values()
-                            .forEach( v -> extracted2(config, objects, context, v) )
+                            // -- Augment
+                            .forEach( val -> augment(config, arrayAttrs, context, val) )
                     );
         } else {
             throw new RuntimeException("The first parameter must be a List or a String");
@@ -86,25 +86,30 @@ public class Prompt {
         
         // - Generate
         String prompt = RAG_BASE_PROMPT.formatted(UNKNOWN_ANSWER, context);
-        
-        String question1 = "\nQuestion:" + question;
-        String result = prompt(question1, prompt, null, null, conf, List.of());
+
+        String result = prompt("\nQuestion:" + question, 
+                prompt, 
+                null, 
+                null,
+                conf,
+                List.of()
+        );
         return Stream.of(new StringResult(result));
     }
 
-    private static void extracted2(RagConfig config, String[] objects, StringBuilder context, Object listItem) {
+    private void augment(RagConfig config, String[] objects, StringBuilder context, Object listItem) {
         if (listItem instanceof Path p) {
             for (Entity entity : p) {
-                extracted(config, objects, context, entity);
+                augmentEntity(config, objects, context, entity);
             }
         } else if (listItem instanceof Entity e) {
-            extracted(config, objects, context, e);
+            augmentEntity(config, objects, context, e);
         } else {
             throw new RuntimeException("The list `%s` must have node/type/path items".formatted(listItem));
         }
     }
 
-    private static void extracted(RagConfig config, String[] objects, StringBuilder context, Entity entity) {
+    private void augmentEntity(RagConfig config, String[] objects, StringBuilder context, Entity entity) {
         Map<String, Object> props = entity.getProperties(objects);
         if (config.isGetLabelTypes()) {
             String labelsOrType = entity instanceof Node node

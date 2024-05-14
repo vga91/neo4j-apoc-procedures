@@ -14,7 +14,7 @@ public class RagConfig {
     public static final String TOP_K_CONF = "topK";
     
     private final boolean getLabelTypes;
-    private final EmbeddingQuery embedding;
+    private final EmbeddingQuery embeddings;
     private final Integer topK;
     private final String apiKey;
     private final Map<String, Object> confMap;
@@ -27,7 +27,7 @@ public class RagConfig {
         this.confMap = confMap;
         this.getLabelTypes = Util.toBoolean(confMap.getOrDefault(GET_LABEL_TYPES_CONF, true));
         String embeddingString = (String) confMap.getOrDefault(EMBEDDINGS_CONF, EmbeddingQuery.Type.FALSE.name());
-        this.embedding = EmbeddingQuery.Type.valueOf(embeddingString).get();
+        this.embeddings = EmbeddingQuery.Type.valueOf(embeddingString).get();
         this.topK = Util.toInteger(confMap.getOrDefault(TOP_K_CONF, 40));
         this.apiKey = (String) confMap.get(API_KEY_CONF);
     }
@@ -36,8 +36,8 @@ public class RagConfig {
         return getLabelTypes;
     }
 
-    public EmbeddingQuery getEmbedding() {
-        return embedding;
+    public EmbeddingQuery getEmbeddings() {
+        return embeddings;
     }
 
     public Integer getTopK() {

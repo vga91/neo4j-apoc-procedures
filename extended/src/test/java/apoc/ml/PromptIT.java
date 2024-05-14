@@ -174,7 +174,7 @@ public class PromptIT {
 
     @Test
     public void ragWithRelevantAttributesComparedToIrrelevantOneAndChatProcedure() {
-        String question = "Which athletes won the gold medal in curling at the 2022 Winter Olympics?";
+        String question = "Which athletes won the gold medal in mixed doubles's curling  at the 2022 Winter Olympics?";
         
         // -- test with hallucinations, wrong winner names
         testCall(db, """
