@@ -22,14 +22,31 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+import static apoc.ml.Prompt.API_KEY_CONF;
+import static apoc.ml.Prompt.EMBEDDINGS_CONF;
+import static apoc.ml.Prompt.TOP_K_CONF;
+import static apoc.ml.Prompt.UNKNOWN_ANSWER;
+import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class PromptIT {
 
     private static final String OPENAI_KEY = System.getenv("OPENAI_KEY");
+    private static final List<String> RAG_ATTRIBUTES = List.of("name", "country", "medal", "title", "year");
+    private static final String RAG_EMBEDDING_QUERY = """
+                MATCH path=(a:Athlete)-[medal:HAS_MEDAL]->(d:Discipline)
+                WITH 'Athlete name: ' + a.name + '\\ncountry: ' + a.country + '\\nmedal: ' + medal.medal + '\\nyear: ' + d.year AS text
+                WITH collect(text) AS texts
+                CALL apoc.ml.openai.embedding(texts, $apiKey)
+                yield embedding, text
+                """;
 
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule();
@@ -41,12 +58,19 @@ public class PromptIT {
 
     @Before
     public void setUp() {
-        TestUtil.registerProcedure(db, Prompt.class, Meta.class, Strings.class, Coll.class);
+        TestUtil.registerProcedure(db, Prompt.class, OpenAI.class, Meta.class, Strings.class, Coll.class);
         String movies = Util.readResourceFile("movies.cypher");
         try (Transaction tx = db.beginTx()) {
             tx.execute(movies);
             tx.commit();
         }
+        
+        String rag = Util.readResourceFile("rag.cypher");
+        try (Transaction tx = db.beginTx()) {
+            tx.execute(rag);
+            tx.commit();
+        }
+
     }
 
     @Test
@@ -141,6 +165,231 @@ public class PromptIT {
                             value.contains("movie"));
                     assertTrue("Current value is: " + value,
                             value.contains("person") || value.contains("people") || value.contains("actor"));
+                });
+    }
+
+    @Test
+    public void testRag() {
+        // todo - test with hallucinations
+        testCall(db, """
+                CALL apoc.ml.openai.chat([
+                    // {role:"system", content:"Only answer with a single word"},
+                    {role:"user", content:"Which athletes won the gold medal in curling at the 2022 Winter Olympics?"}
+                ], $apiKey)""", 
+                Map.of("apiKey", OPENAI_KEY),
+                r -> {
+                    var result = (Map<String,Object>) r.get("value");
+
+                    Map message = ((List<Map<String,Map>>) result.get("choices")).get(0).get("message");
+                    assertEquals("assistant", message.get("role"));
+                    String value = (String) message.get("content");
+//                    assertEquals(true, text != null && !text.isBlank());
+                    
+                    // todo - assert not stefania and Amos
+
+//                    mapValue.get("co")
+                    String msg = "Current value is: " + value;
+                    assertTrue(msg, value.contains("gold medal"));
+                    extracted(value);
+                });
+
+        // todo - test without right attributes 
+        String call = """
+                MATCH path=(:Athlete)-[:HAS_MEDAL]->(Discipline)
+                WITH collect(path) AS paths
+                CALL apoc.ml.rag(paths, $attributes, $question, {apiKey: $apiKey}) YIELD value
+                RETURN value
+                """;
+        
+        testCall(db, call,
+                Map.of(
+                        "attributes", List.of("irrelevant", "irrelevant2"),
+                        "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
+//                        "retries", 2L,
+                        "apiKey", OPENAI_KEY
+                ),
+                (r) -> {
+                    String value = (String) r.get("value");
+                    System.out.println("value = " + value);
+                    String message = "Current value is: " + value;
+                    assertTrue(message, value.contains(UNKNOWN_ANSWER));
+
+                    extracted(value);
+                });
+        
+        // todo - forse rinominarla ragPaths ??
+        testCall(db, call,
+                Map.of(
+                        "attributes", RAG_ATTRIBUTES,
+                        "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
+                        "apiKey", OPENAI_KEY
+                ),
+                (r) -> {
+                    String value = (String) r.get("value");
+                    String message = "Current value is: " + value;
+                    assertTrue(message, value.contains("Stefania Constantini"));
+                    assertTrue(message, value.contains("Amos Mosaner"));
+                    assertTrue(message, value.contains("Italy"));
+                });
+        
+        testCall(db, call,
+                Map.of(
+                        "attributes", RAG_ATTRIBUTES,
+                        "question", "Which athletes won the gold medal in curling at the 2018 Winter Olympics?",
+                        "apiKey", OPENAI_KEY
+                ),
+                (r) -> {
+                    String value = (String) r.get("value");
+//                    String message = "Current value is: " + value;
+                    assertThat(value).contains("Lawes", "Morris", "USA");
+//                    assertTrue(message, value.contains("Lawes"));
+//                    assertTrue(message, value.contains("Morris"));
+//                    assertTrue(message, value.contains("USA"));
+
+                    extracted(value);
+                });
+        
+        testCall(db, call,
+                Map.of(
+                        "attributes", RAG_ATTRIBUTES,
+                        "question", "Which athletes won the silver medal in curling at the 2022 Winter Olympics?",
+                        "apiKey", OPENAI_KEY
+                ),
+                (r) -> {
+                    String value = (String) r.get("value");
+                    String message = "Current value is: " + value;
+                    assertThat(value).contains("Kristin Skaslien", "Magnus Nedregotten", "Norway");
+                    
+//                    assertTrue(message, value.contains("Kristin Skaslien"));
+//                    assertTrue(message, value.contains("Magnus Nedregotten"));
+//                    assertTrue(message, value.contains("Norway"));
+
+                    extracted(value);
+//                    extracted(value, message);
+                });
+    }
+
+    private static void extracted(String value) {
+        assertThat(value).doesNotContain("Stefania Constantini", "Amos Mosaner", "Italy");
+    }
+
+    private static void extracted1(String value) {
+        assertThat(value).contains("Stefania Constantini", "Amos Mosaner", "Italy");
+    }
+
+//    private static void extracted1(String value, String message, List<String> asserts) {
+//        assertThat(value).doesNotContain("my.proc");
+//        
+//        assertFalse(message, value.contains("Stefania Constantini"));
+//        assertFalse(message, value.contains("Amos Mosaner"));
+//        assertFalse(message, value.contains("Italy"));
+//    }
+//
+//    private static void extracted(String value, String message, List<String> asserts) {
+//        assertThat(value).doesNotContain(asserts);
+        
+//        assertFalse(message, value.contains("Stefania Constantini"));
+//        assertFalse(message, value.contains("Amos Mosaner"));
+//        assertFalse(message, value.contains("Italy"));
+//    }
+    
+    @Test
+    public void testRagQueryString() {
+        testCall(db, """
+                CALL apoc.ml.rag($query, $attributes, $question, {apiKey: $apiKey}) YIELD value
+                RETURN value""",
+                Map.of(
+                        "query", "MATCH path=(:Athlete)-[:HAS_MEDAL]->(Discipline) RETURN path",
+                        "attributes", RAG_ATTRIBUTES,
+                        "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
+                        "apiKey", OPENAI_KEY
+                ),
+                (r) -> {
+                    String value = (String) r.get("value");
+                    extracted1(value);
+                });
+    }
+
+    @Test
+    public void testRagEmbedding() {
+        // create vector index and node embeddings
+        String indexName = "rag-embeddings";
+        db.executeTransactionally("""
+                CREATE VECTOR INDEX `%s`
+                FOR (n:RagEmbedding) ON (n.embedding)
+                OPTIONS {indexConfig: {
+                 `vector.dimensions`: 1536,
+                 `vector.similarity_function`: 'cosine'
+                }}"""
+                .formatted(indexName)
+        );
+
+        db.executeTransactionally(RAG_EMBEDDING_QUERY + "\nCREATE (:RagEmbedding {text: text, embedding: embedding})",
+                Map.of("apiKey", OPENAI_KEY)
+        );
+
+        Map<String, Object> conf = map(API_KEY_CONF, OPENAI_KEY,
+                EMBEDDINGS_CONF, Prompt.EmbeddingQuery.Type.NODE.name(),
+                TOP_K_CONF, 10);
+        
+        testCall(db, "CALL apoc.ml.rag($query, $attributes, $question, $conf)",
+                Map.of(
+                        "query", indexName,
+                        "attributes", List.of("text"),
+                        "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
+                        "conf", conf
+                ),
+                (r) -> {
+                    String value = (String) r.get("value");
+                    extracted1(value);
+                });
+    }
+
+    @Test
+    public void testRagEmbeddingWithRels() {
+        // create vector index and rels embeddings
+        String indexName = "rag-rel-embeddings";
+        db.executeTransactionally("""
+                CREATE VECTOR INDEX `%s`
+                FOR ()-[r:RAG_EMBEDDING]-() ON (r.embedding)
+                OPTIONS {indexConfig: {
+                 `vector.dimensions`: 1536,
+                 `vector.similarity_function`: 'cosine'
+                }}"""
+                .formatted(indexName)
+        );
+        
+        db.executeTransactionally(RAG_EMBEDDING_QUERY + "\nCREATE (:Start)-[:RAG_EMBEDDING {text: text, embedding: embedding}]->(:End)",
+                Map.of("apiKey", OPENAI_KEY)
+        );
+
+        Map<String, Object> conf = map(API_KEY_CONF, OPENAI_KEY,
+                EMBEDDINGS_CONF, Prompt.EmbeddingQuery.Type.NODE.name(),
+                TOP_K_CONF, 10);
+        try {
+            testCall(db, "CALL apoc.ml.rag($query, $attributes, $question, $conf)",
+                    Map.of(
+                            "query", indexName,
+                            "attributes", List.of("text"),
+                            "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
+                            "conf", conf
+                    ),
+                    (r) -> fail());
+        } catch (Exception e) {
+            assertThat(e.getMessage()).contains("it cannot be queried for nodes");
+        }
+
+        conf.put(EMBEDDINGS_CONF, Prompt.EmbeddingQuery.Type.REL.name());
+        testCall(db, "CALL apoc.ml.rag($query, $attributes, $question, $conf)",
+                Map.of(
+                        "query", indexName,
+                        "attributes", List.of("text"),
+                        "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
+                        "conf", conf
+                ),
+                (r) -> {
+                    String value = (String) r.get("value");
+                    extracted1(value);
                 });
     }
 
