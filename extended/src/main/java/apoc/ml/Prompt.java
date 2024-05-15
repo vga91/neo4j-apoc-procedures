@@ -85,7 +85,14 @@ public class Prompt {
         }
         
         // - Generate
-        String prompt = RAG_BASE_PROMPT.formatted(UNKNOWN_ANSWER, context);
+        String contextPrompt = """
+                                
+                ---- Start context ----
+                %s
+                ---- End context ----
+                """.formatted(context);
+        
+        String prompt = config.getBasePrompt() + contextPrompt;
 
         String result = prompt("\nQuestion:" + question, 
                 prompt, 
@@ -130,7 +137,7 @@ public class Prompt {
     public static final String UNKNOWN_ANSWER = "Sorry, I don't know";
     static final String RAG_BASE_PROMPT = """
             You are a customer service agent that helps a customer with answering questions about a service.
-            Use the following context to answer the `user question` at the end. Make sure not to make any changes to the context if possible when prepare answers so as to provide accuate responses.
+            Use the following context to answer the `user question` at the end. Make sure not to make any changes to the context if possible when prepare answers so as to provide accurate responses.
             If you don't know the answer, just say `%s`, don't try to make up an answer.
             
             ---- Start context ----

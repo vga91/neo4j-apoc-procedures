@@ -9,14 +9,23 @@ import java.util.Map;
 import static apoc.ml.Prompt.API_KEY_CONF;
 
 public class RagConfig {
+    public static final String UNKNOWN_ANSWER = "Sorry, I don't know";
+    public static final String DEFAULT_BASE_PROMPT = """
+            You are a customer service agent that helps a customer with answering questions about a service.
+            Use the following context to answer the `user question` at the end. Make sure not to make any changes to the context if possible when prepare answers to provide accurate responses.
+            If you don't know the answer, just say `%s`, don't try to make up an answer.
+            """.formatted(UNKNOWN_ANSWER);
+    
     public static final String EMBEDDINGS_CONF = "embeddings";
     public static final String GET_LABEL_TYPES_CONF = "getLabelTypes";
     public static final String TOP_K_CONF = "topK";
+    public static final String PROMPT_CONF = "prompt";
     
     private final boolean getLabelTypes;
     private final EmbeddingQuery embeddings;
     private final Integer topK;
     private final String apiKey;
+    private final String basePrompt;
     private final Map<String, Object> confMap;
 
     public RagConfig(Map<String, Object> confMap) {
@@ -30,6 +39,7 @@ public class RagConfig {
         this.embeddings = EmbeddingQuery.Type.valueOf(embeddingString).get();
         this.topK = Util.toInteger(confMap.getOrDefault(TOP_K_CONF, 40));
         this.apiKey = (String) confMap.get(API_KEY_CONF);
+        this.basePrompt = (String) confMap.getOrDefault(PROMPT_CONF, DEFAULT_BASE_PROMPT);
     }
 
     public boolean isGetLabelTypes() {
@@ -46,6 +56,10 @@ public class RagConfig {
 
     public String getApiKey() {
         return apiKey;
+    }
+
+    public String getBasePrompt() {
+        return basePrompt;
     }
 
     public Map<String, Object> getConfMap() {

@@ -38,7 +38,7 @@ public class PromptIT {
 
     private static final String OPENAI_KEY = System.getenv("OPENAI_KEY");
     private static final List<String> RAG_ATTRIBUTES = List.of("name", "country", "medal", "title", "year");
-    private static final String RAG_EMBEDDING_QUERY = """
+    private static final String CREATE_EMBEDDINGS_FOR_RAG = """
                 MATCH path=(a:Athlete)-[medal:HAS_MEDAL]->(d:Discipline)
                 WITH 'Athlete name: ' + a.name + '\\ncountry: ' + a.country + '\\nmedal: ' + medal.medal + '\\nyear: ' + d.year AS text
                 WITH collect(text) AS texts
@@ -198,7 +198,7 @@ public class PromptIT {
         testCall(db, QUERY_RAG,
                 map("attributes", List.of("irrelevant", "irrelevant2"),
                         "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
-                        "conf", map("apiKey", OPENAI_KEY)
+                        "conf", map(API_KEY_CONF, OPENAI_KEY)
                 ),
                 (r) -> {
                     String value = (String) r.get("value");
@@ -223,13 +223,32 @@ public class PromptIT {
                     assertTrue(message, value.contains("Italy"));
                 });
     }
+
+    @Test
+    public void ragWithIrrilevantAttributesAndCustomPrompt() {
+        String customUnknownAnswer = "Absolutely no idea :/";
+        testCall(db, QUERY_RAG,
+                map("attributes", List.of("irrelevant", "irrelevant2"),
+                        "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
+                        "conf", map(API_KEY_CONF, OPENAI_KEY, 
+                                PROMPT_CONF, DEFAULT_BASE_PROMPT.formatted(customUnknownAnswer)
+                        )
+                ),
+                (r) -> {
+                    String value = (String) r.get("value");
+                    String message = "Current value is: " + value;
+                    assertTrue(message, value.contains(customUnknownAnswer));
+
+                    assertNot2022Winners(value);
+                });
+    }
     
     @Test
     public void testRagWithVariousQuestions() {
         testCall(db, QUERY_RAG,
                 map("attributes", RAG_ATTRIBUTES,
                         "question", "Which athletes won the gold medal in curling at the 2018 Winter Olympics?",
-                        "conf", map("apiKey", OPENAI_KEY)
+                        "conf", map(API_KEY_CONF, OPENAI_KEY)
                 ),
                 (r) -> {
                     String value = (String) r.get("value");
@@ -240,8 +259,7 @@ public class PromptIT {
         testCall(db, QUERY_RAG,
                 map("attributes", RAG_ATTRIBUTES,
                         "question", "Which athletes won the silver medal in curling at the 2022 Winter Olympics?",
-                        "apiKey", OPENAI_KEY,
-                        "conf", map("apiKey", OPENAI_KEY)
+                        "conf", map(API_KEY_CONF, OPENAI_KEY)
                 ),
                 (r) -> {
                     String value = (String) r.get("value");
@@ -257,7 +275,7 @@ public class PromptIT {
                         "query", "MATCH path=(:Athlete)-[:HAS_MEDAL]->(Discipline) RETURN path",
                         "attributes", RAG_ATTRIBUTES,
                         "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
-                        "conf", map("apiKey", OPENAI_KEY)
+                        "conf", map(API_KEY_CONF, OPENAI_KEY)
                 ),
                 (r) -> {
                     String value = (String) r.get("value");
@@ -279,7 +297,7 @@ public class PromptIT {
                 .formatted(indexName)
         );
 
-        db.executeTransactionally(RAG_EMBEDDING_QUERY + "\nCREATE (:RagEmbedding {text: text, embedding: embedding})",
+        db.executeTransactionally(CREATE_EMBEDDINGS_FOR_RAG + "\nCREATE (:RagEmbedding {text: text, embedding: embedding})",
                 map("apiKey", OPENAI_KEY)
         );
 
@@ -314,7 +332,7 @@ public class PromptIT {
                 .formatted(indexName)
         );
         
-        db.executeTransactionally(RAG_EMBEDDING_QUERY + "\nCREATE (:Start)-[:RAG_EMBEDDING {text: text, embedding: embedding}]->(:End)",
+        db.executeTransactionally(CREATE_EMBEDDINGS_FOR_RAG + "\nCREATE (:Start)-[:RAG_EMBEDDING {text: text, embedding: embedding}]->(:End)",
                 map("apiKey", OPENAI_KEY)
         );
 

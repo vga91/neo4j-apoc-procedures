@@ -541,6 +541,12 @@ It uses the `chat/completions` API which is https://platform.openai.com/docs/api
 | embeddings | to search similar embeddings stored into a node vector index (in case of `embeddings: "NODE"`) or relationship vector index (in case of `embeddings: "REL"`) | no, default `"FALSE"`
 | topK | number of neighbors to find for each node (in case of `embeddings: "NODE"`) or relationships (in case of `embeddings: "REL"`) | no, default `40`
 | apiKey | OpenAI API key | in case `apoc.openai.key` is not defined
+| prompt | the base prompt to be augmented with the context | no, default is: 
+
+"You are a customer service agent that helps a customer with answering questions about a service.
+Use the following context to answer the `user question` at the end.
+Make sure not to make any changes to the context if possible when prepare answers to provide accurate responses.
+If you don't know the answer, just say \`Sorry, I don't know`, don't try to make up an answer."
 |===
 
 
