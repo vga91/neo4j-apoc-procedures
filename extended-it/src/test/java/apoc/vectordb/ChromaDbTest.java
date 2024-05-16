@@ -22,6 +22,7 @@ import static apoc.vectordb.VectorDbTestUtil.assertLondonResult;
 import static apoc.vectordb.VectorDbTestUtil.assertNodesCreated;
 import static apoc.vectordb.VectorDbTestUtil.assertRelsAndIndexesCreated;
 import static apoc.vectordb.VectorDbTestUtil.dropAndDeleteAll;
+import static apoc.vectordb.VectorDbTestUtil.EntityType.*;
 import static apoc.vectordb.VectorEmbeddingConfig.ALL_RESULTS_KEY;
 import static apoc.vectordb.VectorEmbeddingConfig.MAPPING_KEY;
 import static org.junit.Assert.assertEquals;
@@ -85,7 +86,7 @@ public class ChromaDbTest {
                 map("host", HOST, "collection", collId.get(), "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, false);
+                    assertBerlinResult(row, FALSE);
                     assertNotNull(row.get("vector"));
                     assertEquals("ajeje", row.get("text"));
                 });
@@ -129,7 +130,7 @@ public class ChromaDbTest {
                 map("host", HOST, "collection", collId.get(), "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, false);
+                    assertBerlinResult(row, FALSE);
                     assertNotNull(row.get("vector"));
                 });
     }
@@ -140,12 +141,12 @@ public class ChromaDbTest {
                 map("host", HOST, "collection", collId.get(), "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, false);
+                    assertBerlinResult(row, FALSE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, false);
+                    assertLondonResult(row, FALSE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -154,7 +155,7 @@ public class ChromaDbTest {
     @Test
     public void queryVectorsWithoutVectorResult() {
         testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5) " +
-                       " YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       " YIELD score, vector, id, metadata, node RETURN * ORDER BY id",
                 map("host", HOST, "collection", collId.get()),
                 r -> {
                     Map<String, Object> row = r.next();
@@ -176,8 +177,8 @@ public class ChromaDbTest {
         testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5, $conf) YIELD metadata, id",
                 map("host", HOST, "collection", collId.get(), "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
-                    assertBerlinResult(r.next(), false);
-                    assertLondonResult(r.next(), false);
+                    assertBerlinResult(r.next(), FALSE);
+                    assertLondonResult(r.next(), FALSE);
                 });
     }
 
@@ -187,7 +188,7 @@ public class ChromaDbTest {
                         CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {city: 'London'}, 5, $conf) YIELD metadata, id""",
                 map("host", HOST, "collection", collId.get(), "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
-                    assertLondonResult(r.next(), false);
+                    assertLondonResult(r.next(), FALSE);
                 });
     }
 
@@ -197,7 +198,7 @@ public class ChromaDbTest {
                         CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 1, $conf) YIELD metadata, id""",
                 map("host", HOST, "collection", collId.get(), "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
-                    assertBerlinResult(r.next(), false);
+                    assertBerlinResult(r.next(), FALSE);
                 });
     }
 
@@ -214,30 +215,29 @@ public class ChromaDbTest {
                 map("host", HOST, "collection", collId.get(), "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, true);
+                    assertBerlinResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, true);
+                    assertLondonResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
 
         assertNodesCreated(db);
 
-
         testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.22, 0.11, 0.99, 0.17], {}, 5, $conf) " +
-                       "   YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       "   YIELD score, vector, id, metadata, node RETURN * ORDER BY id",
                 map("host", HOST, "collection", collId.get(), "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, true);
+                    assertBerlinResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, true);
+                    assertLondonResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -259,12 +259,12 @@ public class ChromaDbTest {
                 map("host", HOST, "collection", collId.get(), "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, true);
+                    assertBerlinResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, true);
+                    assertLondonResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -287,12 +287,12 @@ public class ChromaDbTest {
                 map("host", HOST, "collection", collId.get(), "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, true);
+                    assertBerlinResult(row, REL);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, true);
+                    assertLondonResult(row, REL);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });

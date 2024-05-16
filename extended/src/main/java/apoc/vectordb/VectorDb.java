@@ -6,6 +6,7 @@ import apoc.result.ObjectResult;
 import apoc.util.JsonUtil;
 import apoc.util.Util;
 import org.apache.commons.collections4.MapUtils;
+import org.apache.commons.lang3.ArrayUtils;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
@@ -118,7 +119,10 @@ public class VectorDb {
 
         Entity entity = handleMapping(tx, db, mapping, metadata, embedding);
         if (entity != null) entity = Util.rebind(tx, entity);
-        return new EmbeddingResult(id, score, embedding, metadata, text, entity);
+        return new EmbeddingResult(id, score, embedding, metadata, text, 
+                mapping.getLabel() == null ? null : (Node) entity,
+                mapping.getLabel() != null ? null : (Relationship) entity
+        );
     }
 
     private static Entity handleMapping(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, Map<String, Object> metadata, List<Double> embedding) {
@@ -146,7 +150,7 @@ public class VectorDb {
         try {
             Node node;
             try (Transaction transaction = db.beginTx()) {
-                Object propValue = metaProps.remove(mapping.getId());
+                Object propValue = metaProps.get(mapping.getId());
                 node = transaction.findNode(Label.label(mapping.getLabel()), mapping.getProp(), propValue);
                 if (node == null && mapping.isCreate()) {
                     node = transaction.createNode(Label.label(mapping.getLabel()));
@@ -154,12 +158,12 @@ public class VectorDb {
                 }
                 if (node != null) {
                     setProperties(node, metaProps);
+                    setVectorProp(tx, db, mapping, embedding, node/*, setVectorQuery*/);
                 }
                 transaction.commit();
             }
 
-            String setVectorQuery = "CALL db.create.setNodeVectorProperty($entity, $key, $vector)";
-            setVectorProp(tx, db, mapping, embedding, node, setVectorQuery);
+//            String setVectorQuery = "CALL db.create.setNodeVectorProperty($entity, $key, $vector)";
             return node;
         } catch (MultipleFoundException e) {
             throw new RuntimeException("Multiple nodes found");
@@ -175,24 +179,24 @@ public class VectorDb {
             // in this case we cannot auto-create the rel, since we should have to define start and end node as well
             Relationship rel;
             try (Transaction transaction = db.beginTx()) {
-                Object propValue = metaProps.remove(mapping.getId());
+                Object propValue = metaProps.get(mapping.getId());
                 rel = transaction.findRelationship(RelationshipType.withName(mapping.getType()), mapping.getProp(), propValue);
                 if (rel != null) {
                     setProperties(rel, metaProps);
+                    setVectorProp(tx, db, mapping, embedding, rel/*, setVectorQuery*/);
                 }
                 transaction.commit();
             }
 
-            String setVectorQuery = "CALL db.create.setRelationshipVectorProperty($entity, $key, $vector)";
-            setVectorProp(tx, db, mapping, embedding, rel, setVectorQuery);
+//            String setVectorQuery = "CALL db.create.setRelationshipVectorProperty($entity, $key, $vector)";
             return rel;
         } catch (MultipleFoundException e) {
             throw new RuntimeException("Multiple relationships found");
         }
     }
 
-    private static <T extends Entity> void setVectorProp(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, List<Double> embedding, T entity, String setVectorQuery) {
-        if (entity == null || mapping.getEmbeddingProp() == null) {
+    private static <T extends Entity> void setVectorProp(Transaction tx, GraphDatabaseService db, VectorMappingConfig mapping, List<Double> embedding, T entity/*, String setVectorQuery*/) {
+        if (/*entity == null || */mapping.getEmbeddingProp() == null) {
             return;
         }
 
@@ -202,14 +206,17 @@ public class VectorDb {
             throw new RuntimeException(embeddingErrMsg);
         }
 
-        db.executeTransactionally(setVectorQuery,
-                Map.of("entity", Util.rebind(tx, entity), "key", mapping.getEmbeddingProp(), "vector", embedding));
+        entity.setProperty(mapping.getEmbeddingProp(), embedding.stream()
+                .map(Double::floatValue)
+                .toArray(Float[]::new));
+//        db.executeTransactionally(setVectorQuery,
+//                Map.of("entity", Util.rebind(tx, entity), "key", mapping.getEmbeddingProp(), "vector", embedding));
     }
     
     // TODO - evaluate. It could be renamed e.g. to `apoc.util.restapi.custom` or `apoc.restapi.custom`,
     //      since it can potentially be used as a generic method to call any RestAPI 
     @Procedure("apoc.vectordb.custom")
-    @Description("apoc.vectordb.custom(host, $config) - fully customizable vector db procedure, returns generic object results")
+    @Description("apoc.vectordb.custom(host, $configuration) - fully customizable procedure, returns generic object results")
     public Stream<ObjectResult> custom(@Name("host") String host, @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
 
         getEndpoint(configuration, host);

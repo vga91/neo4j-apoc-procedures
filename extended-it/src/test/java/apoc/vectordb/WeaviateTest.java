@@ -21,6 +21,7 @@ import static apoc.util.TestUtil.testCallEmpty;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.Util.map;
 import static apoc.vectordb.VectorDbTestUtil.*;
+import static apoc.vectordb.VectorDbTestUtil.EntityType.*;
 import static apoc.vectordb.VectorEmbeddingConfig.ALL_RESULTS_KEY;
 import static apoc.vectordb.VectorEmbeddingConfig.MAPPING_KEY;
 import static org.junit.Assert.assertEquals;
@@ -103,7 +104,7 @@ public class WeaviateTest {
                 map("host", HOST, "id1", id1, "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, id1, false);
+                    assertBerlinResult(row, id1, FALSE);
                     assertNotNull(row.get("vector"));
                 });
     }
@@ -123,25 +124,25 @@ public class WeaviateTest {
     @Test
     public void queryVectors() {
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
-                       " YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       " YIELD score, vector, id, metadata, , node RETURN * ORDER BY id",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true, "fields", FIELDS)),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, id1, false);
+                    assertBerlinResult(row, id1, FALSE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, id2, false);
+                    assertLondonResult(row, id2, FALSE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
-                });
+                }); 
     }
 
     @Test
     public void queryVectorsWithoutVectorResult() {
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
-                       " YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       " YIELD score, vector, id, metadata, node RETURN * ORDER BY id",
                 map("host", HOST, "conf", map( "fields", FIELDS)),
                 r -> {
                     Map<String, Object> row = r.next();
@@ -164,8 +165,8 @@ public class WeaviateTest {
                        "YIELD metadata, id RETURN * ORDER BY id",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true, "fields", FIELDS)),
                 r -> {
-                    assertBerlinResult(r.next(), id1, false);
-                    assertLondonResult(r.next(), id2, false);
+                    assertBerlinResult(r.next(), id1, FALSE);
+                    assertLondonResult(r.next(), id2, FALSE);
                 });
     }
 
@@ -177,7 +178,7 @@ public class WeaviateTest {
                         5, $conf) YIELD metadata, id RETURN * ORDER BY id""",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true, "fields", FIELDS)),
                 r -> {
-                    assertLondonResult(r.next(), id2, false);
+                    assertLondonResult(r.next(), id2, FALSE);
                 });
     }
 
@@ -187,7 +188,7 @@ public class WeaviateTest {
                         CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 1, $conf) YIELD metadata, id RETURN * ORDER BY id""",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true, "fields", FIELDS)),
                 r -> {
-                    assertBerlinResult(r.next(), id1, false);
+                    assertBerlinResult(r.next(), id1, FALSE);
                 });
     }
 
@@ -202,16 +203,16 @@ public class WeaviateTest {
                 "id", "foo",
                 "create", true));
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
-                       "YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       "YIELD score, vector, id, metadata, node RETURN * ORDER BY id",
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, id1, true);
+                    assertBerlinResult(row, id1, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, id2, true);
+                    assertLondonResult(row, id2, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -222,16 +223,16 @@ public class WeaviateTest {
                 VectorDbTestUtil::vectorEntityAssertions);
 
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
-                       " YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       " YIELD score, vector, id, metadata, node RETURN * ORDER BY id",
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, id1, true);
+                    assertBerlinResult(row, id1, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, id2, true);
+                    assertLondonResult(row, id2, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -251,16 +252,16 @@ public class WeaviateTest {
                 "prop", "myId",
                 "id", "foo"));
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
-                       " YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       " YIELD score, vector, id, metadata, node RETURN * ORDER BY id",
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, id1, true);
+                    assertBerlinResult(row, id1, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, id2, true);
+                    assertLondonResult(row, id2, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -280,16 +281,16 @@ public class WeaviateTest {
                 "prop", "myId",
                 "id", "foo"));
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
-                       " YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       " YIELD score, vector, id, metadata, node RETURN * ORDER BY id",
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, id1, true);
+                    assertBerlinResult(row, id1, REL);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, id2, true);
+                    assertLondonResult(row, id2, REL);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -307,7 +308,7 @@ public class WeaviateTest {
                 "prop", "myId",
                 "id", "foo"));
         testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
-                       " YIELD score, vector, id, metadata, entity RETURN * ORDER BY id",
+                       " YIELD score, vector, id, metadata, rel RETURN * ORDER BY id",
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();

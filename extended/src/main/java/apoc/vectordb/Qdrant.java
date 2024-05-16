@@ -41,7 +41,7 @@ public class Qdrant {
     public URLAccessChecker urlAccessChecker;
 
     @Procedure("apoc.vectordb.qdrant.createCollection")
-    @Description("apoc.vectordb.qdrant.createCollection(hostOrKey, collection, similarity, size, $config)")
+    @Description("apoc.vectordb.qdrant.createCollection(hostOrKey, collection, similarity, size, $configuration) - Creates a collection, with the name specified in the 2nd parameter, and with the specified `similarity` and `size`")
     public Stream<MapResult> createCollection(@Name("hostOrKey") String hostOrKey,
                                     @Name("collection") String collection,
                                     @Name("similarity") String similarity,
@@ -65,7 +65,7 @@ public class Qdrant {
     }
     
     @Procedure("apoc.vectordb.qdrant.deleteCollection")
-    @Description("apoc.vectordb.qdrant.deleteCollection(hostOrKey, collection, $config)")
+    @Description("apoc.vectordb.qdrant.deleteCollection(hostOrKey, collection, $configuration) - Deletes a collection with the name specified in the 2nd parameter")
     public Stream<MapResult> deleteCollection(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
@@ -85,7 +85,7 @@ public class Qdrant {
     }
     
     @Procedure("apoc.vectordb.qdrant.upsert")
-    @Description("apoc.vectordb.qdrant.upsert(hostOrKey, collection, vectors, $config)")
+    @Description("apoc.vectordb.qdrant.upsert(hostOrKey, collection, vectors, $configuration) - Upserts, in the collection with the name specified in the 2nd parameter, the vectors [{id: 'id', vector: '<vectorDb>', medatada: '<metadata>'}]")
     public Stream<MapResult> upsert(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
@@ -115,7 +115,7 @@ public class Qdrant {
     }
     
     @Procedure("apoc.vectordb.qdrant.delete")
-    @Description("apoc.vectordb.qdrant.delete(hostOrKey, collection, ids, $config)")
+    @Description("apoc.vectordb.qdrant.delete(hostOrKey, collection, ids, $configuration) - Delete the vectors with the specified `ids`")
     public Stream<MapResult> delete(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
@@ -137,7 +137,7 @@ public class Qdrant {
     }
 
     @Procedure(value = "apoc.vectordb.qdrant.get", mode = Mode.SCHEMA)
-    @Description("apoc.vectordb.qdrant.get(hostOrKey, collection, ids, $config)")
+    @Description("apoc.vectordb.qdrant.get(hostOrKey, collection, ids, $configuration) - Get the vectors with the specified `ids`")
     public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name("ids") List<Object> ids,
@@ -153,7 +153,7 @@ public class Qdrant {
     }
 
     @Procedure(value = "apoc.vectordb.qdrant.query", mode = Mode.SCHEMA)
-    @Description("apoc.vectordb.qdrant.query(hostOrKey, collection, vector, filter, limit, $config)")
+    @Description("apoc.vectordb.qdrant.query(hostOrKey, collection, vector, filter, limit, $configuration) - Retrieve closest vectors the the defined `vector`, `limit` of results,  in the collection with the name specified in the 2nd parameter")
     public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name(value = "vector", defaultValue = "[]") List<Double> vector,

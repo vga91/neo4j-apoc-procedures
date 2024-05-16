@@ -1,6 +1,9 @@
 package apoc.vectordb;
 
 
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Relationship;
+
 import java.util.List;
 import java.util.Map;
 
@@ -20,10 +23,12 @@ public class VectorDbUtil {
     /**
      * Result of `apoc.vectordb.*.get` and `apoc.vectordb.*.query` procedures
      *
-     * @param entity we cannot declare entity with class Entity, 
+//     * @param entity we cannot declare entity with class Entity, 
      *               as an error `cannot be converted to a Neo4j type: Don't know how to map `org.neo4j.graphdb.Entity` to the Neo4j Type` would be thrown
      */
     public record EmbeddingResult(
-            Object id, Double score, List<Double> vector, Map<String, Object> metadata, String text, Object entity) {}
+            Object id, Double score, List<Double> vector, Map<String, Object> metadata, String text,
+            Node node,
+            Relationship rel) {}
 
 }

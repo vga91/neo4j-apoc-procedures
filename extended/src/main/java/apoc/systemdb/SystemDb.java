@@ -58,6 +58,13 @@ public class SystemDb {
             this.relationships = relationships;
         }
     }
+    
+    // todo - maybe credentials is the API Key??
+    
+    // todo - tests with API KEYS 
+    /*
+    (:Chroma {name: 'id', host: <host>, credentials: <>, ...mapping}
+     */
 
     @Admin
     @Procedure(name = "apoc.systemdb.export.metadata")

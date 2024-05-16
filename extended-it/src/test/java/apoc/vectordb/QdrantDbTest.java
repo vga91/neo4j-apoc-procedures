@@ -15,6 +15,9 @@ import java.util.Map;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
+import static apoc.vectordb.VectorDbTestUtil.EntityType.NODE;
+import static apoc.vectordb.VectorDbTestUtil.EntityType.FALSE;
+import static apoc.vectordb.VectorDbTestUtil.EntityType.REL;
 import static apoc.vectordb.VectorDbTestUtil.assertBerlinResult;
 import static apoc.vectordb.VectorDbTestUtil.assertLondonResult;
 import static apoc.vectordb.VectorDbTestUtil.assertNodesCreated;
@@ -85,7 +88,7 @@ public class QdrantDbTest {
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, false);
+                    assertBerlinResult(row, FALSE);
                     assertNotNull(row.get("vector"));
                 });
     }
@@ -131,12 +134,12 @@ public class QdrantDbTest {
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, false);
+                    assertBerlinResult(row, FALSE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, false);
+                    assertLondonResult(row, FALSE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -166,8 +169,8 @@ public class QdrantDbTest {
         testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf) YIELD metadata, id",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
-                    assertBerlinResult(r.next(), false);
-                    assertLondonResult(r.next(), false);
+                    assertBerlinResult(r.next(), FALSE);
+                    assertLondonResult(r.next(), FALSE);
                 });
     }
 
@@ -181,7 +184,7 @@ public class QdrantDbTest {
                         5, $conf) YIELD metadata, id""",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
-                    assertLondonResult(r.next(), false);
+                    assertLondonResult(r.next(), FALSE);
                 });
     }
 
@@ -191,7 +194,7 @@ public class QdrantDbTest {
                         CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 1, $conf) YIELD metadata, id""",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
-                    assertBerlinResult(r.next(), false);
+                    assertBerlinResult(r.next(), FALSE);
                 });
     }
 
@@ -208,12 +211,12 @@ public class QdrantDbTest {
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, true);
+                    assertBerlinResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, true);
+                    assertLondonResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -227,12 +230,12 @@ public class QdrantDbTest {
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, true);
+                    assertBerlinResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, true);
+                    assertLondonResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -254,12 +257,12 @@ public class QdrantDbTest {
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, true);
+                    assertBerlinResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, true);
+                    assertLondonResult(row, NODE);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
@@ -281,12 +284,12 @@ public class QdrantDbTest {
                 map("host", HOST, "conf", conf),
                 r -> {
                     Map<String, Object> row = r.next();
-                    assertBerlinResult(row, true);
+                    assertBerlinResult(row, REL);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
 
                     row = r.next();
-                    assertLondonResult(row, true);
+                    assertLondonResult(row, REL);
                     assertNotNull(row.get("score"));
                     assertNotNull(row.get("vector"));
                 });
