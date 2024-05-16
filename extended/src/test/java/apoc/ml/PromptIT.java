@@ -227,11 +227,17 @@ public class PromptIT {
     @Test
     public void ragWithIrrilevantAttributesAndCustomPrompt() {
         String customUnknownAnswer = "Absolutely no idea :/";
+        String prompt = """
+                You are a customer service agent that helps a customer with answering questions about a service.
+                Use the following context to answer the `user question` at the end.
+                If you don't know the answer, just say `%s`, don't try to make up an answer.
+                """.formatted(customUnknownAnswer);
+        
         testCall(db, QUERY_RAG,
                 map("attributes", List.of("irrelevant", "irrelevant2"),
                         "question", "Which athletes won the gold medal in curling at the 2022 Winter Olympics?",
                         "conf", map(API_KEY_CONF, OPENAI_KEY, 
-                                PROMPT_CONF, DEFAULT_BASE_PROMPT.formatted(customUnknownAnswer)
+                                PROMPT_CONF, prompt
                         )
                 ),
                 (r) -> {
