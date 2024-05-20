@@ -47,6 +47,10 @@ include::./chroma.adoc[]
 
 include::./weaviate.adoc[]
 
+include::./pinecone.adoc[]
+
+include::./milvus.adoc[]
+
 include::./custom.adoc[]
 
 == Store Vector db info (i.e. `apoc.vectordb.store`) 

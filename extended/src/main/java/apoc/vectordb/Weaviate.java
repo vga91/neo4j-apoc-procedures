@@ -153,7 +153,7 @@ public class Weaviate {
         config.putIfAbsent(METHOD_KEY, null);
 
         List<String> fields = procedureCallContext.outputFields().toList();
-        VectorEmbeddingConfig conf = WEAVIATE.get().getEmbedding().fromGet(config, procedureCallContext, ids);
+        VectorEmbeddingConfig conf = WEAVIATE.get().getEmbedding().fromGet(config, procedureCallContext, ids, collection);
         boolean hasEmbedding = fields.contains("vector") && conf.isAllResults();
         boolean hasMetadata = fields.contains("metadata");
         VectorMappingConfig mapping = conf.getMapping();

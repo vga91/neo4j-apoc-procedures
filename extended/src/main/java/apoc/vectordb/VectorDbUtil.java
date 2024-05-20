@@ -20,8 +20,6 @@ import static apoc.vectordb.VectorEmbeddingConfig.MAPPING_KEY;
 import static apoc.vectordb.VectorEmbeddingHandler.*;
 
 public class VectorDbUtil {
-
-    
     
     /**
      * we can configure the endpoint via config map or via hostOrKey parameter,
@@ -51,9 +49,7 @@ public class VectorDbUtil {
             return node == null ? Map.of() : node.getAllProperties();
         });
 
-        String url = hostOrKey == null
-                ? (String) props.get(ExtendedSystemPropertyKeys.host.name())
-                : handler.getUrl(hostOrKey);
+        String url = getUrl(hostOrKey, handler, props);
         config.put(BASE_URL_KEY, url);
 
         Map mappingConfVal = (Map) config.get(MAPPING_KEY);
@@ -75,6 +71,18 @@ public class VectorDbUtil {
         getEndpoint(config, endpoint);
 
         return config;
+    }
+
+    private static String getUrl(String hostOrKey, VectorDbHandler handler, Map<String, Object> props) {
+        String url = handler.getUrl(hostOrKey);
+        if (hostOrKey != null) {
+            return url;
+        }
+        String propVal = (String) props.get(ExtendedSystemPropertyKeys.host.name());
+        if (propVal == null) {
+            return url;
+        }
+        return propVal;
     }
 
 }

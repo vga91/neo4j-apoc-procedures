@@ -17,6 +17,7 @@ import org.neo4j.graphdb.QueryStatistics;
 import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.security.URLAccessChecker;
+import org.neo4j.graphdb.security.URLAccessValidationError;
 import org.neo4j.logging.Log;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
@@ -27,6 +28,7 @@ import org.neo4j.procedure.TerminationGuard;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -354,6 +356,10 @@ public class CypherExtended {
             return FileUtils.readerFor(fileName, CompressionAlgo.NONE.name(), urlAccessChecker);
         } catch (IOException ioe) {
             throw new RuntimeException("Error accessing file "+fileName,ioe);
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        } catch (URLAccessValidationError e) {
+            throw new RuntimeException(e);
         }
     }
 

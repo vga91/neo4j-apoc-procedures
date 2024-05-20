@@ -8,6 +8,7 @@ import apoc.util.JsonUtil;
 import apoc.util.Util;
 import apoc.util.collection.Iterators;
 import org.apache.commons.collections4.MapUtils;
+import org.jetbrains.annotations.Nullable;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Label;
@@ -101,30 +102,49 @@ public class VectorDb {
 
         boolean hasVector = fields.contains("vector") && conf.isAllResults();
         boolean hasMetadata = fields.contains("metadata");
-        Stream<Object> resultStream = executeRequest(conf.getApiConfig(), urlAccessChecker);
+//        Stream<Object> resultStream = executeRequest(conf.getApiConfig(), urlAccessChecker);
 
         VectorMappingConfig mapping = conf.getMapping();
 
-        return resultStream
+        return executeRequest(conf.getApiConfig(), urlAccessChecker)
                 .flatMap(objectMapper)
                 .map(m -> getEmbeddingResult(conf, tx, hasVector, hasMetadata, mapping, m));
     }
 
-    public static EmbeddingResult getEmbeddingResult(VectorEmbeddingConfig conf, Transaction tx, boolean hasEmbedding, boolean hasMetadata, VectorMappingConfig mapping, Map m) {
-        Object id = conf.isAllResults() ? m.get(conf.getIdKey()) : null;
-        List<Double> embedding = hasEmbedding ? (List<Double>) m.get(conf.getVectorKey()) : null;
-        Map<String, Object> metadata = hasMetadata ? (Map<String, Object>) m.get(conf.getMetadataKey()) : null;
+    public static EmbeddingResult getEmbeddingResult(VectorEmbeddingConfig conf, Transaction tx, boolean hasEmbedding, boolean hasMetadata, VectorMappingConfig mapping, Map mapRes) {
+        Object id = conf.isAllResults() ? mapRes.get(conf.getIdKey()) : null;
+        List<Double> embedding = hasEmbedding ? (List<Double>) mapRes.get(conf.getVectorKey()) : null;
         // in case of get operation, e.g. http://localhost:52798/collections/{coll_name}/points with Qdrant db,
         // score is not present
-        Double score = Util.toDouble(m.get(conf.getScoreKey()));
-        String text = conf.isAllResults() ? (String) m.get(conf.getTextKey()) : null;
+        Double score = Util.toDouble(mapRes.get(conf.getScoreKey()));
+        String text = conf.isAllResults() ? (String) mapRes.get(conf.getTextKey()) : null;
+
+        Map<String, Object> metadata = getMetadata(conf, hasMetadata, mapRes);
 
         Entity entity = handleMapping(tx, mapping, metadata, embedding);
         if (entity != null) entity = Util.rebind(tx, entity);
-        return new EmbeddingResult(id, score, embedding, metadata, text, 
+        return new EmbeddingResult(id, score, embedding, metadata, text,
                 mapping.getLabel() == null ? null : (Node) entity,
                 mapping.getLabel() != null ? null : (Relationship) entity
         );
+    }
+
+    private static Map<String, Object> getMetadata(VectorEmbeddingConfig conf, boolean hasMetadata, Map mapRes) {
+        var mapMeta = new HashMap<>(mapRes);
+        Stream.of(conf.getIdKey(), conf.getTextKey(), conf.getVectorKey(), conf.getScoreKey())
+                .forEach(mapMeta::remove);
+        if (!hasMetadata) {
+            return null;
+        }
+        if (!conf.isMetaAsSubKey()) {
+            return mapMeta;
+        }
+        return (Map<String, Object>) mapMeta.get(conf.getMetadataKey());
+//        return hasMetadata
+//                ? (Map<String, Object>) mapRes.get(conf.getMetadataKey())
+//                : null;
+//        Map<String, Object> metadata = hasMetadata ? (Map<String, Object>) m.get(conf.getMetadataKey()) : null;
+//        return metadata;
     }
 
     private static Entity handleMapping(Transaction tx, VectorMappingConfig mapping, Map<String, Object> metadata, List<Double> embedding) {

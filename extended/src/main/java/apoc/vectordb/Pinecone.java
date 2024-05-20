@@ -21,11 +21,11 @@ import java.util.stream.Stream;
 import static apoc.ml.RestAPIConfig.METHOD_KEY;
 import static apoc.vectordb.VectorDb.executeRequest;
 import static apoc.vectordb.VectorDb.getEmbeddingResultStream;
-import static apoc.vectordb.VectorDbHandler.Type.QDRANT;
-import static apoc.vectordb.VectorDbUtil.*;
+import static apoc.vectordb.VectorDbHandler.Type.PINECONE;
+import static apoc.vectordb.VectorDbUtil.getCommonVectorDbInfo;
 
 @Extended
-public class Qdrant {
+public class Pinecone {
 
     @Context
     public ProcedureCallContext procedureCallContext;
@@ -35,39 +35,43 @@ public class Qdrant {
 
     @Context
     public GraphDatabaseService db;
-    
+
     @Context
     public URLAccessChecker urlAccessChecker;
 
-    @Procedure("apoc.vectordb.qdrant.createCollection")
-    @Description("apoc.vectordb.qdrant.createCollection(hostOrKey, collection, similarity, size, $configuration) - Creates a collection, with the name specified in the 2nd parameter, and with the specified `similarity` and `size`")
+    // todo - scrivere sulla issue:there is collection in Pinecone, but is a static / non queryable copy of an index.
+    //  the proc is called createCollection to be consistent with the other procs
+    
+    @Procedure("apoc.vectordb.pinecone.createCollection")
+    @Description("apoc.vectordb.pinecone.createCollection(hostOrKey, collection, similarity, size, $configuration) - Creates a collection, with the name specified in the 2nd parameter, and with the specified `similarity` and `size`")
     public Stream<MapResult> createCollection(@Name("hostOrKey") String hostOrKey,
-                                    @Name("collection") String collection,
-                                    @Name("similarity") String similarity,
-                                    @Name("size") Long size,
-                                    @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-        String url = "%s/collections/%s";
+                                              @Name("collection") String collection,
+                                              @Name("similarity") String similarity,
+                                              @Name("size") Long size,
+                                              @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
+        String url = "%s/indexes";
         Map<String, Object> config = getVectorDbInfo(hostOrKey, collection, configuration, url);
-        config.putIfAbsent(METHOD_KEY, "PUT");
+        config.putIfAbsent(METHOD_KEY, "POST");
 
-        Map<String, Object> additionalBodies = Map.of("vectors", Map.of(
-                "size", size,
-                "distance", similarity
-        ));
+        Map<String, Object> additionalBodies = Map.of(
+                "name", collection,
+                "dimension", size,
+                "metric", similarity
+        );
         RestAPIConfig restAPIConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
         return executeRequest(restAPIConfig, urlAccessChecker)
                 .map(v -> (Map<String,Object>) v)
                 .map(MapResult::new);
     }
-    
-    @Procedure("apoc.vectordb.qdrant.deleteCollection")
-    @Description("apoc.vectordb.qdrant.deleteCollection(hostOrKey, collection, $configuration) - Deletes a collection with the name specified in the 2nd parameter")
+
+    @Procedure("apoc.vectordb.pinecone.deleteCollection")
+    @Description("apoc.vectordb.pinecone.deleteCollection(hostOrKey, collection, $configuration) - Deletes a collection with the name specified in the 2nd parameter")
     public Stream<MapResult> deleteCollection(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
             @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
 
-        String url = "%s/collections/%s";
+        String url = "%s/indexes/%s";
         Map<String, Object> config = getVectorDbInfo(hostOrKey, collection, configuration, url);
         config.putIfAbsent(METHOD_KEY, "DELETE");
 
@@ -76,85 +80,95 @@ public class Qdrant {
                 .map(v -> (Map<String,Object>) v)
                 .map(MapResult::new);
     }
-    
-    @Procedure("apoc.vectordb.qdrant.upsert")
-    @Description("apoc.vectordb.qdrant.upsert(hostOrKey, collection, vectors, $configuration) - Upserts, in the collection with the name specified in the 2nd parameter, the vectors [{id: 'id', vector: '<vectorDb>', medatada: '<metadata>'}]")
+
+    @Procedure("apoc.vectordb.pinecone.upsert")
+    @Description("apoc.vectordb.pinecone.upsert(hostOrKey, collection, vectors, $configuration) - Upserts, in the collection with the name specified in the 2nd parameter, the vectors [{id: 'id', vector: '<vectorDb>', medatada: '<metadata>'}]")
     public Stream<MapResult> upsert(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
             @Name("vectors") List<Map<String, Object>> vectors,
             @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
 
-        String url = "%s/collections/%s/points";
+        String url = "%s/vectors/upsert";
 
         Map<String, Object> config = getVectorDbInfo(hostOrKey, collection, configuration, url);
-        config.putIfAbsent(METHOD_KEY, "PUT");
+        config.putIfAbsent(METHOD_KEY, "POST");
 
-        List<Map<String, Object>> point = vectors.stream()
+        vectors = vectors.stream()
                 .map(i -> {
                     Map<String, Object> map = new HashMap<>(i);
-                    map.putIfAbsent("vector", map.remove("vector"));
-                    map.putIfAbsent("payload", map.remove("metadata"));
+                    map.putIfAbsent("values", map.remove("vector"));
                     return map;
                 })
                 .toList();
-        Map<String, Object> additionalBodies = Map.of("points", point);
+        
+        Map<String, Object> additionalBodies = Map.of("vectors", vectors);
         RestAPIConfig restAPIConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
         return executeRequest(restAPIConfig, urlAccessChecker)
                 .map(v -> (Map<String,Object>) v)
                 .map(MapResult::new);
     }
-    
-    @Procedure("apoc.vectordb.qdrant.delete")
-    @Description("apoc.vectordb.qdrant.delete(hostOrKey, collection, ids, $configuration) - Delete the vectors with the specified `ids`")
+
+    @Procedure("apoc.vectordb.pinecone.delete")
+    @Description("apoc.vectordb.pinecone.delete(hostOrKey, collection, ids, $configuration) - Delete the vectors with the specified `ids`")
     public Stream<MapResult> delete(
             @Name("hostOrKey") String hostOrKey,
             @Name("collection") String collection,
             @Name("vectors") List<Object> ids,
             @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
 
-        String url = "%s/collections/%s/points/delete";
+        // todo - remove if present vectors/delete in hostOrKey ???
+        String url = "%s/vectors/delete";
         Map<String, Object> config = getVectorDbInfo(hostOrKey, collection, configuration, url);
         config.putIfAbsent(METHOD_KEY, "POST");
 
-        Map<String, Object> additionalBodies = Map.of("points", ids);
+        Map<String, Object> additionalBodies = Map.of("ids", ids);
         RestAPIConfig apiConfig = new RestAPIConfig(config, Map.of(), additionalBodies);
         return executeRequest(apiConfig, urlAccessChecker)
                 .map(v -> (Map<String,Object>) v)
                 .map(MapResult::new);
     }
 
-    @Procedure(value = "apoc.vectordb.qdrant.get", mode = Mode.SCHEMA)
-    @Description("apoc.vectordb.qdrant.get(hostOrKey, collection, ids, $configuration) - Get the vectors with the specified `ids`")
-    public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
+    @Procedure(value = "apoc.vectordb.pinecone.get", mode = Mode.SCHEMA)
+    @Description("apoc.vectordb.pinecone.get(hostOrKey, collection, ids, $configuration) - Get the vectors with the specified `ids`")
+    public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name("ids") List<Object> ids,
                                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-        String url = "%s/collections/%s/points";
+        String url = "%s/vectors/fetch";
         Map<String, Object> config = getVectorDbInfo(hostOrKey, collection, configuration, url);
 
-        VectorEmbeddingConfig apiConfig = QDRANT.get().getEmbedding().fromGet(config, procedureCallContext, ids, collection);
-        return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, tx);
+        VectorEmbeddingConfig apiConfig = PINECONE.get().getEmbedding().fromGet(config, procedureCallContext, ids, collection);
+        return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, tx,
+                v -> {
+                    Object vectors = ((Map) v).get("vectors");
+                    return ((Map) vectors).values()
+                            .stream();
+                });
     }
 
-    @Procedure(value = "apoc.vectordb.qdrant.query", mode = Mode.SCHEMA)
-    @Description("apoc.vectordb.qdrant.query(hostOrKey, collection, vector, filter, limit, $configuration) - Retrieve closest vectors the the defined `vector`, `limit` of results,  in the collection with the name specified in the 2nd parameter")
-    public Stream<EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
+    @Procedure(value = "apoc.vectordb.pinecone.query", mode = Mode.SCHEMA)
+    @Description("apoc.vectordb.pinecone.query(hostOrKey, collection, vector, filter, limit, $configuration) - Retrieve closest vectors the the defined `vector`, `limit` of results,  in the collection with the name specified in the 2nd parameter")
+    public Stream<VectorDbUtil.EmbeddingResult> query(@Name("hostOrKey") String hostOrKey,
                                                       @Name("collection") String collection,
                                                       @Name(value = "vector", defaultValue = "[]") List<Double> vector,
                                                       @Name(value = "filter", defaultValue = "{}") Map<String, Object> filter,
                                                       @Name(value = "limit", defaultValue = "10") long limit,
                                                       @Name(value = "configuration", defaultValue = "{}") Map<String, Object> configuration) throws Exception {
-        
-        String url = "%s/collections/%s/points/search";
+        String url = "%s/query";
         Map<String, Object> config = getVectorDbInfo(hostOrKey, collection, configuration, url);
 
-        VectorEmbeddingConfig apiConfig = QDRANT.get().getEmbedding().fromQuery(config, procedureCallContext, vector, filter, limit, collection);
-        return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, tx);
+        VectorEmbeddingConfig apiConfig = PINECONE.get().getEmbedding().fromQuery(config, procedureCallContext, vector, filter, limit, collection);
+        return getEmbeddingResultStream(apiConfig, procedureCallContext, urlAccessChecker, tx,
+                v -> {
+                    Map map = (Map) v;
+                    return ((List) map.get("matches"))
+                            .stream();
+                });
     }
-
+    
     private Map<String, Object> getVectorDbInfo(
             String hostOrKey, String collection, Map<String, Object> configuration, String templateUrl) {
-        return getCommonVectorDbInfo(hostOrKey, collection, configuration, templateUrl, QDRANT.get());
+        return getCommonVectorDbInfo(hostOrKey, collection, configuration, templateUrl, PINECONE.get());
     }
 }
