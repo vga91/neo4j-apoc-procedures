@@ -5,6 +5,7 @@ import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.assertj.core.api.Assertions;
 import org.junit.AfterClass;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -60,14 +61,14 @@ public class PineconeTest {
     private static Map<String, Object> ADMIN_HEADER_CONF;
 
     @BeforeClass
-    public static void setUp() throws Exception {
+    public static void setUp() {
+        API_KEY = checkEnvVar("PINECONE_KEY");
+        HOST = checkEnvVar("PINECONE_HOST");
+        
         databaseManagementService = new TestDatabaseManagementServiceBuilder(storeDir.getRoot().toPath())
                 .build();
         db = databaseManagementService.database(DEFAULT_DATABASE_NAME);
         sysDb = databaseManagementService.database(SYSTEM_DATABASE_NAME);
-
-        API_KEY = checkEnvVar("PINECONE_KEY");
-        HOST = checkEnvVar("PINECONE_HOST");
 
         TestUtil.registerProcedure(db, VectorDb.class, Pinecone.class);
 
@@ -106,7 +107,11 @@ public class PineconeTest {
     }
 
     @AfterClass
-    public static void tearDown() throws Exception {
+    public static void tearDown() {
+        if (API_KEY == null || HOST == null) {
+            return;
+        }
+
         Util.sleep(2000);
         
         testCallEmpty(db, "CALL apoc.vectordb.pinecone.deleteCollection($host, $coll, $conf)",
