@@ -22,7 +22,7 @@ import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 
 public class ParquetHdfsTest {
-
+// ...
     private static final File directory = new File("target/hdfs-parquet-import");
     static { //noinspection ResultOfMethodCallIgnored
         directory.mkdirs();
