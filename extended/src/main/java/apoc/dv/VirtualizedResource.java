@@ -1,7 +1,7 @@
 package apoc.dv;
 
-import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.collections4.MapUtils;
+import apoc.util.ExtendedCollectionUtils;
+import apoc.util.ExtendedMapUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -71,10 +71,10 @@ public abstract class VirtualizedResource {
         }
         final int actualSize;
         if (queryParams instanceof Collection) {
-            actualSize = CollectionUtils.size(queryParams);
+            actualSize = ExtendedCollectionUtils.size(queryParams);
         } else if (queryParams instanceof Map) {
             final Map<String, Object> parameterMap = (Map<String, Object>) queryParams;
-            actualSize = MapUtils.size(parameterMap);
+            actualSize = ExtendedMapUtils.size(parameterMap);
             Set<String> setParams = params.stream()
                     .collect(Collectors.toSet());
             final Set<String> actualParams = parameterMap.keySet().stream().map(p -> "$" + p).collect(Collectors.toSet());
