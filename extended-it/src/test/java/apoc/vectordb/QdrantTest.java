@@ -113,6 +113,28 @@ public class QdrantTest {
     public void before() {
         dropAndDeleteAll(db);
     }
+
+    // TODO - change test case
+    @Test
+    public void createAlreadyExistingCollection() {
+        testCall(db, "CALL apoc.vectordb.qdrant.createCollection($host, 'test_collection', 'Cosine', 4, $conf)",
+                map("host", HOST, "conf", ADMIN_HEADER_CONF),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertEquals("ok", value.get("status"));
+                });
+    }
+
+    // TODO - change test case
+    @Test
+    public void deleteNotExistingCollection() {
+        testCall(db, "CALL apoc.vectordb.qdrant.deleteCollection($host, 'test_collection', $conf)",
+                map("host", HOST, "conf", ADMIN_HEADER_CONF),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertEquals(true, value.get("result"));
+                });
+    }
     
     @Test
     public void getVectorsWithReadOnlyApiKey() {
@@ -143,7 +165,7 @@ public class QdrantTest {
     
     @Test
     public void getVectorsWithoutVectorResult() {
-        testResult(db, "CALL apoc.vectordb.qdrant.get($host, 'test_collection', [1], $conf) ",
+        testResult(db, "CALL apoc.vectordb.qdrant.get($host, 'test_collection', ['1'], $conf) ",
                 map("host", HOST, "conf", ADMIN_HEADER_CONF),
                 r -> {
                     Map<String, Object> row = r.next();
@@ -179,7 +201,7 @@ public class QdrantTest {
 
     @Test
     public void queryVectors() {
-        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
+        testResult(db, "CALL apoc.vectordb.qdrant.query($host, 'test_collection', [0.1, 0.9, 0.7], {}, 5, $conf)",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true, HEADERS_KEY, ADMIN_AUTHORIZATION)),
                 r -> {
                     Map<String, Object> row = r.next();

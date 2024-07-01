@@ -99,6 +99,28 @@ public class ChromaDbTest {
     public void before() {
         dropAndDeleteAll(db);
     }
+
+    // TODO - change test case
+    @Test
+    public void createAlreadyExistingCollection() {
+        testCall(db, "CALL apoc.vectordb.chroma.createCollection($host, 'test_collection', 'cosine', 4)",
+                map("host", HOST),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    COLL_ID.set((String) value.get("id"));
+                });
+    }
+
+    // TODO - change test case
+    @Test
+    public void deleteNotExistingCollection() {
+        testCall(db, "CALL apoc.vectordb.chroma.deleteCollection($host, 'notExisting')",
+                map("host", HOST),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    COLL_ID.set((String) value.get("id"));
+                });
+    }
     
     @Test
     public void getVectors() {
@@ -155,9 +177,11 @@ public class ChromaDbTest {
                 });
     }
 
+    // TODO - change test case. It fails with the HTTP error message
+    //  "Embedding dimension 3 does not match collection dimensionality 4" 
     @Test
     public void queryVectors() {
-        testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9, 0.7], {}, 5, $conf)",
+        testResult(db, "CALL apoc.vectordb.chroma.query($host, $collection, [0.2, 0.1, 0.9], {}, 5, $conf)",
                 map("host", HOST, "collection", COLL_ID.get(), "conf", map(ALL_RESULTS_KEY, true)),
                 r -> {
                     Map<String, Object> row = r.next();

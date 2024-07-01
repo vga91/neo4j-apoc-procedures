@@ -136,6 +136,45 @@ public class WeaviateTest {
         dropAndDeleteAll(db);
     }
 
+    // TODO - change test case
+    @Test
+    public void createAlreadyExistingCollection() {
+        testCall(db, "CALL apoc.vectordb.weaviate.createCollection($host, 'TestCollection', 'cosine', 4, $conf)",
+                MapUtil.map("host", HOST, "conf", ADMIN_HEADER_CONF),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertEquals("TestCollection", value.get("class"));
+                });
+    }
+
+    // TODO - change test case
+    @Test
+    public void upsertWithWrongIdFormat() {
+        testResult(db, """
+                        CALL apoc.vectordb.weaviate.upsert($host, 'TestCollection',
+                        [
+                            {id: 'wrongformat', vector: [0.05, 0.61, 0.76, 0.74], metadata: {city: "Berlin", foo: "one"}},
+                        ],
+                        $conf)
+                        """,
+                MapUtil.map("host", HOST, "id1", ID_1, "id2", ID_2, "conf", ADMIN_HEADER_CONF),
+                r -> {
+                    ResourceIterator<Map> values = r.columnAs("value");
+                    assertEquals("TestCollection", values.next().get("class"));
+                    assertEquals("TestCollection", values.next().get("class"));
+                    assertEquals("TestCollection", values.next().get("class"));
+                    assertEquals("TestCollection", values.next().get("class"));
+                    assertFalse(values.hasNext());
+                });
+    }
+
+    @Test
+    public void deleteNotExistingCollection() {
+        testCallEmpty(db, "CALL apoc.vectordb.weaviate.deleteCollection($host, 'notExisting', $conf)",
+                MapUtil.map("host", HOST, "conf", ADMIN_HEADER_CONF)
+        );
+    }
+
     @Test
     public void getVectorsWithReadOnlyApiKey() {
         testResult(db, "CALL apoc.vectordb.weaviate.get($host, 'TestCollection', [$id1], $conf)",
@@ -173,9 +212,22 @@ public class WeaviateTest {
                 });
     }
 
+    // TODO - change test case
+    @Test
+    public void getVectorsWithoutVectorResultWithWrongId() {
+        testResult(db, "CALL apoc.vectordb.weaviate.get($host, 'TestCollection', ['$id1'], $conf)",
+                map("host", HOST, "id1", ID_1, "conf", map(HEADERS_KEY, ADMIN_AUTHORIZATION)),
+                r -> {
+                    Map<String, Object> row = r.next();
+                    assertEquals(Map.of("city", "Berlin", "foo", "one"), row.get("metadata"));
+                    assertNull(row.get("vector"));
+                    assertNull(row.get("id"));
+                });
+    }
+
     @Test
     public void queryVectors() {
-        testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9, 0.7], null, 5, $conf) " +
+        testResult(db, "CALL apoc.vectordb.weaviate.query($host, 'TestCollection', [0.2, 0.1, 0.9], null, 5, $conf) " +
                        " YIELD score, vector, id, metadata RETURN * ORDER BY id",
                 map("host", HOST, "conf", map(ALL_RESULTS_KEY, true, FIELDS_KEY, FIELDS, HEADERS_KEY, ADMIN_AUTHORIZATION)),
                 r -> {

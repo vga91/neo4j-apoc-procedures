@@ -81,8 +81,8 @@ public class MilvusTest {
         testCall(db, """
                         CALL apoc.vectordb.milvus.upsert($host, 'test_collection',
                         [
-                            {id: 1, vector: [0.05, 0.61, 0.76, 0.74], metadata: {city: "Berlin", foo: "one"}},
-                            {id: 2, vector: [0.19, 0.81, 0.75, 0.11], metadata: {city: "London", foo: "two"}}
+                            {id: '1', vector: [0.05, 0.61, 0.76, 0.74], metadata: {city: "Berlin", foo: "one"}},
+                            {id: '2', vector: [0.19, 0.81, 0.75, 0.11], metadata: {city: "London", foo: "two"}}
                         ])
                         """,
                 map("host", HOST),
@@ -108,6 +108,28 @@ public class MilvusTest {
     @Before
     public void before() {
         dropAndDeleteAll(db);
+    }
+
+    // TODO - change test case
+    @Test
+    public void createAlreadyExistingCollection() {
+        testCall(db, "CALL apoc.vectordb.milvus.createCollection($host, 'test_collection', 'COSINE', 4)",
+                map("host", HOST),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertEquals(200L, value.get("code"));
+                });
+    }
+
+    // TODO - change test case
+    @Test
+    public void deleteNotExistingCollection() {
+        testCall(db, "CALL apoc.vectordb.milvus.deleteCollection($host, 'not_existing')",
+                map("host", HOST),
+                r -> {
+                    Map value = (Map) r.get("value");
+                    assertEquals(200L, value.get("code"));
+                });
     }
 
     @Test
