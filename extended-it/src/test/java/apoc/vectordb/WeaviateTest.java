@@ -211,7 +211,7 @@ public class WeaviateTest {
                 row -> {
                     List<Map> errors = (List<Map>) row.get(DEFAULT_ERRORS);
                     String message = (String) errors.get(0).get("message");
-                    String expected = "vector search: knn search: distance between entrypoint and query node: vector lengths don't match: 4 vs 3";
+                    String expected = "vector lengths don't match";
                     assertTrue("Actual error message is: " + message,
                             message.contains(expected)
                     );

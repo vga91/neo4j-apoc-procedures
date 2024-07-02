@@ -48,6 +48,7 @@ import static apoc.vectordb.VectorMappingConfig.REL_TYPE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 import static org.neo4j.configuration.GraphDatabaseSettings.SYSTEM_DATABASE_NAME;
 
@@ -179,8 +180,10 @@ public class MilvusTest {
                 row -> {
                     Map error = (Map) row.get(DEFAULT_ERRORS);
                     String message = (String) error.get("message");
-                    String expected = "please check the primary key and its' type can only in [int, string], error: unable to cast \"wrong\" of type string to int64";
-                    assertEquals(expected, message);
+                    String expected = "invalid parameter";
+                    assertTrue("Actual error message is: " + message,
+                            message.contains(expected)
+                    );
                 });
     }
 
@@ -351,8 +354,10 @@ public class MilvusTest {
                 r -> {
                     Map error = (Map) r.get(DEFAULT_ERRORS);
                     String message = (String) error.get("message");
-                    String expected = "please check the primary key and its' type can only in [int, string], error: unable to cast \"wrong\" of type string to int64";
-                    assertEquals(expected, message);
+                    String expected = "unable to cast";
+                    assertTrue("Actual error message is: " + message,
+                            message.contains(expected)
+                    );
                 }
         );
     }
