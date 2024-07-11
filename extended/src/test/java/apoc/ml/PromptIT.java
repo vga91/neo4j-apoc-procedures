@@ -13,6 +13,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import org.neo4j.graphdb.Result;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
@@ -134,6 +135,52 @@ public class PromptIT {
     @Test
     public void testCypher() {
         long numOfQueries = 4L;
+        testResult(db, """
+                CALL apoc.ml.cypher($query, {count: $numOfQueries, apiKey: $apiKey})
+                """,
+                Map.of(
+                        "query", "Who are the actors which also directed a movie?",
+                        "numOfQueries", numOfQueries,
+                        "apiKey", OPENAI_KEY
+                ),
+                (r) -> {
+                    List<Map<String, Object>> list = r.stream().toList();
+                    Assertions.assertThat(list).hasSize((int) numOfQueries);
+                    Assertions.assertThat(list.stream()
+                                    .map(m -> m.get("query"))
+                                    .filter(Objects::nonNull)
+                                    .map(Object::toString)
+                                    .filter(StringUtils::isNotEmpty))
+                            .hasSize((int) numOfQueries);
+                });
+    }
+
+    /*
+    TODO:
+        the loadSchema(tx, conf) seems to produce wrong results SOMETIMES??:
+    
+        nodes:
+    :Movie {released: INTEGER, tagline: STRING, title: STRING}
+:Discipline {year: INTEGER, title: STRING}
+    relationships:
+    null
+    patterns:
+    
+
+     */
+    @Test
+    public void testCypherWithSchemaExplanation() {
+        long numOfQueries = 4L;
+
+        String schema = db.executeTransactionally("CALL apoc.ml.schema({apiKey: $apiKey})",
+                Map.of("apiKey", OPENAI_KEY), Result::resultAsString);
+        System.out.println("schema = " + schema);
+
+        // todo - il risultato è troppo generico e forse fa vedere altre cose,
+        //      provare con la apoc.ml.cypher
+        
+        // todo --> https://kindo.ai/blog/8-tips-tricks-for-better-results-from-your-ai-prompts
+        
         testResult(db, """
                 CALL apoc.ml.cypher($query, {count: $numOfQueries, apiKey: $apiKey})
                 """,
