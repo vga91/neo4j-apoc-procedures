@@ -274,8 +274,9 @@ public class Prompt {
 
     @Procedure
     public Stream<StringResult> schema(@Name(value = "conf", defaultValue = "{}") Map<String, Object> conf) throws MalformedURLException, JsonProcessingException {
+        String schema = loadSchema(tx, conf);
         String schemaExplanation = prompt("Please explain the graph database schema to me and relate it to well known concepts and domains.",
-                EXPLAIN_SCHEMA_PROMPT, "This database schema ", loadSchema(tx, conf), conf, List.of());
+                EXPLAIN_SCHEMA_PROMPT, "This database schema ", schema, conf, List.of());
         return Stream.of(new StringResult(schemaExplanation));
     }
 
