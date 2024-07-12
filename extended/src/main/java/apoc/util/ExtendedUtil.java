@@ -340,7 +340,7 @@ public class ExtendedUtil
 
     public static List<String> splitSemicolonAndRemoveBlanks(String value) {
         return Arrays.stream(value.split(";\n"))
-                .filter(String::isBlank)
+                .filter(i -> !i.isBlank())
                 .toList();
     }
             

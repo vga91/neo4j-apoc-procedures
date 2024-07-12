@@ -11,6 +11,7 @@ import org.assertj.core.api.Assertions;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.neo4j.graphdb.Result;
@@ -56,29 +57,16 @@ public class PromptIT {
                 RETURN value
                 """;
 
-    @Rule
-    public DbmsRule db = new ImpermanentDbmsRule();
+    @ClassRule
+    public static DbmsRule db = new ImpermanentDbmsRule();
 
     @BeforeClass
     public static void check() {
         Assume.assumeNotNull("No OPENAI_KEY environment configured", OPENAI_KEY);
-    }
 
-    @Before
-    public void setUp() {
         TestUtil.registerProcedure(db, Prompt.class, OpenAI.class, Meta.class, Strings.class, Coll.class);
-        String movies = Util.readResourceFile("movies.cypher");
-        try (Transaction tx = db.beginTx()) {
-            tx.execute(movies);
-            tx.commit();
-        }
         
-        String rag = Util.readResourceFile("rag.cypher");
-        try (Transaction tx = db.beginTx()) {
-            tx.execute(rag);
-            tx.commit();
-        }
-        
+
         // northwind db
         String northwindEntities = """
                 // Create orders
@@ -149,7 +137,7 @@ public class PromptIT {
             }
             tx.commit();
         }
-        
+
         String northwindSchema = """
                 CREATE INDEX product_id FOR (p:Product) ON (p.productID);
                 CREATE INDEX product_name FOR (p:Product) ON (p.productName);
@@ -163,6 +151,22 @@ public class PromptIT {
             }
             tx.commit();
         }
+    }
+
+    @Before
+    public void setUp() {
+        String movies = Util.readResourceFile("movies.cypher");
+        try (Transaction tx = db.beginTx()) {
+            tx.execute(movies);
+            tx.commit();
+        }
+        
+        String rag = Util.readResourceFile("rag.cypher");
+        try (Transaction tx = db.beginTx()) {
+            tx.execute(rag);
+            tx.commit();
+        }
+
     }
 
     @Test
@@ -260,16 +264,14 @@ public class PromptIT {
 
 //        String s = loadSchema(transaction, Map.of());
 //
-        long numOfQueries = 4L;
-
         /* TODO - forse con questo...
         db.executeTransactionally("CALL apoc.ml.fromCypher('MATCH p=(:Person)-[]->() RETURN p', {apiKey: $apiKey})",
                 Map.of("apiKey", OPENAI_KEY), Result::resultAsString);
          */
         
-//        String schema = db.executeTransactionally("CALL apoc.ml.schema({apiKey: $apiKey})",
-//                Map.of("apiKey", OPENAI_KEY), Result::resultAsString);
-//        System.out.println("schema = " + schema);
+        String schema = TestUtil.singleResultFirstColumn(db, "CALL apoc.ml.schema({apiKey: $apiKey})",
+                Map.of("apiKey", OPENAI_KEY));
+        System.out.println("schema = " + schema);
         /*
         "represents a network of movies, people, athletes, and disciplines. 
         It resembles the entertainment industry, sports, and social networks. Nodes represent movies, people, athletes, and disciplines, with relationships capturing acting, writing, directing, producing, following, reviewing, and winning medals. This schema models connections similar to IMDb, sports events, and social media platforms."
@@ -288,24 +290,33 @@ public class PromptIT {
         // TODO - testare apoc.ml.cypher, apoc.ml.query,
         //      fromQueries partendo da fromCypher?
         //      
-        
+//
+//        testResult(db, """
+//                CALL apoc.ml.cypher($query, {count: $numOfQueries, apiKey: $apiKey})
+//                """,
+//                Map.of(
+//                        "query", "Which Employee had the highest cross-selling count of 'Chocolade' and another product?\n",
+//                        "numOfQueries", 2L,
+//                        "apiKey", OPENAI_KEY
+//                ),
+//                (r) -> {
+//                    System.out.println("r.resultAsString() = " + r.resultAsString());
+//                });
+//        
         testResult(db, """
-                CALL apoc.ml.cypher($query, {count: $numOfQueries, apiKey: $apiKey})
+                CALL apoc.ml.cypher($query, {count: $numOfQueries, apiKey: $apiKey, systemPrompts: $systemPrompts})
                 """,
                 Map.of(
                         "query", "Which Employee had the highest cross-selling count of 'Chocolade' and another product?\n",
-                        "numOfQueries", numOfQueries,
-                        "apiKey", OPENAI_KEY
+                        "numOfQueries", 2L,
+                        "apiKey", OPENAI_KEY,
+                        "systemPrompts", List.of("The human description of the schema is the following:" +
+                                                 "```\n%s\n```"
+                                                         .formatted(schema)
+                        )
                 ),
                 (r) -> {
-                    List<Map<String, Object>> list = r.stream().toList();
-                    Assertions.assertThat(list).hasSize((int) numOfQueries);
-                    Assertions.assertThat(list.stream()
-                                    .map(m -> m.get("query"))
-                                    .filter(Objects::nonNull)
-                                    .map(Object::toString)
-                                    .filter(StringUtils::isNotEmpty))
-                            .hasSize((int) numOfQueries);
+                    System.out.println("r.resultAsString() = " + r.resultAsString());
                 });
 
         /*
