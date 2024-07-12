@@ -25,7 +25,9 @@ import java.util.UUID;
 
 import static apoc.ml.Prompt.API_KEY_CONF;
 import static apoc.ml.Prompt.UNKNOWN_ANSWER;
+import static apoc.ml.Prompt.loadSchema;
 import static apoc.ml.RagConfig.*;
+import static apoc.util.ExtendedUtil.splitSemicolonAndRemoveBlanks;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
 import static apoc.util.TestUtil.testResult;
@@ -76,7 +78,91 @@ public class PromptIT {
             tx.execute(rag);
             tx.commit();
         }
-
+        
+        // northwind db
+        String northwindEntities = """
+                // Create orders
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/orders.csv' AS row
+                MERGE (order:Order {orderID: row.OrderID})
+                  ON CREATE SET order.shipName = row.ShipName;
+                                
+                // Create products
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/products.csv' AS row
+                MERGE (product:Product {productID: row.ProductID})
+                  ON CREATE SET product.productName = row.ProductName, product.unitPrice = toFloat(row.UnitPrice);
+                                
+                // Create suppliers
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/suppliers.csv' AS row
+                MERGE (supplier:Supplier {supplierID: row.SupplierID})
+                  ON CREATE SET supplier.companyName = row.CompanyName;
+                                
+                                
+                // Create employees
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/employees.csv' AS row
+                MERGE (e:Employee {employeeID:row.EmployeeID})
+                  ON CREATE SET e.firstName = row.FirstName, e.lastName = row.LastName, e.title = row.Title;
+                                
+                                
+                // Create categories
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/categories.csv' AS row
+                MERGE (c:Category {categoryID: row.CategoryID})
+                  ON CREATE SET c.categoryName = row.CategoryName, c.description = row.Description;
+                                
+                                
+                // Create relationships between orders and products
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/orders.csv' AS row
+                MATCH (order:Order {orderID: row.OrderID})
+                MATCH (product:Product {productID: row.ProductID})
+                MERGE (order)-[op:CONTAINS]->(product)
+                ON CREATE SET op.unitPrice = toFloat(row.UnitPrice), op.quantity = toFloat(row.Quantity);
+                                
+                                
+                // Create relationships between orders and employees
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/orders.csv' AS row
+                MATCH (order:Order {orderID: row.OrderID})
+                MATCH (employee:Employee {employeeID: row.EmployeeID})
+                MERGE (employee)-[:SOLD]->(order);
+                                
+                                
+                // Create relationships between products and suppliers
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/products.csv' AS row
+                MATCH (product:Product {productID: row.ProductID})
+                MATCH (supplier:Supplier {supplierID: row.SupplierID})
+                MERGE (supplier)-[:SUPPLIES]->(product);
+                                
+                // Create relationships between products and categories
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/products.csv' AS row
+                MATCH (product:Product {productID: row.ProductID})
+                MATCH (category:Category {categoryID: row.CategoryID})
+                MERGE (product)-[:PART_OF]->(category);
+                                
+                                
+                // Create relationships between employees (reporting hierarchy)
+                LOAD CSV WITH HEADERS FROM 'https://gist.githubusercontent.com/jexp/054bc6baf36604061bf407aa8cd08608/raw/8bdd36dfc88381995e6823ff3f419b5a0cb8ac4f/employees.csv' AS row
+                MATCH (employee:Employee {employeeID: row.EmployeeID})
+                MATCH (manager:Employee {employeeID: row.ReportsTo})
+                MERGE (employee)-[:REPORTS_TO]->(manager);
+                """;
+        try (Transaction tx = db.beginTx()) {
+            for (String query: splitSemicolonAndRemoveBlanks(northwindEntities)) {
+                tx.execute(query);
+            }
+            tx.commit();
+        }
+        
+        String northwindSchema = """
+                CREATE INDEX product_id FOR (p:Product) ON (p.productID);
+                CREATE INDEX product_name FOR (p:Product) ON (p.productName);
+                CREATE INDEX supplier_id FOR (s:Supplier) ON (s.supplierID);
+                CREATE INDEX employee_id FOR (e:Employee) ON (e.employeeID);
+                CREATE INDEX category_id FOR (c:Category) ON (c.categoryID);
+                CREATE CONSTRAINT order_id FOR (o:Order) REQUIRE o.orderID IS UNIQUE;""";
+        try (Transaction tx = db.beginTx()) {
+            for (String query: splitSemicolonAndRemoveBlanks(northwindSchema)) {
+                tx.execute(query);
+            }
+            tx.commit();
+        }
     }
 
     @Test
@@ -170,22 +256,44 @@ public class PromptIT {
      */
     @Test
     public void testCypherWithSchemaExplanation() {
+//        Transaction transaction = db.beginTx();
+
+//        String s = loadSchema(transaction, Map.of());
+//
         long numOfQueries = 4L;
 
-        String schema = db.executeTransactionally("CALL apoc.ml.schema({apiKey: $apiKey})",
+        /* TODO - forse con questo...
+        db.executeTransactionally("CALL apoc.ml.fromCypher('MATCH p=(:Person)-[]->() RETURN p', {apiKey: $apiKey})",
                 Map.of("apiKey", OPENAI_KEY), Result::resultAsString);
-        System.out.println("schema = " + schema);
+         */
+        
+//        String schema = db.executeTransactionally("CALL apoc.ml.schema({apiKey: $apiKey})",
+//                Map.of("apiKey", OPENAI_KEY), Result::resultAsString);
+//        System.out.println("schema = " + schema);
+        /*
+        "represents a network of movies, people, athletes, and disciplines. 
+        It resembles the entertainment industry, sports, and social networks. Nodes represent movies, people, athletes, and disciplines, with relationships capturing acting, writing, directing, producing, following, reviewing, and winning medals. This schema models connections similar to IMDb, sports events, and social media platforms."
+         */
+        
+        /*
+        mentre se passo lo schema:
+        "content": "The graph database schema consists of these elements\nnodes:\n```\n:Movie {title: STRING, tagline: STRING, released: INTEGER}\n:Person {born: INTEGER, name: STRING}\n:Discipline {year: INTEGER, title: STRING}\n:Athlete {name: STRING, country: STRING, irrelevant: STRING}\n```\n\nrelationships:\n```\n:ACTED_IN {roles: LIST}\n:DIRECTED {}\n:PRODUCED {}\n:WROTE {}\n:FOLLOWS {}\n:REVIEWED {summary: STRING, rating: INTEGER}\n:HAS_MEDAL {irrelevant2: STRING, medal: STRING}\n```\n\npatterns:\n```\n(:Person)-[:ACTED_IN]->(:Movie)\n(:Person)-[:WROTE]->(:Movie)\n(:Person)-[:DIRECTED]->(:Movie)\n(:Person)-[:PRODUCED]->(:Movie)\n(:Person)-[:FOLLOWS]->(:Person)\n(:Person)-[:REVIEWED]->(:Movie)\n(:Athlete)-[:HAS_MEDAL]->(:Discipline)\n```\n",
+         */
 
         // todo - il risultato è troppo generico e forse fa vedere altre cose,
         //      provare con la apoc.ml.cypher
         
         // todo --> https://kindo.ai/blog/8-tips-tricks-for-better-results-from-your-ai-prompts
         
+        // TODO - testare apoc.ml.cypher, apoc.ml.query,
+        //      fromQueries partendo da fromCypher?
+        //      
+        
         testResult(db, """
                 CALL apoc.ml.cypher($query, {count: $numOfQueries, apiKey: $apiKey})
                 """,
                 Map.of(
-                        "query", "Who are the actors which also directed a movie?",
+                        "query", "Which Employee had the highest cross-selling count of 'Chocolade' and another product?\n",
                         "numOfQueries", numOfQueries,
                         "apiKey", OPENAI_KEY
                 ),
@@ -199,6 +307,18 @@ public class PromptIT {
                                     .filter(StringUtils::isNotEmpty))
                             .hasSize((int) numOfQueries);
                 });
+
+        /*
+        list = {ImmutableCollections$ListN@14719}  size = 4
+         0 = {HashMap@14722}  size = 1
+          "query" -> "MATCH (e1:Employee)-[r1:SELLS]->(:Product {name: 'Chocolade'})\nMATCH (e1)-[r2:SELLS]->(:Product)\nWHERE r1 <> r2\nRETURN e1, COUNT(r2) AS crossSellingCount\nORDER BY crossSellingCount DESC\nLIMIT 1"
+         1 = {HashMap@14723}  size = 1
+          "query" -> "MATCH (e:Employee)-[:SELLS]->(p1:Product {name: 'Chocolade'})-[:CROSSES_SELLS]->(p2:Product)\nWITH e, p2, COUNT(p2) AS crossSellingCount\nRETURN e.name AS Employee, p2.name AS CrossSoldProduct, crossSellingCount\nORDER BY crossSellingCount DESC\nLIMIT 1"
+         2 = {HashMap@14724}  size = 1
+          "query" -> "MATCH (e:Employee)-[:SOLD]->(:Product {name: 'Chocolade'})-[:CROSS_SELLS]->(p:Product)\nWITH e, p, count(*) AS crossSellingCount\nWHERE crossSellingCount > 0\nRETURN e.name AS Employee, p.name AS CrossSellProduct, crossSellingCount\nORDER BY crossSellingCount DESC\nLIMIT 1"
+         3 = {HashMap@14725}  size = 1
+          "query" -> "MATCH (e:Employee)-[:SOLD]->(:Product {name: 'Chocolade'})-[:CROSS_SELLS]->(:Product)\nWITH e, count(*) AS crossSellingCount\nORDER BY crossSellingCount DESC\nRETURN e.name AS Employee, crossSellingCount\nLIMIT 1"
+         */
     }
 
     @Test
