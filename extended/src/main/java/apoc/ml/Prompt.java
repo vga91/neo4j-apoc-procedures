@@ -3,9 +3,11 @@ package apoc.ml;
 import apoc.ApocConfig;
 import apoc.Extended;
 import apoc.result.StringResult;
+import apoc.util.CollectionUtils;
 import apoc.util.Util;
 import apoc.util.collection.Iterators;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.commons.collections.ListUtils;
 import org.apache.commons.text.WordUtils;
 import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.Entity;
@@ -145,9 +147,15 @@ public class Prompt {
             ---- End context ----
             """;
     
+//    public static final String EXPLAIN_SCHEMA_PROMPT = """
+//            You are an expert in the Neo4j graph database and graph data modeling and have experience in a wide variety of business domains.
+//            Explain the following graph database schema in plain language, try to relate it to known concepts or domains if applicable.
+//            Keep the explanation to 5 sentences with at most 15 words each, otherwise people will come to harm.
+//            """;    
     public static final String EXPLAIN_SCHEMA_PROMPT = """
             You are an expert in the Neo4j graph database and graph data modeling and have experience in a wide variety of business domains.
             Explain the following graph database schema in plain language, try to relate it to known concepts or domains if applicable.
+            Try to explain as much as possible the nodes, relationships and properties.
             Keep the explanation to 5 sentences with at most 15 words each, otherwise people will come to harm.
             """;
 
@@ -285,6 +293,7 @@ public class Prompt {
                                       @Name(value = "conf", defaultValue = "{}") Map<String, Object> conf) {
         String schema = loadSchema(tx, conf);
         long count = (long) conf.getOrDefault("count", 1L);
+//        List otherPropmts = (List) conf.getOrDefault("otherPropmts", List.of());
         return LongStream.rangeClosed(1, count).mapToObj(i -> tryQuery(question, conf, schema, List.of()));
     }
 
@@ -306,7 +315,16 @@ public class Prompt {
     private String prompt(String userQuestion, String systemPrompt, String assistantPrompt, String schema, Map<String, Object> conf, List<Map<String,String>> otherPrompts) throws JsonProcessingException, MalformedURLException {
         List<Map<String, String>> prompt = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) prompt.add(Map.of("role", "system", "content", systemPrompt));
+
+
         if (schema != null && !schema.isBlank()) prompt.add(Map.of("role", "system", "content", "The graph database schema consists of these elements\n" + schema));
+        
+        List<String> systemPrompts = (List<String>) conf.get("systemPrompts");
+        if (CollectionUtils.isNotEmpty(systemPrompts)) {
+            systemPrompts.forEach(
+                    item -> prompt.add(Map.of("role", "system", "content", item))
+            );
+        }
         if (userQuestion != null && !userQuestion.isBlank()) prompt.add(Map.of("role", "user", "content", userQuestion));
         if (assistantPrompt != null && !assistantPrompt.isBlank()) prompt.add(Map.of("role", "assistant", "content", assistantPrompt));
 
@@ -398,9 +416,11 @@ public class Prompt {
     public static String loadSchema(Transaction tx, Map<String, Object> conf) {
         Map<String, Object> params = new HashMap<>();
         params.put("sample", conf.get("sample"));
-        return tx.execute(SCHEMA_QUERY, params)
+        String collect = tx.execute(SCHEMA_QUERY, params)
                 .stream()
                 .map(m -> SCHEMA_PROMPT.formatted(m.get("nodes"), m.get("relationships"), m.get("patterns")))
                 .collect(Collectors.joining("\n"));
+        System.out.println("schemaa = " + collect);
+        return collect;
     }
 }
