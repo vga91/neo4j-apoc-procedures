@@ -346,7 +346,7 @@ public class Prompt {
             """;
 
     private final static String SCHEMA_QUERY = """
-            call apoc.meta.data({maxRels: 10, sample: coalesce($sample, (count{()}/1000)+1)})
+            call apoc.meta.data({maxRels: 5000, sample: 5000})
             YIELD label, other, elementType, type, property
             """ + SCHEMA_FROM_META_DATA;
     
@@ -358,12 +358,20 @@ public class Prompt {
             """ + SCHEMA_FROM_META_DATA;
     
     private final static String SCHEMA_PROMPT = """
-                nodes:
-                %s
-                relationships:
-                %s
-                patterns:
-                %s
+            nodes:
+            ```
+            %s
+            ```
+
+            relationships:
+            ```
+            %s
+            ```
+
+            patterns:
+            ```
+            %s
+            ```
             """;
 
 
@@ -387,7 +395,7 @@ public class Prompt {
                 .collect(Collectors.joining("\n"));
     }
 
-    private String loadSchema(Transaction tx, Map<String, Object> conf) {
+    public static String loadSchema(Transaction tx, Map<String, Object> conf) {
         Map<String, Object> params = new HashMap<>();
         params.put("sample", conf.get("sample"));
         return tx.execute(SCHEMA_QUERY, params)
