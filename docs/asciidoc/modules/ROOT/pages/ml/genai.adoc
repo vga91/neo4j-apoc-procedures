@@ -91,6 +91,7 @@ RETURN m.title
 | apiKey | OpenAI API key | in case `apoc.openai.key` is not defined
 | model | The Open AI model | no, default `gpt-3.5-turbo`
 | sample | The number of nodes to skip, e.g. a sample of 1000 will read every 1000th node. It's used as a parameter to `apoc.meta.data` procedure that computes the schema | no, default is a random number
+| additionalPrompts | To specify other prompts to be passed to improve the request
 |===
 
 .Results
@@ -101,6 +102,25 @@ RETURN m.title
 | cypher | the query used to compute the result
 |===
 
+
+We can use the `additionalPrompts` config to improve the request, e.g. adding the output of the apoc.ml.schema:
+
+.Query call
+[source,cypher]
+----
+CALL apoc.ml.schema({apiKey: $apiKey}) YIELD value
+WITH value
+CALL apoc.ml.query("Which 5 employees had the highest cross-selling count of 'Chocolade' and another product?",
+{
+    retries: 8,
+    retryWithError: true,
+    apiKey: $apiKey,
+    additionalPrompts: [
+        {role: "system", content: "The human description of the schema is the following:\n" + value}
+    ]
+})
+YIELD query RETURN query
+----
 
 == Describe the graph model with natural language
 
@@ -205,6 +225,7 @@ RETURN DISTINCT a.name
 | apiKey | OpenAI API key | in case `apoc.openai.key` is not defined
 | model | The Open AI model | no, default `gpt-3.5-turbo`
 | sample | The number of nodes to skip, e.g. a sample of 1000 will read every 1000th node. It's used as a parameter to `apoc.meta.data` procedure that computes the schema | no, default is a random number
+| additionalPrompts | To specify other prompts to be passed to improve the request
 |===
 
 .Results
@@ -213,6 +234,26 @@ RETURN DISTINCT a.name
 | name | description
 | value | the description of the dataset
 |===
+
+
+We can use the `additionalPrompts` config to improve the request, e.g. adding the output of the apoc.ml.schema:
+
+.Query call
+[source,cypher]
+----
+CALL apoc.ml.schema({apiKey: $apiKey}) YIELD value
+WITH value
+CALL apoc.ml.cypher("Which 5 employees had the highest cross-selling count of 'Chocolade' and another product?",
+{
+  count: 8,
+  apiKey: $apiKey,
+  additionalPrompts: [
+    {role: "system", content: "The human description of the schema is the following:\n" + value}
+  ]
+})
+YIELD query RETURN query
+----
+
 
 == Create a natural language query explanation from a cypher query
 

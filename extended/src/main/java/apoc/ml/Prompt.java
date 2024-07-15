@@ -147,11 +147,6 @@ public class Prompt {
             ---- End context ----
             """;
     
-//    public static final String EXPLAIN_SCHEMA_PROMPT = """
-//            You are an expert in the Neo4j graph database and graph data modeling and have experience in a wide variety of business domains.
-//            Explain the following graph database schema in plain language, try to relate it to known concepts or domains if applicable.
-//            Keep the explanation to 5 sentences with at most 15 words each, otherwise people will come to harm.
-//            """;    
     public static final String EXPLAIN_SCHEMA_PROMPT = """
             You are an expert in the Neo4j graph database and graph data modeling and have experience in a wide variety of business domains.
             Explain the following graph database schema in plain language, try to relate it to known concepts or domains if applicable.
@@ -293,7 +288,6 @@ public class Prompt {
                                       @Name(value = "conf", defaultValue = "{}") Map<String, Object> conf) {
         String schema = loadSchema(tx, conf);
         long count = (long) conf.getOrDefault("count", 1L);
-//        List otherPropmts = (List) conf.getOrDefault("otherPropmts", List.of());
         return LongStream.rangeClosed(1, count).mapToObj(i -> tryQuery(question, conf, schema, List.of()));
     }
 
@@ -312,23 +306,19 @@ public class Prompt {
         }
     }
 
-    private String prompt(String userQuestion, String systemPrompt, String assistantPrompt, String schema, Map<String, Object> conf, List<Map<String,String>> otherPrompts) throws JsonProcessingException, MalformedURLException {
+    private String prompt(String userQuestion, String systemPrompt, String assistantPrompt, String schema, Map<String, Object> conf, List<Map<String,String>> otherPromptsFromRetries) throws JsonProcessingException, MalformedURLException {
         List<Map<String, String>> prompt = new ArrayList<>();
         if (systemPrompt != null && !systemPrompt.isBlank()) prompt.add(Map.of("role", "system", "content", systemPrompt));
-
-
         if (schema != null && !schema.isBlank()) prompt.add(Map.of("role", "system", "content", "The graph database schema consists of these elements\n" + schema));
         
-        List<String> systemPrompts = (List<String>) conf.get("systemPrompts");
-        if (CollectionUtils.isNotEmpty(systemPrompts)) {
-            systemPrompts.forEach(
-                    item -> prompt.add(Map.of("role", "system", "content", item))
-            );
+        List<Map<String, String>> additionalPrompts = (List<Map<String, String>>) conf.get("additionalPrompts");
+        if (CollectionUtils.isNotEmpty(additionalPrompts)) {
+            prompt.addAll(additionalPrompts);
         }
         if (userQuestion != null && !userQuestion.isBlank()) prompt.add(Map.of("role", "user", "content", userQuestion));
         if (assistantPrompt != null && !assistantPrompt.isBlank()) prompt.add(Map.of("role", "assistant", "content", assistantPrompt));
 
-        prompt.addAll(otherPrompts);
+        prompt.addAll(otherPromptsFromRetries);
         
         String apiKey = (String) conf.get(API_KEY_CONF);
         String model = (String) conf.getOrDefault("model", "gpt-3.5-turbo");
@@ -364,7 +354,7 @@ public class Prompt {
             """;
 
     private final static String SCHEMA_QUERY = """
-            call apoc.meta.data({maxRels: 5000, sample: 5000})
+            call apoc.meta.data({maxRels: 10, sample: coalesce($sample, (count{()}/1000)+1)})
             YIELD label, other, elementType, type, property
             """ + SCHEMA_FROM_META_DATA;
     
@@ -413,14 +403,12 @@ public class Prompt {
                 .collect(Collectors.joining("\n"));
     }
 
-    public static String loadSchema(Transaction tx, Map<String, Object> conf) {
+    private String loadSchema(Transaction tx, Map<String, Object> conf) {
         Map<String, Object> params = new HashMap<>();
         params.put("sample", conf.get("sample"));
-        String collect = tx.execute(SCHEMA_QUERY, params)
+        return tx.execute(SCHEMA_QUERY, params)
                 .stream()
                 .map(m -> SCHEMA_PROMPT.formatted(m.get("nodes"), m.get("relationships"), m.get("patterns")))
                 .collect(Collectors.joining("\n"));
-        System.out.println("schemaa = " + collect);
-        return collect;
     }
 }
