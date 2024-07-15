@@ -186,7 +186,8 @@ public class PromptIT {
     @Test
     public void testCypherWithSchemaExplanationAndQuestionAboutCrossSellingCount() {
 
-        String question = "Which 5 employees had the highest cross-selling count of 'Chocolade' and another product?";
+        String question = "Which 5 employees had sold the product 'Chocolade' and has the highest selling count of another product? " +
+                          "Please returns the employee identificator, the other product name and the count orders of another product";
         testCypherWithSchemaCommon(question, 5);
     }
 
