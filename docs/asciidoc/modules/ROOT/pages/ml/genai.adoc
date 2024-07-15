@@ -103,7 +103,8 @@ RETURN m.title
 |===
 
 
-We can use the `additionalPrompts` config to improve the request, e.g. adding the output of the apoc.ml.schema:
+We can use the `additionalPrompts` config to improve the request, e.g. adding the output of the `apoc.ml.schema`.
+In this way the results might be better, since OpenAI is mainly trained to elaborate questions asked in "human language", rather than via Cypher queries:
 
 .Query call
 [source,cypher]
@@ -236,7 +237,8 @@ RETURN DISTINCT a.name
 |===
 
 
-We can use the `additionalPrompts` config to improve the request, e.g. adding the output of the apoc.ml.schema:
+We can use the `additionalPrompts` config to improve the request, e.g. adding the output of the apoc.ml.schema.
+In this way the results might be better, since OpenAI is mainly trained to elaborate questions asked in "human language", rather than via Cypher queries:
 
 .Query call
 [source,cypher]
