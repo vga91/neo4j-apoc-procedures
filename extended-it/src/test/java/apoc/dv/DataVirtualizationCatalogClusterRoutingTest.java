@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-import static apoc.dv.DataVirtualizationCatalogUtil.*;
+import static apoc.dv.DataVirtualizationCatalogTestUtil.*;
 import static apoc.util.ExtendedTestContainerUtil.dbIsWriter;
 import static apoc.util.ExtendedTestContainerUtil.getBoltAddress;
 import static apoc.util.ExtendedTestContainerUtil.getDriverIfNotReplica;

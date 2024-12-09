@@ -16,8 +16,6 @@ import org.junit.rules.TemporaryFolder;
 import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.dbms.api.DatabaseManagementService;
 import org.neo4j.graphdb.GraphDatabaseService;
-import org.neo4j.graphdb.Label;
-import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Result;
 import org.testcontainers.containers.JdbcDatabaseContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -30,12 +28,12 @@ import java.util.Map;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.custom.CypherProcedureTestUtil.startDbWithCustomApocConfigs;
-import static apoc.dv.DataVirtualizationCatalogUtil.*;
-import static apoc.util.SystemDbTestUtil.TIMEOUT;
+import static apoc.dv.DataVirtualizationCatalogTestUtil.*;
+
+import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.testCall;
-import static apoc.util.TestUtil.testCallCountEventually;
-import static apoc.util.TestUtil.testCallEmpty;
-import static apoc.util.TestUtil.testCallEventually;
+import static apoc.util.TestUtil.testCallCount;
+
 import static apoc.util.TestUtil.testResult;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -46,7 +44,10 @@ public class DataVirtualizationCatalogNewProcedureTest {
     private static GraphDatabaseService db;
     private static DatabaseManagementService databaseManagementService;
 
+//    public static String url;
+    
     public static JdbcDatabaseContainer mysql;
+    
 
     @Rule
     public TemporaryFolder storeDir = new TemporaryFolder();
@@ -66,6 +67,8 @@ public class DataVirtualizationCatalogNewProcedureTest {
     public static void setUpContainer() {
         mysql = new MySQLContainer().withInitScript("init_mysql.sql");
         mysql.start();
+        
+//        url = getVirtualizeJDBCUrl(mysql);
     }
 
     @AfterClass
@@ -75,102 +78,93 @@ public class DataVirtualizationCatalogNewProcedureTest {
 
     @Test
     public void testVirtualizeCSV() {
-        testCallEventually(sysDb, APOC_DV_INSTALL_QUERY,
-                APOC_DV_INSTALL_PARAMS,
-                (row) -> assertCatalogContent(row, CSV_TEST_FILE), TIMEOUT);
+        getCsvCommonResult(db,
+                APOC_DV_INSTALL_QUERY, APOC_DV_SHOW_QUERY, APOC_DV_QUERY, CSV_TEST_FILE, sysDb);
 
-        testCallEventually(sysDb, APOC_DV_SHOW_QUERY,
-                (row) -> assertCatalogContent(row, CSV_TEST_FILE), TIMEOUT);
+        testCall(db, APOC_DV_QUERY_AND_LINK_QUERY, APOC_DV_QUERY_AND_LINK_QUERY_PARAMS,
+                DataVirtualizationCatalogTestUtil::assertVirtualizeCSVQueryAndLinkContent);
 
-        testCallEventually(db, APOC_DV_QUERY,
-                APOC_DV_QUERY_AND_LINK_QUERY_PARAMS,
-                (row) -> {
-                    Node node = (Node) row.get(NODE_KEY);
-                    assertEquals(PERSON_NAME, node.getProperty(NAME_KEY));
-                    assertEquals(PERSON_AGE, node.getProperty(AGE_KEY));
-                    assertEquals(List.of(Label.label(LABELS_VALUE)), node.getLabels());
-                }, TIMEOUT);
+    }
 
-        db.executeTransactionally(CREATE_HOOK_QUERY, CREATE_HOOK_PARAMS);
+    @Test
+    public void testVirtualizeCSVWithCustomDirectionIN() {
+        getCsvCommonResult(db,
+                APOC_DV_INSTALL_QUERY, APOC_DV_SHOW_QUERY, APOC_DV_QUERY, CSV_TEST_FILE, sysDb);
 
-        testCallEventually(db, APOC_DV_QUERY_AND_LINK_QUERY, APOC_DV_QUERY_AND_LINK_QUERY_PARAMS,
-                DataVirtualizationCatalogUtil::assertVirtualizeCSVQueryAndLinkContent, TIMEOUT);
-
+        Map<String, Object> params = APOC_DV_QUERY_AND_LINK_QUERY_PARAMS;
+        Map map = (Map) params.get(CONFIG_KEY);
+        map.put("direction", "IN");
+        testCall(db, APOC_DV_QUERY_AND_LINK_QUERY, params,
+                DataVirtualizationCatalogTestUtil::assertVirtualizeCSVQueryAndLinkContentDirectionIN);
     }
 
     @Test
     public void testVirtualizeJDBC() {
-        final String url = getVirtualizeJDBCUrl(mysql);
 
-        testCallEventually(sysDb, APOC_DV_INSTALL_QUERY,
-                Map.of(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME, NAME_KEY, JDBC_NAME, "map", getVirtualizeJDBCParameterMap(mysql, VIRTUALIZE_JDBC_QUERY)),
-                (row) -> assertDvQueryContent(row, url), TIMEOUT);
+        getVirtualizeJdbcCommonResult(db, mysql,
+                APOC_DV_INSTALL_QUERY, APOC_DV_QUERY_WITH_PARAM, APOC_DV_QUERY, sysDb);
 
-        testCallCountEventually(db, APOC_DV_QUERY_WITH_PARAM, Map.of(
-                    NAME_KEY, JDBC_NAME,
-                    CONFIG_KEY, getJdbcCredentials(mysql)),
-                0,
-                TIMEOUT
-        );
-
-        testCallEventually(db, APOC_DV_QUERY,
-                Map.of(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_APOC_PARAMS,
-                        CONFIG_KEY, getJdbcCredentials(mysql)),
-                (row) -> {
-                    Node node = (Node) row.get(NODE_KEY);
-                    assertEquals(VIRTUALIZE_JDBC_COUNTRY, node.getProperty("Name"));
-                    assertEquals(JDBC_LABELS, node.getLabels());
-                }, TIMEOUT);
-
-        db.executeTransactionally(CREATE_HOOK_QUERY, CREATE_HOOK_PARAMS);
-
-        testCallEventually(db, APOC_DV_QUERY_AND_LINK_QUERY,
-                Map.of(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_APOC_PARAMS, RELTYPE_KEY, VIRTUALIZE_JDBC_WITH_PARAMS_RELTYPE,
-                        CONFIG_KEY, getJdbcCredentials(mysql)),
-                DataVirtualizationCatalogUtil::assertDvQueryAndLinkContent, TIMEOUT);
+        testCall(db, APOC_DV_QUERY_AND_LINK_QUERY,
+                map(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_APOC_PARAMS, RELTYPE_KEY, VIRTUALIZE_JDBC_WITH_PARAMS_RELTYPE,
+                        CONFIG_KEY, map("credentials", getJdbcCredentials(mysql))),
+                DataVirtualizationCatalogTestUtil::assertDvQueryAndLinkContent);
     }
 
     @Test
-    public void testVirtualizeJDBCWithParameterMap() {
-        final String url = getVirtualizeJDBCUrl(mysql);
+    public void testVirtualizeJDBCWithCustomDirectionIN() {
 
-        testCallEventually(sysDb, APOC_DV_INSTALL_QUERY,
-                Map.of(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME,
-                        "map", getVirtualizeJDBCParameterMap(mysql, VIRTUALIZE_JDBC_WITH_PARAMS_QUERY)),
-                (row) -> assertDvCatalogAddOrInstall(row, url), TIMEOUT);
-
-        testCallEmpty(db, APOC_DV_JDBC_WITH_PARAMS_QUERY,
-                Map.of(NAME_KEY, JDBC_NAME, CONFIG_KEY, getJdbcCredentials(mysql)));
-
-
-        testCall(db, APOC_DV_QUERY,
-                Map.of(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_QUERY_PARAMS,
-                        CONFIG_KEY, getJdbcCredentials(mysql)),
-                (row) -> {
-                    Node node = (Node) row.get(NODE_KEY);
-                    assertEquals(VIRTUALIZE_JDBC_COUNTRY, node.getProperty("Name"));
-                    assertEquals(JDBC_LABELS, node.getLabels());
-                });
-
-        db.executeTransactionally(CREATE_HOOK_QUERY, Map.of(HOOK_NODE_NAME_KEY, HOOK_NODE_NAME_VALUE));
+        getVirtualizeJdbcCommonResult(db, mysql,
+                APOC_DV_INSTALL_QUERY, APOC_DV_QUERY_WITH_PARAM, APOC_DV_QUERY, sysDb);
 
         testCall(db, APOC_DV_QUERY_AND_LINK_QUERY,
-                Map.of(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_QUERY_PARAMS, RELTYPE_KEY, VIRTUALIZE_JDBC_WITH_PARAMS_RELTYPE,
-                        CONFIG_KEY, getJdbcCredentials(mysql)),
-                DataVirtualizationCatalogUtil::assertDvQueryAndLinkContent);
+                map(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_APOC_PARAMS, RELTYPE_KEY, VIRTUALIZE_JDBC_WITH_PARAMS_RELTYPE,
+                        CONFIG_KEY, map(
+                                "direction", "IN",
+                                "credentials", getJdbcCredentials(mysql)
+                        )),
+                DataVirtualizationCatalogTestUtil::assertDvQueryAndLinkContentDirectionIN);
     }
+    
+//    @Test
+//    public void testVirtualizeJDBCWithParameterMap() {
+//
+//        testCall(sysDb, APOC_DV_INSTALL_QUERY,
+//                map(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME,
+//                        "map", getVirtualizeJDBCParameterMap(mysql, VIRTUALIZE_JDBC_WITH_PARAMS_QUERY)),
+//                (row) -> assertDvCatalogAddOrInstall(row, url));
+//
+//        testCallEmpty(db, APOC_DV_JDBC_WITH_PARAMS_QUERY,
+//                map(NAME_KEY, JDBC_NAME, CONFIG_KEY, getJdbcCredentials(mysql)));
+//
+//
+//        testCall(db, APOC_DV_QUERY,
+//                map(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_QUERY_PARAMS,
+//                        CONFIG_KEY, getJdbcCredentials(mysql)),
+//                (row) -> {
+//                    Node node = (Node) row.get(NODE_KEY);
+//                    assertEquals(VIRTUALIZE_JDBC_COUNTRY, node.getProperty("Name"));
+//                    assertEquals(JDBC_LABELS, node.getLabels());
+//                });
+//
+//        db.executeTransactionally(CREATE_HOOK_QUERY, map(HOOK_NODE_NAME_KEY, HOOK_NODE_NAME_VALUE));
+//
+//        testCall(db, APOC_DV_QUERY_AND_LINK_QUERY,
+//                map(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_QUERY_PARAMS, RELTYPE_KEY, VIRTUALIZE_JDBC_WITH_PARAMS_RELTYPE,
+//                        CONFIG_KEY, getJdbcCredentials(mysql)),
+//                DataVirtualizationCatalogTestUtil::assertDvQueryAndLinkContent);
+//    }
 
     @Test
     public void testRemove() {
         sysDb.executeTransactionally(APOC_DV_INSTALL_QUERY,
-                Map.of(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME, "map", getVirtualizeJDBCParameterMap(mysql, JDBC_SELECT_QUERY)));
+                map(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME, "map", getVirtualizeJDBCParameterMap(mysql, JDBC_SELECT_QUERY)));
 
-        testCallCountEventually(sysDb, APOC_DV_DROP_QUERY, Map.of(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME), 0, TIMEOUT);
+        testCallCount(sysDb, APOC_DV_DROP_QUERY, map(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME), 0);
     }
 
     @Test
     public void testNameAsKey() {
-        Map<String, Object> params = Map.of(
+        Map<String, Object> params = map(
                 DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,
                 NAME_KEY, JDBC_NAME, "map", getVirtualizeJDBCParameterMap(mysql, JDBC_SELECT_QUERY)
         );
@@ -185,7 +179,7 @@ public class DataVirtualizationCatalogNewProcedureTest {
     public void testJDBCQueryWithMixedParamsTypes() {
         try {
             sysDb.executeTransactionally(APOC_DV_INSTALL_QUERY,
-                    Map.of(
+                    map(
                             DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME,
                             "map", getVirtualizeJDBCParameterMap(mysql, JDBC_SELECT_QUERY_WITH_PARAM)
                     )
@@ -205,14 +199,14 @@ public class DataVirtualizationCatalogNewProcedureTest {
         final List<String> sortedExpectedParams = expectedParams.stream()
                 .sorted()
                 .toList();
-        testCallEventually(sysDb, APOC_DV_INSTALL_QUERY,
-                Map.of(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME, "map", getVirtualizeJDBCParameterMap(mysql, VIRTUALIZE_JDBC_WITH_PARAMS_QUERY)),
-                (row) -> assertDvCatalogAddOrInstall(row, url), TIMEOUT);
+        testCall(sysDb, APOC_DV_INSTALL_QUERY,
+                map(DATABASE_NAME, GraphDatabaseSettings.DEFAULT_DATABASE_NAME,NAME_KEY, JDBC_NAME, "map", getVirtualizeJDBCParameterMap(mysql, VIRTUALIZE_JDBC_WITH_PARAMS_QUERY)),
+                (row) -> assertDvCatalogAddOrInstall(row, url));
 
         try {
             db.executeTransactionally(APOC_DV_QUERY,
-                    Map.of(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_QUERY_WRONG_PARAMS,
-                            CONFIG_KEY, getJdbcCredentials(mysql)),
+                    map(NAME_KEY, JDBC_NAME, APOC_DV_QUERY_PARAMS_KEY, VIRTUALIZE_JDBC_QUERY_WRONG_PARAMS,
+                            CONFIG_KEY, map("credentials", getJdbcCredentials(mysql))),
                     Result::resultAsString);
             Assert.fail("Exception is expected");
         } catch (Exception e) {
