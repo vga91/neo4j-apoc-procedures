@@ -18,7 +18,7 @@ import java.sql.SQLException;
 
 public class JdbcUtil {
 
-    private static final String KEY_NOT_FOUND_MESSAGE = "No apoc.jdbc.%s.url url specified";
+    public static final String KEY_NOT_FOUND_MESSAGE = "No apoc.jdbc.%s.url url specified";
     private static final String LOAD_TYPE = "jdbc";
 
     private JdbcUtil() {}

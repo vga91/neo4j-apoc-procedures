@@ -3,6 +3,7 @@ package apoc.load;
 import apoc.Extended;
 import apoc.load.util.LoadJdbcConfig;
 import apoc.result.RowResult;
+import apoc.util.Util;
 import org.apache.commons.lang3.StringUtils;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.Transaction;
@@ -13,7 +14,6 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.sql.Connection;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -24,12 +24,27 @@ import static apoc.load.Jdbc.executeQuery;
 import static apoc.load.Jdbc.executeUpdate;
 import static apoc.load.util.JdbcUtil.getConnection;
 import static apoc.load.util.JdbcUtil.getUrlOrKey;
+import static apoc.util.ExtendedUtil.batchIterator;
 
 @Extended
 public class Analytics {
+
     public static final String PROVIDER_CONF_KEY = "provider";
     public static final String TABLE_NAME_CONF_KEY = "tableName";
+    public static final String BATCH_SIZE_CONF_KEY = "batchSize";
+    public static final String WRITE_MODE_CONF_KEY = "writeMode";
+    
+    public static final int BATCH_SIZE_DEFAULT = 200000;
     public static final String TABLE_NAME_DEFAULT_CONF_KEY = "neo4j_tmp_table";
+    
+    public static final String EMPTY_SQL_QUERY_ERROR = "The SQL query is empty";
+    public static final String EMPTY_NEO4J_QUERY_ERROR = "The Neo4j query is empty";
+    public static final String WRONG_BATCH_SIZE_ERR = "The batchSize value is invalid";
+
+    public enum WriteMode {
+        APPEND, CREATE
+    }
+    
 
     enum Provider {
         DEFAULT,
@@ -57,44 +72,56 @@ public class Analytics {
         AtomicReference<String> createTable = new AtomicReference<>();
         final Provider provider = Provider.valueOf((String) config.getOrDefault(PROVIDER_CONF_KEY, Provider.DEFAULT.name()));
         final String tableName = (String) config.getOrDefault(TABLE_NAME_CONF_KEY, TABLE_NAME_DEFAULT_CONF_KEY);
+        final int batchSize = Util.toInteger(config.getOrDefault(BATCH_SIZE_CONF_KEY, BATCH_SIZE_DEFAULT));
+        String writeModeString = (String) config.getOrDefault(WRITE_MODE_CONF_KEY, WriteMode.CREATE.toString());
+        WriteMode writeMode = WriteMode.valueOf(writeModeString.toUpperCase());
 
         AtomicReference<String> columns = new AtomicReference<>();
-        AtomicReference<String> queryInsert = new AtomicReference<>();
-        
-                db.executeTransactionally(neo4jQuery,
+        AtomicReference<List<String>> queriesInsert = new AtomicReference<>();
+
+        if (StringUtils.isBlank(neo4jQuery)) {
+            throw new RuntimeException(EMPTY_NEO4J_QUERY_ERROR);
+        }
+        if (StringUtils.isBlank(sqlQuery)) {
+            throw new RuntimeException(EMPTY_SQL_QUERY_ERROR);
+        }
+        if (batchSize < 1) {
+            throw new RuntimeException(WRONG_BATCH_SIZE_ERR);
+        }
+
+        boolean isCreate = writeMode.equals(WriteMode.CREATE);
+        db.executeTransactionally(neo4jQuery,
                 Map.of(),
                 result -> {
-                    List<String> sqlValuesForQueryInsert = new ArrayList<>();
-                    result.forEachRemaining(map -> {
-                        
-                        if (createTable.get() == null) {
+                    List<String> insertClause = batchIterator(result, batchSize, map -> {
+                        if (isCreate && createTable.get() == null) {
                             String tempTableClause = getTempTableClause(map, provider, tableName);
                             createTable.set(tempTableClause);
                         }
 
-                        // convert Neo4j row result to SQL row
                         final String row = getStreamSortedByKey(map)
-                              //  .map(e -> addFieldToTempTable(e, sqlTypesForTempTable, provider))
                                 .map(Map.Entry::getValue)
                                 .map(Analytics::formatSqlValue)
                                 .collect(Collectors.joining(","));
-                        
-                        // add SQL row for query insert
-                        sqlValuesForQueryInsert.add("(" + row + ")");
-                    });
-                    
-                    // add values to `INSERT INTO ...` clause
-                    String sqlValues = StringUtils.join(sqlValuesForQueryInsert, ",");
-                    String insertClause = String.format("INSERT INTO %s VALUES %s",
-                            tableName, sqlValues
-                    );
-                    queryInsert.set(insertClause);
-                    
+                        return "(" + row + ")";
+                    })
+                    .map(i -> {
+                        String sqlValues = String.join(",", i);
+                        return String.format("INSERT INTO %s VALUES %s",
+                                tableName, sqlValues
+                        );
+                    })
+                    .toList();
+
+                    queriesInsert.set(insertClause);
+
                     // columns to handle error msg
-                    String neo4jResultColumns = result.columns().stream()
-                            .sorted()
-                            .collect(Collectors.joining(","));
-                    columns.set(neo4jResultColumns);
+                    if (columns.get() == null) {
+                        String neo4jResultColumns = result.columns().stream()
+                                .sorted()
+                                .collect(Collectors.joining(","));
+                        columns.set(neo4jResultColumns);
+                    }
                     return null;
                 });
 
@@ -110,10 +137,15 @@ public class Analytics {
         Object[] paramsArray = params.toArray(new Object[params.size()]);
 
         // Step 1. Create temporary table
-        executeUpdate(urlOrKey, createTable.get(), config, connection, log, paramsArray);
+        if (isCreate) {
+            executeUpdate(urlOrKey, createTable.get(), config, connection, log, paramsArray);
+        }
+
 
         // Step 2. Insert data in temp table
-        executeUpdate(urlOrKey, queryInsert.get(), config, connection, log, paramsArray);
+        queriesInsert.get().forEach(
+                query -> executeUpdate(urlOrKey, query, config, connection, log, paramsArray)
+        );
         
         try {
             // Step 3. Return data from temp table
