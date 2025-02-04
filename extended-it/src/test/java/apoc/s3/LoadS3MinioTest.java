@@ -46,13 +46,12 @@ public class LoadS3MinioTest {
         db.executeTransactionally(
                 "CREATE (f:User1:User {name:'foo'})-[:KNOWS]->(b:User {name:'bar'})");
 
-
-
         minioContainer = new GenericContainer<>("bitnami/minio:2025.1.20")
-            .withExposedPorts(9000, 9001)
-            .withEnv("MINIO_ROOT_USER", ACCESS_KEY)
-            .withEnv("MINIO_ROOT_PASSWORD", SECRET_KEY)
-            .withEnv("MINIO_DEFAULT_BUCKETS", BUCKET_NAME)
+        //minioContainer = new GenericContainer<>("bitnami/minio:2025.1.20")
+                .withExposedPorts(9000, 9001)
+                .withEnv("MINIO_ROOT_USER", ACCESS_KEY)
+                .withEnv("MINIO_ROOT_PASSWORD", SECRET_KEY)
+                .withEnv("MINIO_DEFAULT_BUCKETS", BUCKET_NAME)
                 .waitingFor(Wait.forHttp("/").forStatusCode(200));
 
        // TODO - NON FUNZIONA
