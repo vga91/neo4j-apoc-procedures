@@ -13,49 +13,31 @@ import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import static apoc.ApocConfig.*;
 import static apoc.util.MapUtil.map;
-import static apoc.util.SystemDbTestUtil.TIMEOUT;
-import static apoc.util.TestUtil.testCall;
-import static apoc.util.TestUtil.testResult;
-import static org.junit.Assert.assertEquals;
-import static org.neo4j.test.assertion.Assert.assertEventually;
 
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.time.Duration;
-import java.util.concurrent.TimeUnit;
 
 public class LoadS3MinioTest {
 
-    public static final String ACCESS_KEY = "testAccessKey";
-    public static final String SECRET_KEY = "testSecretKey";
-    public static final String BUCKET_NAME = "test";
+    static final String ACCESS_KEY = "testAccessKey";
+    static final String SECRET_KEY = "testSecretKey";
+    static final String BUCKET_NAME = "test";
     static GenericContainer<?> minioContainer;
-
-   // public static final String URL = "s3://127.0.0.1:9000/test/test.csv?accessKey=user&secretKey=password";
 
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
 
-    //private MinioSetUp minio;
-
     @BeforeClass
     public static void init() throws Throwable {
-
-/*
-        ClassLoader.getSystemResource("minio-docker-compose.yml");
-        File file = new File("minio-docker-compose.yml");
-        DockerComposeContainer minioContainer1 = new DockerComposeContainer(file);
-
-        minioContainer = (GenericContainer) minioContainer1.getContainerByServiceName("minio_1")
-                .orElseThrow(() -> new RuntimeException("todo--"));
-*/
-
-
+        // to make Minio work
         System.setProperty("com.amazonaws.sdk.disableCertChecking", "true");
 
-        TestUtil.registerProcedure(db, ExportCSV.class, ExportGraphML.class, ExportJson.class, LoadCsv.class, LoadJson.class, Xml.class);
+        TestUtil.registerProcedure(db, 
+                ExportCSV.class, ExportGraphML.class, ExportJson.class, 
+                LoadCsv.class, LoadJson.class, Xml.class);
 
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
         apocConfig().setProperty(APOC_EXPORT_FILE_ENABLED, true);
@@ -65,16 +47,13 @@ public class LoadS3MinioTest {
                 "CREATE (f:User1:User {name:'foo'})-[:KNOWS]->(b:User {name:'bar'})");
 
 
-        /*
-        /opt/bitnami/scripts/minio/entrypoint.sh: line 23: exec: server: not found
-         */
+
         minioContainer = new GenericContainer<>("bitnami/minio:2025.1.20")
             .withExposedPorts(9000, 9001)
             .withEnv("MINIO_ROOT_USER", ACCESS_KEY)
             .withEnv("MINIO_ROOT_PASSWORD", SECRET_KEY)
             .withEnv("MINIO_DEFAULT_BUCKETS", BUCKET_NAME)
-              // TODO - NON FUNZIONA
-          .waitingFor(Wait.forHttp("/").forStatusCode(200));
+                .waitingFor(Wait.forHttp("/").forStatusCode(200));
 
        // TODO - NON FUNZIONA
         minioContainer.setWaitStrategy(
