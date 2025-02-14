@@ -1,5 +1,6 @@
 package apoc.load;
 
+import apoc.metrics.Metrics;
 import apoc.util.CompressionAlgo;
 import apoc.util.TestUtil;
 import apoc.util.Util;
@@ -77,11 +78,39 @@ public class LoadCsvTest {
     }
 
     @Before public void setUp() throws Exception {
-        TestUtil.registerProcedure(db, LoadCsv.class);
+        TestUtil.registerProcedure(db, Metrics.class, LoadCsv.class);
+        String testDir = "test";
+        apocConfig().setProperty( GraphDatabaseSettings.neo4j_home.name(), testDir);
+        File file = new File(testDir);
+        boolean mkdir = file.mkdir();
+        File metricsDir = new File(testDir, "metrics");
+        boolean metrics = metricsDir.mkdir();
+        System.out.println("metrics = " + metrics);
+        File file1 = new File(metricsDir, "neo4j.system.check_point.total_time.csv");
+        boolean fileCsv = file1.createNewFile();
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
     }
 
     @Test public void testLoadCsv() throws Exception {
+        String metricKey = "neo4j.system.check_point.total_time";
+//        Thread.sleep(500);
+////        assertEventually(() -> {
+//        try {
+//            Map<String, Object> metricKey1 = session.run("CALL apoc.metrics.get($metricKey)",
+//                            Util.map("metricKey", metricKey))
+//                    .list()
+//                    .get(0)
+//                    .asMap();
+
+        
+        db.executeTransactionally("CALL apoc.load.csv('/Users/giuseppevillani/Documents/Projects/neo4j-apoc-procedures/extended/test/metrics/neo4j.system.check_point.total_time.csv')",
+                Util.map("metricKey", metricKey),
+                Result::resultAsString);
+        
+        db.executeTransactionally("CALL apoc.metrics.get($metricKey)",
+                Util.map("metricKey", metricKey),
+                Result::resultAsString);
+        
         String url = "test.csv";
         commonTestLoadCsv(db, url);
     }
@@ -144,6 +173,9 @@ public class LoadCsvTest {
 
     @Test
     public void testLoadCsvWithNoneSeparator() {
+        
+        
+        
         String url = "test.csv";
         testResult(db, "CALL apoc.load.csv($url, {sep:'NONE'})", map("url",url), // 'file:test.csv'
                 r -> {

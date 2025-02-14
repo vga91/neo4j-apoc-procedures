@@ -55,6 +55,7 @@ public class LoadCsv {
                 httpHeaders = httpHeaders != null ? httpHeaders : new HashMap<>();
                 httpHeaders.putAll(Util.extractCredentialsIfNeeded(url, true));
             }
+            // TODO - è diverso..
             reader = FileUtils.readerFor(urlOrBinary, httpHeaders, payload, config.getCompressionAlgo(), urlAccessChecker);
             return streamCsv(url, config, reader);
         } catch (Exception e) {

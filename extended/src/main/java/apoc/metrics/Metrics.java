@@ -19,6 +19,7 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -173,6 +174,7 @@ public class Metrics {
         config.put("header", true);
 
         File metricsDir = ExtendedFileUtils.getMetricsDirectory();
+        System.out.println("metricsDir.getAbsolutePath() = " + metricsDir.getAbsolutePath());
 
         if (metricsDir == null) {
             throw new RuntimeException("Metrics directory either does not exist or is not readable.  " +
@@ -189,9 +191,19 @@ public class Metrics {
             throw new RuntimeException("Unable to resolve basic metric file canonical path", ioe);
         }
         String url = file.getAbsolutePath();
+        System.out.println("url = " + url);
         CountingReader reader = null;
+
         try {
-            reader = FileUtils.getStreamConnection(SupportedProtocols.file, url, null, null, urlAccessChecker)
+            boolean newFile = new File(url).createNewFile();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        // TODO - ma non è meglio passare direttamente load.csv?
+        try {
+            Stream<CSVResult> csv = new LoadCsv().csv(url, config);
+            List<CSVResult> list = csv.toList();
+            reader = Util.getStreamConnection(url, null, null, urlAccessChecker)
                     .toCountingInputStream(CompressionAlgo.NONE.name())
                     .asReader();
             return new LoadCsv()
@@ -252,6 +264,7 @@ public class Metrics {
     public Stream<GenericMetric> get(
             @Name("metricName") String metricName,
             @Name(value = "config",defaultValue = "{}") Map<String, Object> config) {
+        System.out.println("metricName = " + metricName);
 
         Map<String,Object> csvConfig = config;
 
