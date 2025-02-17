@@ -103,14 +103,15 @@ public class LoadCsvTest {
 //                    .asMap();
 
         
-        db.executeTransactionally("CALL apoc.load.csv('/Users/giuseppevillani/Documents/Projects/neo4j-apoc-procedures/extended/test/metrics/neo4j.system.check_point.total_time.csv')",
+//        db.executeTransactionally("CALL apoc.load.csv('/Users/giuseppevillani/Documents/Projects/neo4j-apoc-procedures/extended/test/metrics/neo4j.system.check_point.total_time.csv')",
+//                Util.map("metricKey", metricKey),
+//                Result::resultAsString);
+
+        String s = db.executeTransactionally("CALL apoc.metrics.get($metricKey)",
                 Util.map("metricKey", metricKey),
                 Result::resultAsString);
-        
-        db.executeTransactionally("CALL apoc.metrics.get($metricKey)",
-                Util.map("metricKey", metricKey),
-                Result::resultAsString);
-        
+        System.out.println("s = " + s);
+
         String url = "test.csv";
         commonTestLoadCsv(db, url);
     }

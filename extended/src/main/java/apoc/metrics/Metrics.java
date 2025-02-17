@@ -119,7 +119,7 @@ public class Metrics {
         }
     }
 
-    @Procedure(mode=Mode.DBMS)
+    @Procedure//(mode=Mode.DBMS)
     @Description("apoc.metrics.list() - get a list of available metrics")
     public Stream<Neo4jMeasuredMetric> list() {
         File metricsDir = ExtendedFileUtils.getMetricsDirectory();
@@ -182,6 +182,9 @@ public class Metrics {
                     "https://neo4j.com/docs/operations-manual/current/monitoring/metrics/expose/#metrics-csv");
         }
 
+        // todo - questo funziona
+        // FileUtils.readerFor("/Users/giuseppevillani/Documents/Projects/neo4j-apoc-procedures/extended/build/resources/test/testQuote.csv", httpHeaders, payload, config.getCompressionAlgo(), urlAccessChecker)
+        
         final File file = new File(metricsDir, metricName + ".csv");
         try {
             if (!file.getCanonicalPath().startsWith(metricsDir.getAbsolutePath())) {
@@ -199,10 +202,13 @@ public class Metrics {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        
+        // -- FileUtils.readerFor(file.getPath(), Map.of(), "", CompressionAlgo.NONE.toString(), urlAccessChecker)
+        
         // TODO - ma non è meglio passare direttamente load.csv?
         try {
-            Stream<CSVResult> csv = new LoadCsv().csv(url, config);
-            List<CSVResult> list = csv.toList();
+            //Stream<CSVResult> csv = new LoadCsv().csv(url, config);
+            //List<CSVResult> list = csv.toList();
             reader = Util.getStreamConnection(url, null, null, urlAccessChecker)
                     .toCountingInputStream(CompressionAlgo.NONE.name())
                     .asReader();
@@ -216,7 +222,7 @@ public class Metrics {
         }
     }
 
-    @Procedure(mode=Mode.DBMS)
+    @Procedure//(mode=Mode.DBMS)
     @Description("apoc.metrics.storage(directorySetting) - retrieve storage metrics about the devices Neo4j uses for data storage. " +
             "directorySetting may be any valid neo4j directory setting name, such as 'server.directories.data'.  If null is provided " +
             "as a directorySetting, you will get back all available directory settings.  For a list of available directory settings, " +
@@ -251,7 +257,7 @@ public class Metrics {
                 .map(StorageMetric::fromStoragePair);
     }
 
-    @Procedure(mode=Mode.DBMS)
+    @Procedure//(mode=Mode.DBMS)
     @Description("apoc.metrics.get(metricName, {}) - retrieve a system metric by its metric name. Additional configuration options may be passed matching the options available for apoc.load.csv.")
     /**
      * This method is a specialization of apoc.load.csv, it just happens that the directory and file path

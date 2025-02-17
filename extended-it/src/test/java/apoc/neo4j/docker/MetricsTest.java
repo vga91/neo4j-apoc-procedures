@@ -89,6 +89,26 @@ public class MetricsTest {
     }
 
     @Test
+    public void shouldGetMetrics1() {
+        session.executeRead(tx -> tx.run("RETURN 1 AS num;").consume());
+        String metricKey = "neo4j.database.check_point.total_time";
+        assertEventually(() -> {
+                    try {
+                        return session.run("CALL apoc.metrics.get($metricKey)",
+                                        map("metricKey", metricKey))
+                                .list()
+                                .get(0)
+                                .asMap();
+                    } catch (Exception e) {
+                        System.out.println("e = " + e);
+                        return Map.<String, Object>of();
+                    }
+                },
+                map -> Set.of("timestamp", "metric", "map").equals(map.keySet()) && map.get("metric").equals(metricKey),
+                30L, TimeUnit.SECONDS);
+    }
+
+    @Test
     public void shouldRetrieveStorageMetrics() {
 
         final Set<String> expectedSet = Stream.of("setting", "freeSpaceBytes", "totalSpaceBytes", "usableSpaceBytes", "percentFree")
