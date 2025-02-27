@@ -42,11 +42,25 @@ public class CreateExtendedTest {
                         """,
                 (row) -> {
                     Node node = (Node) row.get("node");
-
-                    assertTrue(node.hasLabel(label("Person")));
                     assertTrue(node.getId() < 0);
-                    assertEquals("Vincent", node.getProperty("name"));
-                    assertNull(node.getProperty("born"));
+                    commonCreateNodeAssertions(node);
+                });
+    }
+
+    @Test
+    public void testVirtualFromNodeWithAdditionalPropertiesFunction() {
+        testCall(
+                db,
+                """
+                        CREATE (n:Person {name:'Vincent', born: 1974} )
+                        RETURN apoc.create.virtual.fromNodeExtended(n, ['name'], {alpha: 1, foo: 'bar'}) AS node
+                        """,
+                (row) -> {
+                    Node node = (Node) row.get("node");
+                    assertEquals(1L, node.getProperty("alpha"));
+                    assertEquals("bar", node.getProperty("foo"));
+                    assertTrue(node.getId() < 0);
+                    commonCreateNodeAssertions(node);
                 });
     }
 
@@ -60,11 +74,8 @@ public class CreateExtendedTest {
                         """,
                 (row) -> {
                     Node node = (Node) row.get("node");
-
-                    assertTrue(node.hasLabel(label("Person")));
                     assertTrue(node.getId() >= 0);
-                    assertEquals("Vincent", node.getProperty("name"));
-                    assertNull(node.getProperty("born"));
+                    commonCreateNodeAssertions(node);
                 });
     }
 
@@ -110,5 +121,11 @@ public class CreateExtendedTest {
                 "RETURN apoc.create.virtual.fromNodeExtended(null, ['name']) as node", 
                 Map.of(),
                 ERROR_NODE_NULL);
+    }
+
+    private static void commonCreateNodeAssertions(Node node) {
+        assertTrue(node.hasLabel(label("Person")));
+        assertEquals("Vincent", node.getProperty("name"));
+        assertNull(node.getProperty("born"));
     }
 }

@@ -4,8 +4,6 @@ import apoc.Extended;
 import apoc.result.VirtualNode;
 import apoc.util.Util;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Transaction;
-import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.UserFunction;
@@ -16,19 +14,13 @@ import java.util.Map;
 @Extended
 public class CreateExtended {
 
-    
-    // TODO - tests and docs
-    
-    @Context
-    public Transaction tx;
-
     @UserFunction("apoc.create.virtual.fromNodeExtended")
     @Description(
             "Returns a virtual `NODE` from the given existing `NODE`. The virtual `NODE` only contains the requested properties.")
     public Node virtualFromNodeFunction(
             @Name(value = "node", description = "The node to generate a virtual node from.") Node node,
             @Name(value = "propertyNames", description = "The properties to copy to the virtual node.") List<String> propertyNames,
-            @Name(value = "additionalProperties", defaultValue = "{}") Map<String, Object> additionalProperties,
+            @Name(value = "additionalProperties", defaultValue = "{}", description = "Additional properties to add to the virtual node") Map<String, Object> additionalProperties,
             @Name(value = "config", defaultValue = "{}", description = "{ wrapNodeIds = false :: BOOLEAN }")
             Map<String, Object> config) {
         boolean wrapNodeIds = Util.toBoolean(config.get("wrapNodeIds"));
