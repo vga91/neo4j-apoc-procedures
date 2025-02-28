@@ -2,9 +2,14 @@ package apoc.load;
 
 import apoc.Extended;
 import apoc.result.StringResult;
+import apoc.util.ArchiveType;
 import com.amazonaws.regions.Regions;
+import org.apache.commons.compress.archivers.ArchiveEntry;
+import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.harmony.pack200.Archive;
+import org.apache.commons.io.IOUtils;
 import org.apache.zookeeper.server.persistence.FileHeader;
+import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.security.URLAccessChecker;
 import org.neo4j.procedure.Context;
@@ -46,6 +51,8 @@ public class LoadOffset {
 
     @Context
     public URLAccessChecker urlAccessChecker;
+    
+    // TODO -funcion convert to json
 
     @Procedure("apoc.load.stringPartial")
     @Description("TODO")
@@ -53,33 +60,47 @@ public class LoadOffset {
                                     @Name("offset") Long offset,
                                     @Name(value = "limit") Long limit,
                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> configMap) throws IOException {
+        String value = getStringResultStream(urlOrBinary, offset, limit);
+        return Stream.of(new StringResult(value));
+        
+        //return csvParams(urlOrBinary, null, null,configMap);
+    }
+
+    private static String getStringResultStream(Object urlOrBinary, Long offset, Long limit) throws IOException {
         int intExact = Math.toIntExact(limit);
         if (urlOrBinary instanceof String filePath) {
-            String[] tokens = filePath.split("!");
-            if (tokens.length == 1) {
-                return Stream.of(
-                        new StringResult(
-                                readFromFile(filePath, offset, limit)
-                        )
-                );
+            final ArchiveType archiveType = ArchiveType.from(filePath);
+            if (archiveType.isArchive()) {
+                String[] tokens = filePath.split("!");
+                
+                return readFromArchive(archiveType, tokens[0], tokens[1], offset, intExact);
             } else {
-                return Stream.of(
-                        new StringResult(
-                                readFromArchive(tokens[0], tokens[1], offset, intExact)
-                        )
-                );        
+                return readFromFile(filePath, offset, limit);
             }
+            
+//            String[] tokens = filePath.split("!");
+//            if (tokens.length == 1) {
+////                return Stream.of(
+////                        new StringResult(
+//                return readFromFile(filePath, offset, limit);
+////                        )
+////                );
+//            } else {
+////                return Stream.of(
+////                        new StringResult(
+//                return readFromArchive(tokens[0], tokens[1], offset, intExact);
+////                        )
+////                );        
+//            }
         } else if (urlOrBinary instanceof byte[] bytes) {
-            return Stream.of(
-                    new StringResult(
-                            readFromByteArray(bytes, offset, limit)
-                    )
-            );
+//            return Stream.of(
+//                    new StringResult(
+            return readFromByteArray(bytes, offset, limit);
+//                    )
+//            );
         } else {
             throw new RuntimeException("TODO");
         }
-        
-        //return csvParams(urlOrBinary, null, null,configMap);
     }
 
 //    public static void main(String[] args) throws Exception {
@@ -116,13 +137,17 @@ public class LoadOffset {
             raf.seek(offset);
             // if (limit )
             // TODO - evaluate 1000
-            byte[] buffer = new byte[1000];
-            // byte[] buffer = new byte[limit];
-            int bytesRead = limit == null
-                    ? raf.read(buffer)
-                    : raf.read(buffer, 0, Math.toIntExact(limit));
-            return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
+            return getString(limit, raf);
         }
+    }
+
+    private static @NotNull String getString(Long limit, RandomAccessFile raf) throws IOException {
+        byte[] buffer = new byte[1000];
+        // byte[] buffer = new byte[limit];
+        int bytesRead = limit == null
+                ? raf.read(buffer)
+                : raf.read(buffer, 0, Math.toIntExact(limit));
+        return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
     }
 
     private static String readFromHttpUrl(String fileUrl, long offset, Long limit) throws IOException {
@@ -156,34 +181,37 @@ public class LoadOffset {
 //            System.out.println("Read from archive:\n" + data);
 //        }
 
-        public static String readFromArchive(String archivePath, String csvFileName, long offset, int limit) throws IOException {
-            if (archivePath.endsWith(".zip")) {
-                return readFromZip(archivePath, csvFileName, offset, limit);
-            } else if (archivePath.endsWith(".tar.gz")) {
-                return readFromTarGz(archivePath, csvFileName, offset, limit);
+        public static String readFromArchive(ArchiveType type, String archivePath, String csvFileName, long offset, int limit) throws IOException {
+//            if (archivePath.endsWith(".zip")) {
+                return readFromZip(type, archivePath, csvFileName, offset, limit);
+//            } else if (archivePath.endsWith(".tar.gz")) {
+//                return readFromTarGz(archivePath, csvFileName, offset, limit);
 //            } else if (archivePath.endsWith(".7z")) {
 //                return readFrom7z(archivePath, csvFileName, offset, limit);
 //            } else if (archivePath.endsWith(".rar")) {
 //                return readFromRar(archivePath, csvFileName, offset, limit);
-            }
-            throw new IllegalArgumentException("Unsupported archive format: " + archivePath);
+//            }
+//            throw new IllegalArgumentException("Unsupported archive format: " + archivePath);
         }
 
-    public static String readCsvFromRemoteZip(String zipUrl, String csvFileName, long offset, int limit) throws IOException {
+    public static String readCsvFromRemoteZip(ArchiveType archiveType, String zipUrl, String fileName, long offset, int limit) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(zipUrl).openConnection();
         connection.setRequestProperty("Range", "bytes=0-1048576"); // Fetch first 1MB to locate ZIP entries
 
         try (InputStream inputStream = connection.getInputStream();
-             ZipInputStream zipStream = new ZipInputStream(inputStream)) {
+             ArchiveInputStream is = archiveType.getInputStream(inputStream);
+//             ZipInputStream zipStream = new ZipInputStream(inputStream)
+        ) {
+            return getString(fileName, offset, limit, is);
 
-            ZipEntry entry;
-            while ((entry = zipStream.getNextEntry()) != null) {
-                if (entry.getName().equals(csvFileName)) {
-                    return readOffsetFromStream(zipStream, offset, limit);
-                }
-            }
+//            ZipEntry entry;
+//            while ((entry = archiveTypeInputStream.getNextEntry()) != null) {
+//                if (entry.getName().equals(csvFileName)) {
+//                    return readOffsetFromStream(zipStream, offset, limit);
+//                }
+//            }
         }
-        throw new FileNotFoundException("CSV file not found in ZIP: " + csvFileName);
+//        throw new FileNotFoundException("CSV file not found in ZIP: " + csvFileName);
     }
 
     private static String readOffsetFromStream(InputStream stream, long offset, int limit) throws IOException {
@@ -193,27 +221,51 @@ public class LoadOffset {
         return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
     }
 
-        public static String readFromZip(String zipFilePath, String csvFileName, long offset, int limit) throws IOException {
+        public static String readFromZip(ArchiveType archiveType, String zipFilePath, String fileName, long offset, int limit) throws IOException {
             if (zipFilePath.startsWith("http://") || zipFilePath.startsWith("https://")) {
-                return readCsvFromRemoteZip(zipFilePath, csvFileName, offset, limit);
+                return readCsvFromRemoteZip(archiveType, zipFilePath, fileName, offset, limit);
             }
-        
-            try (ZipFile zipFile = new ZipFile(zipFilePath)) {
-                ZipEntry entry = zipFile.getEntry(csvFileName);
-                if (entry == null) {
-                    throw new FileNotFoundException("CSV not found in ZIP: " + csvFileName);
-                }
 
-                try (InputStream is = zipFile.getInputStream(entry)) {
-                    is.skip(offset);
-                    byte[] buffer = new byte[limit];
-                    int bytesRead = is.read(buffer, 0, limit);
-                    return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
-                }
+            try (ArchiveInputStream is = archiveType.getInputStream( new FileInputStream(zipFilePath) )) {
+                ArchiveEntry archiveEntry;
+
+                return getString(fileName, offset, limit, is);
+            }
+            
+        
+//            try (ZipFile zipFile = new ZipFile(zipFilePath)) {
+//                ZipEntry entry = zipFile.getEntry(csvFileName);
+//                if (entry == null) {
+//                    throw new FileNotFoundException("CSV not found in ZIP: " + csvFileName);
+//                }
+
+//                try ( InputStream is = type.getInputStream(new FileInputStream(zipFilePath)) ) {
+////                try (InputStream is = ArchiveType.ZIP.getInputStream() zipFile.getInputStream(entry)) {
+////                try (InputStream is = zipFile.getInputStream(entry)) {
+//                    is.skip(offset);
+//                    byte[] buffer = new byte[limit];
+//                    int bytesRead = is.read(buffer, 0, limit);
+//                    return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
+//                }
+//            }
+        }
+
+    private static @NotNull String getString(String fileName, long offset, int limit, ArchiveInputStream is) throws IOException {
+        ArchiveEntry archiveEntry;
+        while ((archiveEntry = is.getNextEntry()) != null) {
+            if (!archiveEntry.isDirectory() && archiveEntry.getName().equals(fileName)) {
+//                        return new ByteArrayInputStream(IOUtils.toByteArray(archive));
+                                    is.skip(offset);
+            byte[] buffer = new byte[limit];
+            int bytesRead = is.read(buffer, 0, limit);
+                return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
             }
         }
 
-        public static String readFromTarGz(String tarGzFilePath, String csvFileName, long offset, int limit) throws IOException {
+        throw new FileNotFoundException("File not found in archive: " + fileName);
+    }
+
+    public static String readFromTarGz(String tarGzFilePath, String csvFileName, long offset, int limit) throws IOException {
             try (FileInputStream fis = new FileInputStream(tarGzFilePath);
                  GzipCompressorInputStream gzis = new GzipCompressorInputStream(fis);
                  TarArchiveInputStream tais = new TarArchiveInputStream(gzis)) {

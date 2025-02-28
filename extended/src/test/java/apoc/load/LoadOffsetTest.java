@@ -1,22 +1,20 @@
 package apoc.load;
 
-import apoc.util.FileTestUtil;
-import apoc.util.FileUtils;
 import apoc.util.TestUtil;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.neo4j.configuration.GraphDatabaseSettings;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.net.URL;
-import java.nio.file.Paths;
+import java.util.Map;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.*;
+import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
 public class LoadOffsetTest {
@@ -109,7 +107,38 @@ Selina,18
     
     // TODO --> @UserFunction("apoc.json.path") --> USARE JsonUtil.parse(json, path, Object.class, pathOptions); ??
     //  per fare risultato come lista di mappe simil json
+
+    @Test public void testLoadCsvTarGzByUrl() throws Exception {
+        URL url = new URL("https://github.com/neo4j/apoc/blob/dev/core/src/test/resources/testload.tar.gz?raw=true");
+        testResult(db, "CALL apoc.load.stringPartial($url, 17, 15)", map("url",url.toString()+"!csv/test.csv"), // 'file:test.csv'
+                (r) -> {
+                    String s = r.resultAsString();
+                    System.out.println("s = " + s);
+//                    assertRow(r,0L,"name","Selma","age","8");
+//                    assertRow(r,1L,"name","Rana","age","11");
+//                    assertRow(r,2L,"name","Selina","age","18");
+//                    assertEquals(false, r.hasNext());
+                });
+    }
+
+    // todo - altri compression files
     
-    
-    
+    // todo - zip e tar.gz locali
+    @Test
+    public void testLoadJsonTarGz() {
+        URL url = getUrlFileName("testload.tar.gz");
+        testCall(db, "CALL apoc.load.stringPartial($url, 17, 15)", map("url", url.getPath() + "!person.json"), (row) -> {
+            String string = row.toString();
+            System.out.println("string = " + string);
+        });
+    }
+
+    @Test
+    public void testLoadJsonZip() {
+        URL url = getUrlFileName("testload.zip");
+        testCall(db, "CALL apoc.load.stringPartial($url, 17, 15)", map("url", url.getPath() + "!person.json"), (row) -> {
+            String string = row.toString();
+            System.out.println("string = " + string);
+        });
+    }
 }
