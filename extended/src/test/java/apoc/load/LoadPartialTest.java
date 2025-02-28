@@ -8,24 +8,23 @@ import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.net.URL;
-import java.util.Map;
 
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.*;
-import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
-public class LoadOffsetTest {
+public class LoadPartialTest {
 
+    public static final String RANA_11_SELINA = "Rana,11\nSelina,";
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule();
             //.withSetting(GraphDatabaseSettings.load_csv_file_url_root, Paths.get(getUrlFileName("test.csv").toURI()).getParent());
 
     @Before
     public void setUp() throws Exception {
-        TestUtil.registerProcedure(db, LoadOffset.class);
+        TestUtil.registerProcedure(db, LoadPartial.class);
         
         // TODO - check of this one!!
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
@@ -101,7 +100,7 @@ Selina,18
         String output = singleResultFirstColumn(db, "CALL apoc.load.stringPartial($url, 17, 15)",
                 map("url", path));
         
-        assertEquals("Rana,11\nSelina,", output);
+        assertEquals(RANA_11_SELINA, output);
     }
     
     
@@ -132,6 +131,25 @@ Selina,18
             System.out.println("string = " + string);
         });
     }
+    
+    @Test
+    public void testLoadJsonTgz() {
+        URL url = getUrlFileName("testload.tgz");
+        testCall(db, "CALL apoc.load.stringPartial($url, 17, 15)", map("url", url.getPath() + "!person.json"), (row) -> {
+            String string = row.toString();
+            System.out.println("string = " + string);
+        });
+    }
+    
+    
+    @Test
+    public void testLoadJsonTar() {
+        URL url = getUrlFileName("testload.tar");
+        testCall(db, "CALL apoc.load.stringPartial($url, 17, 15)", map("url", url.getPath() + "!person.json"), (row) -> {
+            String string = row.toString();
+            System.out.println("string = " + string);
+        });
+    }
 
     @Test
     public void testLoadJsonZip() {
@@ -141,4 +159,6 @@ Selina,18
             System.out.println("string = " + string);
         });
     }
+    
+    // TODO - s3 and gc tests??
 }

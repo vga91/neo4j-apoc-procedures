@@ -1,29 +1,29 @@
 package apoc.load;
 
 import apoc.Extended;
+import apoc.result.ObjectResult;
 import apoc.result.StringResult;
-import apoc.util.ArchiveType;
-import com.amazonaws.regions.Regions;
+import apoc.util.*;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
-import org.apache.commons.compress.harmony.pack200.Archive;
-import org.apache.commons.io.IOUtils;
-import org.apache.zookeeper.server.persistence.FileHeader;
 import org.jetbrains.annotations.NotNull;
 import org.neo4j.graphdb.GraphDatabaseService;
 import org.neo4j.graphdb.security.URLAccessChecker;
+import org.neo4j.graphdb.security.URLAccessValidationError;
 import org.neo4j.procedure.Context;
 import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
+import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 //import com.google.cloud.storage.*;
 //import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
@@ -33,40 +33,59 @@ import java.nio.charset.StandardCharsets;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
-import org.apache.commons.compress.archivers.sevenz.SevenZFile;
-import org.apache.commons.compress.archivers.sevenz.SevenZArchiveEntry;
 //import com.github.junrar.Archive;
 //import com.github.junrar.rarfile.FileHeader;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
 @Extended
-public class LoadOffset {
+public class LoadPartial {
     @Context
     public GraphDatabaseService db;
 
     @Context
     public URLAccessChecker urlAccessChecker;
+
+    // TODO - REUSE Util.getStreamConnection
+        // potrei usarlo per tutti, tramite lo skip, tranne per uncompressed local file
+        // ⚠️ Skipping with FileInputStream is less efficient than RandomAccessFile
+    
+        // --> if (uncompressed and local) { RandomAccessFile } else { Util.getStreamConnection(...) }
+    // TODO - REUSE Util.openUrlConnection
+    // Util.
     
     // TODO -funcion convert to json
 
-    @Procedure("apoc.load.stringPartial")
-    @Description("TODO")
-    public Stream<StringResult> csv(@Name("urlOrBinary") Object urlOrBinary,
+    @Procedure("apoc.load.jsonPartial")
+    @Description("TODO 2")
+    public Stream<ObjectResult> json(@Name("urlOrBinary") Object urlOrBinary,
                                     @Name("offset") Long offset,
                                     @Name(value = "limit") Long limit,
-                                    @Name(value = "config", defaultValue = "{}") Map<String, Object> configMap) throws IOException {
+                                    @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
+        String value = getStringResultStream(urlOrBinary, offset, limit);
+
+        String jsonPath = (String) config.getOrDefault("jsonPath", "");
+        List<String> pathOptions = (List<String>) config.getOrDefault("pathOptions", "");
+        return Stream.of(
+                new ObjectResult( JsonUtil.parse(value, jsonPath, Object.class, pathOptions) )
+        );
+        //return csvParams(urlOrBinary, null, null,configMap);
+    }
+
+    @Procedure("apoc.load.stringPartial")
+    @Description("TODO")
+    public Stream<StringResult> offset(@Name("urlOrBinary") Object urlOrBinary,
+                                    @Name("offset") Long offset,
+                                    @Name(value = "limit") Long limit,
+                                    @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
         String value = getStringResultStream(urlOrBinary, offset, limit);
         return Stream.of(new StringResult(value));
+        
+        
         
         //return csvParams(urlOrBinary, null, null,configMap);
     }
 
-    private static String getStringResultStream(Object urlOrBinary, Long offset, Long limit) throws IOException {
+    private String getStringResultStream(Object urlOrBinary, Long offset, Long limit) throws IOException, URISyntaxException, URLAccessValidationError {
         int intExact = Math.toIntExact(limit);
         if (urlOrBinary instanceof String filePath) {
             final ArchiveType archiveType = ArchiveType.from(filePath);
@@ -120,15 +139,45 @@ public class LoadOffset {
 //    }
 
 
-    public static String readFromFile(String path, Long offset, Long limit) throws IOException {
-        if (path.startsWith("http://") || path.startsWith("https://")) {
-            return readFromHttpUrl(path, offset, limit);
+    public String readFromFile(String path, Long offset, Long limit) throws IOException, URISyntaxException, URLAccessValidationError {
+        SupportedProtocols from = FileUtils.from(path);
+        if (!from.equals(SupportedProtocols.file)) {
+            return getString(path, offset, limit, from);
+        }
+
+//        if (path.startsWith("http://") || path.startsWith("https://")) {
+//            return readFromHttpUrl(path, offset, limit);
 //        } else if (path.startsWith("gs://")) {
 //            return readFromGcs(path, offset, limit);
 //        } else if (path.startsWith("s3://")) {
 //            return readFromS3(path, offset, limit);
-        } else {
+//        } else {
             return readFromLocalFile(path, offset, limit);
+//        }
+    }
+
+    private String getString(String path, Long offset, Long limit, SupportedProtocols from) throws IOException, URISyntaxException, URLAccessValidationError {
+        // TODO - if archive...
+
+        Map<String, Object> headers = new HashMap<>();
+        headers.putIfAbsent("Range", "bytes=" + offset + "-" + (offset + limit - 1));
+        // todo - ADDITIONAL CONFIG
+        
+        StreamConnection streamConnection = Util.getStreamConnection(path, headers, null, urlAccessChecker);
+
+        System.out.println("from = " + from);
+        try (InputStream inputStream = streamConnection.getInputStream()) {
+            // TODO - evaluate 1000
+            byte[] buffer = new byte[1000];
+            // byte[] buffer = new byte[limit];
+
+            // TODO
+            if (from.equals(SupportedProtocols.s3) || from.equals(SupportedProtocols.hdfs)) {
+                inputStream.skip(offset);
+            }
+            // TODO - Math.toIntExact(limit) before readFromHttpUrl() method
+            int bytesRead = inputStream.read(buffer, 0, Math.toIntExact(limit));
+            return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
         }
     }
 
@@ -141,7 +190,7 @@ public class LoadOffset {
         }
     }
 
-    private static @NotNull String getString(Long limit, RandomAccessFile raf) throws IOException {
+    private static String getString(Long limit, RandomAccessFile raf) throws IOException {
         byte[] buffer = new byte[1000];
         // byte[] buffer = new byte[limit];
         int bytesRead = limit == null
@@ -150,11 +199,12 @@ public class LoadOffset {
         return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
     }
 
-    private static String readFromHttpUrl(String fileUrl, long offset, Long limit) throws IOException {
+/*    private static String readFromHttpUrl(String fileUrl, long offset, Long limit) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(fileUrl).openConnection();
         connection.setRequestProperty("Range", "bytes=" + offset + "-" + (offset + limit - 1));
 
         try (InputStream inputStream = connection.getInputStream()) {
+            inputStream.skip(offset);
             // TODO - evaluate 1000
             byte[] buffer = new byte[1000];
             // byte[] buffer = new byte[limit];
@@ -163,7 +213,7 @@ public class LoadOffset {
             int bytesRead = inputStream.read(buffer, 0, Math.toIntExact(limit));
             return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
         }
-    }
+    }*/
     
 
     // ---> String[] tokens = urlAddress.split("!");
@@ -196,6 +246,7 @@ public class LoadOffset {
 
     public static String readCsvFromRemoteZip(ArchiveType archiveType, String zipUrl, String fileName, long offset, int limit) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(zipUrl).openConnection();
+        // TODO - configurable
         connection.setRequestProperty("Range", "bytes=0-1048576"); // Fetch first 1MB to locate ZIP entries
 
         try (InputStream inputStream = connection.getInputStream();
@@ -265,6 +316,8 @@ public class LoadOffset {
         throw new FileNotFoundException("File not found in archive: " + fileName);
     }
 
+    
+    
     public static String readFromTarGz(String tarGzFilePath, String csvFileName, long offset, int limit) throws IOException {
             try (FileInputStream fis = new FileInputStream(tarGzFilePath);
                  GzipCompressorInputStream gzis = new GzipCompressorInputStream(fis);
@@ -375,6 +428,7 @@ public class LoadOffset {
             return "";
         }
 
+        // TODO - commonize
         int end = (int) Math.min(offset + limit, data.length);
         return new String(data, (int) offset, end - (int) offset, StandardCharsets.UTF_8);
     }
