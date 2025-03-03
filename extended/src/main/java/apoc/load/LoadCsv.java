@@ -50,7 +50,6 @@ public class LoadCsv {
         CountingReader reader = null;
         try {
             String url = null;
-            // TODO ...
             if (urlOrBinary instanceof String) {
                 url = (String) urlOrBinary;
                 httpHeaders = httpHeaders != null ? httpHeaders : new HashMap<>();

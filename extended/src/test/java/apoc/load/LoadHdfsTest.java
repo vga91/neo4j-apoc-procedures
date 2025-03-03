@@ -25,7 +25,7 @@ import java.net.URL;
 import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.load.LoadCsvTest.assertRow;
-import static apoc.load.partial.LoadPartialTest.RANA_11_SELINA;
+import static apoc.load.partial.LoadPartialTest.PARTIAL_CSV;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.singleResultFirstColumn;
 import static apoc.util.TestUtil.testResult;
@@ -85,7 +85,7 @@ public class LoadHdfsTest {
                 map("url", url)
         );
 
-        assertEquals(RANA_11_SELINA, result);
+        assertEquals(PARTIAL_CSV, result);
     }
     
 }

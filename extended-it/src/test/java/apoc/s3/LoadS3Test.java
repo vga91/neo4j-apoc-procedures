@@ -17,7 +17,7 @@ import static apoc.ApocConfig.APOC_IMPORT_FILE_USE_NEO4J_CONFIG;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.load.LoadCsvTest.commonTestLoadCsv;
 import static apoc.load.LoadHtmlTest.testLoadHtmlWithGetLinksCommon;
-import static apoc.load.partial.LoadPartialTest.RANA_11_SELINA;
+import static apoc.load.partial.LoadPartialTest.PARTIAL_CSV;
 import static apoc.load.xls.LoadXlsTest.testLoadXlsCommon;
 import static apoc.util.ExtendedITUtil.EXTENDED_RESOURCES_PATH;
 import static apoc.util.ExtendedITUtil.testLoadJsonCommon;
@@ -79,7 +79,7 @@ public class LoadS3Test extends S3BaseTest {
                 map("url", url) // 'file:load_test.xlsx');
         );
         
-        assertEquals(RANA_11_SELINA, result);
+        assertEquals(PARTIAL_CSV, result);
     }
 
     @Test
@@ -89,7 +89,7 @@ public class LoadS3Test extends S3BaseTest {
                 map("url", url + "!csv/test.csv") // 'file:load_test.xlsx');
         );
         
-        assertEquals(RANA_11_SELINA, result);
+        assertEquals(PARTIAL_CSV, result);
     }
 
 
@@ -100,7 +100,7 @@ public class LoadS3Test extends S3BaseTest {
                 map("url", url + "!csv/test.csv") // 'file:load_test.xlsx');
         );
         
-        assertEquals(RANA_11_SELINA, result);
+        assertEquals(PARTIAL_CSV, result);
     }
 
 
@@ -111,7 +111,7 @@ public class LoadS3Test extends S3BaseTest {
                 map("url", url + "!csv/test.csv") // 'file:load_test.xlsx');
         );
         
-        assertEquals(RANA_11_SELINA, result);
+        assertEquals(PARTIAL_CSV, result);
     }
 
 
@@ -122,7 +122,7 @@ public class LoadS3Test extends S3BaseTest {
                 map("url", url + "!csv/test.csv") // 'file:load_test.xlsx');
         );
         
-        assertEquals(RANA_11_SELINA, result);
+        assertEquals(PARTIAL_CSV, result);
     }
 
 }
