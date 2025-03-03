@@ -1,16 +1,19 @@
-package apoc.load;
+package apoc.load.partial;
 
 import apoc.util.TestUtil;
+import apoc.util.Utils;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.neo4j.graphdb.QueryExecutionException;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
 import java.net.URL;
+import java.util.Map;
 
-import static apoc.ApocConfig.APOC_IMPORT_FILE_ENABLED;
-import static apoc.ApocConfig.apocConfig;
+import static apoc.ApocConfig.*;
+import static apoc.util.ExtendedTestUtil.assertFails;
 import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.*;
 import static org.junit.Assert.assertEquals;
@@ -18,13 +21,19 @@ import static org.junit.Assert.assertEquals;
 public class LoadPartialTest {
 
     public static final String RANA_11_SELINA = "Rana,11\nSelina,";
+
+
+    // TODO - s3 and gc tests??
+    private static final String COMPLEX_STRING = "Mätrix II 哈哈\uD83D\uDE04123";
+    private static final String COMPLEX_STRING_PARTIAL = COMPLEX_STRING.substring(4, 15);
+    
     @Rule
     public DbmsRule db = new ImpermanentDbmsRule();
             //.withSetting(GraphDatabaseSettings.load_csv_file_url_root, Paths.get(getUrlFileName("test.csv").toURI()).getParent());
 
     @Before
     public void setUp() throws Exception {
-        TestUtil.registerProcedure(db, LoadPartial.class);
+        TestUtil.registerProcedure(db, LoadPartial.class, Utils.class);
         
         // TODO - check of this one!!
         apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
@@ -40,6 +49,18 @@ Selina,18
     
     // https://www.kaggle.com/zanjibar/100-million-data-csv
     
+    @Test
+    public void testLoadPartialWithImportNotEnabled() {
+        apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, false);
+
+        URL urlFileName = getUrlFileName("test.csv");
+        String path = urlFileName.getPath();
+        
+        assertFails(db, "CALL apoc.load.stringPartial($url, 17, 15)", Map.of("url", path),
+                LOAD_FROM_FILE_ERROR);
+
+        apocConfig().setProperty(APOC_IMPORT_FILE_ENABLED, true);
+    }
     
     @Test
     public void testLoadCsv() throws Exception {
@@ -160,5 +181,49 @@ Selina,18
         });
     }
     
-    // TODO - s3 and gc tests??
+    @Test
+    public void testCompressAndDecompressWithMultipleCompressionAlgosReturningStartString() {
+
+        TestUtil.testCall(
+                db,
+                "WITH apoc.util.compress($text, {compression: 'GZIP'}) AS compressed " +
+                        "CALL apoc.load.stringPartial(compressed, 5, 17, {compression: 'GZIP'}) YIELD value RETURN value",
+                map("text", COMPLEX_STRING),
+                r -> assertEquals(COMPLEX_STRING_PARTIAL, r.get("value")));
+
+        TestUtil.testCall(
+                db,
+                "WITH apoc.util.compress($text, {compression: 'BZIP2'}) AS compressed " +
+                        "CALL apoc.load.stringPartial(compressed, 5, 17, {compression: 'BZIP2'}) YIELD value RETURN value",
+                map("text", COMPLEX_STRING),
+                r -> assertEquals(COMPLEX_STRING_PARTIAL, r.get("value")));
+
+        TestUtil.testCall(
+                db,
+                "WITH apoc.util.compress($text, {compression: 'DEFLATE'}) AS compressed " +
+                        "CALL apoc.load.stringPartial(compressed, 5, 17, {compression: 'DEFLATE'}) YIELD value RETURN value",
+                map("text", COMPLEX_STRING),
+                r -> assertEquals(COMPLEX_STRING_PARTIAL, r.get("value")));
+
+        TestUtil.testCall(
+                db,
+                "WITH apoc.util.compress($text, {compression: 'BLOCK_LZ4'}) AS compressed " +
+                        "CALL apoc.load.stringPartial(compressed, 5, 17, {compression: 'BLOCK_LZ4'}) YIELD value RETURN value",
+                map("text", COMPLEX_STRING),
+                r -> assertEquals(COMPLEX_STRING_PARTIAL, r.get("value")));
+
+        TestUtil.testCall(
+                db,
+                "WITH apoc.util.compress($text, {compression: 'FRAMED_SNAPPY'}) AS compressed " +
+                        "CALL apoc.load.stringPartial(compressed, 5, 17, {compression: 'FRAMED_SNAPPY'}) YIELD value RETURN value",
+                map("text", COMPLEX_STRING),
+                r -> assertEquals(COMPLEX_STRING_PARTIAL, r.get("value")));
+
+        TestUtil.testCall(
+                db,
+                "WITH apoc.util.compress($text, {compression: 'NONE'}) AS compressed " +
+                        "CALL apoc.load.stringPartial(compressed, 5, 17, {compression: 'NONE'}) YIELD value RETURN value",
+                map("text", COMPLEX_STRING),
+                r -> assertEquals(COMPLEX_STRING_PARTIAL, r.get("value")));
+    }
 }

@@ -1,6 +1,7 @@
 package apoc.s3;
 
 import apoc.load.*;
+import apoc.load.partial.LoadPartial;
 import apoc.load.xls.LoadXls;
 import apoc.util.TestUtil;
 import apoc.util.s3.S3BaseTest;
@@ -16,7 +17,7 @@ import static apoc.ApocConfig.APOC_IMPORT_FILE_USE_NEO4J_CONFIG;
 import static apoc.ApocConfig.apocConfig;
 import static apoc.load.LoadCsvTest.commonTestLoadCsv;
 import static apoc.load.LoadHtmlTest.testLoadHtmlWithGetLinksCommon;
-import static apoc.load.LoadPartialTest.RANA_11_SELINA;
+import static apoc.load.partial.LoadPartialTest.RANA_11_SELINA;
 import static apoc.load.xls.LoadXlsTest.testLoadXlsCommon;
 import static apoc.util.ExtendedITUtil.EXTENDED_RESOURCES_PATH;
 import static apoc.util.ExtendedITUtil.testLoadJsonCommon;
@@ -25,7 +26,6 @@ import static apoc.util.MapUtil.map;
 import static apoc.util.TestUtil.singleResultFirstColumn;
 import static apoc.util.TestUtil.testResult;
 import static apoc.util.s3.S3Util.putToS3AndGetUrl;
-import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
@@ -77,6 +77,49 @@ public class LoadS3Test extends S3BaseTest {
         String url = putToS3AndGetUrl(s3Container, EXTENDED_RESOURCES_PATH + "test.csv");
         Object result = singleResultFirstColumn(db, "CALL apoc.load.stringPartial($url, 17, 15)",
                 map("url", url) // 'file:load_test.xlsx');
+        );
+        
+        assertEquals(RANA_11_SELINA, result);
+    }
+
+    @Test
+    public void testLoadPartialZip() {
+        String url = putToS3AndGetUrl(s3Container, EXTENDED_RESOURCES_PATH + "testload.zip");
+        Object result = singleResultFirstColumn(db, "CALL apoc.load.stringPartial($url, 17, 15)",
+                map("url", url + "!csv/test.csv") // 'file:load_test.xlsx');
+        );
+        
+        assertEquals(RANA_11_SELINA, result);
+    }
+
+
+    @Test
+    public void testLoadPartialTar() {
+        String url = putToS3AndGetUrl(s3Container, EXTENDED_RESOURCES_PATH + "testload.tar");
+        Object result = singleResultFirstColumn(db, "CALL apoc.load.stringPartial($url, 17, 15)",
+                map("url", url + "!csv/test.csv") // 'file:load_test.xlsx');
+        );
+        
+        assertEquals(RANA_11_SELINA, result);
+    }
+
+
+    @Test
+    public void testLoadPartialTarGz() {
+        String url = putToS3AndGetUrl(s3Container, EXTENDED_RESOURCES_PATH + "testload.tar.gz");
+        Object result = singleResultFirstColumn(db, "CALL apoc.load.stringPartial($url, 17, 15)",
+                map("url", url + "!csv/test.csv") // 'file:load_test.xlsx');
+        );
+        
+        assertEquals(RANA_11_SELINA, result);
+    }
+
+
+    @Test
+    public void testLoadPartialTgz() {
+        String url = putToS3AndGetUrl(s3Container, EXTENDED_RESOURCES_PATH + "testload.tgz");
+        Object result = singleResultFirstColumn(db, "CALL apoc.load.stringPartial($url, 17, 15)",
+                map("url", url + "!csv/test.csv") // 'file:load_test.xlsx');
         );
         
         assertEquals(RANA_11_SELINA, result);
