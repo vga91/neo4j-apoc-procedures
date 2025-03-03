@@ -4,6 +4,13 @@ import apoc.Extended;
 import apoc.result.ObjectResult;
 import apoc.result.StringResult;
 import apoc.util.*;
+import apoc.util.s3.S3Aws;
+import apoc.util.s3.S3Params;
+import apoc.util.s3.S3ParamsExtractor;
+import com.amazonaws.regions.Regions;
+import com.amazonaws.services.s3.model.GetObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.jetbrains.annotations.NotNull;
@@ -19,6 +26,7 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import java.io.*;
@@ -79,10 +87,6 @@ public class LoadPartial {
                                     @Name(value = "config", defaultValue = "{}") Map<String, Object> config) throws Exception {
         String value = getStringResultStream(urlOrBinary, offset, limit);
         return Stream.of(new StringResult(value));
-        
-        
-        
-        //return csvParams(urlOrBinary, null, null,configMap);
     }
 
     private String getStringResultStream(Object urlOrBinary, Long offset, Long limit) throws IOException, URISyntaxException, URLAccessValidationError {
@@ -96,47 +100,13 @@ public class LoadPartial {
             } else {
                 return readFromFile(filePath, offset, limit);
             }
-            
-//            String[] tokens = filePath.split("!");
-//            if (tokens.length == 1) {
-////                return Stream.of(
-////                        new StringResult(
-//                return readFromFile(filePath, offset, limit);
-////                        )
-////                );
-//            } else {
-////                return Stream.of(
-////                        new StringResult(
-//                return readFromArchive(tokens[0], tokens[1], offset, intExact);
-////                        )
-////                );        
-//            }
+
         } else if (urlOrBinary instanceof byte[] bytes) {
-//            return Stream.of(
-//                    new StringResult(
             return readFromByteArray(bytes, offset, limit);
-//                    )
-//            );
         } else {
-            throw new RuntimeException("TODO");
+            throw new RuntimeException("The first parameter must be a String URL or a byte[]");
         }
     }
-
-//    public static void main(String[] args) throws Exception {
-//        // Example usage with different sources
-//        String filePath = "s3://your-bucket-name/path/to/file.csv"; // Change to your source
-//        long offset = 100;
-//        int limit = 500;
-//
-//        // Example usage for byte array
-//        byte[] byteArray = "Hello, this is a test byte array containing file data.".getBytes(StandardCharsets.UTF_8);
-//        String dataFromBytes = readFromByteArray(byteArray, offset, limit);
-//        System.out.println("Read from Byte Array:\n" + dataFromBytes);
-//
-//        // Example usage for other sources
-//        String data = readFromFile(filePath, offset, limit);
-//        System.out.println("Read from File:\n" + data);
-//    }
 
 
     public String readFromFile(String path, Long offset, Long limit) throws IOException, URISyntaxException, URLAccessValidationError {
@@ -162,23 +132,44 @@ public class LoadPartial {
         Map<String, Object> headers = new HashMap<>();
         headers.putIfAbsent("Range", "bytes=" + offset + "-" + (offset + limit - 1));
         // todo - ADDITIONAL CONFIG
-        
-        StreamConnection streamConnection = Util.getStreamConnection(path, headers, null, urlAccessChecker);
 
-        System.out.println("from = " + from);
-        try (InputStream inputStream = streamConnection.getInputStream()) {
+         boolean S3Protocol = from.equals(SupportedProtocols.s3);
+
+        try (InputStream inputStream = getInputStream(path, offset, limit, from, headers, S3Protocol)) {
             // TODO - evaluate 1000
             byte[] buffer = new byte[1000];
             // byte[] buffer = new byte[limit];
 
             // TODO
-            if (from.equals(SupportedProtocols.s3) || from.equals(SupportedProtocols.hdfs)) {
+            if (S3Protocol || from.equals(SupportedProtocols.hdfs)) {
                 inputStream.skip(offset);
             }
             // TODO - Math.toIntExact(limit) before readFromHttpUrl() method
             int bytesRead = inputStream.read(buffer, 0, Math.toIntExact(limit));
             return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
         }
+    }
+
+    private InputStream getInputStream(String path, Long offset, Long limit, SupportedProtocols from, Map<String, Object> headers, boolean equals) throws IOException, URISyntaxException, URLAccessValidationError {
+        //boolean equals = from.equals(SupportedProtocols.s3);
+        InputStream inputStream1;
+        StreamConnection streamConnection = Util.getStreamConnection(path, headers, null, urlAccessChecker);
+
+        System.out.println("from = " + from);
+        if (equals) {
+            S3Params s3Params = S3ParamsExtractor.extract(path);
+            String region = Objects.nonNull(s3Params.getRegion()) ? s3Params.getRegion() : Regions.US_EAST_1.getName();
+            S3Aws s3Aws = new S3Aws(s3Params, region);
+
+            GetObjectRequest request = new GetObjectRequest(s3Params.getBucket(), s3Params.getKey())
+                    .withRange(offset, offset + limit - 1);
+
+            S3Object object = s3Aws.getClient().getObject(request);
+            inputStream1 = object.getObjectContent();
+        }
+
+        inputStream1 = streamConnection.getInputStream();
+        return inputStream1;
     }
 
     private static String readFromLocalFile(String filePath, Long offset, Long limit) throws IOException {
@@ -198,22 +189,6 @@ public class LoadPartial {
                 : raf.read(buffer, 0, Math.toIntExact(limit));
         return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
     }
-
-/*    private static String readFromHttpUrl(String fileUrl, long offset, Long limit) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(fileUrl).openConnection();
-        connection.setRequestProperty("Range", "bytes=" + offset + "-" + (offset + limit - 1));
-
-        try (InputStream inputStream = connection.getInputStream()) {
-            inputStream.skip(offset);
-            // TODO - evaluate 1000
-            byte[] buffer = new byte[1000];
-            // byte[] buffer = new byte[limit];
-            
-            // TODO - Math.toIntExact(limit) before readFromHttpUrl() method
-            int bytesRead = inputStream.read(buffer, 0, Math.toIntExact(limit));
-            return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
-        }
-    }*/
     
 
     // ---> String[] tokens = urlAddress.split("!");
@@ -231,9 +206,16 @@ public class LoadPartial {
 //            System.out.println("Read from archive:\n" + data);
 //        }
 
-        public static String readFromArchive(ArchiveType type, String archivePath, String csvFileName, long offset, int limit) throws IOException {
+    private static String readOffsetFromStream(InputStream stream, long offset, int limit) throws IOException {
+        stream.skip(offset);
+        byte[] buffer = new byte[limit];
+        int bytesRead = stream.read(buffer, 0, limit);
+        return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
+    }
+
+    public String readFromArchive(ArchiveType type, String archivePath, String csvFileName, long offset, int limit) throws IOException, URISyntaxException, URLAccessValidationError {
 //            if (archivePath.endsWith(".zip")) {
-                return readFromZip(type, archivePath, csvFileName, offset, limit);
+        return readFromZip(type, archivePath, csvFileName, offset, limit);
 //            } else if (archivePath.endsWith(".tar.gz")) {
 //                return readFromTarGz(archivePath, csvFileName, offset, limit);
 //            } else if (archivePath.endsWith(".7z")) {
@@ -242,7 +224,7 @@ public class LoadPartial {
 //                return readFromRar(archivePath, csvFileName, offset, limit);
 //            }
 //            throw new IllegalArgumentException("Unsupported archive format: " + archivePath);
-        }
+    }
 
     public static String readCsvFromRemoteZip(ArchiveType archiveType, String zipUrl, String fileName, long offset, int limit) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(zipUrl).openConnection();
@@ -265,19 +247,20 @@ public class LoadPartial {
 //        throw new FileNotFoundException("CSV file not found in ZIP: " + csvFileName);
     }
 
-    private static String readOffsetFromStream(InputStream stream, long offset, int limit) throws IOException {
-        stream.skip(offset);
-        byte[] buffer = new byte[limit];
-        int bytesRead = stream.read(buffer, 0, limit);
-        return (bytesRead > 0) ? new String(buffer, 0, bytesRead, StandardCharsets.UTF_8) : "";
-    }
+        public String readFromZip(ArchiveType archiveType, String zipFilePath, String fileName, long offset, int limit) throws IOException, URISyntaxException, URLAccessValidationError {
+//            if (zipFilePath.startsWith("http://") || zipFilePath.startsWith("https://")) {
+//                return readCsvFromRemoteZip(archiveType, zipFilePath, fileName, offset, limit);
+//            }
 
-        public static String readFromZip(ArchiveType archiveType, String zipFilePath, String fileName, long offset, int limit) throws IOException {
-            if (zipFilePath.startsWith("http://") || zipFilePath.startsWith("https://")) {
-                return readCsvFromRemoteZip(archiveType, zipFilePath, fileName, offset, limit);
-            }
+            SupportedProtocols from = FileUtils.from(zipFilePath);
+            boolean S3Protocol = from.equals(SupportedProtocols.s3);
 
-            try (ArchiveInputStream is = archiveType.getInputStream( new FileInputStream(zipFilePath) )) {
+            Map<String, Object> headers = new HashMap<>();
+            // TODO - configurable
+            headers.putIfAbsent("Range", "bytes=0-1048576"); // Fetch first 1MB to locate ZIP entries
+            
+            try (ArchiveInputStream is = archiveType.getInputStream( getInputStream(zipFilePath, offset, (long) limit, from, headers, S3Protocol) )) {
+//            try (ArchiveInputStream is = archiveType.getInputStream( new FileInputStream(zipFilePath) )) {
                 ArchiveEntry archiveEntry;
 
                 return getString(fileName, offset, limit, is);
