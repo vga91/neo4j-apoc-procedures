@@ -2,6 +2,7 @@ package apoc.schema;
 
 import apoc.Extended;
 import apoc.result.*;
+import apoc.util.CollectionUtils;
 import apoc.util.Util;
 import apoc.util.collection.Iterables;
 import org.apache.commons.lang3.StringUtils;
@@ -32,7 +33,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-import static apoc.schema.SchemasExtendedUtil.IDX_NOT_FOUND;
+import static apoc.schema.SchemasExtendedUtil.*;
 import static org.apache.arrow.vector.dictionary.DictionaryEncoder.getIndexType;
 import static org.neo4j.graphdb.schema.ConstraintType.UNIQUENESS;
 import static org.neo4j.internal.schema.SchemaUserDescription.TOKEN_LABEL;
@@ -60,28 +61,9 @@ public class SchemasExtended {
         return indexesAndConstraintsForRelationships(config, tx, ktx, compareConstraintIdxFunction(CompareIdxToConsRels.class));
     }
     
-    // TODO - put in another class??
 
-    private Object getInfoLabelOrType(Object idxOrCons) {
-        if (idxOrCons instanceof IndexConstraintNodeInfo) {
-            return ((IndexConstraintNodeInfo) idxOrCons).label;
-        }
-        return ((IndexConstraintRelationshipInfo) idxOrCons).relationshipType;
-    }
 
-    // TODO - needed?
-    private <T extends CompareIdxToCons> T addObjectIfAbsent(Map<String, T> map, String label, Class<T> clazz) {
-        return map.compute(label,
-                (k, v) -> Objects.requireNonNullElseGet(v, () -> {
-                    try {
-                        return clazz.getConstructor(String.class).newInstance(label);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }));
-    }
-
-    private <R extends CompareIdxToCons> BiFunction<Stream<Object>, Stream<Object>, Stream<R>> compareConstraintIdxFunction(Class<R> clazz) {
+    private static <R extends CompareIdxToCons> BiFunction<Stream<Object>, Stream<Object>, Stream<R>> compareConstraintIdxFunction(Class<R> clazz) {
         return (constraintNodeInfoStream, indexNodeInfoStream) -> {
             final List<Object> constraints = constraintNodeInfoStream.toList();
             final List<Object> indexes = indexNodeInfoStream.toList();
@@ -102,56 +84,83 @@ public class SchemasExtended {
             });
 
             constraints.forEach(i -> {
+                List<String> props = new ArrayList<>();
+                String type = null;
+                String name = null;
+                if (clazz.isAssignableFrom(IndexConstraintNodeInfo.class)) {
+                    IndexConstraintNodeInfo info = (IndexConstraintNodeInfo) i;
+                    props = info.properties;
+                    type = info.type;
+                    name = info.name;
+                }
+                if (clazz.isAssignableFrom(IndexConstraintRelationshipInfo.class)) {
+                    IndexConstraintRelationshipInfo info = (IndexConstraintRelationshipInfo) i;
+                    props = info.properties;
+                    name = info.name;
+                }
                 final Object labelOrType = getInfoLabelOrType(i);
-                addObjectIfAbsent(resultMap, (String) labelOrType, clazz).putOnlyConstraintsProps(i.name, i.properties);
+                addObjectIfAbsent(resultMap, (String) labelOrType, clazz).putOnlyConstraintsProps(name, props);
             });
 
             return resultMap.values().stream();
         };
     }
 
-    private <T extends Object> void addCommonAndOnlyIdxProps(List<T> constraints, CompareIdxToCons compareIdxToCons, Object index) {
-        final List<String> props = index.properties;
-//        if (index instanceof IndexConstraintNodeInfo) {
-//
-//        } else if (index instanceof IndexConstraintRelationshipInfo) {
-//            
-//        } else {
-//            throw new RuntimeException("TODO");
-//        }
+    private static void addCommonAndOnlyIdxProps(List<Object> constraints, CompareIdxToCons compareIdxToCons, Object index) {
+        List<String> props = new ArrayList<>();
+        String type = null;
+        String name = null;
+        if (index instanceof IndexConstraintNodeInfo info) {
+            props = info.properties;
+            type = info.type;
+            name = info.name;
+        } 
+        if (index instanceof IndexConstraintRelationshipInfo info) {
+            props = info.properties;
+            type = info.type;
+            name = info.name;
+        }
 
         // UNIQUENESS constraints also produce an analogous index, so the properties is necessary in common
-        if (UNIQUENESS.name().equals(index.type)) {
-            compareIdxToCons.addCommonProps(indexProps);
+        if (UNIQUENESS.name().equals(type)) {
+            compareIdxToCons.addCommonProps(props);
         } else {
+            List<String> finalProps = props;
+            String finalName = name;
             constraints.stream()
                     .filter(cons -> {
                         final Object idxLabelOrType = getInfoLabelOrType(index);
                         final Object constraintLabelOrType = getInfoLabelOrType(cons);
 
-                        List<String> indexProps = index.properties;
-                        List<String> consProps = cons.properties;
+                        List<String> consProps = new ArrayList<>();
+                        List<String> indexProps = new ArrayList<>();
+                        if (index instanceof IndexConstraintNodeInfo info) {
+                            indexProps = info.properties;
+                            consProps = ((IndexConstraintNodeInfo) cons).properties;
+                        } else if (index instanceof IndexConstraintRelationshipInfo info) {
+                            indexProps = info.properties;
+                            consProps = ((IndexConstraintRelationshipInfo) cons).properties;
+                        }
+
                         return idxLabelOrType.equals(constraintLabelOrType)
                                 && indexProps != null
-                                && consProps != null;
-                        
-                        // TODO todo
-                                //&&  CollectionUtils.isEqualCollection(indexProps, consProps);
+                                && consProps != null
+                                && CollectionUtils.isEqualCollection(indexProps, consProps);
                     })
                     .findFirst()
                     .ifPresentOrElse(pres -> {
-                                compareIdxToCons.addCommonProps(props);
+                                compareIdxToCons.addCommonProps(finalProps);
                                 constraints.remove(pres);
                             },
-                            () -> compareIdxToCons.putOnlyIdxProps(index.name, props)
+                            () -> compareIdxToCons.putOnlyIdxProps(finalName, finalProps)
                     );
         }
     }
 
-    public static <T> T indexesAndConstraintsForNode(Map<String,Object> config, Transaction tx, KernelTransaction ktx, BiFunction<Stream<IndexConstraintNodeInfo>, Stream<IndexConstraintNodeInfo>, T> function) {
+    public static <T> T indexesAndConstraintsForNode(Map<String,Object> config, Transaction tx, KernelTransaction ktx, BiFunction<Stream<Object>, Stream<Object>, T> function) {
         Schema schema = tx.schema();
 
-        SchemaConfig schemaConfig = new SchemaConfig(config);
+        SchemaConfigExtended schemaConfig = new SchemaConfigExtended(config);
         Set<String> includeLabels = schemaConfig.getLabels();
         Set<String> excludeLabels = schemaConfig.getExcludeLabels();
 
@@ -207,26 +216,28 @@ public class SchemasExtended {
                         .collect(Collectors.toList());
             }
 
-            Stream<IndexConstraintNodeInfo> constraintNodeInfoStream = StreamSupport.stream(
+            Stream<Object> constraintNodeInfoStream = StreamSupport.stream(
                             constraintsIterator.spliterator(), false)
                     .map(constraintDescriptor ->
                             nodeInfoFromConstraintDefinition(constraintDescriptor, tokenRead, false, ktx))
-                    .sorted(Comparator.comparing(i -> i.label.toString()));
+                    .sorted(Comparator.comparing(i -> i.label.toString()))
+                    .map(x -> (Object) x);
 
-            Stream<IndexConstraintNodeInfo> indexNodeInfoStream = StreamSupport.stream(
+            Stream<Object> indexNodeInfoStream = StreamSupport.stream(
                             indexesIterator.spliterator(), false)
                     .map(indexDescriptor ->
                             nodeInfoFromIndexDefinition(indexDescriptor, schemaRead, tokenRead, false))
-                    .sorted(Comparator.comparing(i -> i.label.toString()));
+                    .sorted(Comparator.comparing(i -> i.label.toString()))
+                    .map(x -> (Object) x);
 
             return function.apply(constraintNodeInfoStream, indexNodeInfoStream);
         }
     }
 
-    public static  <T> T indexesAndConstraintsForRelationships(Map<String,Object> config, Transaction tx, KernelTransaction ktx, BiFunction<Stream<IndexConstraintRelationshipInfo>, Stream<IndexConstraintRelationshipInfo>, T> function) {
+    public static  <T> T indexesAndConstraintsForRelationships(Map<String,Object> config, Transaction tx, KernelTransaction ktx, BiFunction<Stream<Object>, Stream<Object>, T> function) {
         Schema schema = tx.schema();
 
-        SchemaConfig schemaConfig = new SchemaConfig(config);
+        SchemaConfigExtended schemaConfig = new SchemaConfigExtended(config);
         Set<String> includeRelationships = schemaConfig.getRelationships();
         Set<String> excludeRelationships = schemaConfig.getExcludeRelationships();
 
@@ -277,253 +288,16 @@ public class SchemasExtended {
                                         excludeRelationships.contains(tokenRead.relationshipTypeGetName(id))));
             }
 
-            Stream<IndexConstraintRelationshipInfo> constraintRelationshipInfoStream = StreamSupport.stream(
+            Stream<Object> constraintRelationshipInfoStream = StreamSupport.stream(
                             constraintsIterator.spliterator(), false)
-                    .map(c -> relationshipInfoFromConstraintDefinition(c, useStoredName));
+                    .map(c -> relationshipInfoFromConstraintDefinition(c, true));
 
-            Stream<IndexConstraintRelationshipInfo> indexRelationshipInfoStream = StreamSupport.stream(
+            Stream<Object> indexRelationshipInfoStream = StreamSupport.stream(
                             indexesIterator.spliterator(), false)
-                    .map(index -> relationshipInfoFromIndexDescription(index, tokenRead, schemaRead, useStoredName));
+                    .map(index -> relationshipInfoFromIndexDescription(index, tokenRead, schemaRead, true));
 
             return function.apply(constraintRelationshipInfoStream, indexRelationshipInfoStream);
         }
-    }
-
-    private static IndexConstraintRelationshipInfo relationshipInfoFromIndexDescription(
-            IndexDescriptor indexDescriptor, TokenNameLookup tokens, SchemaRead schemaRead, Boolean useStoredName) {
-        int[] relIds = indexDescriptor.schema().getEntityTokenIds();
-        int length = relIds.length;
-        // to handle LOOKUP indexes
-        final Object relName;
-        if (length == 0) {
-            relName = TOKEN_REL_TYPE;
-        } else {
-            final List<String> rels = IntStream.of(relIds)
-                    .mapToObj(tokens::relationshipTypeGetName)
-                    .sorted()
-                    .collect(Collectors.toList());
-            relName = rels.size() > 1 ? rels : rels.get(0);
-        }
-        final List<String> properties = Arrays.stream(indexDescriptor.schema().getPropertyIds())
-                .mapToObj(tokens::propertyKeyGetName)
-                .collect(Collectors.toList());
-
-        // Pretty print for index name
-        final String name = useStoredName ? indexDescriptor.getName() : getSchemaInfoName(relName, properties);
-        final String schemaType = getIndexType(indexDescriptor);
-
-        String indexStatus;
-        try {
-            indexStatus = schemaRead.indexGetState(indexDescriptor).toString();
-        } catch (IndexNotFoundKernelException e) {
-            indexStatus = IDX_NOT_FOUND;
-        }
-
-        return new IndexConstraintRelationshipInfo(name, schemaType, properties, indexStatus, relName);
-    }
-
-    private static String getIndexType(IndexDescriptor indexDescriptor) {
-        return indexDescriptor.getIndexType().name();
-    }
-    
-    private static IndexConstraintRelationshipInfo relationshipInfoFromConstraintDefinition(
-            ConstraintDefinition constraintDefinition, Boolean useStoredName) {
-        return new IndexConstraintRelationshipInfo(
-                useStoredName
-                        ? constraintDefinition.getName()
-                        : String.format("CONSTRAINT %s", constraintDefinition.toString()),
-                constraintDefinition.getConstraintType().name(),
-                Iterables.asList(constraintDefinition.getPropertyKeys()),
-                "",
-                constraintDefinition.getRelationshipType().name());
-    }
-
-    private static IndexConstraintNodeInfo nodeInfoFromIndexDefinition(
-            IndexDescriptor indexDescriptor, SchemaRead schemaRead, TokenNameLookup tokens, Boolean useStoredName) {
-        int[] labelIds = indexDescriptor.schema().getEntityTokenIds();
-        int length = labelIds.length;
-        final Object labelName;
-        if (length == 0) {
-            labelName = TOKEN_LABEL;
-        } else {
-            final List<String> labels = IntStream.of(labelIds)
-                    .mapToObj(tokens::labelGetName)
-                    .sorted()
-                    .collect(Collectors.toList());
-            labelName = labels.size() > 1 ? labels : labels.get(0);
-        }
-        // to handle LOOKUP indexes
-        List<String> properties = IntStream.of(indexDescriptor.schema().getPropertyIds())
-                .mapToObj(tokens::propertyKeyGetName)
-                .collect(Collectors.toList());
-
-        // Pretty print for index name
-        final String schemaInfoName = getSchemaInfoName(labelName, properties);
-        final String userDescription = indexDescriptor.userDescription(tokens);
-        try {
-            return new IndexConstraintNodeInfo(
-                    useStoredName ? indexDescriptor.getName() : schemaInfoName,
-                    labelName,
-                    properties,
-                    schemaRead.indexGetState(indexDescriptor).toString(),
-                    getIndexType(indexDescriptor),
-                    schemaRead.indexGetState(indexDescriptor).equals(InternalIndexState.FAILED)
-                            ? schemaRead.indexGetFailure(indexDescriptor)
-                            : "NO FAILURE",
-                    getPopulationProgress(indexDescriptor, schemaRead),
-                    schemaRead.indexSize(indexDescriptor),
-                    schemaRead.indexUniqueValuesSelectivity(indexDescriptor),
-                    userDescription);
-        } catch (IndexNotFoundKernelException e) {
-            return new IndexConstraintNodeInfo(
-                    schemaInfoName,
-                    labelName,
-                    properties,
-                    IDX_NOT_FOUND,
-                    getIndexType(indexDescriptor),
-                    IDX_NOT_FOUND,
-                    0,
-                    0,
-                    0,
-                    userDescription);
-        }
-    }
-
-    private static long getPopulationProgress(IndexDescriptor indexDescriptor, SchemaRead schemaRead)
-            throws IndexNotFoundKernelException {
-        PopulationProgress populationProgress = schemaRead.indexGetPopulationProgress(indexDescriptor);
-        // when the index is failed the getTotal() is equal to 0
-        long populationTotal = populationProgress.getTotal();
-        if (populationTotal == 0) {
-            return 0L;
-        }
-        return populationProgress.getCompleted() / populationTotal * 100;
-    }
-
-
-    private static String getSchemaInfoName(Object labelOrType, List<String> properties) {
-        final String labelOrTypeAsString =
-                labelOrType instanceof String ? (String) labelOrType : StringUtils.join(labelOrType, ",");
-        return String.format(":%s(%s)", labelOrTypeAsString, StringUtils.join(properties, ","));
-    }
-    /**
-     * ConstraintInfo info from ConstraintDefinition
-     *
-     * @param constraintDefinition
-     * @param tokens
-     * @return
-     */
-    private static IndexConstraintNodeInfo nodeInfoFromConstraintDefinition(
-            ConstraintDefinition constraintDefinition, TokenNameLookup tokens, Boolean useStoredName, KernelTransaction ktx) {
-        String labelName = constraintDefinition.getLabel().name();
-        List<String> properties = Iterables.asList(constraintDefinition.getPropertyKeys());
-        return new IndexConstraintNodeInfo(
-                // Pretty print for index name
-                useStoredName
-                        ? constraintDefinition.getName()
-                        : String.format(":%s(%s)", labelName, StringUtils.join(properties, ",")),
-                labelName,
-                properties,
-                StringUtils.EMPTY,
-                constraintDefinition.getConstraintType().name(),
-                "NO FAILURE",
-                0,
-                0,
-                0,
-                nodeConstraintCypher5Compatibility(
-                        ktx.schemaRead()
-                                .constraintGetForName(constraintDefinition.getName())
-                                .userDescription(tokens),
-                        useStoredName));
-    }
-    
-    private static String nodeConstraintCypher5Compatibility(String userDescription, Boolean useStoredName) {
-        if (useStoredName) {
-            return userDescription;
-        } else {
-            // Revert to old description on Cypher 5 for backwards compatibility.
-            return userDescription.replace("'NODE PROPERTY UNIQUENESS'", "'UNIQUENESS'");
-        }
-    }
-    public static List<IndexDescriptor> getIndexesFromSchema(
-            Iterator<IndexDescriptor> allIndex, Predicate<IndexDescriptor> indexDescriptorPredicate) {
-        return StreamSupport.stream(Spliterators.spliteratorUnknownSize(allIndex, Spliterator.ORDERED), false)
-                .filter(indexDescriptorPredicate)
-                .collect(Collectors.toList());
-    }
-    
-    public static class SchemaConfig {
-        private static final String LABELS_KEY = "labels";
-        private static final String EXCLUDE_LABELS_KEY = "excludeLabels";
-        private static final String RELATIONSHIPS_KEY = "relationships";
-        private static final String EXCLUDE_RELATIONSHIPS_KEY = "excludeRelationships";
-
-        private final Set<String> labels;
-        private final Set<String> excludeLabels;
-        private final Set<String> relationships;
-        private final Set<String> excludeRelationships;
-
-        public Set<String> getLabels() {
-            return labels;
-        }
-
-        public Set<String> getExcludeLabels() {
-            return excludeLabels;
-        }
-
-        public Set<String> getRelationships() {
-            return relationships;
-        }
-
-        public Set<String> getExcludeRelationships() {
-            return excludeRelationships;
-        }
-
-        public SchemaConfig(Map<String, Object> config) {
-            config = config != null ? config : Collections.emptyMap();
-            this.labels = new HashSet<>((Collection<String>) config.getOrDefault(LABELS_KEY, Collections.EMPTY_SET));
-            this.excludeLabels =
-                    new HashSet<>((Collection<String>) config.getOrDefault(EXCLUDE_LABELS_KEY, Collections.EMPTY_SET));
-            validateParameters(this.labels, this.excludeLabels, LABELS_KEY, EXCLUDE_LABELS_KEY);
-            this.relationships =
-                    new HashSet<>((Collection<String>) config.getOrDefault(RELATIONSHIPS_KEY, Collections.EMPTY_SET));
-            this.excludeRelationships = new HashSet<>(
-                    (Collection<String>) config.getOrDefault(EXCLUDE_RELATIONSHIPS_KEY, Collections.EMPTY_SET));
-            validateParameters(this.relationships, this.excludeRelationships, RELATIONSHIPS_KEY, EXCLUDE_RELATIONSHIPS_KEY);
-        }
-
-        private void validateParameters(
-                Set<String> include, Set<String> exclude, String includeParameterType, String excludeParameterType) {
-            if (!include.isEmpty() && !exclude.isEmpty())
-                throw new IllegalArgumentException(String.format(
-                        "Parameters %s and %s are both valuated. Please check parameters and valuate only one.",
-                        includeParameterType, excludeParameterType));
-        }
-    }
-
-
-
-    // TODO - collection utils
-    public static <T> boolean isEqualCollection(Collection<T> col1, Collection<T> col2) {
-        if (col1 == null || col2 == null) {
-            return col1 == col2; // Both must be null to be equal
-        }
-        if (col1.size() != col2.size()) {
-            return false;
-        }
-
-        Map<T, Integer> countMap1 = getElementCounts(col1);
-        Map<T, Integer> countMap2 = getElementCounts(col2);
-
-        return countMap1.equals(countMap2);
-    }
-
-    private static <T> Map<T, Integer> getElementCounts(Collection<T> collection) {
-        Map<T, Integer> countMap = new HashMap<>();
-        for (T item : collection) {
-            countMap.put(item, countMap.getOrDefault(item, 0) + 1);
-        }
-        return countMap;
     }
 
 }
