@@ -9,12 +9,9 @@ import apoc.util.Util;
 import apoc.util.collection.Iterables;
 import org.neo4j.graphdb.*;
 import org.neo4j.procedure.*;
-import org.neo4j.storageengine.api.RelationshipDirection;
 
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 @Extended
 public class GraphsExtended {
@@ -23,15 +20,15 @@ public class GraphsExtended {
         public static final int LEVEL_COUNTER = 10;
         private final Iterator<Relationship> iterator;
         private final Node node;
-        private final RelationshipType originalType;
         private final Direction direction;
         private final GraphDatabaseService db;
         private int relationshipCounter = 0; // Counts total relationships processed
+        private Node levelNode = null; // Stores the current LevelX node
 
-        public HierarchicalRelationshipProcessor(Node node, RelationshipType type, Direction direction, GraphDatabaseService db) {
-            this.iterator = node.getRelationships(direction, type).iterator();
+        // TODO - customize RelationshipType type, if present getRelationships only for that specific one
+        public HierarchicalRelationshipProcessor(Node node, /*RelationshipType type, */Direction direction, GraphDatabaseService db) {
+            this.iterator = node.getRelationships(direction/*, type*/).iterator();
             this.node = node;
-            this.originalType = type;
             this.direction = direction;
             this.db = db;
         }
@@ -46,32 +43,38 @@ public class GraphsExtended {
                     // Determine the level label dynamically
                     String levelLabel = getLevelLabel(relationshipCounter);
 
-                    // Create an intermediate level node
-                    Node levelNode = tx.createNode(Label.label(levelLabel));
-                    levelNode.setProperty("createdAt", System.currentTimeMillis());
-
-                    // Copy properties from the old relationship
-                    for (String key : rel.getPropertyKeys()) {
-                        levelNode.setProperty(key, rel.getProperty(key)); // Store properties in LevelX node
+                    // If it's the first relationship in a batch of 10, create a new (source)-[:INTERMEDIATE]->(:LevelX) path
+                    if (relationshipCounter % 10 == 1) {
+                        levelNode = tx.createNode(Label.label(levelLabel));
+                        
+                        sourceNode.createRelationshipTo(levelNode, RelationshipType.withName("INTERMEDIATE"));
+                    } else {
+                        levelNode = Util.rebind(tx, levelNode);
                     }
 
-                    // Create new relationships
-                    Relationship relAtoL = sourceNode.createRelationshipTo(levelNode, originalType);
-                    Relationship relLtoB = levelNode.createRelationshipTo(targetNode, RelationshipType.withName("INTERMEDIATE")); // (LevelX) --[:INTERMEDIATE]--> (B)
+                    if (levelNode != null) {
+                        // Create new relationships from the original one
+                        Relationship relLtoB = levelNode.createRelationshipTo(targetNode, rel.getType());
 
-                    // Remove old relationship
-                    rel.delete();
-
+                        // Copy properties from the old relationship
+                        for (String key : rel.getPropertyKeys()) {
+                            relLtoB.setProperty(key, rel.getProperty(key));
+                        }
+                        
+                        // Remove old relationship
+                        rel.delete();
+                    }
                     tx.commit();
                 }
             });
         }
 
         // Dynamically generate level labels based on relationship count
+        // i.e. "Level1", "Level2", "Level3", ...
         private static String getLevelLabel(int count) {
             if (count <= LEVEL_COUNTER) return "Level1";
             int level = (count - 1) / LEVEL_COUNTER + 1;
-            return "Level" + level;// + subIndex;
+            return "Level" + level;
         }
     }
 
@@ -82,11 +85,11 @@ public class GraphsExtended {
     @Description("TODO")
     public Stream<NodeResult> substructure(@Name("node") Node node) {
         // TODO - change this values, put in configs
-        RelationshipType type = RelationshipType.withName("test");
+        RelationshipType type = RelationshipType.withName("TEST");
         Direction direction = Direction.OUTGOING;
         // -- change the above values
 
-        new HierarchicalRelationshipProcessor(node, type, direction, db).processAll();
+        new HierarchicalRelationshipProcessor(node, /*type, */direction, db).processAll();
         
         return Stream.of(new NodeResult(node));
     }
