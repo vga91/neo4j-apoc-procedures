@@ -2,30 +2,94 @@ package apoc.graph;
 
 import apoc.Extended;
 import apoc.result.GraphResult;
+import apoc.result.NodeResult;
 import apoc.result.VirtualNode;
 import apoc.result.VirtualRelationship;
+import apoc.util.Util;
 import apoc.util.collection.Iterables;
-import org.neo4j.graphdb.Label;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Path;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
-import org.neo4j.procedure.Description;
-import org.neo4j.procedure.Name;
-import org.neo4j.procedure.Procedure;
-import org.neo4j.procedure.UserAggregationFunction;
-import org.neo4j.procedure.UserAggregationResult;
-import org.neo4j.procedure.UserAggregationUpdate;
+import org.neo4j.graphdb.*;
+import org.neo4j.procedure.*;
+import org.neo4j.storageengine.api.RelationshipDirection;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 @Extended
 public class GraphsExtended {
+
+    public static class HierarchicalRelationshipProcessor {
+        public static final int LEVEL_COUNTER = 10;
+        private final Iterator<Relationship> iterator;
+        private final Node node;
+        private final RelationshipType originalType;
+        private final Direction direction;
+        private final GraphDatabaseService db;
+        private int relationshipCounter = 0; // Counts total relationships processed
+
+        public HierarchicalRelationshipProcessor(Node node, RelationshipType type, Direction direction, GraphDatabaseService db) {
+            this.iterator = node.getRelationships(direction, type).iterator();
+            this.node = node;
+            this.originalType = type;
+            this.direction = direction;
+            this.db = db;
+        }
+
+        public void processAll() {
+            iterator.forEachRemaining(rel -> {
+                try (Transaction tx = db.beginTx()) {
+                    Node sourceNode = Util.rebind(tx, node);
+                    Node targetNode = rel.getOtherNode(sourceNode);
+                    relationshipCounter++;
+
+                    // Determine the level label dynamically
+                    String levelLabel = getLevelLabel(relationshipCounter);
+
+                    // Create an intermediate level node
+                    Node levelNode = tx.createNode(Label.label(levelLabel));
+                    levelNode.setProperty("createdAt", System.currentTimeMillis());
+
+                    // Copy properties from the old relationship
+                    for (String key : rel.getPropertyKeys()) {
+                        levelNode.setProperty(key, rel.getProperty(key)); // Store properties in LevelX node
+                    }
+
+                    // Create new relationships
+                    Relationship relAtoL = sourceNode.createRelationshipTo(levelNode, originalType);
+                    Relationship relLtoB = levelNode.createRelationshipTo(targetNode, RelationshipType.withName("INTERMEDIATE")); // (LevelX) --[:INTERMEDIATE]--> (B)
+
+                    // Remove old relationship
+                    rel.delete();
+
+                    tx.commit();
+                }
+            });
+        }
+
+        // Dynamically generate level labels based on relationship count
+        private static String getLevelLabel(int count) {
+            if (count <= LEVEL_COUNTER) return "Level1";
+            int level = (count - 1) / LEVEL_COUNTER + 1;
+            return "Level" + level;// + subIndex;
+        }
+    }
+
+    @Context
+    public GraphDatabaseService db;
+    
+    @Procedure(name = "apoc.graph.substructure", mode = Mode.WRITE)
+    @Description("TODO")
+    public Stream<NodeResult> substructure(@Name("node") Node node) {
+        // TODO - change this values, put in configs
+        RelationshipType type = RelationshipType.withName("test");
+        Direction direction = Direction.OUTGOING;
+        // -- change the above values
+
+        new HierarchicalRelationshipProcessor(node, type, direction, db).processAll();
+        
+        return Stream.of(new NodeResult(node));
+    }
 
     @Procedure("apoc.graph.filterProperties")
     @Description(

@@ -3,14 +3,11 @@ package apoc.graph;
 import apoc.create.Create;
 import apoc.map.Maps;
 import apoc.util.TestUtil;
+import apoc.util.collection.Iterables;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.neo4j.graphdb.Label;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Path;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.*;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -20,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static apoc.util.TestUtil.*;
 import static apoc.util.Util.map;
@@ -237,6 +235,32 @@ public class GraphsExtendedTest {
                 WITH apoc.graph.filterProperties(path) as graph
                 RETURN graph.nodes AS nodes, graph.relationships AS relationships""",
                 this::assertEmptyFilter);
+    }
+
+    @Test
+    public void testSubstructure() {
+        try (Transaction tx = db.beginTx()) {
+            Node foo = tx.createNode(Label.label("SubstructureNode"));
+
+            IntStream.range(0, 100).boxed()
+                    .forEach(i -> {
+                        Node bar = tx.createNode(Label.label("Bar"));
+                        foo.createRelationshipTo(bar, RelationshipType.withName("test"));
+                    });
+            
+            tx.commit();
+        }
+        
+        testCall(db, "MATCH (n:SubstructureNode) WITH n CALL apoc.graph.substructure(n) YIELD node RETURN node",
+                r -> {
+                    Node node = (Node) r.get("node");
+                    String collect = node.getRelationships(Direction.OUTGOING).stream().map(i -> {
+                        Node endNode = i.getEndNode();
+                        return endNode.getLabels() + ", " + Iterables.single(endNode.getRelationships(Direction.OUTGOING)).getEndNode().getLabels();
+                    }).collect(Collectors.joining("\n"));
+
+                    System.out.println("nodes: \n" + collect);
+                });
     }
 
     private void assertEmptyFilter(Map<String, Object> r) {
