@@ -3,14 +3,11 @@ package apoc.graph;
 import apoc.create.Create;
 import apoc.map.Maps;
 import apoc.util.TestUtil;
+import apoc.util.collection.Iterables;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.Test;
-import org.neo4j.graphdb.Label;
-import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.Path;
-import org.neo4j.graphdb.Relationship;
-import org.neo4j.graphdb.RelationshipType;
+import org.neo4j.graphdb.*;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
@@ -20,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static apoc.util.TestUtil.*;
 import static apoc.util.Util.map;
@@ -237,6 +235,55 @@ public class GraphsExtendedTest {
                 WITH apoc.graph.filterProperties(path) as graph
                 RETURN graph.nodes AS nodes, graph.relationships AS relationships""",
                 this::assertEmptyFilter);
+    }
+
+    @Test
+    public void testSubstructure() {
+        try (Transaction tx = db.beginTx()) {
+            Node foo = tx.createNode(Label.label("SubstructureNode"));
+
+            IntStream.range(0, 100).boxed()
+                    .forEach(i -> {
+                        Node bar = tx.createNode(Label.label("Bar"));
+                        foo.createRelationshipTo(bar, RelationshipType.withName("TEST"));
+                    });
+            
+            tx.commit();
+        }
+        
+        testCall(db, "MATCH (n:SubstructureNode) WITH n CALL apoc.graph.substructure(n) YIELD node RETURN node",
+                r -> {
+                    Node node = (Node) r.get("node");
+                    String collect = node.getRelationships(Direction.OUTGOING).stream().map(i -> {
+                        Node endNode = i.getEndNode();
+                        String collected = Iterables.stream(endNode.getRelationships(Direction.OUTGOING)).map(rel -> rel.getEndNode().toString()).collect(Collectors.joining(", "));
+                        return "intermediate label: " + endNode.getLabels() + "\n with nodes: " + collected;
+                    }).collect(Collectors.joining("\n"));
+
+                    System.out.println(collect);
+                    /* The print result is:
+                        intermediate label: [Level1]
+                         with nodes: Node[55], Node[49], Node[64], Node[73], Node[54], Node[82], Node[87], Node[88], Node[109], Node[89]
+                        intermediate label: [Level10]
+                         with nodes: Node[111], Node[48], Node[51], Node[85], Node[43], Node[103], Node[63], Node[46], Node[53], Node[92]
+                        intermediate label: [Level9]
+                         with nodes: Node[67], Node[45], Node[59], Node[75], Node[52], Node[96], Node[99], Node[91], Node[90], Node[80]
+                        intermediate label: [Level8]
+                         with nodes: Node[50], Node[60], Node[42], Node[44], Node[86], Node[100], Node[47], Node[83], Node[95], Node[35]
+                        intermediate label: [Level7]
+                         with nodes: Node[34], Node[33], Node[32], Node[31], Node[30], Node[29], Node[28], Node[27], Node[26], Node[25]
+                        intermediate label: [Level6]
+                         with nodes: Node[24], Node[23], Node[22], Node[21], Node[20], Node[19], Node[18], Node[17], Node[16], Node[15]
+                        intermediate label: [Level5]
+                         with nodes: Node[79], Node[70], Node[40], Node[65], Node[36], Node[71], Node[57], Node[81], Node[113], Node[37]
+                        intermediate label: [Level4]
+                         with nodes: Node[76], Node[84], Node[101], Node[66], Node[93], Node[110], Node[106], Node[112], Node[68], Node[72]
+                        intermediate label: [Level3]
+                         with nodes: Node[78], Node[74], Node[61], Node[39], Node[107], Node[58], Node[97], Node[94], Node[108], Node[114]
+                        intermediate label: [Level2]
+                         with nodes: Node[41], Node[98], Node[38], Node[62], Node[104], Node[102], Node[105], Node[56], Node[69], Node[77]
+                     */
+                });
     }
 
     private void assertEmptyFilter(Map<String, Object> r) {
