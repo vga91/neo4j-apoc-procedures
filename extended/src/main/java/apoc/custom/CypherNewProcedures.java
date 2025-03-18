@@ -31,7 +31,7 @@ public class CypherNewProcedures {
     private void checkIsValidDatabase(String databaseName) {
         SystemDbUtil.checkInSystemLeader(db);
 
-        SystemDbUtil.checkTargetDatabase(tx, databaseName, "Custom procedures/functions");
+//        SystemDbUtil.checkTargetDatabase(tx, databaseName, "Custom procedures/functions");
     }
 
     // TODO - change with @SystemOnlyProcedure
