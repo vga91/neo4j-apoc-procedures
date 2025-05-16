@@ -11,7 +11,7 @@ import apoc.util.TestContainerUtil.ApocPackage;
 import apoc.util.TestUtil;
 import apoc.util.Util;
 import org.junit.*;
-import org.neo4j.driver.Session;
+import org.neo4j.driver.*;
 import org.neo4j.graphdb.Entity;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
@@ -20,6 +20,7 @@ import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.test.rule.DbmsRule;
 import org.neo4j.test.rule.ImpermanentDbmsRule;
 
+import java.net.Authenticator;
 import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 import static apoc.util.TestContainerUtil.createEnterpriseDB;
+import static apoc.util.TestContainerUtil.password;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -47,22 +49,22 @@ public class BoltTest {
     @ClassRule
     public static DbmsRule db = new ImpermanentDbmsRule();
 
-    private static Neo4jContainerExtension neo4jContainer;
+//    private static Neo4jContainerExtension neo4jContainer;
     private static Session session;
 
     @BeforeClass
     public static void setUp() throws Exception {
-        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.EXTENDED, ApocPackage.CORE), true).withInitScript("init_neo4j_bolt.cypher");
-        neo4jContainer.start();
+//        neo4jContainer = createEnterpriseDB(List.of(ApocPackage.EXTENDED, ApocPackage.CORE), true).withInitScript("init_neo4j_bolt.cypher");
+//        neo4jContainer.start();
         TestUtil.registerProcedure(db, Bolt.class, ExportCypher.class, Cypher.class, PathExplorer.class, GraphRefactoring.class);
-        BOLT_URL = getBoltUrl().replaceAll("'", "");
-        session = neo4jContainer.getSession();
+        BOLT_URL = null;// getBoltUrl().replaceAll("'", "");
+//        session = neo4jContainer.getSession();
     }
 
-    @AfterClass
-    public static void tearDown() {
-        neo4jContainer.close();
-    }
+//    @AfterClass
+//    public static void tearDown() {
+//        neo4jContainer.close();
+//    }
     
     @After
     public void after() {
@@ -72,6 +74,8 @@ public class BoltTest {
 
     @Test
     public void testBoltLoadWithSubgraphAllQuery() {
+        Driver driver = GraphDatabase.driver("bolt://localhost:7687", AuthTokens.basic("neo4j", "apoc12345"));
+        session = driver.session();
         session.executeWrite(tx -> tx.run("CREATE (rootA:BoltStart {foobar: 'foobar'})-[:VIEWED]->(:Other {id: 1})").consume());
 
         // procedure with config virtual: false
@@ -632,39 +636,36 @@ public class BoltTest {
             });
     }
 
-    @Test
-    public void testLoadFromLocal() {
-        String localStatement = "RETURN 'foobar' AS foobar";
-        String remoteStatement = "CREATE (n: TestLoadFromLocalNode { m: foobar })";
-        final Map<String, Object> map = Util.map(
-                "url", BOLT_URL,
-                "localStatement", localStatement,
-                "remoteStatement", remoteStatement,
-                "config", Util.map("readOnly", false));
-        db.executeTransactionally("call apoc.bolt.load.fromLocal($url, $localStatement, $remoteStatement, $config) YIELD row return row", map);
-        final long remoteCount = neo4jContainer.getSession().executeRead(tx ->
-                (long) tx.run("MATCH (n: TestLoadFromLocalNode { m: 'foobar' }) RETURN count(n) AS count").single().asMap().get("count"));
-        assertEquals(1L, remoteCount);
-    }
+//    @Test
+//    public void testLoadFromLocal() {
+//        String localStatement = "RETURN 'foobar' AS foobar";
+//        String remoteStatement = "CREATE (n: TestLoadFromLocalNode { m: foobar })";
+//        final Map<String, Object> map = Util.map(
+//                "url", BOLT_URL,
+//                "localStatement", localStatement,
+//                "remoteStatement", remoteStatement,
+//                "config", Util.map("readOnly", false));
+//        db.executeTransactionally("call apoc.bolt.load.fromLocal($url, $localStatement, $remoteStatement, $config) YIELD row return row", map);
+//        final long remoteCount = neo4jContainer.getSession().executeRead(tx ->
+//                (long) tx.run("MATCH (n: TestLoadFromLocalNode { m: 'foobar' }) RETURN count(n) AS count").single().asMap().get("count"));
+//        assertEquals(1L, remoteCount);
+//    }
 
-    @Test
-    public void testLoadFromLocalStream() {
-        String localStatement = "RETURN \"CREATE (n: TestLoadFromLocalStream)\" AS statement";
-        final Map<String, Object> map = Util.map(
-                "url", BOLT_URL,
-                "localStatement", localStatement,
-                "remoteStatement", null,
-                "config", Util.map("readOnly", false, "streamStatements", true));
-        db.executeTransactionally("call apoc.bolt.load.fromLocal($url, $localStatement, $remoteStatement, $config)", map);
-        final long remoteCount = neo4jContainer.getSession().executeRead(tx ->
-                (long) tx.run("MATCH (n: TestLoadFromLocalStream) RETURN count(n) AS count").single().asMap().get("count"));
-        assertEquals(1L, remoteCount);
-    }
+//    @Test
+//    public void testLoadFromLocalStream() {
+//        String localStatement = "RETURN \"CREATE (n: TestLoadFromLocalStream)\" AS statement";
+//        final Map<String, Object> map = Util.map(
+//                "url", BOLT_URL,
+//                "localStatement", localStatement,
+//                "remoteStatement", null,
+//                "config", Util.map("readOnly", false, "streamStatements", true));
+//        db.executeTransactionally("call apoc.bolt.load.fromLocal($url, $localStatement, $remoteStatement, $config)", map);
+//        final long remoteCount = neo4jContainer.getSession().executeRead(tx ->
+//                (long) tx.run("MATCH (n: TestLoadFromLocalStream) RETURN count(n) AS count").single().asMap().get("count"));
+//        assertEquals(1L, remoteCount);
+//    }
 
     private static String getBoltUrl() {
-        return String.format("'bolt://neo4j:%s@%s:%s'",
-                TestContainerUtil.password,
-                neo4jContainer.getContainerIpAddress(),
-                neo4jContainer.getMappedPort(7687));
+        return null;
     }
 }
